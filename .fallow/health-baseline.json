@@ -222,7 +222,7 @@
         "count": 1
       }
     },
-    "apps/server/src/media/cursor.ts": {
+    "packages/shared/src/media/cursor.ts": {
       "crap_moderate": {
         "count": 1
       }
