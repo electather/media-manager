@@ -93,6 +93,10 @@ export async function refreshConnectionCredentials(args: RefreshArgs): Promise<u
   return run;
 }
 
+// Token-rotation race guards (re-read + isEqual on the pre-call and catch paths) drive
+// the branch count; none is removable without dropping a race check, and CRAP is inflated
+// by the coverage-less audit.
+// fallow-ignore-next-line complexity
 async function performConnectionRefresh(args: RefreshArgs): Promise<unknown> {
   const { connectionId, pluginId, userId, attemptedCredentials } = args;
   // Another refresher may have rotated the stored token since this caller read
