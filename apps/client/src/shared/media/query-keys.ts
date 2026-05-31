@@ -18,6 +18,11 @@ export const mediaKeys = {
   source: (sourceId: MediaSourceId, params?: Record<string, unknown>) =>
     [...mediaKeys.root, "source", sourceId, params ?? null] as const,
   title: (type: MediaType, tmdbId: string) => [...mediaKeys.root, "title", type, tmdbId] as const,
+  // Season availability is a separate read from the title details, but it must
+  // still nest under `mediaKeys.root` so a post-mutation
+  // `invalidateQueries({ queryKey: mediaKeys.root })` sweeps it too (V.CL1).
+  seasonAvailability: (tmdbId: string) =>
+    [...mediaKeys.root, "season-availability", tmdbId] as const,
   counts: () => [...mediaKeys.root, "counts"] as const,
   moods: () => [...mediaKeys.root, "moods"] as const,
 } as const;
