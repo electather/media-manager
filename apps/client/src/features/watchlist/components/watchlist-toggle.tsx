@@ -19,6 +19,7 @@ interface WatchlistToggleProps {
  * watchlist state. Cross-feature consumers (search result row, detail modal)
  * compose `item` from the same `CompactMediaItem` shape the home feed serves.
  */
+// Reason: the branch count is the add/remove/pending/disabled state matrix the one toggle renders; splitting it would just scatter the same states.
 // fallow-ignore-next-line complexity
 export function WatchlistToggle({ item, source = "manual", size = "sm" }: WatchlistToggleProps) {
   const inWatchlist = useIsInWatchlist(item.id);

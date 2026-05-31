@@ -12,6 +12,7 @@ export class MediaApiError extends Error {
   readonly body: ApiErrorBody | null;
   readonly code: string | undefined;
 
+  // Reason: the branches are the message-fallback chain (message ?? devMessage ?? default) plus the `code` type-narrowing; all are needed to build one envelope.
   // fallow-ignore-next-line complexity
   constructor(status: number, body: ApiErrorBody | null) {
     super(body?.message ?? body?.devMessage ?? `media request failed (${status})`);
