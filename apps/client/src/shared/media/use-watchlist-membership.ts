@@ -43,19 +43,20 @@ const EMPTY_SET: ReadonlySet<string> = new Set();
  * before any page loads get an empty set and rely on the server's idempotent
  * `addItem` to absorb add-when-already-saved.
  */
-export function useWatchlistIdSet(): ReadonlySet<string> {
-  const qc = useQueryClient();
-  const version = useSyncExternalStore(
+/**
+ * Reactive version counter for the watchlist-origin sub-caches. Subscribes to
+ * the query cache and snapshots the summed `dataUpdatedAt` over just the
+ * watchlist-origin queries — scoped on purpose so it advances only when this
+ * set can actually change, not on every unrelated query landing (home rows,
+ * detail fetches) the way a whole-cache `getAll().length` would. Shared by both
+ * membership reads so the subscribe/snapshot wiring lives in one place.
+ */
+function useWatchlistOriginVersion(qc: QueryClient): number {
+  return useSyncExternalStore(
     (notify) => {
       const unsub = qc.getQueryCache().subscribe(notify);
       return () => unsub();
     },
-    // Scope the snapshot to the watchlist-origin sub-caches (mirrors
-    // `useIsInWatchlist` below). A whole-cache `getAll().length` advanced on
-    // every unrelated query landing (home rows, detail fetches), forcing a
-    // spurious `useMemo` recompute in every consumer; summing `dataUpdatedAt`
-    // over just the watchlist-origin queries advances only when this set can
-    // actually change.
     () => {
       let v = 0;
       for (const q of watchlistOriginQueries(qc)) v += q.state.dataUpdatedAt;
@@ -63,6 +64,11 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
     },
     () => 0,
   );
+}
+
+export function useWatchlistIdSet(): ReadonlySet<string> {
+  const qc = useQueryClient();
+  const version = useWatchlistOriginVersion(qc);
   return useMemo(() => {
     void version;
     const queries = watchlistOriginQueries(qc);
@@ -81,18 +87,7 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
  */
 export function useIsInWatchlist(id: string): boolean {
   const qc = useQueryClient();
-  const snapshotVersion = useSyncExternalStore(
-    (notify) => {
-      const unsub = qc.getQueryCache().subscribe(notify);
-      return () => unsub();
-    },
-    () => {
-      let v = 0;
-      for (const q of watchlistOriginQueries(qc)) v += q.state.dataUpdatedAt;
-      return v;
-    },
-    () => 0,
-  );
+  const snapshotVersion = useWatchlistOriginVersion(qc);
   if (!id) return false;
   void snapshotVersion;
   for (const q of watchlistOriginQueries(qc)) {
