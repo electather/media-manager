@@ -1,0 +1,140 @@
+import { uniq } from "es-toolkit";
+import type {
+  LibraryFacetCounts,
+  LibraryFilters,
+  LibraryItem,
+  LibraryStats,
+  WatchedState,
+} from "./types";
+
+/** The quality tiers and servers a facet can offer, derived from the item set. */
+export function qualitiesOf(item: LibraryItem): string[] {
+  return item.tags ?? [];
+}
+
+export function serversOf(item: LibraryItem): string[] {
+  return item.availability?.servers.map((server) => server.label) ?? [];
+}
+
+export function genresOf(item: LibraryItem): string[] {
+  return item.genres ?? [];
+}
+
+/** Classify a title by how far through it the user is. */
+export function watchedStateOf(item: LibraryItem): WatchedState {
+  const progress = item.progress;
+  if (!progress || progress.total <= 0 || progress.watched <= 0) return "unwatched";
+  if (progress.watched >= progress.total) return "watched";
+  return "partial";
+}
+
+/** Sorted unique values for a facet axis across the whole catalog. */
+export function collectFacetValues(items: LibraryItem[]): {
+  genres: string[];
+  qualities: string[];
+  servers: string[];
+} {
+  return {
+    genres: uniq(items.flatMap(genresOf)).sort(),
+    qualities: uniq(items.flatMap(qualitiesOf)).sort(),
+    servers: uniq(items.flatMap(serversOf)).sort(),
+  };
+}
+
+function matchesFilters(item: LibraryItem, filters: LibraryFilters): boolean {
+  if (filters.kinds.length > 0 && !filters.kinds.includes(item.mediaType)) return false;
+  if (filters.genres.length > 0 && !genresOf(item).some((g) => filters.genres.includes(g))) {
+    return false;
+  }
+  if (
+    filters.qualities.length > 0 &&
+    !qualitiesOf(item).some((q) => filters.qualities.includes(q))
+  ) {
+    return false;
+  }
+  if (filters.servers.length > 0 && !serversOf(item).some((s) => filters.servers.includes(s))) {
+    return false;
+  }
+  if (filters.watched.length > 0 && !filters.watched.includes(watchedStateOf(item))) return false;
+  return true;
+}
+
+/** Apply the facet filters and a case-insensitive title search to the catalog. */
+export function applyLibraryFilters(
+  items: LibraryItem[],
+  filters: LibraryFilters,
+  query: string,
+): LibraryItem[] {
+  const needle = query.trim().toLowerCase();
+  return items.filter((item) => {
+    if (needle && !item.title.toLowerCase().includes(needle)) return false;
+    return matchesFilters(item, filters);
+  });
+}
+
+/** Roll-up figures for the stats spine, computed over the supplied (filtered) set. */
+export function computeStats(items: LibraryItem[]): LibraryStats {
+  let movies = 0;
+  let shows = 0;
+  let watched = 0;
+  let fourK = 0;
+  const servers = new Set<string>();
+  const genres = new Set<string>();
+  for (const item of items) {
+    if (item.mediaType === "movie") movies += 1;
+    else shows += 1;
+    if (watchedStateOf(item) === "watched") watched += 1;
+    if (qualitiesOf(item).some((q) => q.startsWith("4K"))) fourK += 1;
+    for (const server of serversOf(item)) servers.add(server);
+    for (const genre of genresOf(item)) genres.add(genre);
+  }
+  return {
+    total: items.length,
+    movies,
+    shows,
+    watched,
+    fourK,
+    servers: servers.size,
+    genres: genres.size,
+  };
+}
+
+const WATCHED_KEYS: WatchedState[] = ["watched", "partial", "unwatched"];
+
+/**
+ * How many items match each facet option, counted across the whole catalog so
+ * the badges stay stable as the user toggles pills (design: facet count badges).
+ */
+export function computeFacetCounts(items: LibraryItem[]): LibraryFacetCounts {
+  const counts: LibraryFacetCounts = {
+    kinds: {},
+    genres: {},
+    qualities: {},
+    servers: {},
+    watched: { watched: 0, partial: 0, unwatched: 0 },
+  };
+  const bump = (record: Record<string, number>, key: string) => {
+    record[key] = (record[key] ?? 0) + 1;
+  };
+  for (const item of items) {
+    bump(counts.kinds, item.mediaType);
+    for (const genre of uniq(genresOf(item))) bump(counts.genres, genre);
+    for (const quality of uniq(qualitiesOf(item))) bump(counts.qualities, quality);
+    for (const server of uniq(serversOf(item))) bump(counts.servers, server);
+    counts.watched[watchedStateOf(item)] += 1;
+  }
+  // Ensure every watched bucket has a numeric entry even when none match.
+  for (const key of WATCHED_KEYS) counts.watched[key] ??= 0;
+  return counts;
+}
+
+/** Total number of selected options across every facet axis. */
+export function countActiveFilters(filters: LibraryFilters): number {
+  return (
+    filters.kinds.length +
+    filters.genres.length +
+    filters.qualities.length +
+    filters.servers.length +
+    filters.watched.length
+  );
+}

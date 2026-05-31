@@ -1,0 +1,97 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_eyebrow": "فهرست · {count} عنوان",
+  "library_title": "کتابخانه",
+  "library_search_placeholder": "جستجو در کتابخانه",
+  "library_search_clear": "پاک کردن جستجو",
+  "library_filter_toggle": "فیلترها",
+  "library_filter_active_count": "{count} فعال",
+  "library_filter_clear_all": "پاک کردن همه",
+  "library_filter_done": "تمام",
+  "library_filter_heading": "فیلتر کتابخانه",
+  "library_filter_section": [
+    {
+      "declarations": ["input facet"],
+      "selectors": ["facet"],
+      "match": {
+        "facet=kind": "نوع",
+        "facet=genre": "ژانر",
+        "facet=quality": "کیفیت",
+        "facet=server": "سرور",
+        "facet=watched": "تماشا شده"
+      }
+    }
+  ],
+  "library_kind": [
+    {
+      "declarations": ["input kind"],
+      "selectors": ["kind"],
+      "match": {
+        "kind=movie": "فیلم",
+        "kind=tv": "سریال",
+        "kind=*": "سریال"
+      }
+    }
+  ],
+  "library_watched": [
+    {
+      "declarations": ["input state"],
+      "selectors": ["state"],
+      "match": {
+        "state=watched": "تماشا شده",
+        "state=partial": "در حال تماشا",
+        "state=unwatched": "تماشا نشده"
+      }
+    }
+  ],
+  "library_lens_tabs_label": "نماهای کتابخانه",
+  "library_lens_label": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "الف → ی",
+        "lens=timeline": "خط زمانی",
+        "lens=collections": "مجموعه‌ها",
+        "lens=server": "سرورها",
+        "lens=quality": "کیفیت"
+      }
+    }
+  ],
+  "library_lens_note": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "نمایه",
+        "lens=timeline": "بر اساس دوره",
+        "lens=collections": "گزیده",
+        "lens=server": "بر اساس منبع",
+        "lens=quality": "بر اساس سطح"
+      }
+    }
+  ],
+  "library_stat_label": [
+    {
+      "declarations": ["input stat"],
+      "selectors": ["stat"],
+      "match": {
+        "stat=total": "عنوان‌ها",
+        "stat=movies": "فیلم‌ها",
+        "stat=shows": "سریال‌ها",
+        "stat=watched": "تماشا شده",
+        "stat=fourK": "عنوان‌های 4K",
+        "stat=servers": "سرورها",
+        "stat=genres": "ژانرها"
+      }
+    }
+  ],
+  "library_section_count": "{count} عنوان",
+  "library_az_rail_label": "پرش به حرف",
+  "library_az_jump": "پرش به {letter}",
+  "library_empty_title": "چیزی یافت نشد",
+  "library_empty_description": "یک فیلتر را حذف کنید یا عنوان دیگری جستجو کنید.",
+  "library_empty_reset": "بازنشانی فیلترها",
+  "library_card_open": "نمایش جزئیات {title}",
+  "library_card_progress": "{percent}٪ تماشا شده"
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_eyebrow": "Catalog · {count} titles",
+  "library_title": "Library",
+  "library_search_placeholder": "Search your library",
+  "library_search_clear": "Clear search",
+  "library_filter_toggle": "Filters",
+  "library_filter_active_count": "{count} active",
+  "library_filter_clear_all": "Clear all",
+  "library_filter_done": "Done",
+  "library_filter_heading": "Filter library",
+  "library_filter_section": [
+    {
+      "declarations": ["input facet"],
+      "selectors": ["facet"],
+      "match": {
+        "facet=kind": "Kind",
+        "facet=genre": "Genre",
+        "facet=quality": "Quality",
+        "facet=server": "Server",
+        "facet=watched": "Watched"
+      }
+    }
+  ],
+  "library_kind": [
+    {
+      "declarations": ["input kind"],
+      "selectors": ["kind"],
+      "match": {
+        "kind=movie": "Movie",
+        "kind=tv": "TV series",
+        "kind=*": "TV series"
+      }
+    }
+  ],
+  "library_watched": [
+    {
+      "declarations": ["input state"],
+      "selectors": ["state"],
+      "match": {
+        "state=watched": "Watched",
+        "state=partial": "In progress",
+        "state=unwatched": "Unwatched"
+      }
+    }
+  ],
+  "library_lens_tabs_label": "Library views",
+  "library_lens_label": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "A → Z",
+        "lens=timeline": "Timeline",
+        "lens=collections": "Collections",
+        "lens=server": "Servers",
+        "lens=quality": "Quality"
+      }
+    }
+  ],
+  "library_lens_note": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "Index",
+        "lens=timeline": "By era",
+        "lens=collections": "Curated",
+        "lens=server": "By source",
+        "lens=quality": "By tier"
+      }
+    }
+  ],
+  "library_stat_label": [
+    {
+      "declarations": ["input stat"],
+      "selectors": ["stat"],
+      "match": {
+        "stat=total": "Titles",
+        "stat=movies": "Movies",
+        "stat=shows": "Series",
+        "stat=watched": "Watched",
+        "stat=fourK": "4K titles",
+        "stat=servers": "Servers",
+        "stat=genres": "Genres"
+      }
+    }
+  ],
+  "library_section_count": "{count} titles",
+  "library_az_rail_label": "Jump to letter",
+  "library_az_jump": "Jump to {letter}",
+  "library_empty_title": "Nothing matches",
+  "library_empty_description": "Try clearing a filter or searching for another title.",
+  "library_empty_reset": "Reset filters",
+  "library_card_open": "Open details for {title}",
+  "library_card_progress": "{percent}% watched"
+}
