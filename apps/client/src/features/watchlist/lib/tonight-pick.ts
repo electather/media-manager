@@ -36,6 +36,7 @@ function isActiveProgress(progress: CompactMediaItem["progress"]): boolean {
   return progress.watched > 0 && progress.watched < progress.total;
 }
 
+// Reason: byte-identical mirror of the server's tonight `genreOverlap` (V.TN1); branch count must match the server copy.
 // fallow-ignore-next-line complexity
 function genreOverlap(a: CompactMediaItem, b: CompactMediaItem): number {
   if (!a.genres || !b.genres) return 0;
@@ -52,6 +53,7 @@ function genreOverlap(a: CompactMediaItem, b: CompactMediaItem): number {
  * alternates) — overlap with `prior` triggers a diversity penalty so the
  * alternate strip varies. Deterministic given identical inputs (V.WL4).
  */
+// Reason: byte-identical mirror of the server's tonight `score` (V.TN1); the scoring branches must match the server copy.
 // fallow-ignore-next-line complexity
 function score(item: CompactMediaItem, prior: CompactMediaItem[], now: number): number {
   let s = 0;
@@ -83,6 +85,7 @@ function score(item: CompactMediaItem, prior: CompactMediaItem[], now: number): 
  * empty result. Sort is stable: ties break by `id` so the output is
  * deterministic across renders (V.WL4).
  */
+// Reason: byte-identical mirror of the server's tonight pick reduce (V.TN1); the sort/cutoff branches must match the server copy.
 // fallow-ignore-next-line complexity
 export function pickTonight(
   candidates: readonly CompactMediaItem[],
