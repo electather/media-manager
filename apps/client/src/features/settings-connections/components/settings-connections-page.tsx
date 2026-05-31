@@ -57,11 +57,14 @@ import { useTestConnection } from "../hooks/use-test-connection";
 import { useToggleEnabled } from "../hooks/use-toggle-enabled";
 import { PrimaryProvidersCard } from "./primary-providers-card";
 
-const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
-  connected: () => m.settings_connections_status_connected(),
+// Statuses that warrant a badge — a connection needing user action. A healthy
+// ("connected") connection is the norm and needs no label, so it renders none;
+// "disconnected" is never emitted by the server.
+type AttentionStatus = "expired" | "error";
+
+const STATUS_LABEL: Record<AttentionStatus, () => string> = {
   expired: () => m.settings_connections_status_expired(),
   error: () => m.settings_connections_status_error(),
-  disconnected: () => m.settings_connections_status_disconnected(),
 };
 
 const statusBadgeVariants = cva(
@@ -69,11 +72,9 @@ const statusBadgeVariants = cva(
   {
     variants: {
       status: {
-        connected: "border border-success/40 bg-success/10 text-success",
         expired: "border border-amber-400/40 bg-amber-400/10 text-amber-500 dark:text-amber-400",
         error: "border border-destructive/40 bg-destructive/10 text-destructive",
-        disconnected: "border border-border bg-muted text-muted-foreground",
-      } satisfies Record<ConnectionStatus, string>,
+      } satisfies Record<AttentionStatus, string>,
     },
   },
 );
@@ -81,15 +82,14 @@ const statusBadgeVariants = cva(
 const statusDotVariants = cva("size-1.5 rounded-full", {
   variants: {
     status: {
-      connected: "bg-success",
       expired: "bg-amber-500",
       error: "bg-destructive",
-      disconnected: "bg-muted-foreground/60",
-    } satisfies Record<ConnectionStatus, string>,
+    } satisfies Record<AttentionStatus, string>,
   },
 });
 
 function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
+  if (status !== "error" && status !== "expired") return null;
   return (
     <Badge variant="outline" className={statusBadgeVariants({ status })}>
       <span aria-hidden="true" className={statusDotVariants({ status })} />
@@ -123,6 +123,7 @@ type Filter = "all" | "issues" | "disabled";
 interface ModalTarget {
   plugin: ModalPluginSummary;
   existing?: { id: string; displayName: string | null } | null;
+  reconnect?: boolean;
 }
 
 function ConnectionsPage() {
@@ -218,6 +219,15 @@ function ConnectionsPage() {
     });
   };
 
+  // OAuth reconnect re-runs the auth ceremony in the modal rather than the
+  // display-name-only edit form. The server rebinds the fresh credentials to
+  // the existing (non-poolable) row, so no connection id needs threading.
+  const onReconnect = (conn: ConnectionListItem) => {
+    const plugin = pluginsById[conn.pluginId] ?? null;
+    if (!plugin) return;
+    setModal({ plugin: plugin as ModalPluginSummary, reconnect: true });
+  };
+
   const onConfirmDisconnect = () => {
     if (!disconnectFor) return;
     const conn = disconnectFor;
@@ -253,6 +263,7 @@ function ConnectionsPage() {
         onSetDefault={onSetDefault}
         onToggleEnabled={onToggleEnabled}
         onEdit={onEdit}
+        onReconnect={onReconnect}
         onDisconnect={setDisconnectFor}
       />
       <CatalogCard plugins={plugins} connections={conns} onAdd={onAdd} />
@@ -266,6 +277,7 @@ function ConnectionsPage() {
         open={!!modal}
         plugin={modal?.plugin ?? null}
         existing={modal?.existing ?? null}
+        reconnect={modal?.reconnect ?? false}
         onOpenChange={(open) => {
           if (!open) setModal(null);
         }}
@@ -289,6 +301,7 @@ function ConnectionsListCard({
   onSetDefault,
   onToggleEnabled,
   onEdit,
+  onReconnect,
   onDisconnect,
 }: {
   conns: ReadonlyArray<ConnectionListItem>;
@@ -302,6 +315,7 @@ function ConnectionsListCard({
   onSetDefault: (conn: ConnectionListItem) => void;
   onToggleEnabled: (conn: ConnectionListItem) => void;
   onEdit: (conn: ConnectionListItem) => void;
+  onReconnect: (conn: ConnectionListItem) => void;
   onDisconnect: (conn: ConnectionListItem) => void;
 }) {
   return (
@@ -346,6 +360,7 @@ function ConnectionsListCard({
                 onSetDefault={() => onSetDefault(conn)}
                 onToggleEnabled={() => onToggleEnabled(conn)}
                 onEdit={() => onEdit(conn)}
+                onReconnect={() => onReconnect(conn)}
                 onDisconnect={() => onDisconnect(conn)}
               />
             );
@@ -497,6 +512,7 @@ function ConnectionRowActions({
   onSetDefault,
   onToggleEnabled,
   onEdit,
+  onReconnect,
   onDisconnect,
 }: {
   broken: boolean;
@@ -507,12 +523,18 @@ function ConnectionRowActions({
   onSetDefault: () => void;
   onToggleEnabled: () => void;
   onEdit: () => void;
+  onReconnect: () => void;
   onDisconnect: () => void;
 }) {
+  // OAuth plugins can't re-enter credentials in a form, so Reconnect re-runs
+  // the auth ceremony; form plugins reconnect by re-entering credentials in the
+  // edit modal. Branching here is the fix for Reconnect previously always
+  // opening the (display-name-only) edit modal for OAuth connections.
+  const isOAuth = plugin.authKind === "oauth_device" || plugin.authKind === "oauth_redirect";
   return (
     <div className="flex shrink-0 items-center gap-1.5">
       {broken ? (
-        <Button variant="outline" size="sm" onClick={onEdit}>
+        <Button variant="outline" size="sm" onClick={isOAuth ? onReconnect : onEdit}>
           <RefreshCwIcon className="size-3.5" aria-hidden="true" />
           {m.settings_connections_action_reconnect()}
         </Button>
@@ -570,6 +592,7 @@ function ConnectionRow({
   onSetDefault,
   onToggleEnabled,
   onEdit,
+  onReconnect,
   onDisconnect,
 }: {
   conn: ConnectionListItem;
@@ -580,6 +603,7 @@ function ConnectionRow({
   onSetDefault: () => void;
   onToggleEnabled: () => void;
   onEdit: () => void;
+  onReconnect: () => void;
   onDisconnect: () => void;
 }) {
   const broken = conn.status === "error" || conn.status === "expired";
@@ -612,6 +636,7 @@ function ConnectionRow({
         onSetDefault={onSetDefault}
         onToggleEnabled={onToggleEnabled}
         onEdit={onEdit}
+        onReconnect={onReconnect}
         onDisconnect={onDisconnect}
       />
     </li>

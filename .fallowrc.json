@@ -206,6 +206,10 @@
         "patterns": ["apps/client/src/shared/lib/**"]
       },
       {
+        "name": "client-shared-media",
+        "patterns": ["apps/client/src/shared/media/**"]
+      },
+      {
         "name": "client-root",
         "patterns": ["apps/client/src/*.*"]
       },
@@ -415,6 +419,7 @@
           "client-shared-components",
           "client-shared-hooks",
           "client-shared-lib",
+          "client-shared-media",
           "shared-pkg"
         ]
       },
@@ -449,6 +454,7 @@
           "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",
+          "client-shared-media",
           "shared-pkg"
         ]
       },
@@ -665,6 +671,7 @@
           "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-media",
           "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",
@@ -679,6 +686,7 @@
           "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-media",
           "client-shared-hooks",
           "client-shared-lib",
           "shared-pkg"

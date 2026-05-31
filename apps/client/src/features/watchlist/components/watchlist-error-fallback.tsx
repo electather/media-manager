@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
+import { MediaApiError } from "@/shared/media/error";
 import { watchlistKeys } from "../lib/query-keys";
-import { WatchlistApiError } from "../lib/types";
 
 interface WatchlistErrorFallbackProps {
   error: unknown;
@@ -16,6 +16,8 @@ interface WatchlistErrorFallbackProps {
   queryKey?: readonly unknown[];
 }
 
+// The message-extraction fallback chain (MediaApiError → Error → String) drives the branch count; covered by the error-fallback tests.
+// fallow-ignore-next-line complexity
 export function WatchlistErrorFallback({
   error,
   resetErrorBoundary,
@@ -23,7 +25,7 @@ export function WatchlistErrorFallback({
 }: WatchlistErrorFallbackProps) {
   const queryClient = useQueryClient();
   const message =
-    error instanceof WatchlistApiError
+    error instanceof MediaApiError
       ? (error.body?.message ?? error.body?.devMessage ?? error.message)
       : error instanceof Error
         ? error.message

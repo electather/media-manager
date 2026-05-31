@@ -17,7 +17,7 @@ interface RowErrorProps {
 }
 
 /**
- * Full-row fallback shown when `useHomeRow` errors before any items arrive.
+ * Full-row fallback shown when the row's lazy read errors before any items arrive.
  * Stays inline below the row header so siblings keep rendering — a row
  * failure must not bubble to the page-level `HomeErrorBoundary`.
  */
@@ -47,7 +47,7 @@ interface RowErrorInlineCardProps {
 
 /**
  * Trailing pagination error rendered as the last item in the row's track when
- * `useHomeRow.fetchNextPage` rejected after at least one page already loaded.
+ * the row's `fetchNextPage` rejected after at least one page already loaded.
  * Sized to one card slot via `--card-w` / `--card-h` so the row's height stays
  * stable while the user has the option to retry just the failed page.
  */

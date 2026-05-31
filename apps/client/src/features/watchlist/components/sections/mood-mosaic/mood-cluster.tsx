@@ -11,9 +11,9 @@ import {
   MediaRowThumb,
   MediaRowTitle,
 } from "@/shared/components/media-row";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import { shortRuntimeLabel } from "../../../lib/format";
 import { MOOD_REGISTRY } from "../../../lib/mood-registry";
-import type { WatchlistItem } from "../../../lib/types";
 import { useMoodCluster } from "../../../hooks/use-mood-cluster";
 import { WatchlistCard } from "../../watchlist-card";
 
@@ -81,7 +81,13 @@ export function MoodCluster({ moodId, count }: MoodClusterProps) {
   );
 }
 
-function MoodSecondaryRow({ item, onPeek }: { item: WatchlistItem; onPeek: (id: string) => void }) {
+function MoodSecondaryRow({
+  item,
+  onPeek,
+}: {
+  item: CompactMediaItem;
+  onPeek: (id: string) => void;
+}) {
   const KindIcon = item.mediaType === "movie" ? Film : Tv;
   const src = item.backdrop ?? item.poster;
   return (

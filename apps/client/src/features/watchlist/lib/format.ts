@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import type { WatchlistItem } from "./types";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 
 function movieRuntimeLabel(min: number): string {
   const h = Math.floor(min / 60);
@@ -10,7 +10,7 @@ function movieRuntimeLabel(min: number): string {
 }
 
 // fallow-ignore-next-line complexity
-export function shortRuntimeLabel(item: WatchlistItem): string {
+export function shortRuntimeLabel(item: CompactMediaItem): string {
   if (item.mediaType === "tv") {
     return m.watchlist_episodes_count({ n: String(item.facets?.episodeCount ?? 8) });
   }

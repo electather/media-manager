@@ -6,19 +6,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAllItems } from "../hooks/use-all-items";
 import { makeItem } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("@/features/watchlist/lib/fetchers", () => ({
-  fetchItems: vi.fn(),
-  fetchCounts: vi.fn(),
-  fetchTonight: vi.fn(),
-  fetchRecently: vi.fn(),
-  fetchMoods: vi.fn(),
-  fetchMoodItems: vi.fn(),
-  addToWatchlist: vi.fn(),
-  removeFromWatchlist: vi.fn(),
+// Stub the shared `defineMediaSource` so the source's `fetchPage` is a spy we
+// can assert against — this pins what params `useAllItems` builds and that the
+// shared infinite hook threads the cursor, without hitting the network.
+const { fetchPageMock } = vi.hoisted(() => ({ fetchPageMock: vi.fn() }));
+vi.mock("@/shared/media/source", () => ({
+  defineMediaSource: (spec: Record<string, unknown>) => ({ ...spec, fetchPage: fetchPageMock }),
 }));
-
-const { fetchItems } = await import("@/features/watchlist/lib/fetchers");
-const fetchItemsMock = vi.mocked(fetchItems);
 
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -33,25 +27,24 @@ afterEach(() => {
 });
 
 describe("useAllItems", () => {
-  it("forwards sort, bucket, and mood to fetchItems on the first page", async () => {
-    fetchItemsMock.mockResolvedValueOnce({ items: [], cursor: null, partial: false });
+  it("builds the watchlist-items source params from sort, bucket, and mood", async () => {
+    fetchPageMock.mockResolvedValueOnce({ items: [], cursor: null, partial: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     renderHook(() => useAllItems({ sort: "alpha", bucket: "ready", mood: "cozy" }), {
       wrapper: wrap(client),
     });
-    await waitFor(() => expect(fetchItemsMock).toHaveBeenCalled());
-    expect(fetchItemsMock).toHaveBeenCalledWith({
-      sort: "alpha",
-      bucket: "ready",
-      mood: "cozy",
-    });
+    await waitFor(() => expect(fetchPageMock).toHaveBeenCalled());
+    expect(fetchPageMock).toHaveBeenCalledWith(
+      { sort: "alpha", bucket: "ready", mood: "cozy" },
+      null,
+    );
   });
 
   it("flattens pages and chains cursors through fetchNextPage", async () => {
     const page1 = makeItem({ id: "movie:1", tmdbId: "1", title: "One" });
     const page2 = makeItem({ id: "movie:2", tmdbId: "2", title: "Two" });
-    fetchItemsMock.mockResolvedValueOnce({ items: [page1], cursor: "cur-1", partial: false });
-    fetchItemsMock.mockResolvedValueOnce({ items: [page2], cursor: null, partial: false });
+    fetchPageMock.mockResolvedValueOnce({ items: [page1], cursor: "cur-1", partial: false });
+    fetchPageMock.mockResolvedValueOnce({ items: [page2], cursor: null, partial: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useAllItems({ sort: "recent" }), { wrapper: wrap(client) });
     await waitFor(() => expect(result.current.items).toHaveLength(1));
@@ -59,7 +52,8 @@ describe("useAllItems", () => {
       await result.current.fetchNextPage();
     });
     await waitFor(() => expect(result.current.items).toHaveLength(2));
-    expect(fetchItemsMock).toHaveBeenNthCalledWith(2, { sort: "recent", cursor: "cur-1" });
+    expect(fetchPageMock).toHaveBeenNthCalledWith(1, { sort: "recent" }, null);
+    expect(fetchPageMock).toHaveBeenNthCalledWith(2, { sort: "recent" }, "cur-1");
     expect(result.current.hasNextPage).toBe(false);
   });
 });

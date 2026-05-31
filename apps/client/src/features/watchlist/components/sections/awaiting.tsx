@@ -31,9 +31,11 @@ export function Awaiting() {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_awaiting_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "awaiting" })}
+          </SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.watchlist_awaiting_title()}
+            {m.watchlist_section_title({ section: "awaiting" })}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>

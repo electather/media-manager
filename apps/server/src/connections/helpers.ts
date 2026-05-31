@@ -1,4 +1,4 @@
-import { and, eq, ne, notExists } from "drizzle-orm";
+import { and, desc, eq, ne, notExists } from "drizzle-orm";
 import { getDb, type Db } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { env } from "../env";
@@ -333,4 +333,60 @@ export async function writeConnection(args: {
   await ensureDefaultIfFirst(args.userId, args.pluginId, id);
   await invalidateUserCache(args.userId);
   return id;
+}
+
+/**
+ * Returns the most relevant existing connection for `(userId, pluginId)` — the
+ * default if one is marked, otherwise the most recently created — or `null`
+ * when the user has none. Non-poolable plugins hold at most one row per user,
+ * so this deterministically resolves the row a reconnect should rebind to.
+ */
+export async function findConnectionForPlugin(db: Db, userId: string, pluginId: string) {
+  return (
+    (await db
+      .select()
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.userId, userId), eq(serviceConnections.pluginId, pluginId)))
+      .orderBy(desc(serviceConnections.isDefault), desc(serviceConnections.createdAt))
+      .get()) ?? null
+  );
+}
+
+/**
+ * Rebinds a successful auth result to an existing connection — the OAuth
+ * reconnect path. Re-encrypts the fresh credentials, replaces the stored
+ * `userConfig`, and flips the row back to `connected`, clearing any prior
+ * `errorMessage` and stale `tokenExpiresAt` so a reconnected card no longer
+ * renders as broken. Preserves the row's id, `displayName`, `isDefault`, and
+ * `enabled` flags — only the auth-bearing fields change. Mirrors
+ * `writeConnection`'s freshly-connected shape for the update case.
+ */
+export async function reconnectConnection(args: {
+  connectionId: string;
+  userId: string;
+  credentials: unknown;
+  userConfig: unknown;
+}): Promise<void> {
+  const db = getDb();
+  const now = Date.now();
+  const credEnc = await encryptJson(args.credentials);
+  await db
+    .update(serviceConnections)
+    .set({
+      status: "connected",
+      errorMessage: null,
+      encryptedCredentials: credEnc.data,
+      credentialsIv: credEnc.iv,
+      userConfig:
+        args.userConfig !== undefined && args.userConfig !== null
+          ? JSON.stringify(args.userConfig)
+          : null,
+      tokenExpiresAt: null,
+      lastVerifiedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(eq(serviceConnections.id, args.connectionId), eq(serviceConnections.userId, args.userId)),
+    );
+  await invalidateUserCache(args.userId);
 }

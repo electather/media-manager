@@ -9,7 +9,6 @@ import { homeKeys } from "../lib/query-keys";
 
 vi.mock("../lib/fetchers", () => ({
   fetchHomeLayout: vi.fn(),
-  fetchHomeRow: vi.fn(),
   fetchHomeDetails: vi.fn(),
 }));
 

@@ -1,23 +1,13 @@
 import { memo } from "react";
 import { Check, Plus } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import {
-  MediaCardAvailability,
-  MediaCardClearLogo,
-  MediaCardFrame,
-  MediaCardImage,
-  MediaCardLink,
-  MediaCardQuickAction,
-  MediaCardRoot,
-  deriveMediaCardAvailability,
-} from "@/shared/components/media-card";
+import { MediaCardQuickAction } from "@/shared/components/media-card";
+import { MediaRowCard } from "@/shared/components/media-row-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
 import { useIsInWatchlist } from "@/features/watchlist";
 import { ROW_ASPECT } from "../../lib/home-feed-config";
 import type { HomeMediaItem, RowKind } from "../../lib/types";
-import { CardKindBadge } from "./card-kind-badge";
 import { CardMeta } from "./card-meta";
-import { CardProgress } from "./card-progress";
 
 interface CardProps {
   item: HomeMediaItem;
@@ -29,10 +19,15 @@ interface CardProps {
   onClick?: (id: string) => void;
 }
 
+/** Localized "X% watched" aria-label for the shared card's progress overlay. */
+const homeProgressLabel = (percent: number) =>
+  m.home_card_progress_watched({ percent: String(percent) });
+
 /**
- * Home-feed assembly of the shared `MediaCard` primitives. Threads the
- * home-side `RowKind → aspect` lookup, the `HomeMediaItem` projection of
- * facets / progress / kind, and the watchlist toggle copy.
+ * Home-feed card. Renders the shared `MediaRowCard` (design §B3) with the
+ * home-specific quick-action (watchlist toggle) and footer (`CardMeta`:
+ * match-reason chip + treatment-aware meta) slotted in; the shared card owns
+ * the framed art, clear-logo, availability, kind badge, and progress overlays.
  *
  * Wrapped in `memo` so paginated rows do not re-render every existing card
  * on each page-append. Callers must pass stable handlers (not per-render
@@ -47,27 +42,23 @@ export const Card = memo(function Card({
 }: CardProps) {
   const isInWatchlist = useIsInWatchlist(item.id);
   const aspect = forceAspect ?? ROW_ASPECT[rowKind];
-  const showLogo = aspect === "16/9" && Boolean(item.clearLogo || item.clearLogoText);
-  const imageSrc =
-    aspect === "16/9" ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
+  const variant = aspect === "16/9" ? "rail" : "grid";
   const toggleLabel = isInWatchlist
     ? `${m.home_card_remove_watchlist()} ${item.title}`
     : `${m.home_card_add_watchlist()} ${item.title}`;
   const ToggleIcon = isInWatchlist ? Check : Plus;
+  const kindLabel = m.home_card_kind({ kind: item.mediaType });
 
   return (
-    <MediaCardRoot aspect={aspect} data-testid="card">
-      <MediaCardFrame>
-        <MediaCardImage src={imageSrc} alt={item.title} aspect={aspect} />
-        {showLogo && (
-          <MediaCardClearLogo src={item.clearLogo} text={item.clearLogoText} alt={item.title} />
-        )}
-        <MediaCardAvailability
-          state={deriveMediaCardAvailability(item)}
-          className="pointer-events-none absolute inset-s-2 top-2"
-        />
-        <CardKindBadge item={item} />
-        <CardProgress item={item} />
+    <MediaRowCard
+      item={item}
+      variant={variant}
+      href={buildMediaHref(item.id) ?? "#"}
+      openLabel={m.home_card_open_details({ title: item.title })}
+      kindLabel={kindLabel}
+      progressLabel={homeProgressLabel}
+      onOpen={onClick ? () => onClick(item.id) : undefined}
+      action={
         <MediaCardQuickAction
           aria-label={toggleLabel}
           pressed={isInWatchlist}
@@ -80,13 +71,8 @@ export const Card = memo(function Card({
             <ToggleIcon aria-hidden="true" className="size-4" />
           </span>
         </MediaCardQuickAction>
-      </MediaCardFrame>
-      <CardMeta item={item} />
-      <MediaCardLink
-        href={buildMediaHref(item.id) ?? "#"}
-        aria-label={m.home_card_open_details({ title: item.title })}
-        onPress={onClick ? () => onClick(item.id) : undefined}
-      />
-    </MediaCardRoot>
+      }
+      meta={<CardMeta item={item} />}
+    />
   );
 });

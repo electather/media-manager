@@ -1,0 +1,280 @@
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { Hono } from "hono";
+import { encode } from "@ent-mcp/shared/media";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { HttpError } from "../../../diagnostics/http-errors";
+
+vi.mock("../../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
+
+let mockUserId: string | null = "u1";
+
+vi.mock("../../../auth", async () => {
+  const { unauthorized } = await import("../../../diagnostics/http-errors");
+  return {
+    requireSession: async (
+      c: { set: (k: string, v: unknown) => void },
+      next: () => Promise<void>,
+    ) => {
+      if (!mockUserId) throw unauthorized();
+      c.set("session", { user: { id: mockUserId } });
+      await next();
+    },
+    sessionUserId: (c: { get: (k: string) => unknown }) => {
+      const session = c.get("session") as { user: { id: string } } | undefined;
+      if (!session) throw unauthorized();
+      return session.user.id;
+    },
+  };
+});
+
+vi.mock("../../../catalog", () => ({ getCatalogService: () => ({}), toCanonicalRow: vi.fn() }));
+vi.mock("../../../artwork", () => ({
+  ArtworkService: vi.fn(function ArtworkService() {
+    return { getArtwork: vi.fn(async () => ({ results: {} })) };
+  }),
+}));
+
+const sentinelPage = { items: [{ id: "item-1" }], cursor: "next-cursor", partial: false };
+
+// Keep the real shared `decode` so the cursor-mapping cases exercise the actual
+// codec (bad → null, valid → Cursor); stub `listRows` to a sentinel so the
+// resolver mechanics are tested without the read pipeline / db.
+vi.mock("../../../media", async () => {
+  const shared = await import("@ent-mcp/shared/media");
+  return {
+    decode: shared.decode,
+    listRows: vi.fn(async () => sentinelPage),
+    MediaService: vi.fn(function MediaService() {
+      return {};
+    }),
+    StatusBatchMemo: vi.fn(function StatusBatchMemo() {
+      return {};
+    }),
+  };
+});
+
+// Fake registrations exercise the resolver's dispatch in isolation. The real
+// registry build + read parity are covered by media-registry.test.ts and
+// media-parity.test.ts.
+vi.mock("../../../home", async () => {
+  const { z } = await import("zod");
+  const sentinelBuild = vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
+    source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
+    cfg: { params: {}, cursor, limit: 10 },
+    enrichRows: vi.fn(),
+  }));
+  return {
+    homeMediaSources: {
+      fakeHome: {
+        sourceId: "fakeHome",
+        rateLimit: undefined,
+        paramSchema: z.object({}),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        eligibility: vi.fn(async () => true),
+        build: sentinelBuild,
+      },
+      fakeHomeIneligible: {
+        sourceId: "fakeHomeIneligible",
+        rateLimit: undefined,
+        paramSchema: z.object({}),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        eligibility: vi.fn(async () => false),
+        build: vi.fn(),
+      },
+      fakeHomeSeeded: {
+        sourceId: "fakeHomeSeeded",
+        rateLimit: undefined,
+        paramSchema: z.object({}),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        requiresInitialCursor: true,
+        eligibility: vi.fn(async () => true),
+        build: vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
+          source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
+          cfg: { params: {}, cursor, limit: 10 },
+          enrichRows: vi.fn(),
+        })),
+      },
+    },
+  };
+});
+
+vi.mock("../../../watchlist", async () => {
+  const { z } = await import("zod");
+  return {
+    watchlistMediaSources: {
+      fakeWatchlist: {
+        sourceId: "fakeWatchlist",
+        rateLimit: "read",
+        paramSchema: z.object({}),
+        cursorMode: "keyset",
+        cursorOnNull: "firstPage",
+        build: vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
+          // No enrichRows → the default-fan-out (3-arg) `listRows` overload.
+          source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
+          cfg: { params: {}, cursor, limit: 10 },
+        })),
+      },
+      fakeWatchlistParams: {
+        sourceId: "fakeWatchlistParams",
+        rateLimit: "read",
+        paramSchema: z.object({ required: z.string() }).strict(),
+        cursorMode: "keyset",
+        cursorOnNull: "firstPage",
+        build: vi.fn(() => ({ source: { stages: { sort: "none" } }, cfg: {} })),
+      },
+    },
+  };
+});
+
+vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
+
+const media = await import("../../../media");
+const home = await import("../../../home");
+const watchlist = await import("../../../watchlist");
+const { rateLimitOrNull } = await import("../../rate-limit");
+const { watchlistReadLimiter } = await import("../media");
+const { mediaApp } = await import("../media");
+
+function buildApp() {
+  return new Hono()
+    .use("*", requestContextMiddleware())
+    .route("/media", mediaApp)
+    .notFound(() => {
+      throw new HttpError(404, "http.not_found", "route not found");
+    })
+    .onError(errorHandler);
+}
+
+type AnyReg = { build: ReturnType<typeof vi.fn>; eligibility?: ReturnType<typeof vi.fn> };
+const homeReg = (id: string) => (home.homeMediaSources as unknown as Record<string, AnyReg>)[id]!;
+const watchlistReg = (id: string) =>
+  (watchlist.watchlistMediaSources as unknown as Record<string, AnyReg>)[id]!;
+
+beforeEach(() => {
+  mockUserId = "u1";
+  vi.mocked(media.listRows).mockClear();
+  vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
+  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded"]) {
+    homeReg(id).build.mockClear();
+    homeReg(id).eligibility?.mockClear();
+  }
+  for (const id of ["fakeWatchlist", "fakeWatchlistParams"]) {
+    watchlistReg(id).build.mockClear();
+  }
+});
+
+describe("media source resolver (US-003, design §A3)", () => {
+  it("requires a session", async () => {
+    mockUserId = null;
+    const res = await buildApp().request("/media/sources/fakeHome");
+    expect(res.status).toBe(401);
+  });
+
+  it("404s an unknown sourceId with media.source_unknown", async () => {
+    const res = await buildApp().request("/media/sources/nope");
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { code: string }).code).toBe("media.source_unknown");
+  });
+
+  it("404s a prototype-property sourceId instead of crashing (Object.hasOwn guard)", async () => {
+    // A bare `REGISTRY[sourceId]` returns the prototype value for these names
+    // (truthy), slipping past the 404 and crashing on `reg.paramSchema` (500).
+    for (const id of ["__proto__", "constructor", "toString", "valueOf"]) {
+      const res = await buildApp().request(`/media/sources/${id}`);
+      expect(res.status).toBe(404);
+      expect(((await res.json()) as { code: string }).code).toBe("media.source_unknown");
+    }
+  });
+
+  it("404s an ineligible home source with media.source_ineligible", async () => {
+    const res = await buildApp().request("/media/sources/fakeHomeIneligible");
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { code: string }).code).toBe("media.source_ineligible");
+    expect(homeReg("fakeHomeIneligible").build).not.toHaveBeenCalled();
+  });
+
+  it("treats an eligibility throw as ineligible (matches composeRowPage)", async () => {
+    homeReg("fakeHome").eligibility!.mockRejectedValueOnce(new Error("boom"));
+    const res = await buildApp().request("/media/sources/fakeHome");
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { code: string }).code).toBe("media.source_ineligible");
+  });
+
+  it("returns 200 + the one Page shape and builds with a null first-page cursor", async () => {
+    const res = await buildApp().request("/media/sources/fakeHome");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(sentinelPage);
+    expect(homeReg("fakeHome").build.mock.calls[0]![2]).toBeNull();
+  });
+
+  it("passes enrichRows to listRows for a home source and omits it for watchlist", async () => {
+    await buildApp().request("/media/sources/fakeHome");
+    expect(vi.mocked(media.listRows).mock.calls[0]).toHaveLength(4);
+
+    await buildApp().request("/media/sources/fakeWatchlist");
+    expect(vi.mocked(media.listRows).mock.calls[1]).toHaveLength(3);
+  });
+
+  it("400s invalid params with http.invalid_input", async () => {
+    const res = await buildApp().request("/media/sources/fakeWatchlistParams");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+  });
+
+  it("400s an undecodable cursor on a home source (cursorOnNull '400')", async () => {
+    const res = await buildApp().request("/media/sources/fakeHome?cursor=%7Bnot-a-cursor");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("media.cursor_invalid");
+  });
+
+  it("falls a bad cursor to the first page on a watchlist source (cursorOnNull 'firstPage')", async () => {
+    const res = await buildApp().request("/media/sources/fakeWatchlist?cursor=garbage");
+    expect(res.status).toBe(200);
+    // The undecodable cursor mapped to `null` → first page, never a 400.
+    expect(watchlistReg("fakeWatchlist").build.mock.calls[0]![2]).toBeNull();
+  });
+
+  it("400s a cursor-less seeded home source with media.cursor_required", async () => {
+    const res = await buildApp().request("/media/sources/fakeHomeSeeded");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("media.cursor_required");
+  });
+
+  it("decodes a valid keyset cursor and threads it onto build", async () => {
+    const raw = encode({ mode: "keyset", k: "42:id-a" });
+    const res = await buildApp().request(`/media/sources/fakeHomeSeeded?cursor=${raw}`);
+    expect(res.status).toBe(200);
+    expect(homeReg("fakeHomeSeeded").build.mock.calls[0]![2]).toEqual({
+      mode: "keyset",
+      k: "42:id-a",
+    });
+  });
+
+  it("applies the read limiter for a watchlist source and none for a home source", async () => {
+    await buildApp().request("/media/sources/fakeWatchlist");
+    expect(rateLimitOrNull).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(rateLimitOrNull).mock.calls[0]![0]).toBe(watchlistReadLimiter);
+
+    vi.mocked(rateLimitOrNull).mockClear();
+    await buildApp().request("/media/sources/fakeHome");
+    expect(rateLimitOrNull).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits with a 429 when the limiter throttles", async () => {
+    vi.mocked(rateLimitOrNull).mockReturnValueOnce(
+      new Response(JSON.stringify({ code: "mcp.rate_limited" }), {
+        status: 429,
+        headers: { "content-type": "application/json" },
+      }) as never,
+    );
+    const res = await buildApp().request("/media/sources/fakeWatchlist");
+    expect(res.status).toBe(429);
+    // The throttle fired before the source was built.
+    expect(watchlistReg("fakeWatchlist").build).not.toHaveBeenCalled();
+  });
+});

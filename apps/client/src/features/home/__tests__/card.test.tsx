@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+import * as m from "@/paraglide/messages";
 import { Card } from "../components/card/index";
 import type { HomeMediaItem, RowKind } from "../lib/types";
 
@@ -53,6 +54,13 @@ describe("Card", () => {
   it("does not render a progress bar when item.progress is absent", () => {
     renderCard(<Card item={makeItem({ progress: undefined })} rowKind="recommendedForYou" />);
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("labels the progress bar with the localized 'watched' copy, not a bare percent", () => {
+    const item = makeItem({ progress: { watched: 30, total: 100 } });
+    renderCard(<Card item={item} rowKind="continueWatching" />);
+    const bar = screen.getByRole("progressbar");
+    expect(bar.getAttribute("aria-label")).toBe(m.home_card_progress_watched({ percent: "30" }));
   });
 
   it("shows server label when availability has a single server copy", () => {

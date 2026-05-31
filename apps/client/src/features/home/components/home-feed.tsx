@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useDeferredValue, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaSourceId, MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useIsInWatchlist, useToggleWatchlist } from "@/features/watchlist";
@@ -127,7 +127,12 @@ function toHeroSlideUI(slide: HeroSlide): HeroSlideUI {
 
 function toRowData(stub: HomeLayoutResponse["rows"][number]): RowData {
   const out: RowData = {
-    id: stub.rowId,
+    // The wire types `rowId` as an opaque slug (`z.string()`); narrow it to
+    // `MediaSourceId` once here, at the single wire-ingestion boundary. An
+    // unknown slug still resolves to a clean 404 at fetch time (the resolver
+    // validates `:sourceId` against the registry), but downstream code now
+    // carries the precise type instead of a bare `string`.
+    id: stub.rowId as MediaSourceId,
     kind: stub.kind,
     initialCursor: stub.initialCursor,
     defaultAspect: ROW_ASPECT[stub.kind] ?? "16/9",

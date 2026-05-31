@@ -46,9 +46,11 @@ export function ReadyRow() {
     <ScrollRow revalidationKey={items.length} className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_ready_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "ready" })}
+          </SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.watchlist_ready_title()}
+            {m.watchlist_section_title({ section: "ready" })}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>

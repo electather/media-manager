@@ -33,3 +33,34 @@ export const MEDIA_ROW_STATUS_MAP = {
 export type MediaType = (typeof MEDIA_TYPES)[number];
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
 export type MediaRowBucket = (typeof MEDIA_ROW_BUCKETS)[number];
+
+/**
+ * The one source-id set client and server agree on (design §A5). The generic
+ * resolver dispatches `GET /api/media/sources/:sourceId` on these slugs, and
+ * the client `ClientMediaSource` descriptor keys off the same tuple.
+ *
+ * Values lift the existing inline slugs from `home/rows/*` and
+ * `watchlist/sources/*`. Watchlist buckets ride `watchlist-items` via the
+ * `bucket` param — there are no per-bucket ids (matches the server
+ * `ItemsParams`).
+ */
+export const MEDIA_SOURCE_IDS = [
+  // Home rows.
+  "recommendedForYou-tv",
+  "recommendedForYou-movies",
+  "continueWatching-active",
+  "continueWatching-next",
+  "becauseYouWatched",
+  "similarTo",
+  "yourWatchlist",
+  "upcomingForYou",
+  "trendingNow",
+  "newReleases",
+  // Watchlist sections.
+  "watchlist-items",
+  "watchlist-mood-items",
+  "watchlist-tonight",
+  "watchlist-recently",
+] as const;
+
+export type MediaSourceId = (typeof MEDIA_SOURCE_IDS)[number];

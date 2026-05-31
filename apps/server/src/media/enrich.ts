@@ -225,6 +225,15 @@ export async function enrich<Row extends MediaEnrichRow>(
         items.push(result.value.item);
         sources.push(liveRows[i]!);
         if (result.value.partial) partial = true;
+      } else {
+        // enrichOne dropped the row: no metadata could be resolved for its tmdb
+        // id (a dead/stale mapping that would otherwise render as "Movie <id>").
+        // Log which id so the broken row is diagnosable rather than silent.
+        const dropped = liveRows[i]!;
+        ctx.log.warn("[media:enrich] dropped row with no resolvable metadata", {
+          tmdbId: dropped.tmdbId,
+          mediaType: dropped.mediaType,
+        });
       }
     } else {
       partial = true;
@@ -319,6 +328,15 @@ async function enrichOne(
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
 
+  // No canonical metadata could be resolved for this row — neither the catalog
+  // cache nor a live plugin cold-fill returned anything. In practice this means
+  // the persisted tmdb id no longer exists on TMDB (e.g. a stale Trakt
+  // extended-edition watchlist entry whose tmdb id 404s). Drop the row instead
+  // of fabricating a "Movie <id>" placeholder card; the caller logs the id, and
+  // the row stays in `watchlist_items` so it self-heals if TMDB ever gains the
+  // id.
+  if (!meta) return null;
+
   const serversPartial = serverProbe.status === "rejected";
   const servers: MatchingServer[] = serverProbe.status === "fulfilled" ? serverProbe.value : [];
 
@@ -329,7 +347,7 @@ async function enrichOne(
   const rawStatus = (statuses[composite] ?? "unknown") as CompactMediaItem["status"];
   const status: CompactMediaItem["status"] = servers.length > 0 ? "available" : rawStatus;
 
-  const base = meta ? compactFromMetadata(meta) : minimalCompact(row.tmdbId, row.mediaType);
+  const base = compactFromMetadata(meta);
   const withArt = mergeArtwork(base, meta, artwork[composite]);
 
   const item: CompactMediaItem = {
@@ -509,13 +527,4 @@ function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
   }
   if (Object.keys(facets).length > 0) item.facets = facets;
   return item;
-}
-
-function minimalCompact(tmdbId: string, mediaType: MediaType): CompactMediaItem {
-  return {
-    id: keyToId({ tmdbId, mediaType }),
-    tmdbId,
-    mediaType,
-    title: `${mediaType === "tv" ? "Show" : "Movie"} ${tmdbId}`,
-  };
 }

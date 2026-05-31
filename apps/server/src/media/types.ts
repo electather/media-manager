@@ -2,7 +2,6 @@ import type { ConsolaInstance } from "consola";
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import type { ArtworkRequestItem, ArtworkBundle } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaRowBucket, MediaType, RowSort } from "@ent-mcp/shared/media";
 import type { RawCanonicalSource, CatalogService } from "../catalog";
 import type { Cursor } from "./cursor";
@@ -208,9 +207,8 @@ export interface PipelineConfig<P = void> {
  * `RowPage`. `items` are public `CompactMediaItem`s (internal `__*` fields
  * already stripped, invariant V.MI1); `cursor` is the encoded next-page string
  * (`null` when exhausted); `partial` is true when a source soft-failed.
+ *
+ * Re-exported from `@ent-mcp/shared/media` so client and server share one
+ * canonical page shape (design §A5, invariant V.WIRE1).
  */
-export interface Page {
-  items: CompactMediaItem[];
-  cursor: string | null;
-  partial: boolean;
-}
+export type { Page } from "@ent-mcp/shared/media";

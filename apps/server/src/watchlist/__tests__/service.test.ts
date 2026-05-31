@@ -65,7 +65,19 @@ function makeMediaService(
 
 function makeCatalog() {
   return {
-    getMetadataBatch: vi.fn().mockResolvedValue({}),
+    // Resolve canonical metadata for every requested key by default so each
+    // active row surfaces as a real item — the normal case. enrich now drops
+    // rows whose id resolves to no metadata (a dead/stale tmdb mapping), so a
+    // bare `{}` here would silently drop every row. Tests that need specific
+    // titles/genres (or the unresolved-drop) override this per call.
+    getMetadataBatch: vi.fn(async (keys: Array<{ tmdbId: string; type: "movie" | "tv" }>) =>
+      Object.fromEntries(
+        keys.map(({ tmdbId, type }) => [
+          `${type}:${tmdbId}`,
+          { tmdbId, mediaType: type, title: tmdbId, genres: [] },
+        ]),
+      ),
+    ),
     getMetadata: vi.fn().mockResolvedValue(null),
     writeMetadata: vi.fn().mockResolvedValue(undefined),
   };
@@ -626,7 +638,13 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
       async (tmdbId: string) => (tmdbId === "v1" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
     );
+    // All three rows resolve to real metadata so they are not dropped; their
+    // buckets still differ (v1 available via server, v2 upcoming via future
+    // year, v3 unknown — no server, no future date), which is what this test
+    // exercises: an omitted bucket surfaces every active row regardless of
+    // classification.
     (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:v1": { tmdbId: "v1", mediaType: "movie", title: "v1", genres: [] },
       "movie:v2": {
         tmdbId: "v2",
         mediaType: "movie",
@@ -634,6 +652,7 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
         year: new Date().getUTCFullYear() + 3,
         genres: [],
       },
+      "movie:v3": { tmdbId: "v3", mediaType: "movie", title: "v3", genres: [] },
     });
 
     const page = await listItems(ctx, { limit: 10 });

@@ -16,6 +16,7 @@ interface SlotProps {
 interface Props {
   plugin: PluginSummary;
   isEdit: boolean;
+  reconnect: boolean;
   canClose: boolean;
   onClose: () => void;
   /**
@@ -30,14 +31,17 @@ interface Props {
 export function ConnectionModalHeader({
   plugin,
   isEdit,
+  reconnect,
   canClose,
   onClose,
   Title,
   Description,
 }: Props) {
-  const title = isEdit
-    ? m.settings_connections_modal_title_edit({ name: plugin.name })
-    : m.settings_connections_modal_title_add({ name: plugin.name });
+  const title = reconnect
+    ? m.settings_connections_modal_title_reconnect({ name: plugin.name })
+    : isEdit
+      ? m.settings_connections_modal_title_edit({ name: plugin.name })
+      : m.settings_connections_modal_title_add({ name: plugin.name });
 
   return (
     <div className="shrink-0 border-b border-border px-6 pt-5 pb-4">

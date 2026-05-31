@@ -16,13 +16,13 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import { WatchlistCard } from "../watchlist-card";
 import { shortRuntimeLabel } from "../../lib/format";
-import type { WatchlistItem } from "../../lib/types";
 import { useTonight } from "../../hooks/use-tonight";
 
 export function TonightPick() {
-  const { data } = useTonight();
+  const { items } = useTonight();
   const navigate = useNavigate();
   const onPeek = useCallback(
     (id: string) => {
@@ -35,15 +35,17 @@ export function TonightPick() {
     },
     [navigate],
   );
-  const [hero, ...alternates] = data.items;
+  const [hero, ...alternates] = items;
   if (!hero) return null;
 
   return (
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_tonight_eyebrow()}</SectionHeadEyebrow>
-          <SectionHeadTitle>{m.watchlist_tonight_title()}</SectionHeadTitle>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "tonight" })}
+          </SectionHeadEyebrow>
+          <SectionHeadTitle>{m.watchlist_section_title({ section: "tonight" })}</SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">
@@ -74,7 +76,7 @@ export function TonightPick() {
 }
 
 interface AlternateRowProps {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   index: number;
   onPeek: (id: string) => void;
 }

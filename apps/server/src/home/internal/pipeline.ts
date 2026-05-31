@@ -1,11 +1,11 @@
 import type { RowKind } from "@ent-mcp/shared/home";
 import {
   listRows,
+  type BuiltMediaSource,
   type Cursor,
   type CursorMode,
   type MediaSource,
   type Page,
-  type PipelineConfig,
   type SourceContext,
 } from "../../media";
 import { ROW_PAGE_SIZE } from "../rows/_shared";
@@ -40,26 +40,44 @@ type RowProjection<Row> = (
  * Paginated rows `project` the full raw set (the pipeline slices); bounded rows
  * `project` a single page (`<= ROW_PAGE_SIZE`) so the pipeline mints `cursor:null`.
  */
-export function loadRowPage<P, Row>(
+interface RowPipelineSpec<P, Row> {
+  rowId: string;
+  source: MediaSource<P, Row>;
+  params: P;
+  cursor: Cursor | null;
+  pageSize: number;
+  project: RowProjection<Row>;
+}
+
+/**
+ * Assemble the pieces a home row feeds `media.listRows` — the source, the
+ * decoded-cursor config, and the home enrich override (which adds the row-aware
+ * match-reason chip) — WITHOUT running them. `loadRowPage` runs them; the
+ * `/api/media` resolver (via `RowProvider.buildPipeline` → `homeMediaSources`)
+ * runs them itself. Defining both atop this one helper keeps the row → media
+ * wiring in one place (invariant V.A1: it stays home-side) and stops `load` and
+ * the registry path from drifting.
+ */
+export function buildRowPipeline<P, Row>(
   ctx: RowContext,
-  spec: {
-    rowId: string;
-    source: MediaSource<P, Row>;
-    params: P;
-    cursor: Cursor | null;
-    pageSize: number;
-    project: RowProjection<Row>;
-  },
-): Promise<Page> {
-  const cfg: PipelineConfig<P> = { params: spec.params, cursor: spec.cursor, limit: spec.pageSize };
+  spec: RowPipelineSpec<P, Row>,
+): Required<BuiltMediaSource<P, Row>> {
+  return {
+    source: spec.source,
+    cfg: { params: spec.params, cursor: spec.cursor, limit: spec.pageSize },
+    enrichRows: async (rows) =>
+      enrichHomeItems(await spec.project(ctx, rows), ctx, { rowId: spec.rowId }),
+  };
+}
+
+export function loadRowPage<P, Row>(ctx: RowContext, spec: RowPipelineSpec<P, Row>): Promise<Page> {
+  const { source, cfg, enrichRows } = buildRowPipeline(ctx, spec);
   // `satisfies SourceContext` machine-checks the prose claim above — TS now
   // breaks the build if a future narrowing removes a required SourceContext
   // field from RowContext, instead of silently falling through to a runtime
   // surprise inside listRows.
   const mediaCtx = ctx satisfies SourceContext;
-  return listRows(spec.source, cfg, mediaCtx, async (rows) =>
-    enrichHomeItems(await spec.project(ctx, rows), ctx, { rowId: spec.rowId }),
-  );
+  return listRows(source, cfg, mediaCtx, enrichRows);
 }
 
 /**
@@ -84,6 +102,14 @@ export function makePipelineRow<P, Row>(config: {
   initialCursor: (ctx: RowContext) => Promise<string | null>;
   project: RowProjection<Row>;
 }): RowProvider {
+  const specFor = (cursor: Cursor | null): RowPipelineSpec<P, Row> => ({
+    rowId: config.rowId,
+    source: config.source,
+    params: config.params,
+    cursor,
+    pageSize: config.pageSize ?? ROW_PAGE_SIZE,
+    project: config.project,
+  });
   return {
     rowId: config.rowId,
     kind: config.kind,
@@ -93,16 +119,8 @@ export function makePipelineRow<P, Row>(config: {
     cursorMode: config.cursorMode,
     eligibility: config.eligibility,
     initialCursor: config.initialCursor,
-    load(ctx, cursor) {
-      return loadRowPage(ctx, {
-        rowId: config.rowId,
-        source: config.source,
-        params: config.params,
-        cursor,
-        pageSize: config.pageSize ?? ROW_PAGE_SIZE,
-        project: config.project,
-      });
-    },
+    buildPipeline: (ctx, cursor) => buildRowPipeline(ctx, specFor(cursor)),
+    load: (ctx, cursor) => loadRowPage(ctx, specFor(cursor)),
   };
 }
 

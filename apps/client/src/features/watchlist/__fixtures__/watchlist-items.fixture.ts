@@ -1,6 +1,6 @@
-import type { WatchlistItem } from "../lib/types";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 
-export function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
+export function makeItem(overrides: Partial<CompactMediaItem> = {}): CompactMediaItem {
   return {
     id: "movie:1",
     tmdbId: "1",
@@ -12,7 +12,7 @@ export function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem 
   };
 }
 
-export const SAMPLE_WATCHLIST: WatchlistItem[] = [
+export const SAMPLE_WATCHLIST: CompactMediaItem[] = [
   makeItem({
     id: "movie:11",
     tmdbId: "11",

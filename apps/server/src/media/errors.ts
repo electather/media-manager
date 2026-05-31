@@ -3,6 +3,22 @@ import { isPluginError } from "@ent-mcp/plugin-sdk";
 import { HttpError } from "../diagnostics/http-errors";
 
 /**
+ * Plugin error codes that reflect a transient/retryable condition rather than a
+ * terminal one. Two dispatcher decisions key off this set:
+ *   - A token refresh failing with one of these must NOT degrade the connection
+ *     or emit an auth-expired notification (see `invoke.ts` `handleRefresh`) —
+ *     e.g. Trakt rate-limits `/oauth/token` independent of token validity.
+ *   - An aggregate where EVERY provider failed with one of these soft-degrades
+ *     to an empty partial result instead of throwing `AllPluginsFailedError`
+ *     (see `interpretAggregate`): the data is temporarily unavailable, not gone.
+ */
+export const TRANSIENT_PLUGIN_CODES = new Set<HostErrorCode>([
+  "plugin.rate_limited",
+  "plugin.upstream_error",
+  "plugin.timeout",
+]);
+
+/**
  * Result of a single plugin invocation at the dispatcher layer. Keeps errors as
  * structured data rather than thrown exceptions so fan-out can aggregate them.
  */

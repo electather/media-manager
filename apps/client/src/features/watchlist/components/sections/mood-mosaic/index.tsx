@@ -22,8 +22,10 @@ export function MoodMosaic() {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_mood_eyebrow()}</SectionHeadEyebrow>
-          <SectionHeadTitle>{m.watchlist_mood_title()}</SectionHeadTitle>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "mood" })}
+          </SectionHeadEyebrow>
+          <SectionHeadTitle>{m.watchlist_section_title({ section: "mood" })}</SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">

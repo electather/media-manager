@@ -1,5 +1,6 @@
 import { compact } from "es-toolkit/array";
 import { isNil, isPlainObject } from "es-toolkit/predicate";
+import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { getPrimaryConnection } from "../../service/primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
@@ -67,9 +68,10 @@ function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>)
 async function resolveOrderedCandidates(
   userId: string,
   orderedPluginIds: string[],
+  scope: ResolvedCapabilityScope,
 ): Promise<Candidate[]> {
   const conns = await Promise.all(
-    orderedPluginIds.map((pluginId) => pickSingleConnection(userId, pluginId)),
+    orderedPluginIds.map((pluginId) => pickSingleConnection(userId, pluginId, scope)),
   );
   return compact(
     orderedPluginIds.map((pluginId, i) => {
@@ -120,7 +122,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   });
   const primaryPlugin = primary?.pluginId ?? providers[0]!;
   const ordered = [primaryPlugin, ...providers.filter((p) => p !== primaryPlugin)];
-  const candidates = await resolveOrderedCandidates(req.userId, ordered);
+  const candidates = await resolveOrderedCandidates(req.userId, ordered, scope);
 
   const outcomes = await invokeAll<T>(candidates, req, capability);
   await harvestFromOutcomes(outcomes, req.mediaType);

@@ -7,7 +7,14 @@ import { pendingAuth } from "../db/schema";
 import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
 import { isPluginError, type AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
-import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
+import {
+  encryptJson,
+  decryptJson,
+  findConnectionForPlugin,
+  reconnectConnection,
+  stripRequestFields,
+  writeConnection,
+} from "./helpers";
 import { isNil } from "es-toolkit/predicate";
 
 /**
@@ -228,13 +235,57 @@ async function consumeAndWritePendingAuth(
     .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)))
     .returning({ nonce: pendingAuth.nonce });
   if (deleted.length === 0) return { consumed: false };
-  const id = await writeConnection({
+  const id = await persistConnectionFromAuth(db, { userId, pluginId, result });
+  return { consumed: true, id };
+}
+
+/**
+ * Persists a completed auth result, choosing between updating an existing
+ * connection (the reconnect path) and inserting a new row (first connect).
+ *
+ * Non-poolable plugins hold at most one connection per user, so when a row
+ * already exists for `(userId, pluginId)` a re-run of the OAuth ceremony is a
+ * reconnect: rebind fresh credentials to that row rather than inserting a
+ * duplicate that would orphan the original (its `isDefault`, `displayName`,
+ * and primary-provider references all live on the existing id). Poolable
+ * plugins, and the no-existing-row case, fall through to a plain insert.
+ *
+ * The poolable check is read straight from the manifest so a future poolable
+ * OAuth plugin keeps "add another instance" semantics instead of silently
+ * overwriting its first connection.
+ */
+async function persistConnectionFromAuth(
+  db: ReturnType<typeof getDb>,
+  {
+    userId,
+    pluginId,
+    result,
+  }: {
+    userId: string;
+    pluginId: string;
+    result: Extract<AuthResult, { status: "completed" }>;
+  },
+): Promise<string> {
+  const module = await pluginRuntime.getModule(pluginId);
+  if (!module.manifest.poolable) {
+    const existing = await findConnectionForPlugin(db, userId, pluginId);
+    if (existing) {
+      const priorConfig = existing.userConfig ? (JSON.parse(existing.userConfig) as unknown) : null;
+      await reconnectConnection({
+        connectionId: existing.id,
+        userId,
+        credentials: result.credentials,
+        userConfig: applyUserConfigPatch(priorConfig, result.userConfigPatch),
+      });
+      return existing.id;
+    }
+  }
+  return writeConnection({
     userId,
     pluginId,
     credentials: result.credentials,
     userConfig: applyUserConfigPatch(null, result.userConfigPatch),
   });
-  return { consumed: true, id };
 }
 
 // fallow-ignore-next-line complexity

@@ -39,7 +39,7 @@ const payload: MediaDetailsResponse = {
 };
 
 describe("useMediaItem", () => {
-  it("resolves a composite id via /api/home/details", async () => {
+  it("resolves a composite id via /api/media/:type/:tmdbId/details", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify(payload), { status: 200 }),
     );
@@ -74,7 +74,7 @@ describe("useMediaItem", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.includes("/api/home/details")) {
+      if (url.includes("/api/media/") && url.endsWith("/details")) {
         return new Response(
           JSON.stringify({
             summary: {
@@ -91,8 +91,10 @@ describe("useMediaItem", () => {
           { status: 200 },
         );
       }
-      if (url.includes("/api/home/row")) {
-        return new Response(JSON.stringify({ items: [], cursor: null }), { status: 200 });
+      if (url.includes("/api/media/sources/")) {
+        return new Response(JSON.stringify({ items: [], cursor: null, partial: false }), {
+          status: 200,
+        });
       }
       return new Response(JSON.stringify({ items: [] }), { status: 200 });
     });

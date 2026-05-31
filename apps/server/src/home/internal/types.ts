@@ -2,7 +2,14 @@ import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { TopContributor } from "@ent-mcp/shared/catalog";
 import type { CatalogService } from "../../catalog";
-import type { Cursor, CursorMode, MediaService, Page, StatusBatchMemo } from "../../media";
+import type {
+  BuiltMediaSource,
+  Cursor,
+  CursorMode,
+  MediaService,
+  Page,
+  StatusBatchMemo,
+} from "../../media";
 
 /**
  * Internal projection passed between rows + the orchestrator. We let rows
@@ -88,6 +95,16 @@ export interface RowProvider {
    * page so the pipeline mints `cursor: null`.
    */
   load(ctx: RowContext, cursor: Cursor | null): Promise<Page>;
+  /**
+   * Assemble the same pipeline pieces `load` runs — the source, the
+   * decoded-cursor config, and the home enrich override — WITHOUT executing
+   * them. The `/api/media` resolver (design §A3/§A4) feeds these straight into
+   * `media.listRows`, so the home registration map (`homeMediaSources`) surfaces
+   * a row through the generic resolver without re-deriving its wiring (invariant
+   * V.A1: the assembly stays home-side). `load` is defined in terms of this, so
+   * the two never drift.
+   */
+  buildPipeline(ctx: RowContext, cursor: Cursor | null): BuiltMediaSource<any, any>;
   /**
    * When true, the orchestrator rejects cursor-less `composeRow` calls with
    * `HttpError 400 "cursor_required"`. Used by `becauseYouWatched`/`similarTo`,

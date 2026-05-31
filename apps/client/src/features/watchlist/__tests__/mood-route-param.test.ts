@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vite-plus/test";
-import { z } from "zod";
+import { notFound } from "@tanstack/react-router";
 import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
 
-// Mirrors the parser used by
+// Mirrors the membership guard in
 // apps/client/src/routes/_authenticated/_app/watchlist.moods.$moodId.tsx.
-// Pin the invariant that unknown mood ids fail the route param parser, so
-// the surrounding ErrorBoundary renders instead of mounting the mood page
-// with garbage state (V.WL7).
-const paramSchema = z.object({ moodId: z.enum(MOOD_IDS) });
+// #515: an unknown mood id now yields a clean 404 (`throw notFound()`) so the
+// root notFoundComponent renders, instead of a param-parse error surfacing in
+// the section ErrorBoundary (V.WL7).
+const MOOD_ID_SET: ReadonlySet<string> = new Set(MOOD_IDS);
 
-describe("watchlist mood route param schema", () => {
-  it("accepts each known mood id", () => {
+function guard(moodId: string): void {
+  if (!MOOD_ID_SET.has(moodId)) throw notFound();
+}
+
+describe("watchlist mood route param guard", () => {
+  it("admits each known mood id", () => {
     for (const id of MOOD_IDS) {
-      expect(paramSchema.parse({ moodId: id }).moodId).toBe(id);
+      expect(() => guard(id)).not.toThrow();
     }
   });
 
-  it("throws on an unknown mood id", () => {
-    expect(() => paramSchema.parse({ moodId: "banana" })).toThrow();
+  it("throws notFound on an unknown mood id", () => {
+    // Assert the specific `notFound()` shape so the test can't pass on an
+    // unrelated throw (e.g. a future param-parse error).
+    expect(() => guard("banana")).toThrow(expect.objectContaining({ isNotFound: true }));
   });
 });

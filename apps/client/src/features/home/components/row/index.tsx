@@ -15,14 +15,16 @@ import {
   ScrollRowTrack,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
+import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
 import { Card } from "../card/index";
-import { useHomeRow } from "../../hooks/use-home-row";
+import { homeRowSource } from "../../lib/sources";
 import { ROW_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
 import { RowError, RowErrorInlineCard } from "./row-error";
 
 const SKELETON_COUNT = 5;
 const PREFETCH_OFFSET = 4;
+const ROW_STALE_MS = 5 * 60 * 1000;
 
 interface RowProps {
   row: RowData;
@@ -48,9 +50,9 @@ function isErrorSentinel(entry: TrackEntry): entry is ErrorSentinel {
 
 /**
  * Server-driven home-feed row. Composes the shared `ScrollRow` slots
- * around items fetched via `useHomeRow`. Range-based prefetch + error /
- * skeleton states are owned here; layout primitives live in
- * `shared/components/scroll-row`.
+ * around items read through the shared `useMediaRowsLazy(homeRowSource)`.
+ * Range-based prefetch + error / skeleton states are owned here; layout
+ * primitives live in `shared/components/scroll-row`.
  */
 // fallow-ignore-next-line complexity
 function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
@@ -72,6 +74,14 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const prevLabel = m.home_row_prev_label({ row: heading });
   const nextLabel = m.home_row_next_label({ row: heading });
 
+  // Row stubs carry `sourceId` (= rowId) + `initialCursor`; each feeds a shared
+  // `useMediaRowsLazy` source so the home feed reads through the one media list
+  // hook core (design §B3 / invariant V.CL1). Per-row lazy reads keep a slow row
+  // showing its own skeleton without blocking the rest of the feed.
+  const source = useMemo(
+    () => homeRowSource(row.id, row.initialCursor),
+    [row.id, row.initialCursor],
+  );
   const {
     items,
     fetchNextPage,
@@ -81,7 +91,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     error,
     refetch,
     isRefetching,
-  } = useHomeRow(row.id, row.initialCursor);
+  } = useMediaRowsLazy(source, { staleTime: ROW_STALE_MS });
 
   const showInitialError = error !== null && items.length === 0;
   const showInlineError = error !== null && items.length > 0;
@@ -97,7 +107,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     ({ endIndex }: { startIndex: number; endIndex: number }) => {
       if (items.length === 0) return;
       if (!hasNextPage || isFetchingNextPage) return;
-      if (endIndex >= items.length - PREFETCH_OFFSET) fetchNextPage();
+      if (endIndex >= items.length - PREFETCH_OFFSET) void fetchNextPage();
     },
     [items.length, hasNextPage, isFetchingNextPage, fetchNextPage],
   );
@@ -113,6 +123,17 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
         <RowError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
       </div>
     );
+  }
+
+  // A row that resolved with no items renders nothing — no heading, no
+  // reserved track height. Covers both a transient source outage (the feed
+  // soft-degrades to an empty `partial` page rather than erroring) and a
+  // genuinely empty feed; an empty carousel communicates nothing useful
+  // either way. Guarded on `!isLoading` so the skeleton still shows on first
+  // load. `handleRange` already bails on an empty set, so there is no pending
+  // page to wait for here.
+  if (error === null && !isLoading && items.length === 0) {
+    return null;
   }
 
   return (

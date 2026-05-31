@@ -1,13 +1,10 @@
 import { useCallback } from "react";
 import { Heart } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import type { WatchlistUserSource } from "@ent-mcp/shared/watchlist";
 import { Button } from "@/shared/ui/button";
-import type { WatchlistItem } from "../lib/types";
-import { useIsInWatchlist } from "../hooks/use-is-in-watchlist";
-import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
-import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
+import { useAddToWatchlist, useIsInWatchlist, useRemoveFromWatchlist } from "../hooks";
 
 interface WatchlistToggleProps {
   item: CompactMediaItem;
@@ -22,18 +19,22 @@ interface WatchlistToggleProps {
  * watchlist state. Cross-feature consumers (search result row, detail modal)
  * compose `item` from the same `CompactMediaItem` shape the home feed serves.
  */
+// Reason: the branch count is the add/remove/pending/disabled state matrix the one toggle renders; splitting it would just scatter the same states.
+// fallow-ignore-next-line complexity
 export function WatchlistToggle({ item, source = "manual", size = "sm" }: WatchlistToggleProps) {
   const inWatchlist = useIsInWatchlist(item.id);
   const add = useAddToWatchlist();
   const remove = useRemoveFromWatchlist();
   const pending = add.isPending || remove.isPending;
 
+  // Each guard drops an absent optional field when projecting the optimistic seed; the branch count is inherent.
+  // fallow-ignore-next-line complexity
   const onClick = useCallback(() => {
     if (inWatchlist) {
       remove.mutate({ tmdbId: item.tmdbId, mediaType: item.mediaType });
       return;
     }
-    const seed: Partial<WatchlistItem> = {
+    const seed: Partial<CompactMediaItem> = {
       id: item.id,
       tmdbId: item.tmdbId,
       mediaType: item.mediaType,

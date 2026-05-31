@@ -62,11 +62,15 @@ describe("TopZone", () => {
     expect(screen.getByText("8.4")).toBeTruthy();
   });
 
-  it("renders one alternate switcher per slide", () => {
+  it("renders one non-interactive position indicator per slide", () => {
     render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
-    const altsNav = screen.getByTestId("top-zone-alternates");
-    const buttons = within(altsNav).getAllByRole("button");
-    expect(buttons).toHaveLength(SLIDES.length);
+    const indicator = screen.getByTestId("top-zone-alternates");
+    expect(indicator.querySelectorAll("span")).toHaveLength(SLIDES.length);
+    // Informative only — the dots report which slide is active, they are not
+    // controls: no buttons, links, or focusable elements.
+    expect(within(indicator).queryAllByRole("button")).toHaveLength(0);
+    expect(indicator.querySelector("button, a, [tabindex]")).toBeNull();
+    expect(indicator.querySelector('[aria-current="true"]')).toBeTruthy();
   });
 
   it("calls onPeek with the active slide id when More Info is clicked", () => {
@@ -102,9 +106,8 @@ describe("TopZone", () => {
     const { container } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
     await waitFor(() => expect(ambientImages(container)).toHaveLength(1));
 
-    const altsNav = screen.getByTestId("top-zone-alternates");
-    const dots = within(altsNav).getAllByRole("button");
-    fireEvent.click(dots[1]!);
+    // Dots are not clickable; advancing the slide (dismiss) drives the fade.
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
 
     await waitFor(() => expect(ambientImages(container)).toHaveLength(2));
     const [outgoing, incoming] = ambientImages(container);
@@ -120,15 +123,16 @@ describe("TopZone", () => {
     expect(frame.className).toContain("[clip-path:inset(0_round_var(--radius-4xl))]");
   });
 
-  it("clicking an alternate dot updates the hero card title and More Info target", () => {
+  it("marks the active dot and retargets the hero as the slide advances", () => {
     const onPeek = vi.fn();
     render(<TopZone slides={SLIDES} onPeek={onPeek} />);
-    const altsNav = screen.getByTestId("top-zone-alternates");
-    const dots = within(altsNav).getAllByRole("button");
 
-    fireEvent.click(dots[1]!);
-    const updatedDots = within(screen.getByTestId("top-zone-alternates")).getAllByRole("button");
-    expect(updatedDots[1]!.getAttribute("aria-current")).toBe("true");
+    // Dots are informative, not jump targets — the slide advances via dismiss.
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
+
+    const dots = screen.getByTestId("top-zone-alternates").querySelectorAll("span");
+    expect(dots[1]!.getAttribute("aria-current")).toBe("true");
+    expect(dots[0]!.getAttribute("aria-current")).toBeNull();
     expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /more info/i }));
@@ -141,12 +145,10 @@ describe("TopZone", () => {
       "Pick up where you left off",
     );
 
-    const altsNav = screen.getByTestId("top-zone-alternates");
-    const dots = within(altsNav).getAllByRole("button");
-    fireEvent.click(dots[1]!);
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
     expect(screen.getByTestId("top-zone-source-label").textContent).toBe("Recommended for you");
 
-    fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[2]!);
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
     expect(screen.getByTestId("top-zone-source-label").textContent).toBe("Trending now");
   });
 
@@ -155,7 +157,7 @@ describe("TopZone", () => {
     // parent and produces a new `slides` array reference. The selected slide
     // must persist — previously a `useEffect([slides])` reset it to index 0.
     const { rerender } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
-    fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[1]!);
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
     expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
 
     rerender(<TopZone slides={SLIDES.map((s) => ({ ...s }))} onPeek={vi.fn()} />);
@@ -164,7 +166,7 @@ describe("TopZone", () => {
 
   it("resets to the first slide when the upstream slides content actually changes", () => {
     const { rerender } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
-    fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[1]!);
+    fireEvent.click(screen.getByRole("button", { name: /not tonight/i }));
     expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
 
     const swapped: HeroSlideUI[] = [

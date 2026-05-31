@@ -5,18 +5,12 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCounts } from "../hooks/use-counts";
 
-vi.mock("@/features/watchlist/lib/fetchers", () => ({
-  fetchItems: vi.fn(),
+vi.mock("@/shared/media/aggregates", () => ({
   fetchCounts: vi.fn(),
-  fetchTonight: vi.fn(),
-  fetchRecently: vi.fn(),
   fetchMoods: vi.fn(),
-  fetchMoodItems: vi.fn(),
-  addToWatchlist: vi.fn(),
-  removeFromWatchlist: vi.fn(),
 }));
 
-const { fetchCounts } = await import("@/features/watchlist/lib/fetchers");
+const { fetchCounts } = await import("@/shared/media/aggregates");
 const fetchCountsMock = vi.mocked(fetchCounts);
 
 function wrap(client: QueryClient) {

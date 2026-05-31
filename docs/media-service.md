@@ -315,7 +315,7 @@ Host behavior:
 
 | Code                | Retry?                               | Update Status?               | Propagate?                          |
 | ------------------- | ------------------------------------ | ---------------------------- | ----------------------------------- |
-| `token_expired`     | Trigger refresh, retry once          | → `expired` if refresh fails | If final failure                    |
+| `token_expired`     | Trigger refresh, retry once          | → `expired` if refresh fails terminally¹ | If final failure                    |
 | `bad_credentials`   | No                                   | → `error` w/ message         | Yes                                 |
 | `rate_limited`      | Yes, Retry-After or 2s backoff, once | No                           | If retry fails                      |
 | `transient_network` | Yes, 1s backoff, once                | No                           | If retry fails                      |
@@ -323,7 +323,20 @@ Host behavior:
 | `bad_input`         | No                                   | No                           | Yes                                 |
 | `internal`          | No                                   | → `error` w/ message         | Yes                                 |
 
+¹ Only a _terminal_ refresh failure expires the connection. A transient one — Trakt rate-limits `/oauth/token` (`rate_limited`) independent of token validity, plus upstream 5xx / timeout — surfaces its real code and leaves the connection intact, so a later call refreshes once the condition clears. No `expired` status change and no `auth-expired` event, so the user is not pushed to reconnect (and retries don't re-fire the notification).
+
 The background per-connection job path (`invokePerConnectionHandler` in `apps/server/src/jobs/plugin-jobs.ts`) follows the same status-routing rule: `plugin.token_expired` → `expired` + `auth-expired` event (emitted only on first transition into `expired`, since the job iterates every connection each tick), anything else → `error`.
+
+### Concurrent Refresh Coalescing
+
+`token_expired` triggers a single in-band refresh + retry (host-behavior table above). When the access token has genuinely expired, a fan-out read — the home feed dispatching several capabilities against the same connection in parallel — makes every concurrent call observe `token_expired` at once and attempt to refresh. Providers that **rotate** their refresh token break under this: Trakt invalidates the previous refresh token the instant a new one is issued (Trakt dropped access-token lifetime from 90 days to 24h on 2025-03-20, so this path now runs daily), so every refresh after the first replays an already-consumed token and comes back 4xx → `token_expired`. Without coordination each loser would mark the connection `expired` and emit `auth-expired`, flapping a healthy connection even though one refresh just succeeded. The scheduled per-connection refresh job (e.g. `@ent-mcp/plugin-trakt`, `*/30`) can lose the same race against a reactive refresh.
+
+`refreshConnectionCredentials` (`apps/server/src/media/service/connection-lifecycle.ts`) — the sole path the reactive `token_expired` retry (`invoke.ts`) takes to refresh — closes both:
+
+- **Single-flight per `connectionId`.** Concurrent callers share one in-flight refresh and all observe its rotated credentials; the upstream `/oauth/token` call happens once per connection regardless of fan-out.
+- **Adopt-on-rotation.** Before refreshing — and again if the upstream call fails — it re-reads the stored credentials. If they differ from the token this caller tried, another refresher (a straggler from an earlier burst, or the scheduled job) already rotated a fresh token in, so it adopts that token instead of replaying the consumed one. Only an *unchanged* stored token surfaces the refresh failure as terminal (`expired` + `auth-expired`), preserving the footnote ¹ contract.
+
+Net: an expired access token costs exactly one upstream refresh per connection, and the scheduled job and the reactive path can no longer race each other into a false `expired`. Regression coverage: `apps/server/src/media/__tests__/refresh-coalescing.test.ts`.
 
 ### Timeouts
 
@@ -341,6 +354,8 @@ interface AggregateResult<T> {
 ```
 
 Caller passes both to frontend. UI decides presentation: show data + subtle "Some sources unavailable" indicator linked to connection status.
+
+When _every_ attempted provider errors, `interpretAggregate` decides hard vs soft by error class. All failures transient (`rate_limited` / `upstream_error` / `timeout`) → empty `partial: true` result: the data is temporarily unavailable, so the row renders empty and self-heals on a later fetch. Any terminal failure (auth, bad input) → throws `AllPluginsFailedError` (503 `media.providers_failed`) so the surface can prompt the user to act, rather than letting an `ok_empty` exemption mask a real outage.
 
 `single` strategy: failures → thrown errors, same shape, `PluginCallError` class.
 
@@ -405,7 +420,7 @@ Upsert rules:
 
 ## Connection Resolution
 
-`MediaService.resolveConnections(userId, pluginId): ResolvedConnection[]`
+`MediaService.resolveConnections(userId, pluginId, scope): ResolvedConnection[]`
 
 ```ts
 type ResolvedConnection =
@@ -416,7 +431,7 @@ type ResolvedConnection =
 Resolution:
 
 1. User has personal connections for plugin → return all as `kind: "user"` (multiple instances = multiple entries)
-2. Else plugin declares `allowsSharedCredentials: true` AND admin set shared creds → single `kind: "shared"` entry
+2. Else, **for `global`-scoped requests only**, plugin declares `allowsSharedCredentials: true` AND admin set shared creds → single `kind: "shared"` entry. A `user`-scoped request skips this: a shared entry is the admin's app/OAuth identity (e.g. Trakt `clientId`), never a per-user token, so it can never satisfy a user-scoped call and would only make the dispatcher attempt a provider that errors.
 3. Else empty
 
 `single` strategy: picks default from `kind: "user"` or `kind: "shared"`, or throws.

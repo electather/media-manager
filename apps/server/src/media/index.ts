@@ -88,7 +88,7 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
-export { encode, decode, type Cursor, type CursorMode } from "./cursor";
+export { encode, decode, encodeSeedCursor, type Cursor, type CursorMode } from "./cursor";
 export { batchLoad, type BatchLoadContext, type BatchLoadResult } from "./pipeline/batch-load";
 export {
   paginate,
@@ -97,6 +97,11 @@ export {
   type PaginateResult,
 } from "./pipeline/paginate";
 export { listRows, type EnrichRowsFn } from "./service/list-rows";
+export type {
+  BuiltMediaSource,
+  MediaSourceRegistration,
+  AnyMediaSourceRegistration,
+} from "./service/registration";
 export { classifyRows, type ClassifyRowsContext } from "./service/classify-rows";
 export { countBuckets, type BucketCounts, type CountBucketsContext } from "./service/count";
 export {

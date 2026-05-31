@@ -327,6 +327,13 @@ export const connectionsService = {
       .set({
         userConfig: JSON.stringify(configToSave),
         ...credentialsPatch,
+        // A successful config update re-verifies the connection upstream
+        // (`verifyFormAuthConfig` re-runs `startAuth`; the non-form branch runs
+        // `testConnection`), so clear any prior error/expiry and flip the row
+        // back to `connected`. Without this a broken connection that the user
+        // reconnects by re-entering credentials would keep rendering as broken.
+        status: "connected",
+        errorMessage: null,
         lastVerifiedAt: Date.now(),
         updatedAt: Date.now(),
       })

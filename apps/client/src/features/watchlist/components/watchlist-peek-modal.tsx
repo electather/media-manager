@@ -4,9 +4,7 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { useIsInWatchlist } from "../hooks/use-is-in-watchlist";
-import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
-import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
+import { useAddToWatchlist, useIsInWatchlist, useRemoveFromWatchlist } from "../hooks";
 
 type PeekSearch = { peek?: string };
 

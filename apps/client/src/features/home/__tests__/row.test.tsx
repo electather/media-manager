@@ -52,7 +52,7 @@ function mockRowFetch(items: CompactMediaItem[], opts: Partial<RowContentRespons
 }
 
 describe("Row", () => {
-  it("renders items returned from /api/home/row", async () => {
+  it("renders items returned from /api/media/sources/:sourceId", async () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([item("x"), item("y"), item("z")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,6 +60,19 @@ describe("Row", () => {
     await waitFor(() => expect(screen.getByText("Movie x")).toBeTruthy());
     expect(screen.getByText("Movie y")).toBeTruthy();
     expect(screen.getByText("Movie z")).toBeTruthy();
+  });
+
+  it("renders nothing when the row resolves with no items", async () => {
+    // An empty (resolved, non-error) row collapses entirely — no heading, no
+    // reserved track height — so a soft-degraded source (e.g. a rate-limited
+    // calendar feed returning an empty partial page) leaves no blank gap in
+    // the feed. The heading shows transiently while loading, then unmounts.
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(screen.queryByRole("heading")).toBeNull());
+    expect(container.querySelector('[data-testid="row-scroller-bleed"]')).toBeNull();
   });
 
   it("renders skeleton placeholder cards while the row is loading", () => {
@@ -73,7 +86,7 @@ describe("Row", () => {
 
   it("renders a visible heading for the row", async () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
-    mockRowFetch([]);
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     const heading = screen.getByRole("heading");
@@ -82,7 +95,7 @@ describe("Row", () => {
 
   it("renders an eyebrow when the row kind has one", async () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
-    mockRowFetch([]);
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <Row
@@ -99,7 +112,7 @@ describe("Row", () => {
 
   it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
-    mockRowFetch([]);
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     const bleed = container.querySelector('[data-testid="row-scroller-bleed"]');

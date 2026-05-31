@@ -11,7 +11,9 @@ import { watchlistKeys } from "../lib/query-keys";
 import { WatchlistGridSkeleton } from "./sections/all-items/grid-skeleton";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
-const MOOD_PAGE_LIMIT = 60;
+/** Page size for the dedicated mood route — shared with its loader prefetch so
+ *  both build the same `watchlist-mood-items` cache key (#513). */
+export const MOOD_PAGE_LIMIT = 60;
 
 /**
  * `/watchlist/moods/:moodId` content. Header + peek modal live in the
@@ -55,6 +57,9 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     },
     [navigate],
   );
+  const onEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   return (
     <>
       <VirtualGrid
@@ -63,6 +68,7 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
         minColumnWidthPx={180}
         estimateRowHeight={() => 336}
         renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
+        onEndReached={onEndReached}
       />
       {hasNextPage ? (
         <div className="mt-8 flex justify-center">

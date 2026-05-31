@@ -37,7 +37,7 @@ function mockEndpoints({
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url =
       typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    if (url.includes("/api/home/season-availability")) {
+    if (url.includes("/availability")) {
       const body = availability ? JSON.stringify(availability) : "boom";
       return new Response(body, { status: availabilityStatus });
     }

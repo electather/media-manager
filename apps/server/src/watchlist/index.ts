@@ -20,6 +20,7 @@ export {
   getRecentlyAdded,
   getMoodSummary,
   listMoodItems,
+  watchlistMediaSources,
   type GetItemsOptions,
   type ListItemsOptions,
   type ListMoodItemsOptions,

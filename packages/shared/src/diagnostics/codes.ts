@@ -67,6 +67,14 @@ export const HOST_ERROR_CODES = {
   // this entry exists for non-HTTP capture sites.
   "media.providers_failed": { severity: "error" },
 
+  // Media resource resolver (`/api/media/sources/:sourceId`, design §A3). All
+  // four are expected user-input failures (unknown/ineligible source, bad
+  // cursor), so they classify as `info` like the other 4xx codes.
+  "media.source_unknown": { severity: "info" },
+  "media.source_ineligible": { severity: "info" },
+  "media.cursor_invalid": { severity: "info" },
+  "media.cursor_required": { severity: "info" },
+
   // Artwork capability and RPC.
   "artwork.bad_input": { severity: "info" },
   "artwork.unsupported_id_combo": { severity: "info" },

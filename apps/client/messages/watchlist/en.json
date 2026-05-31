@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-
   "watchlist_eyebrow": "Your watchlist · curated",
   "watchlist_title": "Watchlist",
   "watchlist_total_runtime": "{value} of stories",
@@ -8,73 +7,126 @@
   "watchlist_runtime_hours": "{hours}h",
   "watchlist_runtime_hours_minutes": "{hours}h {minutes}m",
   "watchlist_runtime_minutes": "{minutes}m",
-  "watchlist_count_ready": "{n} ready",
-  "watchlist_count_awaiting": "{n} awaiting",
-  "watchlist_count_upcoming": "{n} upcoming",
-
+  "watchlist_count": [
+    {
+      "declarations": ["input bucket", "input n"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=ready": "{n} ready",
+        "bucket=awaiting": "{n} awaiting",
+        "bucket=upcoming": "{n} upcoming"
+      }
+    }
+  ],
   "watchlist_filter_label": "Filter watchlist",
-  "watchlist_filter_all": "All",
-  "watchlist_filter_ready": "Ready",
-  "watchlist_filter_in_progress": "In progress",
-  "watchlist_filter_awaiting": "Awaiting",
-  "watchlist_filter_unavailable": "Unavailable",
-  "watchlist_filter_upcoming": "Upcoming",
-
+  "watchlist_filter": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "All",
+        "bucket=ready": "Ready",
+        "bucket=in-progress": "In progress",
+        "bucket=awaiting": "Awaiting",
+        "bucket=unavailable": "Unavailable",
+        "bucket=upcoming": "Upcoming"
+      }
+    }
+  ],
   "watchlist_sort_label": "Sort",
-  "watchlist_sort_recent": "Recently added",
-  "watchlist_sort_alpha": "A → Z",
-  "watchlist_sort_runtime": "Shortest first",
-  "watchlist_sort_status": "By status",
-
+  "watchlist_sort": [
+    {
+      "declarations": ["input sortKey"],
+      "selectors": ["sortKey"],
+      "match": {
+        "sortKey=recent": "Recently added",
+        "sortKey=alpha": "A → Z",
+        "sortKey=runtime": "Shortest first",
+        "sortKey=status": "By status"
+      }
+    }
+  ],
   "watchlist_filtered_eyebrow": "{filter} · sorted {sort}",
   "watchlist_filtered_title": "Filtered view",
-
-  "watchlist_tonight_eyebrow": "One step further than 'Recommended'",
-  "watchlist_tonight_title": "Tonight",
+  "watchlist_section_eyebrow": [
+    {
+      "declarations": ["input section"],
+      "selectors": ["section"],
+      "match": {
+        "section=tonight": "One step further than 'Recommended'",
+        "section=ready": "No request needed · stream tonight",
+        "section=mood": "Grouped by feel, not genre",
+        "section=coming_up": "Drops, premieres, return dates",
+        "section=awaiting": "Saved, but not on your servers yet",
+        "section=recent": "Audit trail"
+      }
+    }
+  ],
+  "watchlist_section_title": [
+    {
+      "declarations": ["input section"],
+      "selectors": ["section"],
+      "match": {
+        "section=tonight": "Tonight",
+        "section=ready": "Ready to watch",
+        "section=mood": "By mood",
+        "section=coming_up": "Coming up",
+        "section=awaiting": "Awaiting",
+        "section=recent": "Recently added"
+      }
+    }
+  ],
   "watchlist_tonight_caption": "Picked from your watchlist · 9:42 PM",
   "watchlist_tonight_alternates_kicker": "Or maybe…",
-
-  "watchlist_ready_eyebrow": "No request needed · stream tonight",
-  "watchlist_ready_title": "Ready to watch",
   "watchlist_ready_scroll_prev": "Scroll left",
   "watchlist_ready_scroll_next": "Scroll right",
-
-  "watchlist_mood_eyebrow": "Grouped by feel, not genre",
-  "watchlist_mood_title": "By mood",
   "watchlist_mood_cluster_eyebrow": "Mood",
   "watchlist_mood_auto_clustered": "auto-clustered · {count} moods",
   "watchlist_mood_see_all": "See all {n}",
-
-  "watchlist_mood_slow_burn": "Slow burn",
-  "watchlist_mood_slow_burn_note": "Long takes, careful framing.",
-  "watchlist_mood_quiet_thrill": "Quiet thrillers",
-  "watchlist_mood_quiet_thrill_note": "Procedural, restrained.",
-  "watchlist_mood_period": "Period drama",
-  "watchlist_mood_period_note": "Costumes, candles, courtrooms.",
-  "watchlist_mood_scifi": "Hard sci-fi",
-  "watchlist_mood_scifi_note": "Stars, signals, silence.",
-  "watchlist_mood_comedy": "Easy laughs",
-  "watchlist_mood_comedy_note": "Ensemble, breezy.",
-  "watchlist_mood_horror": "Atmospheric horror",
-  "watchlist_mood_horror_note": "Dread without splatter.",
-
-  "watchlist_mood_cozy": "Cozy night in",
-  "watchlist_mood_cozy_note": "Light, warm, easy to sink into.",
-  "watchlist_mood_epic": "Epic",
-  "watchlist_mood_epic_note": "Big runtime, bigger stakes.",
-  "watchlist_mood_cerebral": "Cerebral",
-  "watchlist_mood_cerebral_note": "Slow burn, meditative.",
-  "watchlist_mood_dark": "Dark",
-  "watchlist_mood_dark_note": "Thriller, horror, crime.",
-  "watchlist_mood_laugh": "Laugh out loud",
-  "watchlist_mood_laugh_note": "Comedy, animation, easy laughs.",
-  "watchlist_mood_throwback": "Throwback",
-  "watchlist_mood_throwback_note": "Pre-1990 classics.",
-  "watchlist_mood_quick": "Quick watch",
-  "watchlist_mood_quick_note": "Movies under 95 minutes.",
-  "watchlist_mood_binge": "Binge-worthy",
-  "watchlist_mood_binge_note": "TV ready to marathon.",
-
+  "watchlist_mood_label": [
+    {
+      "declarations": ["input moodId"],
+      "selectors": ["moodId"],
+      "match": {
+        "moodId=slow_burn": "Slow burn",
+        "moodId=quiet_thrill": "Quiet thrillers",
+        "moodId=period": "Period drama",
+        "moodId=scifi": "Hard sci-fi",
+        "moodId=comedy": "Easy laughs",
+        "moodId=horror": "Atmospheric horror",
+        "moodId=cozy": "Cozy night in",
+        "moodId=epic": "Epic",
+        "moodId=cerebral": "Cerebral",
+        "moodId=dark": "Dark",
+        "moodId=laugh": "Laugh out loud",
+        "moodId=throwback": "Throwback",
+        "moodId=quick": "Quick watch",
+        "moodId=binge": "Binge-worthy"
+      }
+    }
+  ],
+  "watchlist_mood_note": [
+    {
+      "declarations": ["input moodId"],
+      "selectors": ["moodId"],
+      "match": {
+        "moodId=slow_burn": "Long takes, careful framing.",
+        "moodId=quiet_thrill": "Procedural, restrained.",
+        "moodId=period": "Costumes, candles, courtrooms.",
+        "moodId=scifi": "Stars, signals, silence.",
+        "moodId=comedy": "Ensemble, breezy.",
+        "moodId=horror": "Dread without splatter.",
+        "moodId=cozy": "Light, warm, easy to sink into.",
+        "moodId=epic": "Big runtime, bigger stakes.",
+        "moodId=cerebral": "Slow burn, meditative.",
+        "moodId=dark": "Thriller, horror, crime.",
+        "moodId=laugh": "Comedy, animation, easy laughs.",
+        "moodId=throwback": "Pre-1990 classics.",
+        "moodId=quick": "Movies under 95 minutes.",
+        "moodId=binge": "TV ready to marathon."
+      }
+    }
+  ],
   "watchlist_view_all_items": "View all items",
   "watchlist_all_page_title": "All watchlist items",
   "watchlist_all_page_eyebrow": "Filter and sort the full set",
@@ -85,26 +137,34 @@
   "watchlist_breadcrumb_root": "Watchlist",
   "watchlist_breadcrumb_moods": "Moods",
   "watchlist_mood_count": "{count} titles",
-
-  "watchlist_coming_up_eyebrow": "Drops, premieres, return dates",
-  "watchlist_coming_up_title": "Coming up",
-
-  "watchlist_awaiting_eyebrow": "Saved, but not on your servers yet",
-  "watchlist_awaiting_title": "Awaiting",
   "watchlist_awaiting_request_all": "Request all missing",
-
-  "watchlist_recent_eyebrow": "Audit trail",
-  "watchlist_recent_title": "Recently added",
-  "watchlist_recent_source_recommended": "Recommended for you",
-  "watchlist_recent_source_notification": "From notification",
-  "watchlist_recent_source_search": "Search",
-  "watchlist_recent_source_trending": "Trending",
-  "watchlist_recent_source_friend": "Friend's list",
-  "watchlist_recent_time_hours_ago": "{n} hours ago",
-  "watchlist_recent_time_yesterday": "Yesterday",
-  "watchlist_recent_time_days_ago": "{n} days ago",
-  "watchlist_recent_time_last_week": "Last week",
-
+  "watchlist_recent_source": [
+    {
+      "declarations": ["input source"],
+      "selectors": ["source"],
+      "match": {
+        "source=recommended": "Recommended for you",
+        "source=notification": "From notification",
+        "source=search": "Search",
+        "source=trending": "Trending",
+        "source=friend": "Friend's list"
+      }
+    }
+  ],
+  "watchlist_recent_time": [
+    {
+      "declarations": ["input unit", "input n"],
+      "selectors": ["unit"],
+      "match": {
+        "unit=just_now": "Just now",
+        "unit=minutes_ago": "{n} min ago",
+        "unit=hours_ago": "{n} hours ago",
+        "unit=yesterday": "Yesterday",
+        "unit=days_ago": "{n} days ago",
+        "unit=last_week": "Last week"
+      }
+    }
+  ],
   "watchlist_kind": [
     {
       "declarations": ["input kind"],
@@ -117,23 +177,36 @@
     }
   ],
   "watchlist_episodes_count": "{n} eps",
-
   "watchlist_section_count_aria": "{count} items",
-
   "watchlist_partial_banner": "Some watchlist items couldn't be loaded. Refresh to try again.",
-  "watchlist_empty_ready_title": "Nothing ready",
-  "watchlist_empty_ready_description": "Items appear here once they land on a connected media server.",
-  "watchlist_empty_in_progress_title": "No active sessions",
-  "watchlist_empty_in_progress_description": "Resume something you've started watching to fill this section.",
-  "watchlist_empty_awaiting_title": "No items awaiting",
-  "watchlist_empty_awaiting_description": "Items show here once you request them via a connected request app, like Overseerr.",
-  "watchlist_empty_unavailable_title": "Nothing to acquire",
-  "watchlist_empty_unavailable_description": "Items wishlisted that aren't on a media server and haven't been requested yet.",
-  "watchlist_empty_upcoming_title": "Nothing upcoming",
-  "watchlist_empty_upcoming_description": "Future releases on your watchlist show up here.",
+  "watchlist_empty_title": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=ready": "Nothing ready",
+        "bucket=in-progress": "No active sessions",
+        "bucket=awaiting": "No items awaiting",
+        "bucket=unavailable": "Nothing to acquire",
+        "bucket=upcoming": "Nothing upcoming"
+      }
+    }
+  ],
+  "watchlist_empty_description": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=ready": "Items appear here once they land on a connected media server.",
+        "bucket=in-progress": "Resume something you've started watching to fill this section.",
+        "bucket=awaiting": "Items show here once you request them via a connected request app, like Overseerr.",
+        "bucket=unavailable": "Items wishlisted that aren't on a media server and haven't been requested yet.",
+        "bucket=upcoming": "Future releases on your watchlist show up here."
+      }
+    }
+  ],
   "watchlist_empty_mood_title": "{moodLabel} is empty",
   "watchlist_empty_mood_description": "No items match this mood yet.",
-
   "watchlist_add_error": "Couldn't add to watchlist. {message}",
   "watchlist_remove_error": "Couldn't remove from watchlist. {message}",
   "watchlist_toggle_add": "Add to watchlist",
@@ -142,13 +215,18 @@
   "watchlist_load_error_retry": "Retry",
   "watchlist_load_more": "Load more",
   "watchlist_loading_more": "Loading…",
-
-  "watchlist_source_manual": "Added manually",
-  "watchlist_source_plugin": "Synced from plugin",
-  "watchlist_source_search": "From search",
-  "watchlist_source_notification": "From notification",
-  "watchlist_source_recommended": "Recommended",
-  "watchlist_source_trending": "Trending",
-  "watchlist_recent_time_just_now": "Just now",
-  "watchlist_recent_time_minutes_ago": "{n} min ago"
+  "watchlist_source": [
+    {
+      "declarations": ["input source"],
+      "selectors": ["source"],
+      "match": {
+        "source=manual": "Added manually",
+        "source=plugin": "Synced from plugin",
+        "source=search": "From search",
+        "source=notification": "From notification",
+        "source=recommended": "Recommended",
+        "source=trending": "Trending"
+      }
+    }
+  ]
 }

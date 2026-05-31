@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { MediaDetailsResponse } from "@ent-mcp/shared/home";
+import { mediaKeys } from "@/shared/media/query-keys";
 import { fetchHomeDetails } from "../lib/fetchers";
-import { findCachedHomeItem } from "../lib/find-cached-item";
-import { homeKeys } from "../lib/query-keys";
+import { findCachedMediaItem } from "../lib/find-cached-item";
 
 const DETAILS_STALE_MS = 10 * 60 * 1000;
 
@@ -27,13 +27,16 @@ export function useHomeDetails(
 ): UseQueryResult<MediaDetailsResponse, Error> {
   const queryClient = useQueryClient();
   return useQuery({
-    queryKey: homeKeys.details(tmdbId, mediaType),
+    // Derived from `mediaKeys.root` (invariant V.CL1); mirrors
+    // `mediaKeys.title(type, tmdbId)` when both are set and stays stable
+    // (disabled) while the modal is closed and both are null.
+    queryKey: [...mediaKeys.root, "title", mediaType, tmdbId],
     queryFn: () => fetchHomeDetails(tmdbId!, mediaType!),
     enabled: tmdbId !== null && mediaType !== null,
     staleTime: DETAILS_STALE_MS,
     placeholderData: () => {
       if (!tmdbId || !mediaType) return undefined;
-      const summary = findCachedHomeItem(queryClient, `${mediaType}:${tmdbId}`);
+      const summary = findCachedMediaItem(queryClient, `${mediaType}:${tmdbId}`);
       return summary ? { summary, details: null } : undefined;
     },
   });

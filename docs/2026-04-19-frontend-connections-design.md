@@ -250,7 +250,7 @@ OAuth plugins: edit mode allows `displayName` change only. Credentials ⊥ edita
 
 ### Reconnect (OAuth, status = expired | error)
 
-⊥ modal — direct action on card runs same flow as create modal auth step ⊥ form header. `oauth_device`: device-code panel renders as small inline dialog anchored to card.
+`Reconnect` reuses the create-modal auth step in a dedicated reconnect mode of the same `<ConnectionModal>` (`reconnect` prop) — no display-name field, title "Reconnect {name}". `oauth_device` renders the device-code panel; `oauth_redirect` the redirect hand-off. The start call carries only `pluginId`. On completion the server rebinds the fresh credentials to the user's existing connection for that plugin rather than inserting a duplicate — non-poolable plugins (Trakt, Plex) hold one row per user, so the row's id, `displayName`, and `isDefault` are preserved and `status` flips back to `connected`. (An earlier sketch anchored an inline device dialog to the card; kept in the modal for consistency with the create flow.)
 
 ## JSON Schema form renderer
 
@@ -351,7 +351,7 @@ shadcn `AlertDialog`. Copy: "This will remove the {plugin.name} plugin and delet
 | Add connection (OAuth device)   | Available card → modal → Connect → device code panel → approve externally → poll completes → card appears |
 | Edit connection                 | Card dropdown "Edit" → modal pre-filled (non-secret fields) → modify → save                               |
 | Remove connection               | Card dropdown "Remove" → AlertDialog → confirm → card removed                                             |
-| Reconnect (OAuth expired/error) | Prominent card button → direct auth flow (⊥ modal)                                                        |
+| Reconnect (OAuth expired/error) | Prominent card button → reconnect modal re-runs auth ceremony → server rebinds existing connection         |
 | Reconnect (form error)          | Prominent card button → edit modal → fix → test → save                                                    |
 | Test connection                 | Card dropdown → inline spinner → result (auto-dismiss 3s)                                                 |
 | Set as default                  | Card dropdown → immediate swap, previous default loses badge                                              |
