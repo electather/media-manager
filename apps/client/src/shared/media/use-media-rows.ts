@@ -49,8 +49,16 @@ export function mediaRowsQueryOptions<P extends object>(
   source: ClientMediaSource<P>,
   options: MediaRowsOptions = {},
 ) {
+  // Seeded sources (`similarTo`) take no params — the only thing that
+  // distinguishes one title's related feed from another is `initialCursor`, so
+  // fold it into the cache key. Without it every detail page shares
+  // `['media','source','similarTo',null]` and title B renders title A's items
+  // (the old `homeKeys.row(rowId, cursor)` keyed on the cursor for this reason).
+  // Non-seeded sources keep their previous key (no `seed` entry).
+  const params = source.params as Record<string, unknown>;
+  const key = source.initialCursor != null ? { ...params, seed: source.initialCursor } : params;
   return infiniteQueryOptions({
-    queryKey: mediaKeys.source(source.sourceId, source.params as Record<string, unknown>),
+    queryKey: mediaKeys.source(source.sourceId, key),
     queryFn: ({ pageParam }) => source.fetchPage(source.params, pageParam ?? null),
     initialPageParam: (source.initialCursor ?? undefined) as string | undefined,
     getNextPageParam: (last) => last.cursor ?? undefined,

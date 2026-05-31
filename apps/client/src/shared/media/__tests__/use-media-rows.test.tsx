@@ -48,6 +48,16 @@ describe("mediaRowsQueryOptions", () => {
     expect(opts.queryKey).toEqual(mediaKeys.source("watchlist-items", { limit: 60 }));
   });
 
+  it("folds the seed cursor into the key so seeded rows don't collide (regression: PR #540 P2)", () => {
+    // Seeded sources (`similarTo`) carry no params; only `initialCursor`
+    // distinguishes one title's related feed from another. Without it both
+    // titles share one cache entry and title B renders title A's items.
+    const a = mediaRowsQueryOptions(makeSource(vi.fn(), "seed-a"));
+    const b = mediaRowsQueryOptions(makeSource(vi.fn(), "seed-b"));
+    expect(a.queryKey).toEqual(mediaKeys.source("watchlist-items", { limit: 60, seed: "seed-a" }));
+    expect(a.queryKey).not.toEqual(b.queryKey);
+  });
+
   it("threads the page cursor through getNextPageParam, ending on null", () => {
     const opts = mediaRowsQueryOptions(makeSource(vi.fn()));
     const withCursor: Page = { items: [], cursor: "c1", partial: false };

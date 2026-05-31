@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { decode } from "@ent-mcp/shared/media";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { buildRelatedRow } from "../lib/related-items";
 
@@ -9,11 +10,6 @@ function item(overrides: Partial<HomeMediaItem> & { mediaType: "movie" | "tv" })
     title: "Test",
     ...overrides,
   };
-}
-
-function decodeCursor(cursor: string): unknown {
-  const padded = cursor.replace(/-/g, "+").replace(/_/g, "/");
-  return JSON.parse(atob(padded));
 }
 
 describe("buildRelatedRow", () => {
@@ -29,12 +25,19 @@ describe("buildRelatedRow", () => {
     expect(row.kind).toBe("similarTo");
   });
 
-  it("encodes a non-null initialCursor containing tmdbId and mediaType", () => {
+  it("mints a keyset seed cursor the resolver accepts (regression: PR #540 P1)", () => {
+    // The pre-cutover `encodeCursor({tmdbId,mediaType,offset})` shape decoded to
+    // `null` against the new `similarTo` resolver (strict keyset decode,
+    // `cursorOnNull: "400"`), 400'ing "More like this". The cursor must now
+    // decode as a keyset cursor whose `k` carries the seed.
     const row = buildRelatedRow(item({ mediaType: "movie", tmdbId: "550" }));
     expect(row.initialCursor).not.toBeNull();
-    expect(decodeCursor(row.initialCursor!)).toEqual({
-      tmdbId: "550",
-      mediaType: "movie",
+    const cursor = decode(row.initialCursor!, "keyset");
+    expect(cursor).not.toBeNull();
+    expect(cursor?.mode).toBe("keyset");
+    expect(JSON.parse((cursor as { mode: "keyset"; k: string }).k)).toEqual({
+      seedId: "550",
+      seedType: "movie",
       offset: 0,
     });
   });
@@ -53,8 +56,9 @@ describe("buildRelatedRow", () => {
 
   it("seeds the cursor with the TV mediaType for TV items", () => {
     const row = buildRelatedRow(item({ mediaType: "tv", tmdbId: "1396" }));
-    const decoded = decodeCursor(row.initialCursor!) as Record<string, unknown>;
-    expect(decoded.mediaType).toBe("tv");
-    expect(decoded.tmdbId).toBe("1396");
+    const cursor = decode(row.initialCursor!, "keyset") as { mode: "keyset"; k: string };
+    const seed = JSON.parse(cursor.k) as Record<string, unknown>;
+    expect(seed.seedType).toBe("tv");
+    expect(seed.seedId).toBe("1396");
   });
 });

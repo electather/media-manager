@@ -1,22 +1,25 @@
-import { encodeCursor } from "@ent-mcp/shared/home";
 import { ROW_ASPECT } from "@/features/home/lib/home-feed-config";
 import type { HomeMediaItem, RowData } from "@/features/home/lib/types";
+import { encodeSeedCursor } from "@/shared/media/cursor";
 
 /**
  * Builds a `RowData` stub for the detail page's "More like this" strip. The
- * cursor encodes the current title's `tmdbId` and `mediaType` so the server
- * fetches items similar to THIS title rather than a generic recommendation
- * feed. Different titles produce distinct cursors, keeping React Query cache
- * entries separate across detail-page navigations.
+ * cursor seeds the current title's `tmdbId`/`mediaType` so the server fetches
+ * items similar to THIS title rather than a generic recommendation feed.
+ * Different titles produce distinct cursors, keeping React Query cache entries
+ * separate across detail-page navigations.
  *
- * `encodeCursor` is imported from `@ent-mcp/shared/home` so the wire format
- * stays aligned with the server's `similarTo` row decoder.
+ * `encodeSeedCursor` is the SAME helper the server `similarTo` source mints its
+ * seed cursor with (`@ent-mcp/shared/media`), so the client-built cursor decodes
+ * as the keyset shape the resolver expects (`cursorOnNull: "400"`,
+ * `requiresInitialCursor`). The pre-cutover `encodeCursor({tmdbId,mediaType,
+ * offset})` shape decoded to `null` against the new resolver and 400'd the row.
  */
 export function buildRelatedRow(item: HomeMediaItem): RowData {
   return {
     id: "similarTo",
     kind: "similarTo",
-    initialCursor: encodeCursor({ tmdbId: item.tmdbId, mediaType: item.mediaType, offset: 0 }),
+    initialCursor: encodeSeedCursor({ seedId: item.tmdbId, seedType: item.mediaType }),
     defaultAspect: ROW_ASPECT["similarTo"],
   };
 }
