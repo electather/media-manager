@@ -179,7 +179,10 @@ export const mediaApp = new Hono()
   .use("*", requireSession)
   .get("/sources/:sourceId", zValidator("query", sourceQuerySchema), async (c) => {
     const sourceId = c.req.param("sourceId");
-    const reg = REGISTRY[sourceId];
+    // `Object.hasOwn` guard: a bare `REGISTRY[sourceId]` returns the prototype
+    // chain value for names like `__proto__` / `constructor` (truthy), which
+    // would slip past the `!reg` 404 and crash on `reg.paramSchema` (500).
+    const reg = Object.hasOwn(REGISTRY, sourceId) ? REGISTRY[sourceId] : undefined;
     if (!reg) {
       throw notFound("media.source_unknown", `unknown media source: ${sourceId}`);
     }

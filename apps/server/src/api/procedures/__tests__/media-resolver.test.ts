@@ -181,6 +181,16 @@ describe("media source resolver (US-003, design §A3)", () => {
     expect(((await res.json()) as { code: string }).code).toBe("media.source_unknown");
   });
 
+  it("404s a prototype-property sourceId instead of crashing (Object.hasOwn guard)", async () => {
+    // A bare `REGISTRY[sourceId]` returns the prototype value for these names
+    // (truthy), slipping past the 404 and crashing on `reg.paramSchema` (500).
+    for (const id of ["__proto__", "constructor", "toString", "valueOf"]) {
+      const res = await buildApp().request(`/media/sources/${id}`);
+      expect(res.status).toBe(404);
+      expect(((await res.json()) as { code: string }).code).toBe("media.source_unknown");
+    }
+  });
+
   it("404s an ineligible home source with media.source_ineligible", async () => {
     const res = await buildApp().request("/media/sources/fakeHomeIneligible");
     expect(res.status).toBe(404);
