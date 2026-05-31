@@ -18,13 +18,18 @@ export type HomeRowParams = Record<string, never>;
  * page param. `cursorOnNull: "throw"` mirrors the server registration's
  * `"400"` policy — a bad/foreign cursor is rejected rather than reset to page
  * one (invariant V.CU1).
+ *
+ * `rowId` is typed `MediaSourceId` (not raw `string`) so a layout stub that
+ * never narrowed at the wire boundary cannot silently flow an unknown slug into
+ * the resolver — the cast lives once in `toRowData`, against the deliberately
+ * opaque wire `rowId`.
  */
 export function homeRowSource(
-  rowId: string,
+  rowId: MediaSourceId,
   initialCursor: string | null,
 ): ClientMediaSource<HomeRowParams> {
   return defineMediaSource<HomeRowParams>({
-    sourceId: rowId as MediaSourceId,
+    sourceId: rowId,
     params: {},
     mode: "infinite",
     cursorOnNull: "throw",

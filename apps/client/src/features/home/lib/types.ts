@@ -7,6 +7,7 @@ import type {
   RowKind,
   SeriesContext,
 } from "@ent-mcp/shared/home";
+import type { MediaSourceId } from "@ent-mcp/shared/media";
 
 export type { RowKind };
 
@@ -68,8 +69,8 @@ export type HeroSlideUI = HomeMediaItem & {
 };
 
 export type RowData = {
-  /** Stable wire slug (a `MediaSourceId`) — the `sourceId` for `/api/media/sources/:sourceId`. */
-  id: string;
+  /** Stable wire slug — the `sourceId` for `/api/media/sources/:sourceId`. */
+  id: MediaSourceId;
   kind: RowKind;
   seedTitle?: string;
   /** Cursor to pass on the first row fetch (non-null for seeded rows). */
