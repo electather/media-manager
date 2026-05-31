@@ -50,7 +50,17 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
       const unsub = qc.getQueryCache().subscribe(notify);
       return () => unsub();
     },
-    () => qc.getQueryCache().getAll().length,
+    // Scope the snapshot to the watchlist-origin sub-caches (mirrors
+    // `useIsInWatchlist` below). A whole-cache `getAll().length` advanced on
+    // every unrelated query landing (home rows, detail fetches), forcing a
+    // spurious `useMemo` recompute in every consumer; summing `dataUpdatedAt`
+    // over just the watchlist-origin queries advances only when this set can
+    // actually change.
+    () => {
+      let v = 0;
+      for (const q of watchlistOriginQueries(qc)) v += q.state.dataUpdatedAt;
+      return v;
+    },
     () => 0,
   );
   return useMemo(() => {
