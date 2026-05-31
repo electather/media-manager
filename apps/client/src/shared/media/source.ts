@@ -54,7 +54,7 @@ function toQuery(params: Record<string, unknown>): Record<string, string> {
  * present; the resolver decodes only the opaque outer cursor and re-parses the
  * source params off the query (design §A3).
  */
-export function defineMediaSource<P extends object>(
+export function defineMediaSource<P extends Record<string, string | number | null | undefined>>(
   spec: MediaSourceSpec<P>,
 ): ClientMediaSource<P> {
   return {

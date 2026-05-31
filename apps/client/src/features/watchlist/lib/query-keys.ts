@@ -7,12 +7,16 @@ export interface WatchlistItemsKeyOpts {
   mood?: MoodId;
 }
 
-/** Wire params for the `watchlist-items` media source (and thus its query key). */
-export interface WatchlistItemsParams {
+/**
+ * Wire params for the `watchlist-items` media source (and thus its query key).
+ * A `type` (not `interface`) so it carries the implicit index signature that
+ * `defineMediaSource`'s flat-param constraint requires.
+ */
+export type WatchlistItemsParams = {
   sort: WatchlistSort;
   bucket?: WatchlistBucket;
   mood?: MoodId;
-}
+};
 
 /**
  * The single source of truth for the `watchlist-items` request params. Both the
@@ -29,11 +33,12 @@ export function watchlistItemsParams(opts: WatchlistItemsKeyOpts = {}): Watchlis
   return params;
 }
 
-/** Wire params for the `watchlist-mood-items` media source. */
-export interface WatchlistMoodItemsParams {
+/** Wire params for the `watchlist-mood-items` media source (a `type` for the
+ * same flat-param-constraint reason as {@link WatchlistItemsParams}). */
+export type WatchlistMoodItemsParams = {
   moodId: MoodId;
   limit?: number;
-}
+};
 
 export function watchlistMoodItemsParams(moodId: MoodId, limit?: number): WatchlistMoodItemsParams {
   return limit != null ? { moodId, limit } : { moodId };
