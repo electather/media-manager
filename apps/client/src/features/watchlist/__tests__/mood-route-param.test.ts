@@ -21,6 +21,8 @@ describe("watchlist mood route param guard", () => {
   });
 
   it("throws notFound on an unknown mood id", () => {
-    expect(() => guard("banana")).toThrow();
+    // Assert the specific `notFound()` shape so the test can't pass on an
+    // unrelated throw (e.g. a future param-parse error).
+    expect(() => guard("banana")).toThrow(expect.objectContaining({ isNotFound: true }));
   });
 });

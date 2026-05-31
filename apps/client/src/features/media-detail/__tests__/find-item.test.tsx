@@ -74,7 +74,7 @@ describe("useMediaItem", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.includes("/details")) {
+      if (url.includes("/api/media/") && url.endsWith("/details")) {
         return new Response(
           JSON.stringify({
             summary: {
