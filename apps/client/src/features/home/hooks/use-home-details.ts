@@ -2,7 +2,7 @@ import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-q
 import type { MediaDetailsResponse } from "@ent-mcp/shared/home";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { fetchHomeDetails } from "../lib/fetchers";
-import { findCachedHomeItem } from "../lib/find-cached-item";
+import { findCachedMediaItem } from "../lib/find-cached-item";
 
 const DETAILS_STALE_MS = 10 * 60 * 1000;
 
@@ -36,7 +36,7 @@ export function useHomeDetails(
     staleTime: DETAILS_STALE_MS,
     placeholderData: () => {
       if (!tmdbId || !mediaType) return undefined;
-      const summary = findCachedHomeItem(queryClient, `${mediaType}:${tmdbId}`);
+      const summary = findCachedMediaItem(queryClient, `${mediaType}:${tmdbId}`);
       return summary ? { summary, details: null } : undefined;
     },
   });

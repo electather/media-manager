@@ -3,7 +3,7 @@ import { QueryClient } from "@tanstack/react-query";
 import type { CompactMediaItem, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { Page } from "@ent-mcp/shared/media";
 import { mediaKeys } from "@/shared/media/query-keys";
-import { findCachedHomeItem } from "../lib/find-cached-item";
+import { findCachedMediaItem } from "../lib/find-cached-item";
 import { homeKeys } from "../lib/query-keys";
 
 function makeItem(id: string): CompactMediaItem {
@@ -16,10 +16,10 @@ function setSource(qc: QueryClient, sourceId: "trendingNow", pages: Page[]) {
   qc.setQueryData(mediaKeys.source(sourceId, {}), { pages, pageParams: [] });
 }
 
-describe("findCachedHomeItem", () => {
+describe("findCachedMediaItem", () => {
   it("returns null when no caches contain the id", () => {
     const qc = new QueryClient();
-    expect(findCachedHomeItem(qc, "movie:404")).toBeNull();
+    expect(findCachedMediaItem(qc, "movie:404")).toBeNull();
   });
 
   it("matches an item cached on a hero slide", () => {
@@ -30,7 +30,7 @@ describe("findCachedHomeItem", () => {
       rows: [],
       generatedAt: 1,
     });
-    expect(findCachedHomeItem(qc, "movie:1")).toEqual(item);
+    expect(findCachedMediaItem(qc, "movie:1")).toEqual(item);
   });
 
   it("matches an item cached on a shared media source's infinite-query pages", () => {
@@ -40,7 +40,7 @@ describe("findCachedHomeItem", () => {
       { items: [makeItem("movie:1"), makeItem("movie:2")], cursor: null, partial: false },
       { items: [target], cursor: null, partial: false },
     ]);
-    expect(findCachedHomeItem(qc, "tv:42")).toEqual(target);
+    expect(findCachedMediaItem(qc, "tv:42")).toEqual(target);
   });
 
   it("prefers the hero slide hit over a row hit", () => {
@@ -55,6 +55,6 @@ describe("findCachedHomeItem", () => {
       generatedAt: 1,
     });
     setSource(qc, "trendingNow", [{ items: [rowVersion], cursor: null, partial: false }]);
-    expect(findCachedHomeItem(qc, "movie:7")?.title).toBe("from-hero");
+    expect(findCachedMediaItem(qc, "movie:7")?.title).toBe("from-hero");
   });
 });

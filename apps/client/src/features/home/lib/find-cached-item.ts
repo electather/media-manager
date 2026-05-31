@@ -14,9 +14,13 @@ import { homeKeys } from "./query-keys";
  * Hero slides ride on the home layout cache; row items now ride on the shared
  * infinite source caches under `[...mediaKeys.root, "source"]` (design §B3).
  * That prefix also covers watchlist sections — harmless, since a hit returns
- * the same `CompactMediaItem` regardless of which list cached it.
+ * the same `CompactMediaItem` regardless of which list cached it. This relies on
+ * every media source under `mediaKeys.root → "source"` paging the one
+ * `Page`/`CompactMediaItem` shape (invariant V.WIRE1); if a source ever returned
+ * a richer page item, the `getQueriesData<InfiniteData<Page>>` assertion below
+ * would no longer hold.
  */
-export function findCachedHomeItem(qc: QueryClient, id: string): CompactMediaItem | null {
+export function findCachedMediaItem(qc: QueryClient, id: string): CompactMediaItem | null {
   const layout = qc.getQueryData<HomeLayoutResponse>(homeKeys.layout());
   const heroHit = layout?.hero?.slides?.find((slide) => slide.item.id === id)?.item;
   if (heroHit) return heroHit;
