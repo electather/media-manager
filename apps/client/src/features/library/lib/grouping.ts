@@ -51,11 +51,15 @@ function decadeOf(year: number | undefined): number | null {
   return Math.floor(year / 10) * 10;
 }
 
-/** Group by release decade, newest first. Items without a year are dropped. */
+/**
+ * Group by release decade, newest first. Items without a year collect into a
+ * trailing `unknown` bucket (key `"unknown"`, label resolved by the lens via
+ * i18n) so a yearless-only set still renders rather than leaving a blank route.
+ */
 export function groupByDecade(items: LibraryItem[]): LibraryGroup[] {
-  const dated = items.filter((item) => decadeOf(item.year) != null);
-  const buckets = groupBy(dated, (item) => decadeOf(item.year) as number);
-  return Object.keys(buckets)
+  const buckets = groupBy(items, (item) => decadeOf(item.year) ?? "unknown");
+  const decades = Object.keys(buckets)
+    .filter((key) => key !== "unknown")
     .map(Number)
     .sort((a, b) => b - a)
     .map((decade) => ({
@@ -63,6 +67,11 @@ export function groupByDecade(items: LibraryItem[]): LibraryGroup[] {
       label: `${decade}s`,
       items: sortBy(buckets[decade] ?? [], [(item) => -(item.year ?? 0)]),
     }));
+  const undated = buckets.unknown;
+  if (undated && undated.length > 0) {
+    decades.push({ key: "unknown", label: "unknown", items: titleSort(undated) });
+  }
+  return decades;
 }
 
 /** Bucket items by every value a multi-valued axis yields (a title can land in many buckets). */

@@ -59,6 +59,7 @@
     }
   ],
   "library_section_count": "{count} عنوان",
+  "library_timeline_unknown": "سال نامشخص",
   "library_row_prev": "{decade} قبلی",
   "library_row_next": "{decade} بعدی",
   "library_az_rail_label": "پرش به حرف",

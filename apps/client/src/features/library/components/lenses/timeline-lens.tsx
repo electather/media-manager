@@ -30,33 +30,38 @@ export function TimelineLens({ items }: { items: LibraryItem[] }) {
 
   return (
     <div className="flex flex-col gap-12">
-      {decades.map((decade) => (
-        <ScrollRow key={decade.key} revalidationKey={decade.items.length}>
-          <SectionHead>
-            <SectionHeadHeading>
-              <SectionHeadTitle>
-                {decade.label}
-                <SectionHeadCount value={decade.items.length} />
-              </SectionHeadTitle>
-            </SectionHeadHeading>
-            <SectionHeadActions>
-              <ScrollRowPrevButton aria-label={m.library_row_prev({ decade: decade.label })} />
-              <ScrollRowNextButton aria-label={m.library_row_next({ decade: decade.label })} />
-            </SectionHeadActions>
-          </SectionHead>
-          <ScrollRowViewport style={POSTER_VARS}>
-            <ScrollRowTrack
-              virtualize
-              aria-label={decade.label}
-              className="pb-1"
-              items={decade.items}
-              getKey={(item) => item.id}
-              estimateItemWidth={200}
-              renderItem={(item) => <LibraryCard item={item} />}
-            />
-          </ScrollRowViewport>
-        </ScrollRow>
-      ))}
+      {decades.map((decade) => {
+        // Yearless titles land in the `unknown` bucket grouping appends last; its
+        // label is localized here so the lib layer can stay i18n-free.
+        const label = decade.key === "unknown" ? m.library_timeline_unknown() : decade.label;
+        return (
+          <ScrollRow key={decade.key} revalidationKey={decade.items.length}>
+            <SectionHead>
+              <SectionHeadHeading>
+                <SectionHeadTitle>
+                  {label}
+                  <SectionHeadCount value={decade.items.length} />
+                </SectionHeadTitle>
+              </SectionHeadHeading>
+              <SectionHeadActions>
+                <ScrollRowPrevButton aria-label={m.library_row_prev({ decade: label })} />
+                <ScrollRowNextButton aria-label={m.library_row_next({ decade: label })} />
+              </SectionHeadActions>
+            </SectionHead>
+            <ScrollRowViewport style={POSTER_VARS}>
+              <ScrollRowTrack
+                virtualize
+                aria-label={label}
+                className="pb-1"
+                items={decade.items}
+                getKey={(item) => item.id}
+                estimateItemWidth={200}
+                renderItem={(item) => <LibraryCard item={item} />}
+              />
+            </ScrollRowViewport>
+          </ScrollRow>
+        );
+      })}
     </div>
   );
 }

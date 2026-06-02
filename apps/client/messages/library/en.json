@@ -59,6 +59,7 @@
     }
   ],
   "library_section_count": "{count} titles",
+  "library_timeline_unknown": "Unknown year",
   "library_row_prev": "Previous {decade}",
   "library_row_next": "Next {decade}",
   "library_az_rail_label": "Jump to letter",

@@ -146,6 +146,20 @@ describe("grouping", () => {
     expect(groups.map((g) => g.label)).toEqual(["2020s", "2000s", "1990s"]);
   });
 
+  it("collects yearless titles into a trailing unknown bucket so they stay visible", () => {
+    const groups = groupByDecade([
+      item({ id: "1", title: "Dated", year: 2021 }),
+      item({ id: "2", title: "Yearless", year: undefined }),
+    ]);
+    expect(groups.map((g) => g.key)).toEqual(["2020", "unknown"]);
+    expect(groups.at(-1)?.items.map((i) => i.id)).toEqual(["2"]);
+  });
+
+  it("renders a yearless-only set instead of dropping every row", () => {
+    const groups = groupByDecade([item({ id: "1", title: "Yearless", year: undefined })]);
+    expect(groups.map((g) => g.key)).toEqual(["unknown"]);
+  });
+
   it("orders quality tiers by descending fidelity and lists an item under each tag", () => {
     const groups = groupByQuality([item({ id: "1", title: "A", tags: ["Atmos", "4K HDR"] })]);
     expect(groups.map((g) => g.key)).toEqual(["4K HDR", "Atmos"]);
