@@ -36,12 +36,13 @@ export type LibrarySearch = z.infer<typeof librarySearchSchema>;
 
 /** Hydrate the page's filter state from the (validated) URL search params. */
 export function searchToFilters(search: LibrarySearch): LibraryFilters {
+  const axis = <T>(values: T[] | undefined): T[] => values ?? [];
   return {
-    kinds: search.kinds ?? [],
-    genres: search.genres ?? [],
-    qualities: search.qualities ?? [],
-    servers: search.servers ?? [],
-    watched: search.watched ?? [],
+    kinds: axis(search.kinds),
+    genres: axis(search.genres),
+    qualities: axis(search.qualities),
+    servers: axis(search.servers),
+    watched: axis(search.watched),
   };
 }
 

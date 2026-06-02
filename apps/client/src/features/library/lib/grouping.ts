@@ -65,16 +65,25 @@ export function groupByDecade(items: LibraryItem[]): LibraryGroup[] {
     }));
 }
 
-/** Group by server availability; a title appears under each server that hosts it. */
-export function groupByServer(items: LibraryItem[]): LibraryGroup[] {
+/** Bucket items by every value a multi-valued axis yields (a title can land in many buckets). */
+function bucketByValues(
+  items: LibraryItem[],
+  valuesOf: (item: LibraryItem) => string[],
+): Map<string, LibraryItem[]> {
   const buckets = new Map<string, LibraryItem[]>();
   for (const item of items) {
-    for (const server of serversOf(item)) {
-      const bucket = buckets.get(server);
+    for (const value of valuesOf(item)) {
+      const bucket = buckets.get(value);
       if (bucket) bucket.push(item);
-      else buckets.set(server, [item]);
+      else buckets.set(value, [item]);
     }
   }
+  return buckets;
+}
+
+/** Group by server availability; a title appears under each server that hosts it. */
+export function groupByServer(items: LibraryItem[]): LibraryGroup[] {
+  const buckets = bucketByValues(items, serversOf);
   return [...buckets.keys()].sort().map((server) => ({
     key: server,
     label: server,
@@ -84,14 +93,7 @@ export function groupByServer(items: LibraryItem[]): LibraryGroup[] {
 
 /** Group by quality tier in descending fidelity; a title appears under each tier it carries. */
 export function groupByQuality(items: LibraryItem[]): LibraryGroup[] {
-  const buckets = new Map<string, LibraryItem[]>();
-  for (const item of items) {
-    for (const quality of qualitiesOf(item)) {
-      const bucket = buckets.get(quality);
-      if (bucket) bucket.push(item);
-      else buckets.set(quality, [item]);
-    }
-  }
+  const buckets = bucketByValues(items, qualitiesOf);
   const order = (tier: string) => {
     const index = QUALITY_TIERS.indexOf(tier as (typeof QUALITY_TIERS)[number]);
     return index === -1 ? QUALITY_TIERS.length : index;

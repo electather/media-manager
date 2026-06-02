@@ -13,6 +13,16 @@ import { LibraryGrid } from "../library-grid";
 
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
 
+/** Fold a batch of observer entries into the running set of visible section keys. */
+function trackVisibleSections(visible: Set<string>, entries: IntersectionObserverEntry[]) {
+  for (const entry of entries) {
+    const key = (entry.target as HTMLElement).dataset.letter;
+    if (key === undefined) continue;
+    if (entry.isIntersecting) visible.add(key);
+    else visible.delete(key);
+  }
+}
+
 /**
  * Alphabetical index: a sticky letter rail beside per-letter sections. Clicking
  * a populated letter smooth-scrolls to its section; empty letters are inert. An
@@ -38,12 +48,7 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
     const visible = new Set<string>();
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          const key = (entry.target as HTMLElement).dataset.letter;
-          if (key === undefined) continue;
-          if (entry.isIntersecting) visible.add(key);
-          else visible.delete(key);
-        }
+        trackVisibleSections(visible, entries);
         if (visible.size === 0) return;
         const next = keys.find((key) => visible.has(key)) ?? null;
         setActiveKey((prev) => (prev === next ? prev : next));
