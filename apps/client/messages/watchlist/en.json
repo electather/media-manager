@@ -179,17 +179,6 @@
       }
     }
   ],
-  "watchlist_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "Movie",
-        "kind=tv": "TV series",
-        "kind=*": "TV series"
-      }
-    }
-  ],
   "watchlist_episodes_count": "{n} eps",
   "watchlist_section_count_aria": "{count} items",
   "watchlist_partial_banner": "Some watchlist items couldn't be loaded. Refresh to try again.",

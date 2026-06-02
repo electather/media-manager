@@ -98,17 +98,6 @@
   "home_card_unavailable": "TODO",
   "home_card_upcoming": "TODO",
   "home_card_servers_count": "TODO",
-  "home_card_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "TODO",
-        "kind=tv": "TODO",
-        "kind=*": "TODO"
-      }
-    }
-  ],
   "home_card_episode_label": "TODO",
   "home_detail_request": "TODO",
   "home_detail_watch": "TODO",

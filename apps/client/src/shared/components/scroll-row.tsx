@@ -24,6 +24,17 @@ interface ScrollRowContextValue {
   scrollByDir: (dir: -1 | 1) => void;
 }
 
+/** CSS custom properties that size the cards within a `ScrollRow` track. */
+interface CardWidthVars extends CSSProperties {
+  "--card-w": string;
+  "--card-h": string;
+}
+
+/** Poster (2:3) card sizing shared by every poster row. */
+const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
+/** Backdrop (16:9) card sizing shared by every backdrop row. */
+const BACKDROP_VARS: CardWidthVars = { "--card-w": "320px", "--card-h": "180px" };
+
 const ScrollRowContext = createContext<ScrollRowContextValue | null>(null);
 
 function useScrollRow(): ScrollRowContextValue {
@@ -296,6 +307,8 @@ function ScrollRowSkeleton({ aspect, className, ...props }: ScrollRowSkeletonPro
 }
 
 export {
+  BACKDROP_VARS,
+  POSTER_VARS,
   ScrollRow,
   ScrollRowItem,
   ScrollRowNextButton,

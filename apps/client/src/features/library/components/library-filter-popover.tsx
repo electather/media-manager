@@ -5,6 +5,7 @@ import * as m from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { countActiveFilters } from "../lib/filtering";
 import { facetSectionLabel, kindLabel, watchedLabel } from "../lib/labels";
 import {
@@ -14,7 +15,6 @@ import {
   type LibraryFilters,
   type WatchedState,
 } from "../lib/types";
-import { LibraryFacetPill } from "./library-facet-pill";
 
 const KINDS: MediaType[] = ["movie", "tv"];
 
@@ -25,18 +25,24 @@ interface LibraryFilterPopoverProps {
   onChange: (filters: LibraryFilters) => void;
 }
 
-function toggle<T>(values: T[], value: T): T[] {
-  return values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
-}
-
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
       <h3 className="font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground/80">
         {title}
       </h3>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
+      {children}
     </section>
+  );
+}
+
+/** The match-count badge trailing a facet option; brightens with the pressed pill. */
+function FacetCount({ value }: { value?: number }) {
+  if (value == null) return null;
+  return (
+    <span className="font-mono text-[0.625rem] tabular-nums text-muted-foreground/60 [[data-pressed]_&]:text-primary-foreground/70">
+      {value}
+    </span>
   );
 }
 
@@ -89,63 +95,78 @@ export function LibraryFilterPopover({
 
         <div className="grid grid-cols-1 gap-5 overflow-y-auto p-4 sm:grid-cols-2">
           <Section title={facetSectionLabel("kind")}>
-            {KINDS.map((kind) => (
-              <LibraryFacetPill
-                key={kind}
-                label={kindLabel(kind)}
-                count={facetCounts.kinds[kind]}
-                active={filters.kinds.includes(kind)}
-                onToggle={() => set("kinds", toggle(filters.kinds, kind))}
-              />
-            ))}
+            <ToggleGroup<MediaType>
+              multiple
+              value={filters.kinds}
+              onValueChange={(next) => set("kinds", next)}
+            >
+              {KINDS.map((kind) => (
+                <ToggleGroupItem<MediaType> key={kind} value={kind} variant="primary">
+                  {kindLabel(kind)}
+                  <FacetCount value={facetCounts.kinds[kind]} />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Section>
 
           <Section title={facetSectionLabel("watched")}>
-            {WATCHED_STATES.map((state: WatchedState) => (
-              <LibraryFacetPill
-                key={state}
-                label={watchedLabel(state)}
-                count={facetCounts.watched[state]}
-                active={filters.watched.includes(state)}
-                onToggle={() => set("watched", toggle(filters.watched, state))}
-              />
-            ))}
+            <ToggleGroup<WatchedState>
+              multiple
+              value={filters.watched}
+              onValueChange={(next) => set("watched", next)}
+            >
+              {WATCHED_STATES.map((state: WatchedState) => (
+                <ToggleGroupItem<WatchedState> key={state} value={state} variant="primary">
+                  {watchedLabel(state)}
+                  <FacetCount value={facetCounts.watched[state]} />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Section>
 
           <Section title={facetSectionLabel("genre")}>
-            {facetValues.genres.map((genre) => (
-              <LibraryFacetPill
-                key={genre}
-                label={genre}
-                count={facetCounts.genres[genre]}
-                active={filters.genres.includes(genre)}
-                onToggle={() => set("genres", toggle(filters.genres, genre))}
-              />
-            ))}
+            <ToggleGroup
+              multiple
+              value={filters.genres}
+              onValueChange={(next) => set("genres", next)}
+            >
+              {facetValues.genres.map((genre) => (
+                <ToggleGroupItem key={genre} value={genre} variant="primary">
+                  {genre}
+                  <FacetCount value={facetCounts.genres[genre]} />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Section>
 
           <Section title={facetSectionLabel("quality")}>
-            {facetValues.qualities.map((quality) => (
-              <LibraryFacetPill
-                key={quality}
-                label={quality}
-                count={facetCounts.qualities[quality]}
-                active={filters.qualities.includes(quality)}
-                onToggle={() => set("qualities", toggle(filters.qualities, quality))}
-              />
-            ))}
+            <ToggleGroup
+              multiple
+              value={filters.qualities}
+              onValueChange={(next) => set("qualities", next)}
+            >
+              {facetValues.qualities.map((quality) => (
+                <ToggleGroupItem key={quality} value={quality} variant="primary">
+                  {quality}
+                  <FacetCount value={facetCounts.qualities[quality]} />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Section>
 
           <Section title={facetSectionLabel("server")}>
-            {facetValues.servers.map((server) => (
-              <LibraryFacetPill
-                key={server}
-                label={server}
-                count={facetCounts.servers[server]}
-                active={filters.servers.includes(server)}
-                onToggle={() => set("servers", toggle(filters.servers, server))}
-              />
-            ))}
+            <ToggleGroup
+              multiple
+              value={filters.servers}
+              onValueChange={(next) => set("servers", next)}
+            >
+              {facetValues.servers.map((server) => (
+                <ToggleGroupItem key={server} value={server} variant="primary">
+                  {server}
+                  <FacetCount value={facetCounts.servers[server]} />
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Section>
         </div>
 

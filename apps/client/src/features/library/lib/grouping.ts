@@ -1,4 +1,4 @@
-import { sortBy } from "es-toolkit";
+import { groupBy, sortBy } from "es-toolkit";
 import { qualitiesOf, serversOf } from "./filtering";
 import type { LibraryItem } from "./types";
 
@@ -26,14 +26,8 @@ export function indexLetter(title: string): string {
 
 /** Group titles alphabetically (A–Z, with a trailing `#` bucket for the rest). */
 export function groupByLetter(items: LibraryItem[]): LibraryGroup[] {
-  const buckets = new Map<string, LibraryItem[]>();
-  for (const item of items) {
-    const letter = indexLetter(item.title);
-    const bucket = buckets.get(letter);
-    if (bucket) bucket.push(item);
-    else buckets.set(letter, [item]);
-  }
-  const letters = [...buckets.keys()].sort((a, b) => {
+  const buckets = groupBy(items, (item) => indexLetter(item.title));
+  const letters = Object.keys(buckets).sort((a, b) => {
     if (a === "#") return 1;
     if (b === "#") return -1;
     return a.localeCompare(b);
@@ -41,7 +35,7 @@ export function groupByLetter(items: LibraryItem[]): LibraryGroup[] {
   return letters.map((letter) => ({
     key: letter,
     label: letter,
-    items: titleSort(buckets.get(letter) ?? []),
+    items: titleSort(buckets[letter] ?? []),
   }));
 }
 
@@ -59,20 +53,15 @@ function decadeOf(year: number | undefined): number | null {
 
 /** Group by release decade, newest first. Items without a year are dropped. */
 export function groupByDecade(items: LibraryItem[]): LibraryGroup[] {
-  const buckets = new Map<number, LibraryItem[]>();
-  for (const item of items) {
-    const decade = decadeOf(item.year);
-    if (decade == null) continue;
-    const bucket = buckets.get(decade);
-    if (bucket) bucket.push(item);
-    else buckets.set(decade, [item]);
-  }
-  return [...buckets.keys()]
+  const dated = items.filter((item) => decadeOf(item.year) != null);
+  const buckets = groupBy(dated, (item) => decadeOf(item.year) as number);
+  return Object.keys(buckets)
+    .map(Number)
     .sort((a, b) => b - a)
     .map((decade) => ({
       key: String(decade),
       label: `${decade}s`,
-      items: sortBy(buckets.get(decade) ?? [], [(item) => -(item.year ?? 0)]),
+      items: sortBy(buckets[decade] ?? [], [(item) => -(item.year ?? 0)]),
     }));
 }
 

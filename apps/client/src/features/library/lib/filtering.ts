@@ -1,4 +1,4 @@
-import { uniq } from "es-toolkit";
+import { countBy, uniq } from "es-toolkit";
 import type { LibraryFacetCounts, LibraryFilters, LibraryItem, WatchedState } from "./types";
 
 /** The quality tiers and servers a facet can offer, derived from the item set. */
@@ -58,32 +58,33 @@ export function applyLibraryFilters(items: LibraryItem[], filters: LibraryFilter
   return items.filter((item) => matchesFilters(item, filters));
 }
 
-const WATCHED_KEYS: WatchedState[] = ["watched", "partial", "unwatched"];
-
 /**
  * How many items match each facet option, counted across the whole catalog so
  * the badges stay stable as the user toggles pills (design: facet count badges).
+ * Single-valued axes (kind, watched) fall straight out of `countBy`; the
+ * multi-valued axes count each distinct value an item carries exactly once.
  */
 export function computeFacetCounts(items: LibraryItem[]): LibraryFacetCounts {
+  const watched = countBy(items, watchedStateOf) as Partial<Record<WatchedState, number>>;
   const counts: LibraryFacetCounts = {
-    kinds: {},
+    kinds: countBy(items, (item) => item.mediaType),
     genres: {},
     qualities: {},
     servers: {},
-    watched: { watched: 0, partial: 0, unwatched: 0 },
+    watched: {
+      watched: watched.watched ?? 0,
+      partial: watched.partial ?? 0,
+      unwatched: watched.unwatched ?? 0,
+    },
   };
   const bump = (record: Record<string, number>, key: string) => {
     record[key] = (record[key] ?? 0) + 1;
   };
   for (const item of items) {
-    bump(counts.kinds, item.mediaType);
     for (const genre of uniq(genresOf(item))) bump(counts.genres, genre);
     for (const quality of uniq(qualitiesOf(item))) bump(counts.qualities, quality);
     for (const server of uniq(serversOf(item))) bump(counts.servers, server);
-    counts.watched[watchedStateOf(item)] += 1;
   }
-  // Ensure every watched bucket has a numeric entry even when none match.
-  for (const key of WATCHED_KEYS) counts.watched[key] ??= 0;
   return counts;
 }
 

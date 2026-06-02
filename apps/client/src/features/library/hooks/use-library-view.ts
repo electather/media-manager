@@ -1,6 +1,7 @@
 import { useMemo } from "react";
-import { applyLibraryFilters, collectFacetValues, computeFacetCounts } from "../lib/filtering";
+import { collectFacetValues, computeFacetCounts } from "../lib/filtering";
 import type { LibraryData, LibraryFilters } from "../lib/types";
+import { useFilteredLibraryItems } from "./use-filtered-library-items";
 
 interface UseLibraryViewArgs {
   data: LibraryData;
@@ -14,7 +15,7 @@ interface UseLibraryViewArgs {
  * unrelated state (e.g. lens switch) stay cheap.
  */
 export function useLibraryView({ data, filters }: UseLibraryViewArgs) {
-  const filtered = useMemo(() => applyLibraryFilters(data.items, filters), [data.items, filters]);
+  const filtered = useFilteredLibraryItems(data, filters);
   const facetValues = useMemo(() => collectFacetValues(data.items), [data.items]);
   const facetCounts = useMemo(() => computeFacetCounts(data.items), [data.items]);
   return { filtered, facetValues, facetCounts };

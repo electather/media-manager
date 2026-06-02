@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo } from "react";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
@@ -8,6 +8,7 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import {
+  POSTER_VARS,
   ScrollRow,
   ScrollRowNextButton,
   ScrollRowPrevButton,
@@ -17,13 +18,6 @@ import {
 import { groupByDecade } from "../../lib/grouping";
 import type { LibraryItem } from "../../lib/types";
 import { LibraryCard } from "../library-card";
-
-interface CardWidthVars extends CSSProperties {
-  "--card-w": string;
-  "--card-h": string;
-}
-
-const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
 
 /**
  * Release timeline: one row per decade (newest first), each ordered

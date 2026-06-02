@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, type CSSProperties } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
@@ -8,6 +8,8 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import {
+  BACKDROP_VARS,
+  POSTER_VARS,
   ScrollRow,
   ScrollRowNextButton,
   ScrollRowPrevButton,
@@ -31,14 +33,6 @@ interface RowProps {
   onWatchlistToggle?: (item: HomeMediaItem) => void;
   onCardClick?: (id: string) => void;
 }
-
-interface CardWidthVars extends CSSProperties {
-  "--card-w": string;
-  "--card-h": string;
-}
-
-const BACKDROP_VARS: CardWidthVars = { "--card-w": "320px", "--card-h": "180px" };
-const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
 
 const ERROR_SENTINEL = { __kind: "error-sentinel" as const };
 type ErrorSentinel = typeof ERROR_SENTINEL;

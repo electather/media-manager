@@ -98,17 +98,6 @@
   "home_card_unavailable": "Unavailable",
   "home_card_upcoming": "Upcoming",
   "home_card_servers_count": "{n} servers",
-  "home_card_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "Movie",
-        "kind=tv": "TV series",
-        "kind=*": "TV series"
-      }
-    }
-  ],
   "home_card_episode_label": "S{s}E{e}",
   "home_detail_request": "Request",
   "home_detail_watch": "Watch",

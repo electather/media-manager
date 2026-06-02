@@ -20,17 +20,6 @@
       }
     }
   ],
-  "library_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "Movie",
-        "kind=tv": "TV series",
-        "kind=*": "TV series"
-      }
-    }
-  ],
   "library_watched": [
     {
       "declarations": ["input state"],

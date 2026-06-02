@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { applyLibraryFilters } from "../lib/filtering";
+import { useFilteredLibraryItems } from "./use-filtered-library-items";
 import { useLibrary } from "./use-library";
 import { useLibraryFilters } from "./use-library-filters";
 
@@ -12,6 +11,6 @@ import { useLibraryFilters } from "./use-library-filters";
 export function useLibraryContent() {
   const { data } = useLibrary();
   const { filters, resetFilters } = useLibraryFilters();
-  const items = useMemo(() => applyLibraryFilters(data.items, filters), [data.items, filters]);
+  const items = useFilteredLibraryItems(data, filters);
   return { items, collections: data.collections, isEmpty: items.length === 0, resetFilters };
 }

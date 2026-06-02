@@ -30,6 +30,14 @@ const toggleGroupItemVariants = cva(
           "hover:border-input hover:text-foreground",
           "data-pressed:border-input data-pressed:bg-muted data-pressed:text-foreground",
         ),
+        // Like `chip`, but pill-shaped with a solid primary fill when pressed —
+        // used where an active selection needs to read as strongly on (e.g. the
+        // library filter facets).
+        primary: cn(
+          "rounded-full border border-border bg-transparent px-2.5 py-1 text-muted-foreground",
+          "hover:border-input hover:text-foreground",
+          "data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground",
+        ),
         segmented:
           "border-r border-border bg-transparent px-3 py-1 text-muted-foreground last:border-r-0 hover:bg-muted/60 data-pressed:bg-muted data-pressed:text-foreground",
       },

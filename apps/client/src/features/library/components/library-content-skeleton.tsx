@@ -1,4 +1,5 @@
 import { Skeleton } from "@/shared/ui/skeleton";
+import { LIBRARY_GRID_CLASS } from "./library-grid";
 
 const TILE_KEYS = Array.from({ length: 12 }, (_, index) => `tile-${index}`);
 
@@ -9,7 +10,7 @@ const TILE_KEYS = Array.from({ length: 12 }, (_, index) => `tile-${index}`);
  */
 export function LibraryContentSkeleton() {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-x-3.5 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]">
+    <div className={LIBRARY_GRID_CLASS}>
       {TILE_KEYS.map((key) => (
         <div key={key} className="flex flex-col gap-2">
           <Skeleton className="aspect-2/3 w-full rounded-xl" />
