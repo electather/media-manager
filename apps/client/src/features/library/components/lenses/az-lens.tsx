@@ -32,7 +32,10 @@ function trackVisibleSections(visible: Set<string>, entries: IntersectionObserve
 export function AzLens({ items }: { items: LibraryItem[] }) {
   const groups = useMemo(() => groupByLetter(items), [items]);
   const alphabet = useMemo(() => buildAlphabet(items), [items]);
-  const [activeKey, setActiveKey] = useState<string | null>(null);
+  // Highlight the first section from the start; the observer below corrects it
+  // as soon as the user scrolls. Without this the rail shows nothing active on
+  // load even though section `A` is already at the top of the viewport.
+  const [activeKey, setActiveKey] = useState<string | null>(groups[0]?.key ?? null);
 
   // Scroll-spy via IntersectionObserver (works regardless of which ancestor
   // scrolls). The active letter is the topmost section intersecting a band just

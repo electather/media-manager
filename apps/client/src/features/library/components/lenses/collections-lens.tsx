@@ -87,6 +87,10 @@ function CollectionCard({
     .filter((item): item is LibraryItem => Boolean(item))
     .slice(0, 4);
 
+  // Intentionally inert for this pass: the card carries hover affordance but no
+  // click target yet. Collection drill-down (a pre-filtered `/library` view) is
+  // out of scope here and lands with the collections detail route — don't wire a
+  // half-finished handler onto the hover state.
   return (
     <article
       className={cn(
