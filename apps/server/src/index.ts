@@ -13,6 +13,7 @@ import * as artwork from "./artwork";
 import * as auth from "./auth";
 import * as catalog from "./catalog";
 import * as home from "./home";
+import * as library from "./library";
 import * as media from "./media";
 import * as notifications from "./notifications";
 import * as preferences from "./preferences";
@@ -40,6 +41,7 @@ async function bootstrap(): Promise<void> {
   auth.registerJobs();
   catalog.registerJobs();
   home.registerJobs();
+  library.registerJobs();
   media.registerJobs();
   notifications.registerJobs();
   pluginRuntime.registerJobs();

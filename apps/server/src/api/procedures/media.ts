@@ -30,6 +30,7 @@ import {
   homeMediaSources,
 } from "../../home";
 import { getMoodSummary, watchlistMediaSources } from "../../watchlist";
+import { libraryMediaSources } from "../../library";
 import { badRequest, notFound } from "../../diagnostics/http-errors";
 import { zValidator } from "../../diagnostics/validator";
 import { rateLimitOrNull } from "../rate-limit";
@@ -53,6 +54,7 @@ export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 30, refil
 const REGISTRY: Record<string, AnyMediaSourceRegistration | undefined> = {
   ...homeMediaSources,
   ...watchlistMediaSources,
+  ...libraryMediaSources,
 };
 
 /** Per-request plugin-call deadline budget, matching the home feed's `buildContext`. */

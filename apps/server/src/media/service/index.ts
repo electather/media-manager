@@ -4,7 +4,7 @@ import {
   dispatchSingle,
   type AggregateResult,
 } from "./dispatch";
-import type { CapabilityScope } from "@ent-mcp/shared/plugins";
+import type { CapabilityScope, LibraryItemQuality } from "@ent-mcp/shared/plugins";
 import type { SeasonInfo } from "@ent-mcp/shared/home";
 import {
   mediaRequestSchema,
@@ -679,6 +679,26 @@ export class MediaService {
     return interpretAggregate("watchlist@v1", result);
   }
 
+  /**
+   * Aggregate `collection@v1.getCollection` for the owned-library membership
+   * sync. Mirrors `getWatchlistFeed`: surfaces the `partial` flag and throws
+   * `AllPluginsFailedError` on a terminal all-providers failure so the library
+   * sync can classify the run outcome. The library module is the first consumer
+   * of this capability (design §Sync + hydrate).
+   */
+  // fallow-ignore-next-line unused-class-member
+  async getCollectionFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "collection",
+      version: "v1",
+      method: "getCollection",
+      input: {},
+      deadlineMs: opts.deadlineMs,
+    });
+    return interpretAggregate("collection@v1", result);
+  }
+
   /** Aggregate `recommendations@v1.getTrending`. */
   // fallow-ignore-next-line unused-class-member
   async getTrendingFeed(opts: {
@@ -788,6 +808,77 @@ export class MediaService {
     );
     this.matchingServersCache.set(key, promise);
     return promise;
+  }
+
+  /**
+   * Per-copy quality lookup across every `libraryAvailability@v1` provider for
+   * the user. Unlike `getMatchingServers` — which only needs the chip and so
+   * discards `items[].quality` — this returns the raw quality descriptor of
+   * every owned copy so the library hydrate job can derive its `qualityTiers`
+   * projection (design §Sync + hydrate: "quality ← checkAvailability PER item").
+   *
+   * This is the N-call fan-out the design flags: one `checkAvailability` per
+   * provider per title. It is intended for the background hydrate job, never a
+   * request hot path. Per-plugin failures are dropped (best-effort) and an empty
+   * array is returned when no provider has the title — a title with no resolvable
+   * copies hydrates to empty quality tiers rather than throwing.
+   */
+  async getAvailabilityQuality(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts: { deadlineMs?: number } = {},
+  ): Promise<LibraryItemQuality[]> {
+    const providers = capabilityRegistry.listProviders("libraryAvailability", "v1", "user");
+    if (providers.length === 0) return [];
+    const capability = requireCapability("libraryAvailability", "v1");
+    const queryType = type === "tv" ? "show" : "movie";
+    const perProvider = await Promise.all(
+      providers.map((pluginId) =>
+        this.probeQuality(pluginId, tmdbId, queryType, capability, opts.deadlineMs),
+      ),
+    );
+    return perProvider.flat();
+  }
+
+  /**
+   * Returns the quality descriptor of every copy of `tmdbId` on `pluginId`, or
+   * an empty array when the plugin has no usable connection or the title is
+   * absent. Mirrors `probeServerLegacy`'s connection walk but keeps the copies
+   * instead of collapsing them to a single chip. A malformed `quality` payload
+   * is skipped rather than failing the whole probe.
+   */
+  // fallow-ignore-next-line complexity
+  private async probeQuality(
+    pluginId: string,
+    tmdbId: string,
+    queryType: "movie" | "show",
+    capability: ReturnType<typeof requireCapability>,
+    deadlineMs: number | undefined,
+  ): Promise<LibraryItemQuality[]> {
+    // libraryAvailability@v1 is user-scoped: never borrow admin shared creds.
+    const conns = await resolveConnections(this.userId, pluginId, "user");
+    if (conns.length === 0) return [];
+    for (const conn of conns) {
+      const outcome = await invokeOne<{ items: { quality?: LibraryItemQuality }[] }>(
+        {
+          userId: this.userId,
+          pluginId,
+          capability: "libraryAvailability",
+          version: "v1",
+          method: "checkAvailability",
+          input: { id: tmdbId, idType: "tmdb", type: queryType },
+          timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs,
+        },
+        conn,
+      );
+      if (!outcome.error && Array.isArray(outcome.data?.items) && outcome.data.items.length > 0) {
+        return outcome.data.items
+          .map((item) => item.quality)
+          .filter((quality): quality is LibraryItemQuality => quality != null);
+      }
+    }
+    return [];
   }
 
   // fallow-ignore-next-line complexity
