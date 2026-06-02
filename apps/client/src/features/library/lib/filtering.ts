@@ -1,11 +1,5 @@
 import { uniq } from "es-toolkit";
-import type {
-  LibraryFacetCounts,
-  LibraryFilters,
-  LibraryItem,
-  LibraryStats,
-  WatchedState,
-} from "./types";
+import type { LibraryFacetCounts, LibraryFilters, LibraryItem, WatchedState } from "./types";
 
 /** The quality tiers and servers a facet can offer, derived from the item set. */
 export function qualitiesOf(item: LibraryItem): string[] {
@@ -59,44 +53,9 @@ function matchesFilters(item: LibraryItem, filters: LibraryFilters): boolean {
   return true;
 }
 
-/** Apply the facet filters and a case-insensitive title search to the catalog. */
-export function applyLibraryFilters(
-  items: LibraryItem[],
-  filters: LibraryFilters,
-  query: string,
-): LibraryItem[] {
-  const needle = query.trim().toLowerCase();
-  return items.filter((item) => {
-    if (needle && !item.title.toLowerCase().includes(needle)) return false;
-    return matchesFilters(item, filters);
-  });
-}
-
-/** Roll-up figures for the stats spine, computed over the supplied (filtered) set. */
-export function computeStats(items: LibraryItem[]): LibraryStats {
-  let movies = 0;
-  let shows = 0;
-  let watched = 0;
-  let fourK = 0;
-  const servers = new Set<string>();
-  const genres = new Set<string>();
-  for (const item of items) {
-    if (item.mediaType === "movie") movies += 1;
-    else shows += 1;
-    if (watchedStateOf(item) === "watched") watched += 1;
-    if (qualitiesOf(item).some((q) => q.startsWith("4K"))) fourK += 1;
-    for (const server of serversOf(item)) servers.add(server);
-    for (const genre of genresOf(item)) genres.add(genre);
-  }
-  return {
-    total: items.length,
-    movies,
-    shows,
-    watched,
-    fourK,
-    servers: servers.size,
-    genres: genres.size,
-  };
+/** Apply the facet filters to the catalog. */
+export function applyLibraryFilters(items: LibraryItem[], filters: LibraryFilters): LibraryItem[] {
+  return items.filter((item) => matchesFilters(item, filters));
 }
 
 const WATCHED_KEYS: WatchedState[] = ["watched", "partial", "unwatched"];

@@ -1,20 +1,58 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as m from "@/paraglide/messages";
+import {
+  SectionHead,
+  SectionHeadCount,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import { cn } from "@/shared/lib/utils";
 import { buildAlphabet, groupByLetter } from "../../lib/grouping";
 import type { LibraryItem } from "../../lib/types";
 import { LibraryGrid } from "../library-grid";
-import { LibrarySectionHeader } from "./library-section-header";
 
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
 
 /**
  * Alphabetical index: a sticky letter rail beside per-letter sections. Clicking
- * a populated letter smooth-scrolls to its section; empty letters are inert.
+ * a populated letter smooth-scrolls to its section; empty letters are inert. An
+ * IntersectionObserver tracks which section sits at the top of the viewport and
+ * highlights the matching rail letter.
  */
 export function AzLens({ items }: { items: LibraryItem[] }) {
   const groups = useMemo(() => groupByLetter(items), [items]);
   const alphabet = useMemo(() => buildAlphabet(items), [items]);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+
+  // Scroll-spy via IntersectionObserver (works regardless of which ancestor
+  // scrolls). The active letter is the topmost section intersecting a band just
+  // below the app nav; while the viewport sits in a gap between sections the last
+  // active letter holds. Only re-renders when the active letter actually changes.
+  useEffect(() => {
+    const keys = groups.map((group) => group.key);
+    const sections = keys
+      .map((key) => document.getElementById(anchorId(key)))
+      .filter((el): el is HTMLElement => el !== null);
+    if (sections.length === 0) return;
+
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const key = (entry.target as HTMLElement).dataset.letter;
+          if (key === undefined) continue;
+          if (entry.isIntersecting) visible.add(key);
+          else visible.delete(key);
+        }
+        if (visible.size === 0) return;
+        const next = keys.find((key) => visible.has(key)) ?? null;
+        setActiveKey((prev) => (prev === next ? prev : next));
+      },
+      { rootMargin: "-100px 0px -55% 0px", threshold: 0 },
+    );
+    for (const el of sections) observer.observe(el);
+    return () => observer.disconnect();
+  }, [groups]);
 
   const jump = (letter: string) => {
     document
@@ -34,8 +72,14 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
               key={letter}
               type="button"
               aria-label={m.library_az_jump({ letter })}
+              aria-current={letter === activeKey ? "true" : undefined}
               onClick={() => jump(letter)}
-              className="rounded-md py-1 text-center font-mono text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                "rounded-md py-1 text-center font-mono text-xs transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                letter === activeKey
+                  ? "bg-secondary font-semibold text-foreground"
+                  : "text-muted-foreground",
+              )}
             >
               {letter}
             </button>
@@ -53,8 +97,20 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
 
       <div className="flex flex-col gap-14">
         {groups.map((group) => (
-          <section key={group.key} id={anchorId(group.key)} className="scroll-mt-28">
-            <LibrarySectionHeader label={group.label} count={group.items.length} size="display" />
+          <section
+            key={group.key}
+            id={anchorId(group.key)}
+            data-letter={group.key}
+            className="scroll-mt-28"
+          >
+            <SectionHead>
+              <SectionHeadHeading>
+                <SectionHeadTitle className="text-5xl font-bold leading-none">
+                  {group.label}
+                  <SectionHeadCount value={group.items.length} />
+                </SectionHeadTitle>
+              </SectionHeadHeading>
+            </SectionHead>
             <LibraryGrid items={group.items} />
           </section>
         ))}

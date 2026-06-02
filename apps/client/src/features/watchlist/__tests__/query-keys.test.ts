@@ -11,7 +11,6 @@ describe("watchlistKeys", () => {
     expect(watchlistKeys.moodItems("cozy")).toEqual(
       mediaKeys.source("watchlist-mood-items", { moodId: "cozy" }),
     );
-    expect(watchlistKeys.counts()).toEqual(mediaKeys.counts());
     expect(watchlistKeys.moods()).toEqual(mediaKeys.moods());
   });
 

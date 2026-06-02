@@ -37,7 +37,7 @@ const DEFAULT_KEY = mediaKeys.source(WATCHLIST_ITEMS_SOURCE_ID, DEFAULT_WATCHLIS
 
 /**
  * Sweep the whole media surface after a watchlist mutation in ONE invalidation
- * (#505). Every read — home rows, watchlist sections, counts, moods — nests
+ * (#505). Every read — home rows, watchlist sections, moods — nests
  * under `mediaKeys.root`, so a single invalidate replaces the per-feature roots
  * the home and watchlist features each used to flush separately.
  */

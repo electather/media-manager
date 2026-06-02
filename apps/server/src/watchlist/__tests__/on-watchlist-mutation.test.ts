@@ -27,14 +27,9 @@ vi.mock("../tonight/section", () => ({
   invalidateTonightSection: vi.fn(),
 }));
 
-vi.mock("../service", () => ({
-  invalidateCounts: vi.fn(),
-}));
-
 const { on } = await import("../../jobs/events");
 const { invalidateMoodSummary } = await import("../moods/cluster");
 const { invalidateTonightSection } = await import("../tonight/section");
-const { invalidateCounts } = await import("../service");
 const { __resetRegistration, register } = await import("../jobs/on-watchlist-mutation");
 
 beforeEach(() => {
@@ -69,10 +64,8 @@ describe("watchlist mutation job registration", () => {
 
     expect(invalidateTonightSection).toHaveBeenCalledTimes(2);
     expect(invalidateMoodSummary).toHaveBeenCalledTimes(2);
-    expect(invalidateCounts).toHaveBeenCalledTimes(2);
     expect(invalidateTonightSection).toHaveBeenCalledWith("u1");
     expect(invalidateMoodSummary).toHaveBeenCalledWith("u1");
-    expect(invalidateCounts).toHaveBeenCalledWith("u1");
   });
 
   it("re-registers listeners after idempotency guard is reset", () => {

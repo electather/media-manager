@@ -30,6 +30,7 @@ import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
 import { Route as AuthenticatedAppWatchlistIndexRouteImport } from './routes/_authenticated/_app/watchlist.index'
+import { Route as AuthenticatedAppLibraryIndexRouteImport } from './routes/_authenticated/_app/library.index'
 import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
@@ -42,6 +43,10 @@ import { Route as AuthenticatedAppWatchlistUnavailableRouteImport } from './rout
 import { Route as AuthenticatedAppWatchlistReadyRouteImport } from './routes/_authenticated/_app/watchlist.ready'
 import { Route as AuthenticatedAppWatchlistInProgressRouteImport } from './routes/_authenticated/_app/watchlist.in-progress'
 import { Route as AuthenticatedAppWatchlistAwaitingRouteImport } from './routes/_authenticated/_app/watchlist.awaiting'
+import { Route as AuthenticatedAppLibraryTimelineRouteImport } from './routes/_authenticated/_app/library.timeline'
+import { Route as AuthenticatedAppLibraryServerRouteImport } from './routes/_authenticated/_app/library.server'
+import { Route as AuthenticatedAppLibraryQualityRouteImport } from './routes/_authenticated/_app/library.quality'
+import { Route as AuthenticatedAppLibraryCollectionsRouteImport } from './routes/_authenticated/_app/library.collections'
 import { Route as AuthenticatedAdminAdminUsersRouteImport } from './routes/_authenticated/_admin/admin/users'
 import { Route as AuthenticatedAdminAdminServerRouteImport } from './routes/_authenticated/_admin/admin/server'
 import { Route as AuthenticatedAdminAdminRolesRouteImport } from './routes/_authenticated/_admin/admin/roles'
@@ -162,6 +167,12 @@ const AuthenticatedAppWatchlistIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAppWatchlistRoute,
   } as any)
+const AuthenticatedAppLibraryIndexRoute =
+  AuthenticatedAppLibraryIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAppLibraryRoute,
+  } as any)
 const AuthenticatedAdminAdminIndexRoute =
   AuthenticatedAdminAdminIndexRouteImport.update({
     id: '/admin/',
@@ -233,6 +244,30 @@ const AuthenticatedAppWatchlistAwaitingRoute =
     id: '/awaiting',
     path: '/awaiting',
     getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
+const AuthenticatedAppLibraryTimelineRoute =
+  AuthenticatedAppLibraryTimelineRouteImport.update({
+    id: '/timeline',
+    path: '/timeline',
+    getParentRoute: () => AuthenticatedAppLibraryRoute,
+  } as any)
+const AuthenticatedAppLibraryServerRoute =
+  AuthenticatedAppLibraryServerRouteImport.update({
+    id: '/server',
+    path: '/server',
+    getParentRoute: () => AuthenticatedAppLibraryRoute,
+  } as any)
+const AuthenticatedAppLibraryQualityRoute =
+  AuthenticatedAppLibraryQualityRouteImport.update({
+    id: '/quality',
+    path: '/quality',
+    getParentRoute: () => AuthenticatedAppLibraryRoute,
+  } as any)
+const AuthenticatedAppLibraryCollectionsRoute =
+  AuthenticatedAppLibraryCollectionsRouteImport.update({
+    id: '/collections',
+    path: '/collections',
+    getParentRoute: () => AuthenticatedAppLibraryRoute,
   } as any)
 const AuthenticatedAdminAdminUsersRoute =
   AuthenticatedAdminAdminUsersRouteImport.update({
@@ -309,7 +344,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/library': typeof AuthenticatedAppLibraryRoute
+  '/library': typeof AuthenticatedAppLibraryRouteWithChildren
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
@@ -322,6 +357,10 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/library/collections': typeof AuthenticatedAppLibraryCollectionsRoute
+  '/library/quality': typeof AuthenticatedAppLibraryQualityRoute
+  '/library/server': typeof AuthenticatedAppLibraryServerRoute
+  '/library/timeline': typeof AuthenticatedAppLibraryTimelineRoute
   '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
@@ -334,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/admin/': typeof AuthenticatedAdminAdminIndexRoute
+  '/library/': typeof AuthenticatedAppLibraryIndexRoute
   '/watchlist/': typeof AuthenticatedAppWatchlistIndexRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
@@ -350,7 +390,6 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/library': typeof AuthenticatedAppLibraryRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
@@ -362,6 +401,10 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/library/collections': typeof AuthenticatedAppLibraryCollectionsRoute
+  '/library/quality': typeof AuthenticatedAppLibraryQualityRoute
+  '/library/server': typeof AuthenticatedAppLibraryServerRoute
+  '/library/timeline': typeof AuthenticatedAppLibraryTimelineRoute
   '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
@@ -374,6 +417,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/admin': typeof AuthenticatedAdminAdminIndexRoute
+  '/library': typeof AuthenticatedAppLibraryIndexRoute
   '/watchlist': typeof AuthenticatedAppWatchlistIndexRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
   '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
@@ -395,7 +439,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
+  '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRouteWithChildren
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
@@ -409,6 +453,10 @@ export interface FileRoutesById {
   '/_authenticated/_admin/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/_authenticated/_admin/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/_authenticated/_admin/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/_authenticated/_app/library/collections': typeof AuthenticatedAppLibraryCollectionsRoute
+  '/_authenticated/_app/library/quality': typeof AuthenticatedAppLibraryQualityRoute
+  '/_authenticated/_app/library/server': typeof AuthenticatedAppLibraryServerRoute
+  '/_authenticated/_app/library/timeline': typeof AuthenticatedAppLibraryTimelineRoute
   '/_authenticated/_app/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/_authenticated/_app/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/_authenticated/_app/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
@@ -421,6 +469,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
+  '/_authenticated/_app/library/': typeof AuthenticatedAppLibraryIndexRoute
   '/_authenticated/_app/watchlist/': typeof AuthenticatedAppWatchlistIndexRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/_authenticated/_admin/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
@@ -453,6 +502,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
+    | '/library/collections'
+    | '/library/quality'
+    | '/library/server'
+    | '/library/timeline'
     | '/watchlist/awaiting'
     | '/watchlist/in-progress'
     | '/watchlist/ready'
@@ -465,6 +518,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/admin/'
+    | '/library/'
     | '/watchlist/'
     | '/settings/'
     | '/admin/notifications/deliveries'
@@ -481,7 +535,6 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
-    | '/library'
     | '/notifications'
     | '/oauth-callback'
     | '/setup'
@@ -493,6 +546,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
+    | '/library/collections'
+    | '/library/quality'
+    | '/library/server'
+    | '/library/timeline'
     | '/watchlist/awaiting'
     | '/watchlist/in-progress'
     | '/watchlist/ready'
@@ -505,6 +562,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/admin'
+    | '/library'
     | '/watchlist'
     | '/settings'
     | '/admin/notifications/deliveries'
@@ -539,6 +597,10 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/admin/roles'
     | '/_authenticated/_admin/admin/server'
     | '/_authenticated/_admin/admin/users'
+    | '/_authenticated/_app/library/collections'
+    | '/_authenticated/_app/library/quality'
+    | '/_authenticated/_app/library/server'
+    | '/_authenticated/_app/library/timeline'
     | '/_authenticated/_app/watchlist/awaiting'
     | '/_authenticated/_app/watchlist/in-progress'
     | '/_authenticated/_app/watchlist/ready'
@@ -551,6 +613,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
     | '/_authenticated/_admin/admin/'
+    | '/_authenticated/_app/library/'
     | '/_authenticated/_app/watchlist/'
     | '/_authenticated/_settings/settings/'
     | '/_authenticated/_admin/admin/notifications/deliveries'
@@ -716,6 +779,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppWatchlistIndexRouteImport
       parentRoute: typeof AuthenticatedAppWatchlistRoute
     }
+    '/_authenticated/_app/library/': {
+      id: '/_authenticated/_app/library/'
+      path: '/'
+      fullPath: '/library/'
+      preLoaderRoute: typeof AuthenticatedAppLibraryIndexRouteImport
+      parentRoute: typeof AuthenticatedAppLibraryRoute
+    }
     '/_authenticated/_admin/admin/': {
       id: '/_authenticated/_admin/admin/'
       path: '/admin'
@@ -799,6 +869,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/watchlist/awaiting'
       preLoaderRoute: typeof AuthenticatedAppWatchlistAwaitingRouteImport
       parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
+    '/_authenticated/_app/library/timeline': {
+      id: '/_authenticated/_app/library/timeline'
+      path: '/timeline'
+      fullPath: '/library/timeline'
+      preLoaderRoute: typeof AuthenticatedAppLibraryTimelineRouteImport
+      parentRoute: typeof AuthenticatedAppLibraryRoute
+    }
+    '/_authenticated/_app/library/server': {
+      id: '/_authenticated/_app/library/server'
+      path: '/server'
+      fullPath: '/library/server'
+      preLoaderRoute: typeof AuthenticatedAppLibraryServerRouteImport
+      parentRoute: typeof AuthenticatedAppLibraryRoute
+    }
+    '/_authenticated/_app/library/quality': {
+      id: '/_authenticated/_app/library/quality'
+      path: '/quality'
+      fullPath: '/library/quality'
+      preLoaderRoute: typeof AuthenticatedAppLibraryQualityRouteImport
+      parentRoute: typeof AuthenticatedAppLibraryRoute
+    }
+    '/_authenticated/_app/library/collections': {
+      id: '/_authenticated/_app/library/collections'
+      path: '/collections'
+      fullPath: '/library/collections'
+      preLoaderRoute: typeof AuthenticatedAppLibraryCollectionsRouteImport
+      parentRoute: typeof AuthenticatedAppLibraryRoute
     }
     '/_authenticated/_admin/admin/users': {
       id: '/_authenticated/_admin/admin/users'
@@ -917,6 +1015,29 @@ const AuthenticatedAdminRouteRouteWithChildren =
     AuthenticatedAdminRouteRouteChildren,
   )
 
+interface AuthenticatedAppLibraryRouteChildren {
+  AuthenticatedAppLibraryCollectionsRoute: typeof AuthenticatedAppLibraryCollectionsRoute
+  AuthenticatedAppLibraryQualityRoute: typeof AuthenticatedAppLibraryQualityRoute
+  AuthenticatedAppLibraryServerRoute: typeof AuthenticatedAppLibraryServerRoute
+  AuthenticatedAppLibraryTimelineRoute: typeof AuthenticatedAppLibraryTimelineRoute
+  AuthenticatedAppLibraryIndexRoute: typeof AuthenticatedAppLibraryIndexRoute
+}
+
+const AuthenticatedAppLibraryRouteChildren: AuthenticatedAppLibraryRouteChildren =
+  {
+    AuthenticatedAppLibraryCollectionsRoute:
+      AuthenticatedAppLibraryCollectionsRoute,
+    AuthenticatedAppLibraryQualityRoute: AuthenticatedAppLibraryQualityRoute,
+    AuthenticatedAppLibraryServerRoute: AuthenticatedAppLibraryServerRoute,
+    AuthenticatedAppLibraryTimelineRoute: AuthenticatedAppLibraryTimelineRoute,
+    AuthenticatedAppLibraryIndexRoute: AuthenticatedAppLibraryIndexRoute,
+  }
+
+const AuthenticatedAppLibraryRouteWithChildren =
+  AuthenticatedAppLibraryRoute._addFileChildren(
+    AuthenticatedAppLibraryRouteChildren,
+  )
+
 interface AuthenticatedAppWatchlistRouteChildren {
   AuthenticatedAppWatchlistAwaitingRoute: typeof AuthenticatedAppWatchlistAwaitingRoute
   AuthenticatedAppWatchlistInProgressRoute: typeof AuthenticatedAppWatchlistInProgressRoute
@@ -949,7 +1070,7 @@ const AuthenticatedAppWatchlistRouteWithChildren =
   )
 
 interface AuthenticatedAppRouteRouteChildren {
-  AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
+  AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRouteWithChildren
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -957,7 +1078,7 @@ interface AuthenticatedAppRouteRouteChildren {
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
-  AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
+  AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRouteWithChildren,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,

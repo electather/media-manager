@@ -51,17 +51,6 @@ export interface LibraryData {
   collections: LibraryCollection[];
 }
 
-/** Roll-up counts rendered by the stats spine. */
-export interface LibraryStats {
-  total: number;
-  movies: number;
-  shows: number;
-  watched: number;
-  fourK: number;
-  servers: number;
-  genres: number;
-}
-
 /** Per-option match counts shown as badges next to each facet pill. */
 export interface LibraryFacetCounts {
   kinds: Record<string, number>;

@@ -7,8 +7,6 @@ export function sourceLabel(source: WatchlistSource): string {
   return m.watchlist_source({ source });
 }
 
-export type { WatchlistCounts } from "@ent-mcp/shared/watchlist";
-
 // Per-card status overlay consumed by `classify.ts`. The bucket axis lives
 // on the server now (`WatchlistBucket`); this local enum keeps `in-progress`
 // distinct from `available` for card chrome only.

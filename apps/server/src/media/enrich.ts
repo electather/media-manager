@@ -114,7 +114,7 @@ export interface CompactMediaEnrichResult {
  * Build wire-shape `CompactMediaItem`s for `rows`. Single status-batch call,
  * one catalog metadata-batch call, one artwork dispatch for items missing
  * canonical poster/backdrop/clearLogo, and a per-row matching-server probe
- * (cross-request cached at 30 s TTL so /watchlist + /counts share the work).
+ * (cross-request cached at 30 s TTL so a page-load's `/watchlist` reads share the work).
  *
  * When `opts.filter` is set we pre-classify with the cheap signals and
  * shrink the row set before artwork dispatch — the most expensive call on

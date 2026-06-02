@@ -1,66 +1,48 @@
 import * as m from "@/paraglide/messages";
-import type { LibraryFacetCounts, LibraryFilters, LibraryLens, LibraryStats } from "../lib/types";
+import {
+  SectionHead,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
+import { useLibrary } from "../hooks/use-library";
+import { useLibraryFilters } from "../hooks/use-library-filters";
+import { useLibraryView } from "../hooks/use-library-view";
 import { LibraryFilterPopover } from "./library-filter-popover";
 import { LibraryLensTabs } from "./library-lens-tabs";
-import { LibrarySearch } from "./library-search";
-import { LibraryStats as LibraryStatsSpine } from "./library-stats";
-
-interface LibraryHeaderProps {
-  stats: LibraryStats;
-  lens: LibraryLens;
-  onLensChange: (lens: LibraryLens) => void;
-  query: string;
-  onQueryChange: (query: string) => void;
-  filters: LibraryFilters;
-  onFiltersChange: (filters: LibraryFilters) => void;
-  facetValues: { genres: string[]; qualities: string[]; servers: string[] };
-  facetCounts: LibraryFacetCounts;
-}
 
 /**
- * The library header region: eyebrow + counted title, the stats spine, and the
- * control bar (lens tabs on the lead edge; search + filters on the trail edge).
+ * The library header region: eyebrow + title and the control bar (lens tabs on
+ * the lead edge; filters on the trail edge). Rendered once in the layout, it
+ * reads the shared payload and URL filters itself so it stays
+ * mounted while the lens routes swap below it.
  */
-export function LibraryHeader({
-  stats,
-  lens,
-  onLensChange,
-  query,
-  onQueryChange,
-  filters,
-  onFiltersChange,
-  facetValues,
-  facetCounts,
-}: LibraryHeaderProps) {
+export function LibraryHeader() {
+  const { data } = useLibrary();
+  const { filters, setFilters } = useLibraryFilters();
+  const { filtered, facetValues, facetCounts } = useLibraryView({ data, filters });
+
   return (
-    <header className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-          {m.library_eyebrow({ count: String(stats.total) })}
-        </span>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          {m.library_title()}
-          <span className="ms-3 align-middle font-mono text-2xl font-medium tabular-nums text-muted-foreground/70">
-            {stats.total}
-          </span>
-        </h1>
-      </div>
+    <header>
+      <SectionHead size="page">
+        <SectionHeadHeading>
+          <SectionHeadEyebrow size="page">
+            {m.library_eyebrow({ count: String(filtered.length) })}
+          </SectionHeadEyebrow>
+          <SectionHeadTitle as="h1" size="page">
+            {m.library_title()}
+          </SectionHeadTitle>
+        </SectionHeadHeading>
+      </SectionHead>
 
-      <LibraryStatsSpine stats={stats} />
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <LibraryLensTabs value={lens} onChange={onLensChange} />
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1 lg:w-72 lg:flex-none">
-            <LibrarySearch value={query} onChange={onQueryChange} />
-          </div>
-          <LibraryFilterPopover
-            filters={filters}
-            facetValues={facetValues}
-            facetCounts={facetCounts}
-            onChange={onFiltersChange}
-          />
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
+        <LibraryLensTabs />
+        <LibraryFilterPopover
+          filters={filters}
+          facetValues={facetValues}
+          facetCounts={facetCounts}
+          onChange={setFilters}
+        />
       </div>
     </header>
   );

@@ -2,8 +2,6 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "library_eyebrow": "Catalog · {count} titles",
   "library_title": "Library",
-  "library_search_placeholder": "Search your library",
-  "library_search_clear": "Clear search",
   "library_filter_toggle": "Filters",
   "library_filter_active_count": "{count} active",
   "library_filter_clear_all": "Clear all",
@@ -71,27 +69,16 @@
       }
     }
   ],
-  "library_stat_label": [
-    {
-      "declarations": ["input stat"],
-      "selectors": ["stat"],
-      "match": {
-        "stat=total": "Titles",
-        "stat=movies": "Movies",
-        "stat=shows": "Series",
-        "stat=watched": "Watched",
-        "stat=fourK": "4K titles",
-        "stat=servers": "Servers",
-        "stat=genres": "Genres"
-      }
-    }
-  ],
   "library_section_count": "{count} titles",
+  "library_row_prev": "Previous {decade}",
+  "library_row_next": "Next {decade}",
   "library_az_rail_label": "Jump to letter",
   "library_az_jump": "Jump to {letter}",
   "library_empty_title": "Nothing matches",
-  "library_empty_description": "Try clearing a filter or searching for another title.",
+  "library_empty_description": "Try clearing a filter to see more titles.",
   "library_empty_reset": "Reset filters",
   "library_card_open": "Open details for {title}",
-  "library_card_progress": "{percent}% watched"
+  "library_card_progress": "{percent}% watched",
+  "library_load_error_title": "Library couldn't load",
+  "library_load_error_retry": "Retry"
 }

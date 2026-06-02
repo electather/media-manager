@@ -435,44 +435,43 @@ function toItem(seed: Seed): LibraryItem {
 
 export const SAMPLE_LIBRARY_ITEMS: LibraryItem[] = SEEDS.map(toItem);
 
+/**
+ * Franchise/saga collections (the TMDB "belongs to collection" sense, e.g. the
+ * Dune or Blade Runner sets) — each groups the entries of one fictional series,
+ * not a mood. Every set keeps ≥4 members so the poster fan always renders four.
+ */
 export const SAMPLE_LIBRARY_COLLECTIONS: LibraryCollection[] = [
   {
-    id: "coll:late-night-scifi",
-    title: "Late-Night Sci-Fi",
+    id: "coll:meridian-saga",
+    title: "The Meridian Saga",
+    itemIds: [
+      "movie:echo-meridian",
+      "movie:iron-meridian",
+      "tv:delta-bloom",
+      "tv:silent-orbit",
+      "tv:pale-engine",
+    ],
+  },
+  {
+    id: "coll:tideline",
+    title: "Tideline",
     itemIds: [
       "movie:arrival-tide",
-      "tv:delta-bloom",
-      "movie:echo-meridian",
-      "tv:pale-engine",
-      "tv:silent-orbit",
-    ],
-  },
-  {
-    id: "coll:rainy-day-drama",
-    title: "Rainy-Day Drama",
-    itemIds: [
-      "tv:blue-hour",
-      "movie:border-songs",
-      "tv:ember-court",
-      "movie:glass-harbor",
-      "movie:quarry-light",
-    ],
-  },
-  {
-    id: "coll:true-crime",
-    title: "True Crime Marathon",
-    itemIds: ["movie:copper-line", "tv:midnight-archive", "movie:salt-flats", "movie:gravel-roads"],
-  },
-  {
-    id: "coll:reference-4k",
-    title: "4K Reference Discs",
-    itemIds: [
-      "movie:marble-halls",
       "tv:low-tide",
-      "tv:winter-harbor",
-      "movie:kestrel-down",
-      "tv:frost-signal",
+      "tv:tidal-court",
+      "movie:open-water",
+      "movie:glass-harbor",
     ],
+  },
+  {
+    id: "coll:static",
+    title: "Static",
+    itemIds: ["movie:ivory-static", "movie:violet-static", "tv:frost-signal", "movie:umbra-line"],
+  },
+  {
+    id: "coll:hollow-crown",
+    title: "The Hollow Crown",
+    itemIds: ["tv:hollow-crown", "tv:ember-court", "tv:midnight-archive", "tv:harrow-vale"],
   },
 ];
 

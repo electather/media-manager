@@ -1,6 +1,11 @@
+import {
+  SectionHead,
+  SectionHeadCount,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import type { LibraryGroup } from "../../lib/grouping";
 import { LibraryGrid } from "../library-grid";
-import { LibrarySectionHeader } from "./library-section-header";
 
 /** Renders pre-computed groups as stacked sections, each a header over a poster grid. */
 export function GroupedLens({ groups }: { groups: LibraryGroup[] }) {
@@ -8,7 +13,14 @@ export function GroupedLens({ groups }: { groups: LibraryGroup[] }) {
     <div className="flex flex-col gap-12">
       {groups.map((group) => (
         <section key={group.key}>
-          <LibrarySectionHeader label={group.label} count={group.items.length} />
+          <SectionHead>
+            <SectionHeadHeading>
+              <SectionHeadTitle>
+                {group.label}
+                <SectionHeadCount value={group.items.length} />
+              </SectionHeadTitle>
+            </SectionHeadHeading>
+          </SectionHead>
           <LibraryGrid items={group.items} />
         </section>
       ))}

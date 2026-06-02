@@ -33,6 +33,20 @@
       }
     }
   ],
+  "watchlist_filter_note": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "Everything",
+        "bucket=ready": "On a server",
+        "bucket=in-progress": "Started",
+        "bucket=awaiting": "Requested",
+        "bucket=unavailable": "No source",
+        "bucket=upcoming": "Unreleased"
+      }
+    }
+  ],
   "watchlist_sort_label": "Sort",
   "watchlist_sort": [
     {

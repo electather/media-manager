@@ -36,9 +36,9 @@ export interface BatchLoadResult {
 
 /**
  * The single status-batch + metadata-batch + progress-map fan-out (design
- * §C/§F), collapsing the four hand-written `Promise.all([...])` copies in
- * `watchlist` (`getCounts`, `listItemsOffset`, `tonight/section`,
- * `filterByMood`) and `enrich`'s internal call into one definition.
+ * §C/§F), collapsing the hand-written `Promise.all([...])` copies in
+ * `watchlist` (`listItemsOffset`, `tonight/section`, `filterByMood`) and
+ * `enrich`'s internal call into one definition.
  *
  * Each sub-load is warn-and-fallback: a rejected lookup is logged, replaced
  * with an empty result, and flips `partial` so the consumer envelope surfaces

@@ -31,12 +31,12 @@ type ProgressCtx = MediaProgressContext;
 
 /**
  * Per-request memoized fetch of the continue-watching aggregate, projected
- * down to a `compositeId → { watched, total }` map. `enrich` and `getCounts`
- * both call this — the WeakMap key is the request-scoped `MediaService`
+ * down to a `compositeId → { watched, total }` map. `enrich` and `classifyRows`
+ * both reach this — the WeakMap key is the request-scoped `MediaService`
  * instance so the plugin fan-out happens at most once per request.
  *
  * On every plugin failing, returns `{ map: empty, partial: true }`; the
- * watchlist counts/list paths surface `partial` to the client without
+ * watchlist list paths surface `partial` to the client without
  * blocking the response on a missing CW signal.
  */
 export async function loadProgressMap(

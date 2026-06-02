@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import type { WatchlistCounts, WatchlistMoodSummary } from "@ent-mcp/shared/watchlist";
+import type { WatchlistMoodSummary } from "@ent-mcp/shared/watchlist";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { HttpError } from "../../../diagnostics/http-errors";
 
@@ -68,7 +68,6 @@ vi.mock("../../../home", () => ({
 // Counts / moods bridge to the watchlist service (design §A6).
 vi.mock("../../../watchlist", () => ({
   watchlistMediaSources: {},
-  getCounts: vi.fn(),
   getMoodSummary: vi.fn(),
   addItem: vi.fn(),
   removeItem: vi.fn(),
@@ -92,15 +91,6 @@ function buildApp() {
     .onError(errorHandler);
 }
 
-const COUNTS_FIXTURE: WatchlistCounts = {
-  ready: 3,
-  inProgress: 1,
-  awaiting: 0,
-  unavailable: 2,
-  upcoming: 4,
-  total: 10,
-};
-
 const MOODS_FIXTURE: WatchlistMoodSummary = {
   clusters: [
     { moodId: "cozy", count: 5 },
@@ -121,25 +111,15 @@ beforeEach(() => {
   mockUserId = "u1";
   vi.mocked(media.addItem).mockReset();
   vi.mocked(media.removeItem).mockReset();
-  vi.mocked(watchlist.getCounts).mockReset();
   vi.mocked(watchlist.getMoodSummary).mockReset();
   vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
 });
 
-describe("media counts / moods / writes (US-005, design §A6/§A7)", () => {
+describe("media moods / writes (US-005, design §A6/§A7)", () => {
   it("requires a session", async () => {
     mockUserId = null;
-    const res = await buildApp().request("/media/counts");
+    const res = await buildApp().request("/media/moods");
     expect(res.status).toBe(401);
-  });
-
-  it("bridges GET /counts to watchlist.getCounts", async () => {
-    vi.mocked(watchlist.getCounts).mockResolvedValueOnce(COUNTS_FIXTURE);
-    const res = await buildApp().request("/media/counts");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(COUNTS_FIXTURE);
-    expect(watchlist.getCounts).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(watchlist.getCounts).mock.calls[0]![0]).toMatchObject({ userId: "u1" });
   });
 
   it("bridges GET /moods to watchlist.getMoodSummary", async () => {
@@ -202,16 +182,14 @@ describe("media counts / moods / writes (US-005, design §A6/§A7)", () => {
     expect(media.removeItem).not.toHaveBeenCalled();
   });
 
-  // Rate-limit policy (§A7): reads (counts/moods) use the read limiter, writes
-  // use the write limiter — the same buckets the old routes used.
-  it("applies watchlistReadLimiter to counts and moods", async () => {
-    vi.mocked(watchlist.getCounts).mockResolvedValueOnce(COUNTS_FIXTURE);
+  // Rate-limit policy (§A7): reads (moods) use the read limiter, writes use the
+  // write limiter — the same buckets the old routes used.
+  it("applies watchlistReadLimiter to moods", async () => {
     vi.mocked(watchlist.getMoodSummary).mockResolvedValueOnce(MOODS_FIXTURE);
     const app = buildApp();
-    await app.request("/media/counts");
     await app.request("/media/moods");
     const limiters = vi.mocked(rateLimitOrNull).mock.calls.map((call) => call[0]);
-    expect(limiters).toEqual([watchlistReadLimiter, watchlistReadLimiter]);
+    expect(limiters).toEqual([watchlistReadLimiter]);
   });
 
   it("applies watchlistWriteLimiter to add and remove", async () => {
@@ -232,8 +210,8 @@ describe("media counts / moods / writes (US-005, design §A6/§A7)", () => {
     vi.mocked(rateLimitOrNull).mockReturnValueOnce(
       new Response("rate limited", { status: 429 }) as never,
     );
-    const res = await buildApp().request("/media/counts");
+    const res = await buildApp().request("/media/moods");
     expect(res.status).toBe(429);
-    expect(watchlist.getCounts).not.toHaveBeenCalled();
+    expect(watchlist.getMoodSummary).not.toHaveBeenCalled();
   });
 });

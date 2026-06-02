@@ -2,7 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   applyLibraryFilters,
   computeFacetCounts,
-  computeStats,
   countActiveFilters,
   watchedStateOf,
 } from "../lib/filtering";
@@ -33,8 +32,8 @@ const filters = (overrides: Partial<LibraryFilters>): LibraryFilters => ({
 });
 
 describe("watchedStateOf", () => {
-  // The watched facet and stats depend on a correct three-way split; an
-  // off-by-one here would mis-bucket half-watched series as finished.
+  // The watched facet depends on a correct three-way split; an off-by-one
+  // here would mis-bucket half-watched series as finished.
   it("classifies untouched, partial, and finished progress", () => {
     expect(watchedStateOf(item({ id: "a", title: "A" }))).toBe("unwatched");
     expect(watchedStateOf(item({ id: "b", title: "B", progress: { watched: 0, total: 10 } }))).toBe(
@@ -77,63 +76,20 @@ describe("applyLibraryFilters", () => {
     }),
   ];
 
-  it("matches titles case-insensitively on the search query", () => {
-    expect(applyLibraryFilters(items, EMPTY_FILTERS, "dr").map((i) => i.id)).toEqual([
-      "movie:drive",
-    ]);
-  });
-
   it("filters by kind, genre, quality and server independently", () => {
-    expect(applyLibraryFilters(items, filters({ kinds: ["tv"] }), "").map((i) => i.id)).toEqual([
+    expect(applyLibraryFilters(items, filters({ kinds: ["tv"] })).map((i) => i.id)).toEqual([
       "tv:dune",
     ]);
-    expect(applyLibraryFilters(items, filters({ genres: ["Crime"] }), "").map((i) => i.id)).toEqual(
+    expect(applyLibraryFilters(items, filters({ genres: ["Crime"] })).map((i) => i.id)).toEqual([
+      "movie:heat",
+      "movie:drive",
+    ]);
+    expect(applyLibraryFilters(items, filters({ qualities: ["4K HDR"] })).map((i) => i.id)).toEqual(
+      ["tv:dune"],
+    );
+    expect(applyLibraryFilters(items, filters({ servers: ["Jellyfin"] })).map((i) => i.id)).toEqual(
       ["movie:heat", "movie:drive"],
     );
-    expect(
-      applyLibraryFilters(items, filters({ qualities: ["4K HDR"] }), "").map((i) => i.id),
-    ).toEqual(["tv:dune"]);
-    expect(
-      applyLibraryFilters(items, filters({ servers: ["Jellyfin"] }), "").map((i) => i.id),
-    ).toEqual(["movie:heat", "movie:drive"]);
-  });
-
-  it("combines search and facets as an intersection", () => {
-    const result = applyLibraryFilters(items, filters({ servers: ["Plex"] }), "d");
-    expect(result.map((i) => i.id)).toEqual(["tv:dune", "movie:drive"]);
-  });
-});
-
-describe("computeStats", () => {
-  it("rolls up kind, watched, 4K and distinct server/genre counts", () => {
-    const items = [
-      item({
-        id: "movie:a",
-        title: "A",
-        genres: ["Drama"],
-        tags: ["4K HDR"],
-        availability: withServers(["Plex"]),
-        progress: { watched: 5, total: 5 },
-      }),
-      item({
-        id: "tv:b",
-        title: "B",
-        mediaType: "tv",
-        genres: ["Drama", "Crime"],
-        tags: ["HDR"],
-        availability: withServers(["Plex", "Emby"]),
-      }),
-    ];
-    const stats = computeStats(items);
-    expect(stats).toMatchObject({
-      total: 2,
-      movies: 1,
-      shows: 1,
-      watched: 1,
-      fourK: 1,
-      servers: 2,
-      genres: 2,
-    });
   });
 });
 

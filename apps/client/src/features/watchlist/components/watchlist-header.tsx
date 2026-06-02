@@ -16,21 +16,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/shared/ui/breadcrumb";
-import type {
-  MoodId,
-  WatchlistBucket,
-  WatchlistCounts,
-  WatchlistSort,
-} from "@ent-mcp/shared/watchlist";
+import type { MoodId, WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
 import { MOOD_IDS, WATCHLIST_BUCKETS } from "@ent-mcp/shared/watchlist";
 import { MOOD_REGISTRY } from "../lib/mood-registry";
 import { useMoods } from "../hooks/use-moods";
-import { BucketChips } from "./sections/all-items/bucket-chips";
+import { BucketTabs } from "./sections/all-items/bucket-tabs";
 import { SortSelect } from "./sections/all-items/sort-select";
-
-interface WatchlistHeaderProps {
-  counts: WatchlistCounts;
-}
 
 const FLAT_BUCKET_PATHS: ReadonlySet<string> = new Set(
   WATCHLIST_BUCKETS.map((b) => `/watchlist/${b}`),
@@ -49,7 +40,7 @@ const MOOD_ID_SET: ReadonlySet<string> = new Set(MOOD_IDS);
  *
  * State lives entirely in the URL (path + `?sort=`).
  */
-export function WatchlistHeader({ counts }: WatchlistHeaderProps) {
+export function WatchlistHeader() {
   const location = useLocation();
   const moodId = matchMoodPath(location.pathname);
   if (moodId) return <MoodHeader moodId={moodId} />;
@@ -66,7 +57,7 @@ export function WatchlistHeader({ counts }: WatchlistHeaderProps) {
       </SectionHead>
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
-        <BucketChips counts={counts} />
+        <BucketTabs />
         {showSort ? <FlatSortControl bucket={extractBucket(location.pathname)} /> : null}
       </div>
     </header>

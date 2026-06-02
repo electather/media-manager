@@ -1,54 +1,42 @@
 import * as m from "@/paraglide/messages";
-import { cn } from "@/shared/lib/utils";
+import { RouteTab, RouteTabs } from "@/shared/components/route-tabs";
 import { lensLabel, lensNote } from "../lib/labels";
 import { LIBRARY_LENSES, type LibraryLens } from "../lib/types";
 
-interface LibraryLensTabsProps {
-  value: LibraryLens;
-  onChange: (lens: LibraryLens) => void;
-}
+/** Each lens is its own route; A→Z is the index. Order mirrors `LIBRARY_LENSES`. */
+const LENS_TO = {
+  az: "/library",
+  timeline: "/library/timeline",
+  collections: "/library/collections",
+  server: "/library/server",
+  quality: "/library/quality",
+} as const satisfies Record<LibraryLens, string>;
 
 /**
- * The lens switcher — a segmented control where each tab stacks a label over a
- * mono "note" (Index / By era / …). Switching tabs re-groups the same filtered
- * item set rather than refetching.
+ * The lens switcher — each tab is a `<RouteTab>` into the lens's sub-route.
+ * `search: (prev) => prev` carries the active filters across a lens switch, and
+ * the active tab is derived from the router's `data-status=active` attribute so
+ * it stays in sync with deep links. Built on the shared `RouteTabs` so it reads
+ * identically to the watchlist bucket filter.
  */
-export function LibraryLensTabs({ value, onChange }: LibraryLensTabsProps) {
+export function LibraryLensTabs() {
   return (
-    <div
-      role="tablist"
-      aria-label={m.library_lens_tabs_label()}
-      className="inline-flex gap-1 rounded-lg border bg-card p-1"
-    >
-      {LIBRARY_LENSES.map((lens) => {
-        const active = lens === value;
-        return (
-          <button
-            key={lens}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(lens)}
-            className={cn(
-              "flex flex-col items-start gap-0.5 rounded-md px-3 py-1.5 text-start transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <span className="text-sm font-medium leading-none">{lensLabel(lens)}</span>
-            <span
-              className={cn(
-                "font-mono text-[0.5625rem] uppercase tracking-wider leading-none",
-                active ? "text-primary" : "text-muted-foreground/70",
-              )}
-            >
-              {lensNote(lens)}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+    <RouteTabs aria-label={m.library_lens_tabs_label()}>
+      {LIBRARY_LENSES.map((lens) => (
+        <RouteTab
+          key={lens}
+          to={LENS_TO[lens]}
+          search={(prev) => ({
+            kinds: prev.kinds,
+            genres: prev.genres,
+            qualities: prev.qualities,
+            servers: prev.servers,
+            watched: prev.watched,
+          })}
+          title={lensLabel(lens)}
+          subtitle={lensNote(lens)}
+        />
+      ))}
+    </RouteTabs>
   );
 }
