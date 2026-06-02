@@ -53,7 +53,7 @@ export interface LibraryData {
 
 /** Per-option match counts shown as badges next to each facet pill. */
 export interface LibraryFacetCounts {
-  kinds: Record<string, number>;
+  kinds: Record<MediaType, number>;
   genres: Record<string, number>;
   qualities: Record<string, number>;
   servers: Record<string, number>;

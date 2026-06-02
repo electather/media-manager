@@ -11,6 +11,10 @@ import { buildAlphabet, groupByLetter } from "../../lib/grouping";
 import type { LibraryItem } from "../../lib/types";
 import { LibraryGrid } from "../library-grid";
 
+// Load-bearing coupling: this id format is the only link between the `<section
+// id>` below and the `getElementById` scroll-spy lookup in the effect. Both
+// sides go through this helper, so changing it here keeps them in step — but
+// the connection is invisible to the type system, so keep them co-located.
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
 
 /** Fold a batch of observer entries into the running set of visible section keys. */

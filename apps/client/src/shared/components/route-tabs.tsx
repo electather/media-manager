@@ -36,27 +36,30 @@ const RouteTabLink = createLink(RouteTabBase);
  * `data-status=active` attribute — with `includeSearch: false` so a query-param
  * change (e.g. a sort flip) never drops the active mark — keeping it in sync
  * with deep links and back/forward without a duplicate piece of state.
+ *
+ * These navigate to independent routes rather than toggling tabpanels, so the
+ * active link is marked `aria-current="page"` — the navigation idiom — instead
+ * of the `role=tab`/`aria-selected` widget pattern, which expects an associated
+ * `role=tabpanel` that doesn't exist here.
  */
 export const RouteTab: LinkComponent<typeof RouteTabBase> = (props) => (
   <RouteTabLink
-    role="tab"
-    aria-selected="false"
     activeOptions={{ exact: true, includeSearch: false }}
-    activeProps={{ "aria-selected": "true" as const }}
+    activeProps={{ "aria-current": "page" as const }}
     {...props}
   />
 );
 
 /**
- * The shared segmented tab strip — a `role=tablist` box framing a row of
- * `<RouteTab>` links. The library lens switcher and the watchlist bucket
- * filter both compose this so the two pages read identically. Wraps when the
- * tabs outgrow one line.
+ * The shared segmented tab strip — a `role=navigation` landmark framing a row
+ * of `<RouteTab>` links (callers pass an `aria-label` to name it). The library
+ * lens switcher and the watchlist bucket filter both compose this so the two
+ * pages read identically. Wraps when the tabs outgrow one line.
  */
 export function RouteTabs({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      role="tablist"
+      role="navigation"
       className={cn("inline-flex flex-wrap gap-1 rounded-lg border bg-card p-1", className)}
       {...props}
     />

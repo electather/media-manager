@@ -72,8 +72,8 @@ describe("WatchlistHeader (V.WL8)", () => {
   it("always renders the chip strip including the in-progress chip", () => {
     pathname = "/watchlist";
     render(<WatchlistHeader />);
-    expect(screen.getByRole("tab", { name: /All/i })).toBeDefined();
-    expect(screen.getByRole("tab", { name: /In progress/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /All/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /In progress/i })).toBeDefined();
   });
 
   it("hides the sort dropdown on the curated index route", () => {
@@ -91,7 +91,7 @@ describe("WatchlistHeader (V.WL8)", () => {
   it("marks the chip that matches the current pathname as the active tab", () => {
     pathname = "/watchlist/in-progress";
     render(<WatchlistHeader />);
-    const chip = screen.getByRole("tab", { name: /In progress/i });
+    const chip = screen.getByRole("link", { name: /In progress/i });
     expect(chip.getAttribute("data-status")).toBe("active");
   });
 
@@ -100,7 +100,7 @@ describe("WatchlistHeader (V.WL8)", () => {
       pathname = "/watchlist/moods/epic";
       render(<WatchlistHeader />);
       // Chip strip and sort do not compose with a mood-scoped grid.
-      expect(screen.queryByRole("tab", { name: /All/i })).toBeNull();
+      expect(screen.queryByRole("link", { name: /All/i })).toBeNull();
       expect(screen.queryByRole("combobox", { name: /sort/i })).toBeNull();
       const crumb = screen.getByRole("navigation", { name: /breadcrumb/i });
       expect(crumb).toBeDefined();
@@ -126,7 +126,7 @@ describe("WatchlistHeader (V.WL8)", () => {
     it("falls back to the default header when the mood id is unknown", () => {
       pathname = "/watchlist/moods/not-a-mood";
       render(<WatchlistHeader />);
-      expect(screen.getByRole("tab", { name: /All/i })).toBeDefined();
+      expect(screen.getByRole("link", { name: /All/i })).toBeDefined();
       expect(screen.queryByRole("navigation", { name: /breadcrumb/i })).toBeNull();
     });
   });
