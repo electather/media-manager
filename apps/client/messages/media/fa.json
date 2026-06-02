@@ -1,0 +1,14 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "media_kind": [
+    {
+      "declarations": ["input kind"],
+      "selectors": ["kind"],
+      "match": {
+        "kind=movie": "فیلم",
+        "kind=tv": "سریال",
+        "kind=*": "سریال"
+      }
+    }
+  ]
+}

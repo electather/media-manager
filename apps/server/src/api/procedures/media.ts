@@ -5,7 +5,6 @@ import { mediaTypeSchema } from "@ent-mcp/shared/media";
 import {
   addWatchlistRequestSchema,
   type AddWatchlistResponse,
-  type WatchlistCounts,
   type WatchlistMoodSummary,
 } from "@ent-mcp/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
@@ -30,7 +29,7 @@ import {
   composeSeasonAvailability,
   homeMediaSources,
 } from "../../home";
-import { getCounts, getMoodSummary, watchlistMediaSources } from "../../watchlist";
+import { getMoodSummary, watchlistMediaSources } from "../../watchlist";
 import { badRequest, notFound } from "../../diagnostics/http-errors";
 import { zValidator } from "../../diagnostics/validator";
 import { rateLimitOrNull } from "../rate-limit";
@@ -101,7 +100,7 @@ const sourceQuerySchema = z.record(z.string(), z.string());
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
 
 /**
- * Per-request plugin-call deadline for the watchlist counts / moods / writes
+ * Per-request plugin-call deadline for the watchlist moods / writes
  * bridges. Matches the old `watchlist.ts` procedure's `buildContext` constant
  * exactly (5000) so those endpoints stay byte-identical through the relocation
  * (parity, §A6). It is deliberately NOT the resolver's `REQUEST_DEADLINE_MS`.
@@ -133,12 +132,12 @@ function buildSourceContext(userId: string): SourceContext {
 }
 
 /**
- * Per-request context for the watchlist counts / moods / writes bridges
+ * Per-request context for the watchlist moods / writes bridges
  * (design §A6). It reproduces the old `watchlist.ts` procedure's `buildContext`
  * (`deadlineMs: 5000`, `log: consola`) PLUS the `asWatchlistContext` resolution
  * (`loadProgressMap` + the `getArtwork` / `toCanonicalRow` cycle-breakers), so a
- * single object serves both the read aggregates — `getCounts` / `getMoodSummary`
- * take the loose `MaybeRowContext` — and the media writes barrel — `addItem` /
+ * single object serves both the read aggregate — `getMoodSummary` takes the
+ * loose `MaybeRowContext` — and the media writes barrel — `addItem` /
  * `removeItem` take the resolved `MediaEnrichContext`. The aggregates re-resolve
  * their own enrich handles, so the extra fields are inert for them: the bridge
  * stays behaviorally identical to the old endpoints.
@@ -241,19 +240,11 @@ export const mediaApp = new Hono()
     return c.json(availability);
   })
   /**
-   * Watchlist aggregates (design §A6): the counts pips + the mood summary. Pure
-   * URL relocation of `/watchlist/counts` + `/watchlist/moods` — each bridge is
-   * one line to the existing watchlist service, so derivation / tally ownership
-   * is unchanged (§G consolidation). `watchlistReadLimiter` is preserved per §A7
-   * (the same bucket the old routes used — keys unchanged).
+   * Watchlist mood summary (design §A6): a URL relocation of `/watchlist/moods`
+   * — one line to the existing watchlist service, so derivation / tally
+   * ownership is unchanged (§G consolidation). `watchlistReadLimiter` is
+   * preserved per §A7 (the same bucket the old route used — keys unchanged).
    */
-  .get("/counts", async (c) => {
-    const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
-    if (limited) return limited;
-    const counts: WatchlistCounts = await getCounts(buildWatchlistContext(userId));
-    return c.json(counts);
-  })
   .get("/moods", async (c) => {
     const userId = sessionUserId(c);
     const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);

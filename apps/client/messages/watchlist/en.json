@@ -33,6 +33,20 @@
       }
     }
   ],
+  "watchlist_filter_note": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "Everything",
+        "bucket=ready": "On a server",
+        "bucket=in-progress": "Started",
+        "bucket=awaiting": "Requested",
+        "bucket=unavailable": "No source",
+        "bucket=upcoming": "Unreleased"
+      }
+    }
+  ],
   "watchlist_sort_label": "Sort",
   "watchlist_sort": [
     {
@@ -162,17 +176,6 @@
         "unit=yesterday": "Yesterday",
         "unit=days_ago": "{n} days ago",
         "unit=last_week": "Last week"
-      }
-    }
-  ],
-  "watchlist_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "Movie",
-        "kind=tv": "TV series",
-        "kind=*": "TV series"
       }
     }
   ],

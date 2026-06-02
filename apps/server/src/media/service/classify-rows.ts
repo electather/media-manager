@@ -7,8 +7,8 @@ import type { MatchingServer } from "../types";
 
 /**
  * Per-call surface `classifyRows` needs: the shared fan-out context plus the
- * `userId` the matching-server probe is keyed by. Both the `countBuckets`
- * aggregate and the watchlist `tonight` source satisfy it structurally.
+ * `userId` the matching-server probe is keyed by. The read pipeline's classify
+ * stage and the watchlist `tonight` source satisfy it structurally.
  */
 export interface ClassifyRowsContext extends BatchLoadContext {
   userId: string;
@@ -25,9 +25,9 @@ export interface ClassifiedRow {
  * the enrich/sort/paginate stages of the read pipeline. Walks each row once with
  * the shared status + metadata + progress fan-out plus the cached matching-server
  * probes — no artwork dispatch, no cold-fill — and pairs it with its bucket. The
- * count-mode `countBuckets` tallies the buckets; the tonight source filters rows
- * to the watchable buckets. This is the one definition of the classify loop the
- * watchlist `getCounts` and `tonight/section` copies used to hand-roll.
+ * read pipeline's classify stage consumes the pairing; the tonight source filters
+ * the classified rows to the watchable buckets. This is the one definition of the
+ * classify loop the watchlist `tonight/section` copy used to hand-roll.
  *
  * Probe failures fall back per-row (`Promise.allSettled` → "no servers") and the
  * status/metadata batches degrade to empty rather than throwing — a soft-failed
@@ -43,7 +43,7 @@ export async function classifyRows(
   const { statuses, metadata, progress, partial } = await batchLoad(rows, ctx);
 
   // Matching-server probes are request-shared via the availability cache, so a
-  // counts + section round-trip pays one probe per row.
+  // list + section round-trip pays one probe per row.
   const serverProbes = await Promise.allSettled(
     rows.map((row) =>
       getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType),

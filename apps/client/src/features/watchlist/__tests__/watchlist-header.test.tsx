@@ -41,6 +41,15 @@ vi.mock("@tanstack/react-router", () => ({
       </a>
     );
   },
+  createLink:
+    (Base: React.ComponentType<Record<string, unknown>>) =>
+    ({ to, activeOptions: _activeOptions, activeProps, ...rest }: Record<string, unknown>) => {
+      const isActive = pathname === to;
+      const active = (isActive ? (activeProps as Record<string, unknown>) : null) ?? {};
+      return (
+        <Base href={to} data-status={isActive ? "active" : "inactive"} {...rest} {...active} />
+      );
+    },
   useLocation: () => ({ pathname }),
   useNavigate: () => vi.fn(),
   useSearch: () => ({}),
@@ -59,48 +68,39 @@ vi.mock("../hooks/use-moods", () => ({
 
 const { WatchlistHeader } = await import("../components/watchlist-header");
 
-const COUNTS = {
-  ready: 3,
-  inProgress: 1,
-  awaiting: 1,
-  unavailable: 0,
-  upcoming: 2,
-  total: 7,
-} as const;
-
 describe("WatchlistHeader (V.WL8)", () => {
   it("always renders the chip strip including the in-progress chip", () => {
     pathname = "/watchlist";
-    render(<WatchlistHeader counts={COUNTS} />);
-    expect(screen.getByRole("tab", { name: /All/i })).toBeDefined();
-    expect(screen.getByRole("tab", { name: /In progress/i })).toBeDefined();
+    render(<WatchlistHeader />);
+    expect(screen.getByRole("link", { name: /All/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /In progress/i })).toBeDefined();
   });
 
   it("hides the sort dropdown on the curated index route", () => {
     pathname = "/watchlist";
-    render(<WatchlistHeader counts={COUNTS} />);
+    render(<WatchlistHeader />);
     expect(screen.queryByRole("combobox", { name: /sort/i })).toBeNull();
   });
 
   it("surfaces the sort dropdown on a flat bucket sub-route", () => {
     pathname = "/watchlist/ready";
-    render(<WatchlistHeader counts={COUNTS} />);
+    render(<WatchlistHeader />);
     expect(screen.getByRole("combobox", { name: /sort/i })).toBeDefined();
   });
 
   it("marks the chip that matches the current pathname as the active tab", () => {
     pathname = "/watchlist/in-progress";
-    render(<WatchlistHeader counts={COUNTS} />);
-    const chip = screen.getByRole("tab", { name: /In progress/i });
+    render(<WatchlistHeader />);
+    const chip = screen.getByRole("link", { name: /In progress/i });
     expect(chip.getAttribute("data-status")).toBe("active");
   });
 
   describe("mood detail route", () => {
     it("renders the breadcrumb instead of the chip strip + sort dropdown", () => {
       pathname = "/watchlist/moods/epic";
-      render(<WatchlistHeader counts={COUNTS} />);
+      render(<WatchlistHeader />);
       // Chip strip and sort do not compose with a mood-scoped grid.
-      expect(screen.queryByRole("tab", { name: /All/i })).toBeNull();
+      expect(screen.queryByRole("link", { name: /All/i })).toBeNull();
       expect(screen.queryByRole("combobox", { name: /sort/i })).toBeNull();
       const crumb = screen.getByRole("navigation", { name: /breadcrumb/i });
       expect(crumb).toBeDefined();
@@ -110,14 +110,14 @@ describe("WatchlistHeader (V.WL8)", () => {
 
     it("renders the mood label as the H1 and the mood note as the subtitle", () => {
       pathname = "/watchlist/moods/epic";
-      render(<WatchlistHeader counts={COUNTS} />);
+      render(<WatchlistHeader />);
       const heading = screen.getByRole("heading", { level: 1 });
       expect(heading.textContent).toMatch(/Epic/i);
     });
 
     it("renders the cluster count next to the title", () => {
       pathname = "/watchlist/moods/epic";
-      render(<WatchlistHeader counts={COUNTS} />);
+      render(<WatchlistHeader />);
       const heading = screen.getByRole("heading", { level: 1 });
       // SectionHeadCount zero-pads, so "12" remains "12".
       expect(heading.textContent).toMatch(/12/);
@@ -125,8 +125,8 @@ describe("WatchlistHeader (V.WL8)", () => {
 
     it("falls back to the default header when the mood id is unknown", () => {
       pathname = "/watchlist/moods/not-a-mood";
-      render(<WatchlistHeader counts={COUNTS} />);
-      expect(screen.getByRole("tab", { name: /All/i })).toBeDefined();
+      render(<WatchlistHeader />);
+      expect(screen.getByRole("link", { name: /All/i })).toBeDefined();
       expect(screen.queryByRole("navigation", { name: /breadcrumb/i })).toBeNull();
     });
   });

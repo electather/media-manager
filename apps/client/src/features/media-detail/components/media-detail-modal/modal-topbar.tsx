@@ -72,7 +72,7 @@ function ViewFullPageButton({ onClick }: { onClick: () => void }) {
 
 function KindBadge({ kind }: { kind: MediaDetailItem["mediaType"] }) {
   const Icon = kind === "movie" ? Film : Tv;
-  const label = m.home_card_kind({ kind });
+  const label = m.media_kind({ kind });
   return (
     <Badge
       variant="glass"

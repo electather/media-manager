@@ -47,7 +47,7 @@ export const Card = memo(function Card({
     ? `${m.home_card_remove_watchlist()} ${item.title}`
     : `${m.home_card_add_watchlist()} ${item.title}`;
   const ToggleIcon = isInWatchlist ? Check : Plus;
-  const kindLabel = m.home_card_kind({ kind: item.mediaType });
+  const kindLabel = m.media_kind({ kind: item.mediaType });
 
   return (
     <MediaRowCard

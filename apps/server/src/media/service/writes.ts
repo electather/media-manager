@@ -19,7 +19,7 @@ import { bulkInsertActiveRows, softRemoveRow, upsertActiveRow } from "../repo/wr
  * the table writes (design §M.2), so the events those writes produce live with
  * the producer. Consumers subscribe through the `../media` barrel — never from
  * this file directly. The watchlist module's `on-watchlist-mutation` handler is
- * the sole subscriber (it invalidates the Tonight / mood / counts caches).
+ * the sole subscriber (it invalidates the Tonight / mood caches).
  *
  * These are deliberately NOT declared in `media/events.ts`: the boot-time
  * handler-coverage scan pairs each `<MODULE>_EVENTS` const in `media/events.ts`

@@ -12,7 +12,7 @@ export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
 /**
  * Server-side mirror of the client's classifier (see
  * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
- * `/counts` and `?bucket=` decisions match what the client would draw from
+ * `?bucket=` decisions match what the client would draw from
  * the same row. Rev 6: every row classifies into one of the five visible
  * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
  *
@@ -43,7 +43,7 @@ export interface PreviewMeta {
 
 /**
  * Cheap-signal preview of a `CompactMediaItem` shared by `enrich`'s filter
- * pre-pass and the `/counts` aggregator. Both paths derive the same bucket
+ * pre-pass and the `classifyRows` pass. Both paths derive the same bucket
  * from `(meta, status, matching servers, progress)` — extracting the shape
  * here keeps the two callers from drifting.
  */

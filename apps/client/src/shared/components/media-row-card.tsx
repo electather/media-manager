@@ -24,7 +24,8 @@ export interface MediaRowCardProps {
   item: MediaRowCardItem;
   /** `rail` → 16/9 backdrop (continue-watching / upcoming); `grid` → 2/3 poster. */
   variant: "rail" | "grid";
-  href: string;
+  /** Detail-page URL. Omit to render a non-interactive card (no link layer). */
+  href?: string;
   /** aria-label for the full-card link. */
   openLabel: string;
   /** Localized Film/Tv kind label for the badge. */

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_eyebrow": "Catalog · {count} titles",
+  "library_title": "Library",
+  "library_filter_toggle": "Filters",
+  "library_filter_active_count": "{count} active",
+  "library_filter_clear_all": "Clear all",
+  "library_filter_done": "Done",
+  "library_filter_heading": "Filter library",
+  "library_filter_section": [
+    {
+      "declarations": ["input facet"],
+      "selectors": ["facet"],
+      "match": {
+        "facet=kind": "Kind",
+        "facet=genre": "Genre",
+        "facet=quality": "Quality",
+        "facet=server": "Server",
+        "facet=watched": "Watched"
+      }
+    }
+  ],
+  "library_watched": [
+    {
+      "declarations": ["input state"],
+      "selectors": ["state"],
+      "match": {
+        "state=watched": "Watched",
+        "state=partial": "In progress",
+        "state=unwatched": "Unwatched"
+      }
+    }
+  ],
+  "library_lens_tabs_label": "Library views",
+  "library_lens_label": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "A → Z",
+        "lens=timeline": "Timeline",
+        "lens=collections": "Collections",
+        "lens=server": "Servers",
+        "lens=quality": "Quality"
+      }
+    }
+  ],
+  "library_lens_note": [
+    {
+      "declarations": ["input lens"],
+      "selectors": ["lens"],
+      "match": {
+        "lens=az": "Index",
+        "lens=timeline": "By era",
+        "lens=collections": "Curated",
+        "lens=server": "By source",
+        "lens=quality": "By tier"
+      }
+    }
+  ],
+  "library_section_count": "{count} titles",
+  "library_timeline_unknown": "Unknown year",
+  "library_row_prev": "Previous {decade}",
+  "library_row_next": "Next {decade}",
+  "library_az_rail_label": "Jump to letter",
+  "library_az_jump": "Jump to {letter}",
+  "library_empty_title": "Nothing matches",
+  "library_empty_description": "Try clearing a filter to see more titles.",
+  "library_empty_reset": "Reset filters",
+  "library_card_open": "Open details for {title}",
+  "library_card_progress": "{percent}% watched",
+  "library_load_error_title": "Library couldn't load",
+  "library_load_error_retry": "Retry"
+}

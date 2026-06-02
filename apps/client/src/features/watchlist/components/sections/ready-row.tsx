@@ -1,4 +1,4 @@
-import { useCallback, type CSSProperties } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import { WatchlistCard } from "../watchlist-card";
@@ -11,6 +11,7 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import {
+  POSTER_VARS,
   ScrollRow,
   ScrollRowNextButton,
   ScrollRowPrevButton,
@@ -18,13 +19,6 @@ import {
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
 import { useReadyRow } from "../../hooks/use-ready-row";
-
-interface CardWidthVars extends CSSProperties {
-  "--card-w": string;
-  "--card-h": string;
-}
-
-const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
 
 export function ReadyRow() {
   const { items } = useReadyRow();

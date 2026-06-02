@@ -33,6 +33,20 @@
       }
     }
   ],
+  "watchlist_filter_note": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "همه‌چیز",
+        "bucket=ready": "روی سرور",
+        "bucket=in-progress": "آغازشده",
+        "bucket=awaiting": "درخواست‌شده",
+        "bucket=unavailable": "بدون منبع",
+        "bucket=upcoming": "منتشرنشده"
+      }
+    }
+  ],
   "watchlist_sort_label": "TODO",
   "watchlist_sort": [
     {
@@ -157,17 +171,6 @@
         "unit=yesterday": "TODO",
         "unit=days_ago": "TODO",
         "unit=last_week": "TODO"
-      }
-    }
-  ],
-  "watchlist_kind": [
-    {
-      "declarations": ["input kind"],
-      "selectors": ["kind"],
-      "match": {
-        "kind=movie": "TODO",
-        "kind=tv": "TODO",
-        "kind=*": "TODO"
       }
     }
   ],

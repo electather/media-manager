@@ -2,8 +2,12 @@ import { type MouseEvent } from "react";
 import { cn } from "@/shared/lib/utils";
 
 type Props = {
-  /** Canonical detail-page URL; powers new-tab / cmd-click / right-click. */
-  href: string;
+  /**
+   * Canonical detail-page URL; powers new-tab / cmd-click / right-click. When
+   * absent the card renders no link layer at all — preferred over an `href="#"`
+   * sentinel, which would render a focusable anchor that jumps to the page top.
+   */
+  href?: string;
   /**
    * Plain left-click override (e.g. open the peek modal in place). Modified
    * clicks (cmd/ctrl/shift/alt/middle button) skip the override so the
@@ -31,6 +35,7 @@ export function MediaCardLink({ href, onPress, "aria-label": ariaLabel, classNam
     event.preventDefault();
     onPress();
   }
+  if (href === undefined) return null;
   return (
     <a
       data-slot="media-card-link"

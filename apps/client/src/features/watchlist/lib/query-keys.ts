@@ -47,7 +47,7 @@ export function watchlistMoodItemsParams(moodId: MoodId, limit?: number): Watchl
 /**
  * Watchlist query-key factory, now DERIVED from `mediaKeys` (design §B3,
  * invariant V.CL1) — the standalone `["watchlist", …]` root is gone. Every key
- * resolves to a `mediaKeys.source(...)` (or the shared counts/moods key) so a
+ * resolves to a `mediaKeys.source(...)` (or the shared moods key) so a
  * single `invalidateQueries({ queryKey: mediaKeys.root })` after a mutation
  * sweeps the whole surface once (#505), and the section error boundaries reset
  * the exact caches the list hooks read.
@@ -58,7 +58,6 @@ export function watchlistMoodItemsParams(moodId: MoodId, limit?: number): Watchl
  */
 export const watchlistKeys = {
   root: mediaKeys.root,
-  counts: mediaKeys.counts,
   moods: mediaKeys.moods,
   tonight: () => mediaKeys.source("watchlist-tonight", {}),
   recently: () => mediaKeys.source("watchlist-recently", {}),

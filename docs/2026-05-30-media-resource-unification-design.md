@@ -61,7 +61,6 @@ Nothing in `home/`, `watchlist/`, `media/` modules moves. Changes: `api/procedur
 GET    /api/media/sources/:sourceId?cursor&<source params>     # ALL paginated reads
 GET    /api/media/:type/:tmdbId/details                        # title resource (adapter → home.composeDetails; incl. seasons metadata)
 GET    /api/media/:type/:tmdbId/availability                   #   per-server presence (adapter → home.composeSeasonAvailability)
-GET    /api/media/counts                                       # adapter → watchlist.getCounts
 GET    /api/media/moods                                        # adapter → watchlist.getMoodSummary
 POST   /api/media/watchlist                                    # adapter → media writes barrel
 DELETE /api/media/watchlist/:type/:tmdbId                      # adapter → media writes barrel
@@ -69,6 +68,8 @@ DELETE /api/media/watchlist/:type/:tmdbId                      # adapter → med
 # stays — home-only product composition, no media-resource analog:
 GET    /api/home/layout
 ```
+
+**⊥ `/api/media/counts`** (RISK-A2-counts): the watchlist header dropped its per-bucket count pips when it moved to the shared `RouteTabs` bucket switcher (the library lens design — buckets are now navigable tabs, not counted chips). `watchlist.getCounts` had no remaining client consumer, so the endpoint, its `getCounts` adapter, the client `fetchCounts`/`useCounts`/`watchlistKeys.counts`, and the route-loader prefetch are all deleted rather than ported. Re-add the endpoint here if a counted surface returns.
 
 `:type` ∈ `{movie,tv}`. `details` = today's `/home/details` payload (`MediaDetailsResponse` — already carries `seasons` metadata inside `MediaDetailsExtra`). `availability` = today's `/home/season-availability` (`SeasonAvailabilityResponse` — per-server presence, show-only). **⊥ a separate `/seasons` endpoint** — seasons metadata rides inside `details`. Two composers exist today (`composeDetails` + `composeSeasonAvailability`) → two URLs, pure relocation, ⊥ new composer (preserves §A1).
 
@@ -135,17 +136,17 @@ const REGISTRY: Record<MediaSourceId, MediaSourceRegistration> = { ...homeMediaS
 
 Changeset: **minor** `@ent-mcp/shared` + `@ent-mcp/server` (new public surface; old endpoints deleted — pre-stable).
 
-## §A6 — Title / counts / moods / writes (adapter exposure)
+## §A6 — Title / moods / writes (adapter exposure)
 
 Pure URL relocation; impl untouched:
 - **Title** (B): `/api/media/:type/:tmdbId/details` → `home.composeDetails(ctx, tmdbId, type)` (incl. seasons metadata); `…/availability` → `home.composeSeasonAvailability(ctx, tmdbId)`. `:type` now a path param (today `/home/details?tmdbId&mediaType`); same response types. ⊥ separate `/seasons` (rides in `details`).
-- **counts** → `watchlist.getCounts(ctx)`; **moods** → `watchlist.getMoodSummary(ctx)`. Derivation/tally ownership unchanged (§G consolidation).
+- **moods** → `watchlist.getMoodSummary(ctx)`. Derivation/tally ownership unchanged (§G consolidation). **⊥ counts** — endpoint dropped, no client consumer after the watchlist bucket switcher lost its count pips (see §A2 RISK-A2-counts).
 - **writes** → `media` writes barrel (`addItem`/`removeItem`; already media-owned since consolidation Phase 2). `POST` returns `AddWatchlistResponse` (201/200); `DELETE` 204. `:type/:tmdbId` path params.
 
 ## §A7 — Auth · rate-limit · eligibility · cursor-null
 
 - **Auth:** `requireSession` applied `.use("*")` on the `/api/media` router (matches both procedures today). `sessionUserId(c)` per handler.
-- **Rate limit:** preserve current per-surface limits via `reg.rateLimit` + per-endpoint policy. Watchlist-origin sources + counts/moods → `watchlistReadLimiter` (today's). Home-origin sources + title → none (home has none today). Writes → `watchlistWriteLimiter`. (Limiter instances move with the router; keys unchanged.)
+- **Rate limit:** preserve current per-surface limits via `reg.rateLimit` + per-endpoint policy. Watchlist-origin sources + moods → `watchlistReadLimiter` (today's). Home-origin sources + title → none (home has none today). Writes → `watchlistWriteLimiter`. (Limiter instances move with the router; keys unchanged.)
 - **Eligibility:** §A4 — home registrations carry it; resolver 404s ineligible direct hits.
 - **Cursor-null:** §A3/§A4 — `cursorOnNull` + `requiresInitialCursor` reproduce V.CU1 per-consumer behavior under one resolver.
 
@@ -209,7 +210,7 @@ Each phase: own PR, changeset, `vp check` + `vp test` green, parity fixtures whe
 - **A2.** Consumer registration maps: `homeMediaSources` (thin — wrap `ROW_PROVIDERS` + add schema/cursor-policy/rate-limit) + `watchlistMediaSources` (new barrel export re-packaging `service.ts`-private source+cfg wiring, §A4). Exported via barrels. ⊥ endpoint yet; unit-test registry build.
 - **A3.** `api/procedures/media.ts` resolver + mount `/api/media/sources/:sourceId` (additive). Carry rate limiters, eligibility, cursor-null mapping. Parity: resolver returns same items/order/cursor as old `/home/row` + `/watchlist/*` (fixtures captured from current endpoints before this phase).
 - **A4.** Title resource `/api/media/:type/:tmdbId/details` + `/availability` → home composition (adapter bridge, B). ⊥ `/seasons` (rides in `details`).
-- **A5.** `/api/media/{counts,moods}` + `POST|DELETE /api/media/watchlist` (adapter → watchlist/media barrels). Changeset minor (`@ent-mcp/server`).
+- **A5.** `/api/media/moods` + `POST|DELETE /api/media/watchlist` (adapter → watchlist/media barrels). Changeset minor (`@ent-mcp/server`). (⊥ `/counts` — dropped, see §A2.)
 
 **Part B — client**
 - **B1.** `shared/media/` layer (source, hook core + 2 wrappers, `mediaKeys`, `MediaApiError`, cursor re-export). `similarTo` client cursor.

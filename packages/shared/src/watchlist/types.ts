@@ -24,24 +24,6 @@ export interface WatchlistResponse {
   partial: boolean;
 }
 
-/**
- * Cheap aggregate counts for the header pips. Powered by the `/counts`
- * endpoint so the client doesn't have to hold the full active set in memory
- * just to render the header chips. `inProgress` is the tally of rows whose
- * underlying media has an active watch position, sourced from the host
- * progress aggregator. `unavailable` is the rev 6 catch-all bucket for rows
- * with no server copy and no active request status; `total` is the sum of
- * all five visible buckets.
- */
-export interface WatchlistCounts {
-  ready: number;
-  inProgress: number;
-  awaiting: number;
-  unavailable: number;
-  upcoming: number;
-  total: number;
-}
-
 // fallow-ignore-next-line code-duplication
 export interface AddWatchlistRequest {
   tmdbId: string;

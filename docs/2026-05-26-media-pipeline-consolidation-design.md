@@ -180,6 +180,8 @@ Single definitions in `media`, exported via barrel where a consumer still needs 
 
 ## §G — Aggregates (count-mode, NOT sources)
 
+> **Superseded (2026-06-01).** The `/counts` aggregate is removed — the client dropped per-bucket counts, so `GET /media/counts`, `watchlist.getCounts` (+ cache), and media's `countBuckets` count-mode helper are all deleted. Count-mode now has no consumer; only the `/moods` summary remains. `classifyRows` (the shared classify pass) stays — the `tonight` source + the read pipeline's classify stage still use it.
+
 `/counts` + `/moods` summary return tallies, ⊥ item lists → ⊥ a `MediaSource`. They reuse the pipeline's `batchLoad+classify` in **count-mode** (skip enrich/sort/paginate):
 
 ```

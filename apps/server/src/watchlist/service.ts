@@ -1,7 +1,6 @@
 import {
   type MoodId,
   type WatchlistBucket,
-  type WatchlistCounts,
   type WatchlistKey,
   type WatchlistMoodSummary,
   type WatchlistResponse,
@@ -9,15 +8,12 @@ import {
   type WatchlistSort,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
-import { MemoryCache } from "../cache/memory";
 import {
   addItem as mediaAddItem,
   removeItem as mediaRemoveItem,
   seedFromPlugins as mediaSeedFromPlugins,
   syncFromPlugins as mediaSyncFromPlugins,
-  countBuckets,
   listRows,
-  listAllActiveRows,
   decode,
   type AddItemResult,
   type Cursor,
@@ -45,52 +41,6 @@ export type { WatchlistContext } from "./internal/context";
 export type { AddItemResult, SeedResult };
 export { getItems, listAvailable, hasAny, type GetItemsOptions } from "./internal/reads";
 export { watchlistMediaSources } from "./internal/media-sources";
-
-const COUNTS_CACHE_TTL_MS = 30_000;
-const COUNTS_CACHE_MAX_ENTRIES = 5000;
-const countsCache = new MemoryCache(COUNTS_CACHE_MAX_ENTRIES);
-
-function countsCacheKey(userId: string): string {
-  return `watchlist:counts:${userId}`;
-}
-
-/**
- * Returns cheap aggregate counts for the header pips. Delegates the per-row
- * bucket tally to media's `countBuckets` count-mode aggregate (design §G) —
- * `batchLoad → classify → tally`, NO artwork dispatch and NO cold-fill — so a
- * 1000-row watchlist costs one batch query plus 1000 cache hits (after the
- * first page warms the 30 s cache). This shell only owns the counts cache and
- * the `WatchlistCounts` wire mapping.
- */
-export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
-  const c = asWatchlistContext(ctx);
-  const cacheKey = countsCacheKey(c.userId);
-  const hit = await countsCache.get<WatchlistCounts>(cacheKey);
-  if (hit !== null) return hit;
-
-  const rows = await listAllActiveRows(c.userId);
-  const tally = await countBuckets(rows, c);
-
-  const counts: WatchlistCounts = {
-    ready: tally.ready,
-    inProgress: tally["in-progress"],
-    awaiting: tally.awaiting,
-    unavailable: tally.unavailable,
-    upcoming: tally.upcoming,
-    total: rows.length,
-  };
-  await countsCache.set(cacheKey, counts, COUNTS_CACHE_TTL_MS);
-  return counts;
-}
-
-export async function invalidateCounts(userId: string): Promise<void> {
-  await countsCache.delete(countsCacheKey(userId));
-}
-
-/** Test-only. */
-export async function __resetCountsCache(): Promise<void> {
-  await countsCache.clear("watchlist:counts:");
-}
 
 /**
  * Idempotent add. The `watchlist_items` write + event now live in media

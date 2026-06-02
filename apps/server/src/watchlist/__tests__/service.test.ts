@@ -26,7 +26,6 @@ vi.mock("../../jobs/events", () => ({
 const { emit } = await import("../../jobs/events");
 const {
   getItems,
-  getCounts,
   addItem,
   removeItem,
   listAvailable,
@@ -34,8 +33,6 @@ const {
   listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
-  invalidateCounts,
-  __resetCountsCache,
 } = await import("../service");
 const mediaRepo = await import("../../media/repo");
 const { __resetAvailabilityCache } = await import("../../media");
@@ -118,7 +115,6 @@ afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
   await mediaRepo.__resetActiveRowsForTests(testDb);
-  await __resetCountsCache();
   __resetAvailabilityCache();
   (emit as ReturnType<typeof vi.fn>).mockClear();
 });
@@ -253,7 +249,7 @@ describe("watchlist/service", () => {
   });
 });
 
-describe("watchlist/service v2 (pagination + counts + filter)", () => {
+describe("watchlist/service v2 (pagination + filter)", () => {
   it("getItems paginates with a keyset cursor and signals end-of-list with cursor=null", async () => {
     const ctx = makeCtx();
     // Seed 7 rows; ask for 3 per page.
@@ -275,145 +271,6 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
 
     const all = [...page1.items, ...page2.items, ...page3.items];
     expect(new Set(all.map((i) => i.tmdbId)).size).toBe(7);
-  });
-
-  it("getCounts returns aggregate buckets and total without artwork dispatch", async () => {
-    const ctx = makeCtx();
-    await addItem({ tmdbId: "900", mediaType: "movie" }, "manual", ctx);
-    await addItem({ tmdbId: "901", mediaType: "movie" }, "manual", ctx);
-    await addItem({ tmdbId: "902", mediaType: "movie" }, "manual", ctx);
-
-    // 900 is on a library server (ready), 901 is upcoming, 902 falls through
-    // to the rev-6 `unavailable` catch-all bucket (no server, no future-year
-    // metadata, no request-status). Reset the cache so the warmed `[]` value
-    // from `addItem` doesn't shadow the per-tmdb mock below.
-    __resetAvailabilityCache();
-    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
-      async (tmdbId: string) => (tmdbId === "900" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
-    );
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:901": {
-        tmdbId: "901",
-        mediaType: "movie",
-        title: "Far Future",
-        year: new Date().getUTCFullYear() + 3,
-        genres: [],
-      },
-    });
-
-    const counts = await getCounts(ctx);
-    // V.WL2 rev 6 — every active row classifies into one of five visible
-    // buckets; total is the sum of those five (no hidden tail).
-    expect(counts.total).toBe(3);
-    expect(counts.ready).toBe(1);
-    expect(counts.inProgress).toBe(0);
-    expect(counts.upcoming).toBe(1);
-    expect(counts.awaiting).toBe(0);
-    expect(counts.unavailable).toBe(1);
-    expect(
-      counts.ready + counts.inProgress + counts.awaiting + counts.unavailable + counts.upcoming,
-    ).toBe(counts.total);
-  });
-
-  it("getCounts emits a real inProgress tally when continueWatching reports an active position", async () => {
-    const ctx = makeCtx();
-    // Wire the CW + library mocks BEFORE the first plugin-touching call so the
-    // request-scoped progress memo + availability cache see the configured
-    // shape on their first read. `addItem` enriches the new row eagerly and
-    // would otherwise warm both caches with the default empty mocks.
-    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { id: "jellyfin", label: "Jellyfin" },
-    ]);
-    (ctx.mediaService.getContinueWatchingFeed as ReturnType<typeof vi.fn>).mockResolvedValue({
-      items: [
-        {
-          progressMs: 600_000,
-          item: { type: "movie", durationSec: 6000, ids: { tmdb: "920" } },
-        },
-      ],
-      partial: false,
-    });
-    await addItem({ tmdbId: "920", mediaType: "movie" }, "manual", ctx);
-    await addItem({ tmdbId: "921", mediaType: "movie" }, "manual", ctx);
-
-    const counts = await getCounts(ctx);
-    expect(counts.total).toBe(2);
-    expect(counts.inProgress).toBe(1);
-    // 920 is in-progress (not double counted as ready); 921 stays ready.
-    expect(counts.ready).toBe(1);
-  });
-
-  it("getCounts on an empty watchlist short-circuits without plugin work", async () => {
-    const ctx = makeCtx();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const probeSpy = ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>;
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
-    const counts = await getCounts(ctx);
-    expect(counts).toEqual({
-      ready: 0,
-      inProgress: 0,
-      awaiting: 0,
-      unavailable: 0,
-      upcoming: 0,
-      total: 0,
-    });
-    expect(probeSpy).not.toHaveBeenCalled();
-    expect(statusSpy).not.toHaveBeenCalled();
-  });
-
-  it("getCounts caches bucket totals separately for each user", async () => {
-    const u1 = makeCtx({ userId: "u1" });
-    const u2 = makeCtx({ userId: "u2" });
-    await addItem({ tmdbId: "cache-u1", mediaType: "movie" }, "manual", u1);
-    await addItem({ tmdbId: "cache-u2", mediaType: "movie" }, "manual", u2);
-    __resetAvailabilityCache();
-
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const u1Status = u1.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const u2Status = u2.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
-    u1Status.mockClear();
-    u2Status.mockClear();
-
-    await getCounts(u1);
-    await getCounts(u2);
-    await getCounts(u1);
-    await getCounts(u2);
-
-    expect(u1Status).toHaveBeenCalledTimes(1);
-    expect(u2Status).toHaveBeenCalledTimes(1);
-  });
-
-  it("invalidateCounts clears the cache so the next getCounts re-queries the DB", async () => {
-    const ctx = makeCtx({ userId: "u1" });
-    await addItem({ tmdbId: "inv-1", mediaType: "movie" }, "manual", ctx);
-    __resetAvailabilityCache();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
-    statusSpy.mockClear();
-
-    await getCounts(ctx);
-    expect(statusSpy).toHaveBeenCalledTimes(1);
-
-    await invalidateCounts("u1");
-    await getCounts(ctx);
-    expect(statusSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it("availability cache is shared between a list + counts pair (one probe per row)", async () => {
-    const ctx = makeCtx();
-    await addItem({ tmdbId: "950", mediaType: "movie" }, "manual", ctx);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const probeSpy = ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>;
-    probeSpy.mockClear();
-
-    await getItems(ctx, { limit: 10 });
-    const afterList = probeSpy.mock.calls.length;
-    await getCounts(ctx);
-    const afterCounts = probeSpy.mock.calls.length;
-    // The counts pass should hit the cache for the same key — no new probe.
-    expect(afterCounts).toBe(afterList);
   });
 
   // Regression: when a single keyset overshoot window yields fewer than

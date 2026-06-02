@@ -91,7 +91,7 @@ function RecentRow({
   onPeek: (id: string) => void;
 }) {
   const Icon = item.mediaType === "movie" ? Film : Tv;
-  const kindLabel = m.watchlist_kind({ kind: item.mediaType });
+  const kindLabel = m.media_kind({ kind: item.mediaType });
   const src = item.backdrop ?? item.poster;
   return (
     <li className="list-none">

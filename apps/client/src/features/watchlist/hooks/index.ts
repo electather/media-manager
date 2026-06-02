@@ -1,4 +1,3 @@
-export { useCounts } from "./use-counts";
 export { useTonight } from "./use-tonight";
 export { useRecentlyAdded } from "./use-recently-added";
 export { useMoods } from "./use-moods";

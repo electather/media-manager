@@ -103,7 +103,6 @@ export type {
   AnyMediaSourceRegistration,
 } from "./service/registration";
 export { classifyRows, type ClassifyRowsContext } from "./service/classify-rows";
-export { countBuckets, type BucketCounts, type CountBucketsContext } from "./service/count";
 export {
   addItem,
   removeItem,

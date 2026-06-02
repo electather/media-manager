@@ -24,16 +24,16 @@ export function classifyStatus(item: CompactMediaItem): WatchlistStatus {
   if (fromStatus) return fromStatus;
   if (item.facets?.releaseDate) return "upcoming";
   // Info-only titles (no library copy, not request-eligible) cannot be acted
-  // on, so the server `/counts` + `?bucket=` routes them to `unavailable`
+  // on, so the server `?bucket=` classification routes them to `unavailable`
   // (#502). The client classifier mirrors that so the local bucket view
-  // matches the server-rendered counts; routing info-only → `upcoming` here
+  // matches the server-rendered buckets; routing info-only → `upcoming` here
   // would diverge from the server response for the same row.
   if (isInfoOnly(item)) return "unavailable";
   return "unknown";
 }
 
 // Items classified as "unknown" are intentionally omitted — no bucket entry
-// here, so they drop out of bucketize and are excluded from header counts.
+// here, so they drop out of bucketize and never surface in the bucket tabs.
 const STATUS_TO_BUCKET: Partial<Record<WatchlistStatus, keyof WatchlistBuckets>> = {
   "in-progress": "inProgress",
   available: "available",

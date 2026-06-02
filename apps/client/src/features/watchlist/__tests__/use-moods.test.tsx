@@ -18,7 +18,6 @@ vi.mock("@/shared/media/source", () => ({
   defineMediaSource: (spec: Record<string, unknown>) => ({ ...spec, fetchPage: fetchPageMock }),
 }));
 vi.mock("@/shared/media/aggregates", () => ({
-  fetchCounts: vi.fn(),
   fetchMoods: fetchMoodsMock,
 }));
 

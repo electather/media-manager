@@ -40,7 +40,7 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
   const imageSrc = isWide ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
   const isMovie = item.mediaType === "movie";
   const KindIcon = isMovie ? Film : Tv;
-  const kindLabel = m.watchlist_kind({ kind: item.mediaType });
+  const kindLabel = m.media_kind({ kind: item.mediaType });
   const removeLabel = `${m.watchlist_toggle_remove()} ${item.title}`;
   const progressPercent =
     item.progress && item.progress.total > 0

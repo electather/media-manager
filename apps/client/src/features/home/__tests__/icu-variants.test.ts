@@ -6,9 +6,11 @@ import * as m from "@/paraglide/messages";
 // the exact string the per-key message it replaced rendered (no copy change).
 
 describe("US-011 home ICU variants — copy parity", () => {
+  // The card-kind variant since moved to the shared `media` namespace
+  // (`media_kind`), reused by every media surface; copy must stay unchanged.
   it("renders the card-kind variant (selector `kind`) unchanged", () => {
-    expect(m.home_card_kind({ kind: "movie" }, { locale: "en" })).toBe("Movie");
-    expect(m.home_card_kind({ kind: "tv" }, { locale: "en" })).toBe("TV series");
+    expect(m.media_kind({ kind: "movie" }, { locale: "en" })).toBe("Movie");
+    expect(m.media_kind({ kind: "tv" }, { locale: "en" })).toBe("TV series");
   });
 
   it("renders match-reason copy (selector `reason`) with interpolation unchanged", () => {

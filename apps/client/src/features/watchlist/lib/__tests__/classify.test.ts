@@ -32,9 +32,9 @@ describe("classifyStatus", () => {
   });
 
   // Info-only titles (no library copy, not request-eligible) cannot be acted
-  // on, so the server `/counts` routes them to `unavailable` (#502). The
-  // client classifier mirrors that to keep the local bucket view in sync with
-  // the server-rendered counts.
+  // on, so the server `?bucket=` classification routes them to `unavailable`
+  // (#502). The client classifier mirrors that to keep the local bucket view
+  // in sync with the server-rendered buckets.
   it("classifies info-only items as unavailable to match the server", () => {
     const item = makeItem({
       availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] },

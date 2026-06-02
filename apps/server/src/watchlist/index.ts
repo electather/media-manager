@@ -8,7 +8,6 @@
 export {
   // fallow-ignore-next-line code-duplication
   getItems,
-  getCounts,
   addItem,
   removeItem,
   seedFromPlugins,

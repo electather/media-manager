@@ -79,7 +79,7 @@ export async function getActiveRow(
   return row ? toRow(row) : null;
 }
 
-/** All active rows for the user, newest first. Used by counts + mood derivation. */
+/** All active rows for the user, newest first. Used by the section sources + mood derivation. */
 export async function listAllActiveRows(userId: string, db: Db = getDb()): Promise<ActiveRow[]> {
   const rows = await db
     .select()
