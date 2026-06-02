@@ -28,7 +28,9 @@ export function LibraryLensTabs() {
           to={LENS_TO[lens]}
           // Carry only the filter axes across a lens switch. Keep this list in
           // step with `librarySearchSchema` — a new axis added there must be
-          // added here too or it silently won't survive a lens change.
+          // added here too or it silently won't survive a lens change. (A codec
+          // round-trip would cover this automatically, but TanStack's search
+          // reducer typing rejects the helper's return — so it's a manual list.)
           search={(prev) => ({
             kinds: prev.kinds,
             genres: prev.genres,

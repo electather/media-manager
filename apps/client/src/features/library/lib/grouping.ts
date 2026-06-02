@@ -52,7 +52,7 @@ export function buildAlphabet(items: LibraryItem[]): { letter: string; populated
 }
 
 function decadeOf(year: number | undefined): number | null {
-  if (!year) return null;
+  if (year == null) return null;
   return Math.floor(year / 10) * 10;
 }
 

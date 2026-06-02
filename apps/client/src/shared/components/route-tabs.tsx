@@ -56,7 +56,10 @@ export const RouteTab: LinkComponent<typeof RouteTabBase> = (props) => (
  * lens switcher and the watchlist bucket filter both compose this so the two
  * pages read identically. Wraps when the tabs outgrow one line.
  */
-export function RouteTabs({ className, ...props }: ComponentProps<"div">) {
+export function RouteTabs({
+  className,
+  ...props
+}: ComponentProps<"div"> & { "aria-label": string }) {
   return (
     <div
       role="navigation"
