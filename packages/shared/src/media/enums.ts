@@ -61,6 +61,15 @@ export const MEDIA_SOURCE_IDS = [
   "watchlist-mood-items",
   "watchlist-tonight",
   "watchlist-recently",
+  // Library item lenses (served through the unified resolver). The franchise
+  // (`collections`) lens is NOT here — it is a group-first endpoint, not a
+  // `Page` source, so it has its own `/api/library/collections` route. The
+  // `server`/`quality` lenses expand a title once per server / quality tier via
+  // `json_each`, so the same title can repeat across sections of one page.
+  "library-az",
+  "library-timeline",
+  "library-server",
+  "library-quality",
 ] as const;
 
 export type MediaSourceId = (typeof MEDIA_SOURCE_IDS)[number];

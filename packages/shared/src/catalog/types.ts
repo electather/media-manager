@@ -18,6 +18,12 @@ export interface CanonicalMetadata {
   overview: string | null;
   originalLanguage: string | null;
   genres: string[] | null;
+  // TMDB franchise grouping that powers the collections lens. Null for
+  // standalone titles and all TV, which TMDB never groups into collections.
+  // Optional on the interface so existing `CanonicalMetadata` literals stay
+  // valid; `toCanonicalRow` always emits both, defaulting to null.
+  collectionId?: string | null;
+  collectionName?: string | null;
   features: CanonicalFeatures | null;
   lastRefreshedAt: number;
   lastAccessedAt: number;
