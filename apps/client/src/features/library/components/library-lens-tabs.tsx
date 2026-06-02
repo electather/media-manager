@@ -13,10 +13,10 @@ const LENS_TO = {
 } as const satisfies Record<LibraryLens, string>;
 
 /**
- * The lens switcher — each tab is a `<RouteTab>` into the lens's sub-route.
- * `search: (prev) => prev` carries the active filters across a lens switch, and
- * the active tab is derived from the router's `data-status=active` attribute so
- * it stays in sync with deep links. Built on the shared `RouteTabs` so it reads
+ * The lens switcher — each tab is a `<RouteTab>` into the lens's sub-route. The
+ * `search` reducer carries the active filters across a lens switch, and the
+ * active tab is derived from the router's `data-status=active` attribute so it
+ * stays in sync with deep links. Built on the shared `RouteTabs` so it reads
  * identically to the watchlist bucket filter.
  */
 export function LibraryLensTabs() {
@@ -26,6 +26,9 @@ export function LibraryLensTabs() {
         <RouteTab
           key={lens}
           to={LENS_TO[lens]}
+          // Carry only the filter axes across a lens switch. Keep this list in
+          // step with `librarySearchSchema` — a new axis added there must be
+          // added here too or it silently won't survive a lens change.
           search={(prev) => ({
             kinds: prev.kinds,
             genres: prev.genres,

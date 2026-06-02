@@ -60,6 +60,9 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
         const next = keys.find((key) => visible.has(key)) ?? null;
         setActiveKey((prev) => (prev === next ? prev : next));
       },
+      // Top inset clears the sticky app nav so a section only counts as active
+      // once it's below it; the -55% bottom inset narrows the "active band" to
+      // the upper ~45% of the viewport. Revisit both if the nav height changes.
       { rootMargin: "-100px 0px -55% 0px", threshold: 0 },
     );
     for (const el of sections) observer.observe(el);

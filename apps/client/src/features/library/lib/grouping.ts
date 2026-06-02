@@ -11,7 +11,12 @@ export interface LibraryGroup {
   items: LibraryItem[];
 }
 
-/** Quality tiers in descending fidelity, used to order the Quality lens. */
+/**
+ * Quality tiers in descending fidelity, used to order the Quality lens. A tag
+ * not listed here sorts to the end among its peers; extend this when the real
+ * API introduces new tiers (e.g. Dolby Vision, HDR10+) so their order is a
+ * deliberate decision rather than an alphabetical fallback.
+ */
 export const QUALITY_TIERS = ["4K HDR", "4K", "HDR", "Atmos"] as const;
 
 function titleSort(items: LibraryItem[]): LibraryItem[] {

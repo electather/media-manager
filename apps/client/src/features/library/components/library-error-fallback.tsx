@@ -19,6 +19,10 @@ export function LibraryErrorFallback({ error, resetErrorBoundary }: LibraryError
   const message = error instanceof Error ? error.message : String(error);
 
   function handleRetry() {
+    // `resetQueries` synchronously marks the cache stale (its returned refetch
+    // is fire-and-forget); the boundary can clear right away and the re-mounted
+    // Suspense child suspends on the fresh fetch. Don't await it — that would
+    // make retry block on the refetch completing.
     void queryClient.resetQueries({ queryKey: libraryKeys.all });
     resetErrorBoundary();
   }

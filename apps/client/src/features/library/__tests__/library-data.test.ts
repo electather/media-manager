@@ -91,6 +91,22 @@ describe("applyLibraryFilters", () => {
       ["movie:heat", "movie:drive"],
     );
   });
+
+  it("filters by watched state — the one axis routed through watchedStateOf", () => {
+    const byProgress = [
+      item({ id: "unwatched", title: "U", progress: { watched: 0, total: 10 } }),
+      item({ id: "partial", title: "P", progress: { watched: 4, total: 10 } }),
+      item({ id: "watched", title: "W", progress: { watched: 10, total: 10 } }),
+    ];
+    expect(
+      applyLibraryFilters(byProgress, filters({ watched: ["partial"] })).map((i) => i.id),
+    ).toEqual(["partial"]);
+    expect(
+      applyLibraryFilters(byProgress, filters({ watched: ["unwatched", "watched"] })).map(
+        (i) => i.id,
+      ),
+    ).toEqual(["unwatched", "watched"]);
+  });
 });
 
 describe("computeFacetCounts", () => {

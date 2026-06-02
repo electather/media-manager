@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { filtersToSearch, type LibrarySearch, searchToFilters } from "../lib/search";
+import { filtersToSearch, librarySearchSchema, searchToFilters } from "../lib/search";
 import { EMPTY_FILTERS, type LibraryFilters } from "../lib/types";
 
 /**
@@ -12,12 +12,15 @@ import { EMPTY_FILTERS, type LibraryFilters } from "../lib/types";
  */
 export function useLibraryFilters() {
   const navigate = useNavigate();
-  // `strict: false` returns the untyped search record so this hook can sit in
-  // the shared `/library/*` layout header without a per-route binding. The cast
-  // is safe only under that route family — mounted elsewhere the axes fall back
-  // to `?? []` and `searchToFilters` silently yields `EMPTY_FILTERS`.
-  const search = useSearch({ strict: false }) as LibrarySearch;
-  const filters = useMemo(() => searchToFilters(search), [search]);
+  // `strict: false` lets this hook sit in the shared `/library/*` layout header
+  // without a per-route binding. Re-validating with the schema (rather than
+  // casting the untyped record) keeps the degradation explicit: mounted outside
+  // the route family the parse fails and filters fall back to `EMPTY_FILTERS`.
+  const rawSearch = useSearch({ strict: false });
+  const filters = useMemo(
+    () => searchToFilters(librarySearchSchema.safeParse(rawSearch).data ?? {}),
+    [rawSearch],
+  );
 
   const setFilters = useCallback(
     (next: LibraryFilters) => {
