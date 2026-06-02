@@ -19,13 +19,22 @@ export interface LibraryGroup {
  */
 export const QUALITY_TIERS = ["4K HDR", "4K", "HDR", "Atmos"] as const;
 
-function titleSort(items: LibraryItem[]): LibraryItem[] {
-  return sortBy(items, [(item) => item.title.toLowerCase()]);
+/** Drop a single leading article so titles bucket and sort by their real word. */
+function sortableTitle(title: string): string {
+  return title.trim().replace(/^(the|a|an)\s+/i, "");
 }
 
-/** The leading character used to bucket a title in the A→Z lens. */
+function titleSort(items: LibraryItem[]): LibraryItem[] {
+  return sortBy(items, [(item) => sortableTitle(item.title).toLowerCase()]);
+}
+
+/**
+ * The leading character used to bucket a title in the A→Z lens. A leading
+ * article (`The`/`A`/`An`) is stripped first so "The Amber Room" files under
+ * **A**, matching how Plex, Jellyfin, and Emby sort by letter.
+ */
 export function indexLetter(title: string): string {
-  const first = title.trim().charAt(0).toUpperCase();
+  const first = sortableTitle(title).charAt(0).toUpperCase();
   return /[A-Z]/.test(first) ? first : "#";
 }
 

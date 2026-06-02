@@ -153,6 +153,18 @@ describe("grouping", () => {
     expect(groups.map((g) => g.key)).toEqual(["A", "Z", "#"]);
   });
 
+  it("buckets and sorts by the title minus a leading article, like media servers", () => {
+    const groups = groupByLetter([
+      item({ id: "1", title: "The Amber Room" }),
+      item({ id: "2", title: "An Anvil" }),
+      item({ id: "3", title: "Avalanche" }),
+    ]);
+    // "The Amber Room" files under A (not T); within A the stripped titles sort
+    // Amber < Anvil < Avalanche.
+    expect(groups.map((g) => g.key)).toEqual(["A"]);
+    expect(groups[0]?.items.map((i) => i.id)).toEqual(["1", "2", "3"]);
+  });
+
   it("orders decades newest-first", () => {
     const groups = groupByDecade([
       item({ id: "1", title: "Old", year: 1994 }),

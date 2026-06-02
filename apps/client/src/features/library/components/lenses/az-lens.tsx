@@ -17,6 +17,11 @@ import { LibraryGrid } from "../library-grid";
 // the connection is invisible to the type system, so keep them co-located.
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
 
+// Top inset for the scroll-spy band — roughly the sticky app-nav height, so a
+// section only counts as active once it clears the nav. Named so it's findable
+// if the nav height changes (there's no shared layout token for it yet).
+const SCROLL_SPY_TOP_INSET = "-100px";
+
 /** Fold a batch of observer entries into the running set of visible section keys. */
 function trackVisibleSections(visible: Set<string>, entries: IntersectionObserverEntry[]) {
   for (const entry of entries) {
@@ -62,8 +67,8 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
       },
       // Top inset clears the sticky app nav so a section only counts as active
       // once it's below it; the -55% bottom inset narrows the "active band" to
-      // the upper ~45% of the viewport. Revisit both if the nav height changes.
-      { rootMargin: "-100px 0px -55% 0px", threshold: 0 },
+      // the upper ~45% of the viewport.
+      { rootMargin: `${SCROLL_SPY_TOP_INSET} 0px -55% 0px`, threshold: 0 },
     );
     for (const el of sections) observer.observe(el);
     return () => observer.disconnect();
