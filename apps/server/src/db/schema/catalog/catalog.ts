@@ -30,6 +30,8 @@ export const canonicalMetadata = sqliteTable(
     clearLogoUrl: text("clear_logo_url"),
     overview: text("overview"),
     originalLanguage: text("original_language"),
+    collectionId: text("collection_id"),
+    collectionName: text("collection_name"),
     genres: text("genres", { mode: "json" }).$type<string[] | null>(),
     features: text("features", { mode: "json" }).$type<CanonicalFeatures | null>(),
     lastRefreshedAt: integer("last_refreshed_at").notNull(),

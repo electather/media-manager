@@ -135,6 +135,84 @@ describe("CatalogService canonical_metadata", () => {
     expect(row.backdropUrl).toBeNull();
   });
 
+  it("toCanonicalRow threads collection id and name onto the row", () => {
+    // The collections lens groups titles by TMDB franchise, so the plugin's
+    // `mediaItem.collection` must land on the canonical row verbatim. If this
+    // mapping is dropped, every movie reads as standalone and the lens breaks.
+    const row = toCanonicalRow(KEY_FIGHT_CLUB, {
+      title: "Fight Club",
+      type: "movie",
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "550" },
+      collection: { id: "131635", name: "The Fight Club Collection" },
+    });
+    expect(row.collectionId).toBe("131635");
+    expect(row.collectionName).toBe("The Fight Club Collection");
+  });
+
+  it("toCanonicalRow leaves collection columns null when raw lacks a collection", () => {
+    // Standalone titles and all TV carry no collection; those rows must read
+    // back as null so the collections lens excludes them rather than inventing
+    // an empty-named franchise. A non-null default here would corrupt the lens.
+    const row = toCanonicalRow(KEY_TWIN_PEAKS, {
+      title: "Twin Peaks",
+      type: "tv",
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "1400" },
+    });
+    expect(row.collectionId).toBeNull();
+    expect(row.collectionName).toBeNull();
+  });
+
+  it("persists collection membership through writeMetadata and reads it back", async () => {
+    // Round-trips through the DB to prove the collection columns are not just
+    // computed in memory but actually written and selected back. This fails if
+    // `toCanonicalRow` stops emitting the columns or the schema drops them.
+    const catalog = new CatalogService(await createInMemoryDb());
+    const row = buildRow(KEY_FIGHT_CLUB, {
+      collectionId: "131635",
+      collectionName: "The Fight Club Collection",
+    });
+    await catalog.writeMetadata([row]);
+
+    const fetched = await catalog.getMetadata("550", "movie");
+    expect(fetched?.collectionId).toBe("131635");
+    expect(fetched?.collectionName).toBe("The Fight Club Collection");
+  });
+
+  it("refreshes collection membership on a conflict UPDATE, not just a fresh insert", async () => {
+    // The metadata-refresh job re-writes already-cached rows, hitting the
+    // `onConflictDoUpdate` path. If that SET clause omits the collection
+    // columns, franchise data first learned on a re-fetch never persists. This
+    // writes a row with no collection, then re-writes the same key with one,
+    // and proves the update lands.
+    const catalog = new CatalogService(await createInMemoryDb());
+    await catalog.writeMetadata([buildRow(KEY_FIGHT_CLUB)]);
+    const before = await catalog.getMetadata("550", "movie");
+    expect(before?.collectionId).toBeNull();
+
+    await catalog.writeMetadata([
+      buildRow(KEY_FIGHT_CLUB, {
+        collectionId: "131635",
+        collectionName: "The Fight Club Collection",
+      }),
+    ]);
+
+    const after = await catalog.getMetadata("550", "movie");
+    expect(after?.collectionId).toBe("131635");
+    expect(after?.collectionName).toBe("The Fight Club Collection");
+  });
+
   it("surfaces NULL-features rows ahead of time-stale rows", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     const now = Date.now();

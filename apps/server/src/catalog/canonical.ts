@@ -17,6 +17,9 @@ export interface RawArtwork {
   clearLogoUrl?: string | null;
   clearLogo?: string | null;
   overview?: string | null;
+  // TMDB franchise grouping threaded from the plugin `mediaItem.collection`.
+  // Optional and nullable so non-movie and pre-threading payloads still map.
+  collection?: { id: string; name: string } | null;
 }
 
 export type RawCanonicalSource = RawMediaItem & RawArtwork;
@@ -48,6 +51,8 @@ export function toCanonicalRow(
     overview: nullableString(raw.overview),
     originalLanguage: nullableString(raw.originalLanguage),
     genres: emptyToNull(dedupeStrings(raw.genres)),
+    collectionId: raw.collection?.id ?? null,
+    collectionName: raw.collection?.name ?? null,
     features: extractFeatures(raw),
     lastRefreshedAt: now,
     lastAccessedAt: now,
