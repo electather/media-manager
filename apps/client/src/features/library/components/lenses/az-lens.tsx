@@ -7,15 +7,18 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { cn } from "@/shared/lib/utils";
-import { buildAlphabet, groupByLetter } from "../../lib/grouping";
-import type { LibraryItem } from "../../lib/types";
-import { LibraryGrid } from "../library-grid";
+import { toSections } from "../../lib/section-groups";
+import { LibrarySectionGrid, type LibrarySectionGridProps } from "./library-section-grid";
 
 // Load-bearing coupling: this id format is the only link between the `<section
-// id>` below and the `getElementById` scroll-spy lookup in the effect. Both
-// sides go through this helper, so changing it here keeps them in step — but
-// the connection is invisible to the type system, so keep them co-located.
+// id>` rendered below and the `getElementById` scroll-spy lookup in the effect.
+// Both sides go through this helper, so changing it here keeps them in step —
+// but the connection is invisible to the type system, so keep them co-located.
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
+
+// The fixed A→Z rail order; `#` collects non-alphabetic leads. The `letters`
+// facet (present-only) decides which entries are live links vs inert.
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").concat("#");
 
 // Top inset for the scroll-spy band — matches the rail's `top-24` (96px) so a
 // section only counts as active once it clears the sticky nav. Named so it's
@@ -32,37 +35,48 @@ function trackVisibleSections(visible: Set<string>, entries: IntersectionObserve
   }
 }
 
+interface AzLensProps extends Omit<LibrarySectionGridProps, "renderHeader"> {
+  /** Present-only first letters from `/facets`, driving which rail letters link. */
+  letters: string[];
+}
+
 /**
- * Alphabetical index: a sticky letter rail beside per-letter sections. Clicking
- * a populated letter smooth-scrolls to its section; empty letters are inert. An
- * IntersectionObserver tracks which section sits at the top of the viewport and
- * highlights the matching rail letter.
+ * Alphabetical index: a sticky letter rail beside per-letter sections. The
+ * server returns the stream sorted `(sortTitle, id)` and `toSectionEntries`
+ * splices a letter header on each boundary; this lens reuses the shared
+ * `LibrarySectionGrid` for the virtualized, infinitely-scrolling body and only
+ * adds the rail + scroll-spy on top. Clicking a populated letter smooth-scrolls
+ * to its section; letters absent from the `letters` facet are inert. An
+ * IntersectionObserver highlights the section at the top of the viewport.
  */
-export function AzLens({ items }: { items: LibraryItem[] }) {
-  const groups = useMemo(() => groupByLetter(items), [items]);
-  const alphabet = useMemo(() => buildAlphabet(items), [items]);
-  // Highlight the first section from the start; the observer below corrects it
-  // as soon as the user scrolls. Without this the rail shows nothing active on
-  // load even though section `A` is already at the top of the viewport.
-  const [activeKey, setActiveKey] = useState<string | null>(groups[0]?.key ?? null);
+export function AzLens({ letters, entries, ...gridProps }: AzLensProps) {
+  // The populated set drives the rail's live vs inert letters and is sourced
+  // from the whole-library `letters` facet (not the loaded pages) so a letter
+  // links even before its section has scrolled into the infinite stream.
+  const populated = useMemo(() => new Set(letters), [letters]);
+  // The section keys currently spliced into the loaded stream — the observer
+  // only tracks sections that exist in the DOM. Derived from the same entries
+  // the grid renders so the two never disagree.
+  const sectionKeys = useMemo(() => toSections(entries).map((section) => section.key), [entries]);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
 
   // Scroll-spy via IntersectionObserver (works regardless of which ancestor
   // scrolls). The active letter is the topmost section intersecting a band just
-  // below the app nav; while the viewport sits in a gap between sections the last
-  // active letter holds. Only re-renders when the active letter actually changes.
+  // below the app nav; while the viewport sits in a gap between sections the
+  // last active letter holds. Re-runs when the loaded section set grows.
   useEffect(() => {
-    const keys = groups.map((group) => group.key);
-    const sections = keys
+    const sections = sectionKeys
       .map((key) => document.getElementById(anchorId(key)))
       .filter((el): el is HTMLElement => el !== null);
     if (sections.length === 0) return;
+    setActiveKey((prev) => prev ?? sectionKeys[0] ?? null);
 
     const visible = new Set<string>();
     const observer = new IntersectionObserver(
-      (entries) => {
-        trackVisibleSections(visible, entries);
+      (observed) => {
+        trackVisibleSections(visible, observed);
         if (visible.size === 0) return;
-        const next = keys.find((key) => visible.has(key)) ?? null;
+        const next = sectionKeys.find((key) => visible.has(key)) ?? null;
         setActiveKey((prev) => (prev === next ? prev : next));
       },
       // Top inset clears the sticky app nav so a section only counts as active
@@ -72,7 +86,7 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
     );
     for (const el of sections) observer.observe(el);
     return () => observer.disconnect();
-  }, [groups]);
+  }, [sectionKeys]);
 
   const jump = (letter: string) => {
     document
@@ -86,8 +100,8 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
         aria-label={m.library_az_rail_label()}
         className="sticky top-24 flex max-h-[calc(100vh-7rem)] flex-col items-stretch self-start overflow-y-auto"
       >
-        {alphabet.map(({ letter, populated }) =>
-          populated ? (
+        {ALPHABET.map((letter) =>
+          populated.has(letter) ? (
             <button
               key={letter}
               type="button"
@@ -115,26 +129,22 @@ export function AzLens({ items }: { items: LibraryItem[] }) {
         )}
       </nav>
 
-      <div className="flex flex-col gap-14">
-        {groups.map((group) => (
-          <section
-            key={group.key}
-            id={anchorId(group.key)}
-            data-letter={group.key}
-            className="scroll-mt-28"
-          >
-            <SectionHead>
-              <SectionHeadHeading>
+      <LibrarySectionGrid
+        entries={entries}
+        {...gridProps}
+        renderHeader={(section) => (
+          <SectionHead>
+            <SectionHeadHeading>
+              <div id={anchorId(section.key)} data-letter={section.key} className="scroll-mt-28">
                 <SectionHeadTitle className="text-5xl font-bold leading-none">
-                  {group.label}
-                  <SectionHeadCount value={group.items.length} />
+                  {section.label}
+                  <SectionHeadCount value={section.count} />
                 </SectionHeadTitle>
-              </SectionHeadHeading>
-            </SectionHead>
-            <LibraryGrid items={group.items} />
-          </section>
-        ))}
-      </div>
+              </div>
+            </SectionHeadHeading>
+          </SectionHead>
+        )}
+      />
     </div>
   );
 }

@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
+import {
+  WATCHED_STATES,
+  type LibraryFacetCounts,
+  type WatchedState,
+} from "@ent-mcp/shared/library";
 import type { MediaType } from "@ent-mcp/shared/media";
 import * as m from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
@@ -8,20 +13,15 @@ import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/shared/
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { countActiveFilters } from "../lib/filtering";
 import { facetSectionLabel, kindLabel, watchedLabel } from "../lib/labels";
-import {
-  EMPTY_FILTERS,
-  WATCHED_STATES,
-  type LibraryFacetCounts,
-  type LibraryFilters,
-  type WatchedState,
-} from "../lib/types";
+import { EMPTY_FILTERS, type LibraryFilters } from "../lib/types";
 
 const KINDS: MediaType[] = ["movie", "tv"];
 
 interface LibraryFilterPopoverProps {
   filters: LibraryFilters;
   facetValues: { genres: string[]; qualities: string[]; servers: string[] };
-  facetCounts: LibraryFacetCounts;
+  /** Whole-library facet totals; undefined until the non-blocking facets read lands. */
+  facetCounts: LibraryFacetCounts | undefined;
   onChange: (filters: LibraryFilters) => void;
 }
 
@@ -103,7 +103,7 @@ export function LibraryFilterPopover({
               {KINDS.map((kind) => (
                 <ToggleGroupItem<MediaType> key={kind} value={kind} variant="primary">
                   {kindLabel(kind)}
-                  <FacetCount value={facetCounts.kinds[kind]} />
+                  <FacetCount value={facetCounts?.kinds[kind]} />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -118,7 +118,7 @@ export function LibraryFilterPopover({
               {WATCHED_STATES.map((state: WatchedState) => (
                 <ToggleGroupItem<WatchedState> key={state} value={state} variant="primary">
                   {watchedLabel(state)}
-                  <FacetCount value={facetCounts.watched[state]} />
+                  <FacetCount value={facetCounts?.watched[state]} />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -133,7 +133,7 @@ export function LibraryFilterPopover({
               {facetValues.genres.map((genre) => (
                 <ToggleGroupItem key={genre} value={genre} variant="primary">
                   {genre}
-                  <FacetCount value={facetCounts.genres[genre]} />
+                  <FacetCount value={facetCounts?.genres[genre]} />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -148,7 +148,7 @@ export function LibraryFilterPopover({
               {facetValues.qualities.map((quality) => (
                 <ToggleGroupItem key={quality} value={quality} variant="primary">
                   {quality}
-                  <FacetCount value={facetCounts.qualities[quality]} />
+                  <FacetCount value={facetCounts?.qualities[quality]} />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
@@ -163,7 +163,7 @@ export function LibraryFilterPopover({
               {facetValues.servers.map((server) => (
                 <ToggleGroupItem key={server} value={server} variant="primary">
                   {server}
-                  <FacetCount value={facetCounts.servers[server]} />
+                  <FacetCount value={facetCounts?.servers[server]} />
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>

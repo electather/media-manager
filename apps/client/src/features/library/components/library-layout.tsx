@@ -8,11 +8,12 @@ interface LibraryLayoutProps {
 
 /**
  * Shared shell for the `/library/*` route family. The header (lens tabs, filter
- * popover) renders once here; each lens route mounts its grouped
- * content inside `<Outlet />`. The header reads the library payload via
- * `useSuspenseQuery` and the parent route loader prefetches it, so it paints on
- * first mount. The inner `<Suspense>` covers only the swappable content area,
- * keeping the header in place while a lens revalidates (skill rule 5).
+ * popover) renders once here; each lens route mounts its content inside
+ * `<Outlet />`. The header reads the facet totals via a non-blocking `useQuery`
+ * (the layout loader warms them) so a slow/failing facets read never suspends
+ * the shell. The inner `<Suspense>` covers only the swappable content area,
+ * keeping the header in place while a lens's suspense read revalidates (skill
+ * rule 5).
  */
 export function LibraryLayout({ children }: LibraryLayoutProps) {
   return (

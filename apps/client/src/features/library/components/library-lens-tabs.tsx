@@ -1,7 +1,7 @@
+import { LIBRARY_LENSES, type LibraryLens } from "@ent-mcp/shared/library";
 import * as m from "@/paraglide/messages";
 import { RouteTab, RouteTabs } from "@/shared/components/route-tabs";
 import { lensLabel, lensNote } from "../lib/labels";
-import { LIBRARY_LENSES, type LibraryLens } from "../lib/types";
 
 /** Each lens is its own route; A→Z is the index. Order mirrors `LIBRARY_LENSES`. */
 const LENS_TO = {

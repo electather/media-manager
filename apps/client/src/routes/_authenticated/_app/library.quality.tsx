@@ -4,11 +4,14 @@ import {
   LibraryContentSkeleton,
   LibraryRouteError,
   QualityLensPage,
-  libraryDataQueryOptions,
+  prefetchLibraryLens,
+  searchToFilters,
 } from "@/features/library";
 
 export const Route = createFileRoute("/_authenticated/_app/library/quality")({
-  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(libraryDataQueryOptions()),
+  loaderDeps: ({ search }) => ({ search }),
+  loader: ({ context: { queryClient }, deps }) =>
+    prefetchLibraryLens(queryClient, "quality", searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
   errorComponent: LibraryRouteError,
   component: QualityLensPage,
