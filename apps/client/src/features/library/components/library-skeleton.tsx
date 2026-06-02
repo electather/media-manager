@@ -4,7 +4,7 @@ import { LibraryContentSkeleton } from "./library-content-skeleton";
 /** Loader-pending placeholder for the whole page: header + first grid. */
 export function LibrarySkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-6 px-4 pb-32 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-6 px-4 pb-32 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-3 w-40" />
         <Skeleton className="h-12 w-56" />

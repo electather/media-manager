@@ -16,7 +16,7 @@ interface LibraryLayoutProps {
  */
 export function LibraryLayout({ children }: LibraryLayoutProps) {
   return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-8 px-4 pb-32 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-8 px-4 pb-32 sm:px-6 lg:px-8">
       <LibraryHeader />
       <Suspense fallback={<LibraryContentSkeleton />}>{children}</Suspense>
     </div>

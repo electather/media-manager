@@ -17,10 +17,10 @@ import { LibraryGrid } from "../library-grid";
 // the connection is invisible to the type system, so keep them co-located.
 const anchorId = (letter: string) => `lib-letter-${letter === "#" ? "hash" : letter}`;
 
-// Top inset for the scroll-spy band — roughly the sticky app-nav height, so a
-// section only counts as active once it clears the nav. Named so it's findable
-// if the nav height changes (there's no shared layout token for it yet).
-const SCROLL_SPY_TOP_INSET = "-100px";
+// Top inset for the scroll-spy band — matches the rail's `top-24` (96px) so a
+// section only counts as active once it clears the sticky nav. Named so it's
+// findable if the nav height changes (there's no shared layout token yet).
+const SCROLL_SPY_TOP_INSET = "-96px";
 
 /** Fold a batch of observer entries into the running set of visible section keys. */
 function trackVisibleSections(visible: Set<string>, entries: IntersectionObserverEntry[]) {

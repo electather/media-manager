@@ -44,7 +44,8 @@ export function groupByLetter(items: LibraryItem[]): LibraryGroup[] {
   const letters = Object.keys(buckets).sort((a, b) => {
     if (a === "#") return 1;
     if (b === "#") return -1;
-    return a.localeCompare(b);
+    // Pin to "en" so the A–Z rail keeps its English collation on the fa build.
+    return a.localeCompare(b, "en");
   });
   return letters.map((letter) => ({
     key: letter,
@@ -122,7 +123,7 @@ export function groupByQuality(items: LibraryItem[]): LibraryGroup[] {
     return index === -1 ? QUALITY_TIERS.length : index;
   };
   return [...buckets.keys()]
-    .sort((a, b) => order(a) - order(b) || a.localeCompare(b))
+    .sort((a, b) => order(a) - order(b) || a.localeCompare(b, "en"))
     .map((quality) => ({
       key: quality,
       label: quality,

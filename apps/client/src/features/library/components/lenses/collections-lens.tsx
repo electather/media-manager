@@ -110,6 +110,9 @@ function CollectionCard({
           {collection.title}
         </h3>
         <span className="shrink-0 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.18em] text-muted-foreground">
+          {/* The curated collection's full size, not the filtered/fanned subset —
+              a collection is a fixed set, so its badge stays stable as filters
+              narrow which of its posters happen to be on screen. */}
           {m.library_section_count({ count: String(collection.itemIds.length) })}
         </span>
       </div>
