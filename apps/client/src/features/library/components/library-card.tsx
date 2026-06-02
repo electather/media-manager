@@ -19,7 +19,7 @@ export const LibraryCard = memo(function LibraryCard({ item }: { item: LibraryIt
     <MediaRowCard
       item={item}
       variant="grid"
-      href={buildMediaHref(item.id) ?? "#"}
+      href={buildMediaHref(item.id) ?? undefined}
       openLabel={m.library_card_open({ title: item.title })}
       kindLabel={kindLabel(item.mediaType)}
       progressLabel={progressLabel}
