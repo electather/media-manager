@@ -3,14 +3,10 @@ import { z } from "zod";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate } from "../../media";
 import { capabilityRegistry } from "../../plugin-runtime";
-import {
-  compactList,
-  compactMediaResultSchema,
-  type AvailabilityStatus,
-  type CompactMediaResult,
-} from "../response-shapes";
+import { compactList, compactMediaResultSchema, type CompactMediaResult } from "../response-shapes";
 import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
+import { buildAvailabilityMap } from "./_shared";
 
 type ActivityView = "watchlist" | "history" | "upcoming" | "progress";
 
@@ -24,10 +20,6 @@ interface ActivityResponse {
   results: Array<CompactMediaResult & { watched_at?: string; airs_at?: string; progress?: number }>;
   total: number;
   has_more: boolean;
-}
-
-interface AvailabilityRow {
-  status?: AvailabilityStatus;
 }
 
 function compactWithExtras<T>(
@@ -50,36 +42,6 @@ function filterByType<T extends { item?: { type?: "movie" | "tv" } }>(
 ): T[] {
   if (!type) return rows;
   return rows.filter((r) => !r.item?.type || r.item.type === type);
-}
-
-async function decorateAvailability(
-  userId: string,
-  results: CompactMediaResult[],
-): Promise<Map<string, AvailabilityStatus>> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
-  if (providers.length === 0 || results.length === 0) return new Map();
-  const map = new Map<string, AvailabilityStatus>();
-  await Promise.all(
-    // fallow-ignore-next-line complexity
-    results.map(async (item) => {
-      const [type, tmdbId] = item.id.split(":");
-      if (!type || !tmdbId) return;
-      try {
-        const result = await dispatchAggregate<AvailabilityRow[]>({
-          userId,
-          capability: "mediaRequest",
-          version: "v1",
-          method: "checkAvailability",
-          input: { tmdbId, type: type as "movie" | "tv" },
-        });
-        const first = (result.data ?? []).find((row) => row && row.status);
-        if (first?.status) map.set(item.id, first.status);
-      } catch {
-        // Best-effort.
-      }
-    }),
-  );
-  return map;
 }
 
 async function runWatchlist(
@@ -201,7 +163,7 @@ export const entActivityHandler: ToolHandler = async (ctx, rawInput) => {
   }
 
   const limit = input.limit ?? 15;
-  const availability = await decorateAvailability(ctx.userId, results);
+  const availability = await buildAvailabilityMap(ctx.userId, results);
   const decorated = results.map((row) => {
     const status = availability.get(row.id);
     return status && status !== "unknown" ? { ...row, status } : row;

@@ -1,4 +1,3 @@
-import { compact } from "es-toolkit/array";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate, dispatchPrimary } from "../../media";
 import { capabilityRegistry } from "../../plugin-runtime";
@@ -13,6 +12,7 @@ import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry
 import { formatMediaId } from "../media-id";
 import { getPreferencesService } from "../../preferences";
 import type { MediaItem } from "@ent-mcp/shared/media";
+import { buildAvailabilityMap } from "./_shared";
 
 type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";
 
@@ -33,12 +33,6 @@ interface DiscoverResponse {
   has_more: boolean;
 }
 
-interface StatusEntry {
-  status?: AvailabilityStatus;
-  tmdbId?: string;
-  type?: "movie" | "tv";
-}
-
 interface RatingEntry {
   item?: { id?: string; ids?: { tmdb_id?: string } };
   rating?: number;
@@ -56,42 +50,6 @@ function parseGenres(raw: string | undefined): string[] | undefined {
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
   return items.length ? items : undefined;
-}
-
-async function buildAvailabilityMap(
-  userId: string,
-  items: CompactMediaResult[],
-): Promise<Map<string, AvailabilityStatus>> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
-  if (providers.length === 0 || items.length === 0) return new Map();
-  const map = new Map<string, AvailabilityStatus>();
-  const pairs = compact(
-    items.map((item) => {
-      const [type, tmdbId] = item.id.split(":");
-      if (!type || !tmdbId) return null;
-      return { id: item.id, tmdbId, type: type as "movie" | "tv" };
-    }),
-  );
-
-  await Promise.all(
-    // fallow-ignore-next-line complexity
-    pairs.map(async (pair) => {
-      try {
-        const result = await dispatchAggregate<StatusEntry[]>({
-          userId,
-          capability: "mediaRequest",
-          version: "v1",
-          method: "checkAvailability",
-          input: { tmdbId: pair.tmdbId, type: pair.type },
-        });
-        const first = (result.data ?? []).find((row) => row && row.status);
-        if (first?.status) map.set(pair.id, first.status);
-      } catch {
-        // Availability is best-effort; ignore per-item failures.
-      }
-    }),
-  );
-  return map;
 }
 
 // fallow-ignore-next-line complexity

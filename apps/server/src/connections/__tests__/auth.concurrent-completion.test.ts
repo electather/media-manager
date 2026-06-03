@@ -18,15 +18,22 @@ vi.mock("../../plugin-runtime", async () => {
 });
 
 const writeConnection = vi.fn();
-// Stubs encryptJson / decryptJson alongside writeConnection so the test does
-// not exercise real crypto or assume a particular helper export shape.
+// Stubs writeConnection here and the crypto helpers below so the test exercises
+// neither the real DB write nor real encryption.
 vi.mock("../helpers", async () => {
   const actual = await vi.importActual<typeof import("../helpers")>("../helpers");
   return {
     ...actual,
     writeConnection,
+  };
+});
+vi.mock("../../crypto/helpers", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../crypto/helpers")>("../../crypto/helpers");
+  return {
+    ...actual,
     encryptJson: vi.fn().mockResolvedValue({ data: "enc", iv: "iv" }),
-    decryptJson: vi.fn().mockResolvedValue({ token: "tok" }),
+    decryptField: vi.fn().mockResolvedValue({ token: "tok" }),
   };
 });
 

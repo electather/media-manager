@@ -643,6 +643,29 @@ export class MediaService {
   }
 
   /**
+   * Shared fan-out for the home-feed aggregate getters. Dispatches `method` on
+   * `capability@v1` with an empty input, then interprets the result so the
+   * `partial` flag and `AllPluginsFailedError` semantics are identical across
+   * every feed. The `capability@v1` interpret key is derived from `capability`
+   * so the two never drift.
+   */
+  private async aggregateFeed<T>(
+    capability: string,
+    method: string,
+    deadlineMs?: number,
+  ): Promise<HomeAggregate<T[]>> {
+    const result = await dispatchAggregate<T[]>({
+      userId: this.userId,
+      capability,
+      version: "v1",
+      method,
+      input: {},
+      deadlineMs,
+    });
+    return interpretAggregate(`${capability}@v1`, result);
+  }
+
+  /**
    * Aggregate `calendar@v1.getUpcoming`. Distinct from the legacy
    * `getUpcoming` getter on this class: this variant surfaces a `partial`
    * flag and an `AllPluginsFailedError` so the home feed orchestrator can
@@ -650,15 +673,7 @@ export class MediaService {
    */
   // fallow-ignore-next-line unused-class-member
   async getUpcomingFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
-    const result = await dispatchAggregate<unknown[]>({
-      userId: this.userId,
-      capability: "calendar",
-      version: "v1",
-      method: "getUpcoming",
-      input: {},
-      deadlineMs: opts.deadlineMs,
-    });
-    return interpretAggregate("calendar@v1", result);
+    return this.aggregateFeed<unknown>("calendar", "getUpcoming", opts.deadlineMs);
   }
 
   /**
@@ -668,15 +683,7 @@ export class MediaService {
    */
   // fallow-ignore-next-line unused-class-member
   async getWatchlistFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
-    const result = await dispatchAggregate<unknown[]>({
-      userId: this.userId,
-      capability: "watchlist",
-      version: "v1",
-      method: "getWatchlist",
-      input: {},
-      deadlineMs: opts.deadlineMs,
-    });
-    return interpretAggregate("watchlist@v1", result);
+    return this.aggregateFeed<unknown>("watchlist", "getWatchlist", opts.deadlineMs);
   }
 
   /**
@@ -688,15 +695,7 @@ export class MediaService {
    */
   // fallow-ignore-next-line unused-class-member
   async getCollectionFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
-    const result = await dispatchAggregate<unknown[]>({
-      userId: this.userId,
-      capability: "collection",
-      version: "v1",
-      method: "getCollection",
-      input: {},
-      deadlineMs: opts.deadlineMs,
-    });
-    return interpretAggregate("collection@v1", result);
+    return this.aggregateFeed<unknown>("collection", "getCollection", opts.deadlineMs);
   }
 
   /** Aggregate `recommendations@v1.getTrending`. */
@@ -765,15 +764,11 @@ export class MediaService {
   async getContinueWatchingFeed(
     opts: { deadlineMs?: number } = {},
   ): Promise<HomeAggregate<ContinueWatchingEntry[]>> {
-    const result = await dispatchAggregate<ContinueWatchingEntry[]>({
-      userId: this.userId,
-      capability: "continueWatching",
-      version: "v1",
-      method: "getContinueWatching",
-      input: {},
-      deadlineMs: opts.deadlineMs,
-    });
-    return interpretAggregate("continueWatching@v1", result);
+    return this.aggregateFeed<ContinueWatchingEntry>(
+      "continueWatching",
+      "getContinueWatching",
+      opts.deadlineMs,
+    );
   }
 
   /**

@@ -74,6 +74,16 @@ function stackFrom(err: unknown): string | null {
   return null;
 }
 
+/** Logs each rejected fan-out result the same way, tagging the message with the
+ *  sink phase that produced it. */
+function reportSinkRejections(label: string, results: PromiseSettledResult<unknown>[]): void {
+  for (const result of results) {
+    if (result.status === "rejected") {
+      consola.error(`diagnostic sink (${label}) failed:`, result.reason);
+    }
+  }
+}
+
 /** Captures an error by building a record and fanning it out to all registered
  *  sinks via Promise.allSettled. `info`-severity records are stored alongside
  *  `warning` and `error` so admins can filter in the viewer — they represent
@@ -83,11 +93,7 @@ export async function captureError(err: unknown, meta: CaptureMeta): Promise<str
   const record = buildErrorRecord(err, meta);
   const matched = sinks.filter((sink) => typeof sink.captureError === "function");
   const results = await Promise.allSettled(matched.map((sink) => sink.captureError!(record)));
-  for (const result of results) {
-    if (result.status === "rejected") {
-      consola.error("diagnostic sink (error) failed:", result.reason);
-    }
-  }
+  reportSinkRejections("error", results);
   return record.id;
 }
 
@@ -98,11 +104,7 @@ export async function capturePerf(meta: PerfCaptureMeta): Promise<void> {
   const matched = sinks.filter((sink) => typeof sink.capturePerf === "function");
   if (matched.length === 0) return;
   const results = await Promise.allSettled(matched.map((sink) => sink.capturePerf!(record)));
-  for (const result of results) {
-    if (result.status === "rejected") {
-      consola.error("diagnostic sink (perf) failed:", result.reason);
-    }
-  }
+  reportSinkRejections("perf", results);
 }
 
 // fallow-ignore-next-line complexity

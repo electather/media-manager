@@ -146,26 +146,27 @@ export async function listInboxForUser(
     .all();
 }
 
-export async function markInboxReadForUser(userId: string, ids: string[]): Promise<number> {
+async function setInboxReadAtForUser(
+  userId: string,
+  ids: string[],
+  readAt: number | null,
+): Promise<number> {
   if (ids.length === 0) return 0;
   const db = getDb();
   const result = await db
     .update(notificationsInbox)
-    .set({ readAt: Date.now() })
+    .set({ readAt })
     .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
     .returning({ id: notificationsInbox.id });
   return result.length;
 }
 
+export async function markInboxReadForUser(userId: string, ids: string[]): Promise<number> {
+  return setInboxReadAtForUser(userId, ids, Date.now());
+}
+
 export async function markInboxUnreadForUser(userId: string, ids: string[]): Promise<number> {
-  if (ids.length === 0) return 0;
-  const db = getDb();
-  const result = await db
-    .update(notificationsInbox)
-    .set({ readAt: null })
-    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
-    .returning({ id: notificationsInbox.id });
-  return result.length;
+  return setInboxReadAtForUser(userId, ids, null);
 }
 
 export async function markAllReadForUser(

@@ -1,6 +1,7 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@ent-mcp/shared/media";
 import type { MatchingServer } from "./types";
+import { buildFacets } from "./internal/facets";
 import type { ProgressEntry, ProgressMap } from "./progress";
 
 export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
@@ -56,11 +57,7 @@ export function previewForClassify(
 ): Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress"> {
   const status: CompactMediaItem["status"] =
     servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as CompactMediaItem["status"]);
-  const facets: NonNullable<CompactMediaItem["facets"]> = {};
-  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
-  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
-    facets.releaseDate = String(meta.year);
-  }
+  const facets = buildFacets(meta ?? {});
   return {
     status,
     availability: {

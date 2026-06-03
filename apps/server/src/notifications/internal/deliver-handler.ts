@@ -18,6 +18,23 @@ type PluginModule = Awaited<ReturnType<typeof pluginRuntime.getModule>>;
 type PluginContext = Awaited<ReturnType<typeof pluginRuntime.buildJobContext>>;
 
 /**
+ * Records a delivery failure during the load/prepare phase: extracts the error
+ * message, logs it under `label`, and marks the delivery failed with `code`.
+ * Records only — the caller keeps its own control-flow bail after calling this.
+ */
+export async function recordDeliveryFailure(
+  deliveryId: string,
+  conn: ConnectionRow,
+  label: string,
+  code: string,
+  err: unknown,
+): Promise<void> {
+  const msg = err instanceof Error ? err.message : String(err);
+  log.error(label, { deliveryId, pluginId: conn.pluginId, error: msg });
+  await repo.markDeliveryFailed(deliveryId, code, msg);
+}
+
+/**
  * `service_connections.user_config` is stored as a JSON text column. Plugins
  * expect the parsed object on `args.channelConfig` + `ctx.config.user`, so
  * decode once at the job boundary. Returns `null` for connections that have
@@ -66,9 +83,7 @@ export async function loadPluginAndContext(
   try {
     plugin = await pluginRuntime.getModule(conn.pluginId);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log.error("plugin load failed", { deliveryId, pluginId: conn.pluginId, error: msg });
-    await repo.markDeliveryFailed(deliveryId, "plugin_load_failed", msg);
+    await recordDeliveryFailure(deliveryId, conn, "plugin load failed", "plugin_load_failed", err);
     return null;
   }
 
@@ -85,9 +100,13 @@ export async function loadPluginAndContext(
       channelConfig,
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log.error("context build failed", { deliveryId, pluginId: conn.pluginId, error: msg });
-    await repo.markDeliveryFailed(deliveryId, "context_build_failed", msg);
+    await recordDeliveryFailure(
+      deliveryId,
+      conn,
+      "context build failed",
+      "context_build_failed",
+      err,
+    );
     return null;
   }
 

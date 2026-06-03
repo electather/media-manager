@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { WatchlistKey, WatchlistSource } from "@ent-mcp/shared/watchlist";
 import type { ActiveRow } from "@ent-mcp/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
+import { selectRowByKey } from "./internal";
 import { toRow } from "./row";
 
 function newId(): string {
@@ -31,17 +32,7 @@ export async function upsertActiveRow(
 ): Promise<UpsertActiveResult> {
   // fallow-ignore-next-line complexity
   return db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(watchlistItems)
-      .where(
-        and(
-          eq(watchlistItems.userId, userId),
-          eq(watchlistItems.tmdbId, key.tmdbId),
-          eq(watchlistItems.mediaType, key.mediaType),
-        ),
-      )
-      .get();
+    const existing = await selectRowByKey(tx, userId, key);
     if (existing && existing.state === "active") {
       return { row: toRow(existing), created: false, wasActive: true };
     }
@@ -86,17 +77,7 @@ export async function softRemoveRow(
   db: Db = getDb(),
 ): Promise<SoftRemoveResult> {
   return db.transaction(async (tx) => {
-    const existing = await tx
-      .select()
-      .from(watchlistItems)
-      .where(
-        and(
-          eq(watchlistItems.userId, userId),
-          eq(watchlistItems.tmdbId, key.tmdbId),
-          eq(watchlistItems.mediaType, key.mediaType),
-        ),
-      )
-      .get();
+    const existing = await selectRowByKey(tx, userId, key);
     if (!existing || existing.state === "removed") {
       return { removed: false, row: existing ? toRow(existing) : null };
     }

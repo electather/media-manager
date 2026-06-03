@@ -4,6 +4,7 @@ import type { ActiveRow, RowFilter, RowSort } from "@ent-mcp/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
 import type { PageCursor } from "./cursor";
+import { selectRowByKey } from "./internal";
 import { toRow } from "./row";
 
 // fallow-ignore-next-line complexity
@@ -65,27 +66,23 @@ export async function getActiveRow(
   key: WatchlistKey,
   db: Db = getDb(),
 ): Promise<ActiveRow | null> {
-  const row = await db
-    .select()
-    .from(watchlistItems)
-    .where(
-      and(
-        eq(watchlistItems.userId, userId),
-        eq(watchlistItems.tmdbId, key.tmdbId),
-        eq(watchlistItems.mediaType, key.mediaType),
-      ),
-    )
-    .get();
+  const row = await selectRowByKey(db, userId, key);
   return row ? toRow(row) : null;
 }
 
-/** All active rows for the user, newest first. Used by the section sources + mood derivation. */
-export async function listAllActiveRows(userId: string, db: Db = getDb()): Promise<ActiveRow[]> {
-  const rows = await db
+/** Active rows for the user, newest first, optionally capped by `limit`. */
+function activeRowsQuery(userId: string, db: Db, limit?: number) {
+  const ordered = db
     .select()
     .from(watchlistItems)
     .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
     .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id));
+  return limit != null ? ordered.limit(limit) : ordered;
+}
+
+/** All active rows for the user, newest first. Used by the section sources + mood derivation. */
+export async function listAllActiveRows(userId: string, db: Db = getDb()): Promise<ActiveRow[]> {
+  const rows = await activeRowsQuery(userId, db);
   return rows.map(toRow);
 }
 
@@ -95,12 +92,7 @@ export async function listAvailableCandidates(
   limit: number,
   db: Db = getDb(),
 ): Promise<ActiveRow[]> {
-  const rows = await db
-    .select()
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id))
-    .limit(limit);
+  const rows = await activeRowsQuery(userId, db, limit);
   return rows.map(toRow);
 }
 

@@ -7,9 +7,8 @@ import { pendingAuth } from "../db/schema";
 import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
 import { isPluginError, type AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
+import { decryptField, encryptJson } from "../crypto/helpers";
 import {
-  encryptJson,
-  decryptJson,
   findConnectionForPlugin,
   reconnectConnection,
   stripRequestFields,
@@ -85,6 +84,26 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
     if (isNil(v) || v === "") return key;
   }
   return undefined;
+}
+
+/**
+ * Loads the plugin module, strips `x-plugin-resolved` request fields from the
+ * submitted `userConfig`, and rejects a blank required field with the typed
+ * `plugin.credentials_empty` error before any plugin work runs. Shared by the
+ * verify and create paths, which both gate on a populated payload and then need
+ * the resolved `module` plus the `sanitized` config downstream.
+ */
+async function assertRequiredUserConfig(
+  pluginId: string,
+  userConfig: unknown,
+): Promise<{ module: Awaited<ReturnType<typeof pluginRuntime.getModule>>; sanitized: unknown }> {
+  const module = await pluginRuntime.getModule(pluginId);
+  const sanitized = stripRequestFields(module.manifest.userConfigSchema, userConfig);
+  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, sanitized);
+  if (blank) {
+    throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
+  }
+  return { module, sanitized };
 }
 
 /**
@@ -181,7 +200,7 @@ async function loadPendingAuth(
       .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)));
     return { found: false, reason: "expired" };
   }
-  const state = await decryptJson(row.stateIv, row.state);
+  const state = await decryptField(row.stateIv, row.state);
   return { found: true, row, state };
 }
 
@@ -198,6 +217,25 @@ async function runStartAuth<S extends "redirect" | "display_code">(
     throw unprocessable("oauth.init_failed", `${failLabel}: ${message}`, { message });
   }
   return result as Extract<AuthResult, { status: S }>;
+}
+
+/**
+ * Folds the shared init sequence behind both `startAuth` entry points: open the
+ * db, run `startAuth` expecting `mode`, then persist the pending row with the
+ * mode-specific state field selected by `pickState`. Returns the generated
+ * `nonce` alongside the narrowed `result` so each caller assembles its own
+ * mode-specific response (redirect url vs device code fields).
+ */
+async function startAuthAndStore<S extends "redirect" | "display_code">(
+  args: { userId: string; pluginId: string },
+  mode: S,
+  failMsg: string,
+  pickState: (result: Extract<AuthResult, { status: S }>) => unknown,
+): Promise<{ nonce: string; result: Extract<AuthResult, { status: S }> }> {
+  const db = getDb();
+  const result = await runStartAuth(args.pluginId, args.userId, mode, failMsg);
+  const nonce = await storePendingAuth(db, args, pickState(result));
+  return { nonce, result };
 }
 
 /**
@@ -299,12 +337,7 @@ export async function verifyConfig(args: {
   // offending input via `params.field`.
   // `x-plugin-resolved` fields are owned by the plugin; drop any value the
   // client tried to submit before reaching `startAuth`, matching the create path.
-  const module = await pluginRuntime.getModule(args.pluginId);
-  const sanitized = stripRequestFields(module.manifest.userConfigSchema, args.userConfig);
-  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, sanitized);
-  if (blank) {
-    throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
-  }
+  const { sanitized } = await assertRequiredUserConfig(args.pluginId, args.userConfig);
   try {
     const result = (await pluginRuntime.runAuth(
       args.pluginId,
@@ -372,12 +405,7 @@ export async function createFormConnection(args: {
   // `x-plugin-resolved` fields are owned by the plugin; drop any value the
   // client tried to submit before the payload reaches `startAuth` or the
   // persisted row. The plugin repopulates them via `userConfigPatch`.
-  const module = await pluginRuntime.getModule(args.pluginId);
-  const sanitized = stripRequestFields(module.manifest.userConfigSchema, args.userConfig);
-  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, sanitized);
-  if (blank) {
-    throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
-  }
+  const { module, sanitized } = await assertRequiredUserConfig(args.pluginId, args.userConfig);
   // No-auth plugins (e.g. notification channels like Telegram, Discord, ntfy)
   // do not export `startAuth` — userConfig itself carries everything the plugin
   // needs and there is no upstream credential exchange. Persist the row directly;
@@ -422,14 +450,12 @@ export async function initiateRedirectAuth(args: {
   userId: string;
   pluginId: string;
 }): Promise<{ redirectUrl: string; nonce: string }> {
-  const db = getDb();
-  const result = await runStartAuth(
-    args.pluginId,
-    args.userId,
+  const { nonce, result } = await startAuthAndStore(
+    args,
     "redirect",
     "redirect auth init failed",
+    (r) => r.state,
   );
-  const nonce = await storePendingAuth(db, args, result.state);
   return { redirectUrl: result.url, nonce };
 }
 
@@ -486,14 +512,12 @@ export async function initiateDeviceAuth(args: { userId: string; pluginId: strin
   intervalSec: number;
   expiresAt: number;
 }> {
-  const db = getDb();
-  const result = await runStartAuth(
-    args.pluginId,
-    args.userId,
+  const { nonce, result } = await startAuthAndStore(
+    args,
     "display_code",
     "device auth init failed",
+    (r) => r.pollState,
   );
-  const nonce = await storePendingAuth(db, args, result.pollState);
   return {
     userCode: result.code,
     verifyUrl: result.verifyUrl,

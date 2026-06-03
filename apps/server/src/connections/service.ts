@@ -14,10 +14,9 @@ import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { invalidateUserCache } from "../media";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import type { Db } from "../db/client";
+import { decryptField, encryptJson } from "../crypto/helpers";
 import {
   computeDisplayFields,
-  decryptJson,
-  encryptJson,
   fetchConnectionByOwner,
   promoteToDefault,
   requireConnection,
@@ -124,7 +123,7 @@ async function verifyFormAuthConfig(
   // and pass them into runAuth so plugins that keep secrets out of
   // userConfig (e.g. Jellyfin's password lives in the encrypted
   // credentials blob) can rehydrate them via ctx.credentials on re-auth.
-  const priorCredentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+  const priorCredentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
   const result = (await pluginRuntime.runAuth(
     row.pluginId,
     "startAuth",
@@ -161,7 +160,7 @@ async function verifyNonFormAuthConfig(
   userId: string,
   merged: Record<string, unknown>,
 ): Promise<void> {
-  const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+  const credentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
   const test = await pluginRuntime.testConnection(row.pluginId, userId, credentials, merged);
   if (!test.ok) {
     throw unprocessable(
@@ -392,7 +391,7 @@ export const connectionsService = {
     const db = getDb();
     const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return { ok: false, message: "connection not found" };
-    const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+    const credentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const result = await pluginRuntime.testConnection(
       row.pluginId,

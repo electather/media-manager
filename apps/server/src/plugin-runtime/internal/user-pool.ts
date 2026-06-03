@@ -2,6 +2,7 @@ import { consola } from "consola";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { attempt } from "es-toolkit/util";
 import { getDb } from "../../db/client";
+import { markConnectionExhausted } from "../../db/queries";
 import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { decryptJson } from "../../crypto/helpers";
 
@@ -80,14 +81,5 @@ export async function markUserConnectionExhausted(
   connectionId: string,
   retryAfterSec = 60,
 ): Promise<void> {
-  const db = getDb();
-  const now = Math.floor(Date.now() / 1000);
-  await db
-    .update(serviceConnections)
-    .set({
-      lastExhaustedAt: now,
-      retryAfter: now + retryAfterSec,
-      updatedAt: Date.now(),
-    })
-    .where(eq(serviceConnections.id, connectionId));
+  await markConnectionExhausted(connectionId, retryAfterSec);
 }

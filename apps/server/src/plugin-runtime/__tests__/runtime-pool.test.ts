@@ -61,6 +61,8 @@ vi.mock("../internal/shared-credentials", () => ({
     delete: async () => {},
     getDecrypted: async () => ({ id: "", label: "", value: null }),
   },
+  // Mirrors the real helper against the in-memory plugin store the dbMock serves.
+  requirePluginRow: async (_pluginId: string) => [...pluginRows.values()][0],
 }));
 
 const listReadyUserConnectionsMock = vi.fn();
