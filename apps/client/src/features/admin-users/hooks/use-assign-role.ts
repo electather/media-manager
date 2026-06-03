@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
+import { rollbackQuery, snapshotQuery } from "@/shared/lib/query/optimistic";
 import { fetchAssignRole } from "../lib/fetchers";
 import { adminUsersKeys } from "../lib/query-keys";
 import type { AdminUserSummary } from "../lib/types";
@@ -20,10 +21,8 @@ export function useAssignRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, roleId }: Vars) => fetchAssignRole(userId, roleId),
-    onMutate: async ({ userId, roleId, roleName }) => {
-      await qc.cancelQueries({ queryKey: adminUsersKeys.list() });
-      const prev = qc.getQueryData<ListSnapshot>(adminUsersKeys.list());
-      qc.setQueryData<ListSnapshot>(adminUsersKeys.list(), (data) =>
+    onMutate: ({ userId, roleId, roleName }) =>
+      snapshotQuery<ListSnapshot>(qc, adminUsersKeys.list(), (data) =>
         data
           ? {
               users: data.users.map((u) =>
@@ -31,11 +30,9 @@ export function useAssignRole() {
               ),
             }
           : data,
-      );
-      return { prev };
-    },
+      ),
     onError: (err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(adminUsersKeys.list(), ctx.prev);
+      if (ctx?.prev) rollbackQuery(qc, adminUsersKeys.list(), ctx.prev);
       toast.error(err instanceof AdminUsersApiError ? err.message : String(err));
     },
     onSuccess: (_data, { roleName }) => {

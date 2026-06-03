@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { rollbackQuery, snapshotQuery } from "@/shared/lib/query/optimistic";
 import { adminPluginsKeys } from "./query-keys";
 import type { PluginRow } from "./types";
 
@@ -32,15 +33,15 @@ export function useOptimisticPluginMutation<TInput extends { pluginId: string },
   return useMutation({
     mutationFn,
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: adminPluginsKeys.list() });
-      const snapshot = qc.getQueryData<PluginRow[]>(adminPluginsKeys.list());
-      qc.setQueryData<PluginRow[] | undefined>(adminPluginsKeys.list(), (rows) =>
-        rows?.map((p) => (p.id === input.pluginId ? patch(p, input) : p)),
+      const { prev: snapshot } = await snapshotQuery<PluginRow[]>(
+        qc,
+        adminPluginsKeys.list(),
+        (rows) => rows?.map((p) => (p.id === input.pluginId ? patch(p, input) : p)),
       );
       return { snapshot };
     },
     onError: (_err, _input, ctx) => {
-      if (ctx?.snapshot) qc.setQueryData(adminPluginsKeys.list(), ctx.snapshot);
+      if (ctx?.snapshot) rollbackQuery(qc, adminPluginsKeys.list(), ctx.snapshot);
       toast.error(errorMsg);
     },
     onSuccess: successMsg
