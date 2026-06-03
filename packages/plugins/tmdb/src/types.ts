@@ -77,6 +77,14 @@ export interface MovieRaw {
   imdb_id?: string | null;
   credits?: Credits;
   keywords?: { keywords?: Keyword[] };
+  // TMDB returns this on `/movie/{id}` when the film is part of a franchise.
+  // Threaded into the canonical row to power the collections lens.
+  belongs_to_collection?: {
+    id: number;
+    name: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+  };
 }
 
 export interface TvRaw {

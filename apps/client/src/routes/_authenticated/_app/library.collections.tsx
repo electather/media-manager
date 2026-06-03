@@ -4,11 +4,14 @@ import {
   CollectionsLensPage,
   LibraryContentSkeleton,
   LibraryRouteError,
-  libraryDataQueryOptions,
+  prefetchLibraryCollections,
+  searchToFilters,
 } from "@/features/library";
 
 export const Route = createFileRoute("/_authenticated/_app/library/collections")({
-  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(libraryDataQueryOptions()),
+  loaderDeps: ({ search }) => ({ search }),
+  loader: ({ context: { queryClient }, deps }) =>
+    prefetchLibraryCollections(queryClient, searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
   errorComponent: LibraryRouteError,
   component: CollectionsLensPage,

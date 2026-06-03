@@ -156,6 +156,8 @@ export class CatalogService {
               originalLanguage: row.originalLanguage,
               genres: row.genres,
               features: row.features,
+              collectionId: row.collectionId,
+              collectionName: row.collectionName,
               lastRefreshedAt: row.lastRefreshedAt,
               lastAccessedAt: row.lastAccessedAt,
               createdAt: sql`COALESCE(${canonicalMetadata.createdAt}, ${row.createdAt})`,

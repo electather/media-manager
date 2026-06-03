@@ -1,12 +1,23 @@
-import { useMemo } from "react";
+import { useCallback } from "react";
+import type { LibraryCollection } from "@ent-mcp/shared/library";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import * as m from "@/paraglide/messages";
+import { VirtualGrid } from "@/shared/components/virtualized";
+import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import type { LibraryCollection, LibraryItem } from "../../lib/types";
 
 interface CollectionsLensProps {
-  items: LibraryItem[];
   collections: LibraryCollection[];
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => Promise<unknown>;
 }
+
+// Card grid geometry — wider cards than the poster lenses (each card fans a
+// franchise), mirroring the prior `sm:grid-cols-2 xl:grid-cols-3` auto layout.
+const MIN_COLUMN_PX = 320;
+const GAP_PX = 20;
+const EST_ROW_HEIGHT = 320;
 
 /**
  * Per-index choreography for the fanned poster arc. Each poster pivots from its
@@ -38,7 +49,7 @@ const FAN = [
   },
 ];
 
-function PosterFan({ posters, title }: { posters: LibraryItem[]; title: string }) {
+function PosterFan({ posters, title }: { posters: CompactMediaItem[]; title: string }) {
   return (
     <div
       className="relative flex justify-center py-7 [perspective:1200px]"
@@ -73,19 +84,11 @@ function PosterFan({ posters, title }: { posters: LibraryItem[]; title: string }
   );
 }
 
-function CollectionCard({
-  collection,
-  lookup,
-  index,
-}: {
-  collection: LibraryCollection;
-  lookup: Map<string, LibraryItem>;
-  index: number;
-}) {
-  const posters = collection.itemIds
-    .map((id) => lookup.get(id))
-    .filter((item): item is LibraryItem => Boolean(item))
-    .slice(0, 4);
+function CollectionCard({ collection, index }: { collection: LibraryCollection; index: number }) {
+  // The endpoint already returns up to four enriched preview items (sorted by
+  // sortTitle, id) so the fan reads `collection.preview` directly — no second
+  // fetch and no client-side lookup against the loaded item set.
+  const posters = collection.preview.slice(0, 4);
 
   // Intentionally inert for this pass: the card carries hover affordance but no
   // click target yet. Collection drill-down (a pre-filtered `/library` view) is
@@ -110,10 +113,10 @@ function CollectionCard({
           {collection.title}
         </h3>
         <span className="shrink-0 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.18em] text-muted-foreground">
-          {/* The curated collection's full size, not the filtered/fanned subset —
-              a collection is a fixed set, so its badge stays stable as filters
-              narrow which of its posters happen to be on screen. */}
-          {m.library_section_count({ count: String(collection.itemIds.length) })}
+          {/* The franchise's full owned size from the server, not the fanned
+              preview subset — the badge stays stable as the fan only shows the
+              first few posters. */}
+          {m.library_section_count({ count: String(collection.count) })}
         </span>
       </div>
     </article>
@@ -121,22 +124,45 @@ function CollectionCard({
 }
 
 /**
- * Curated collections: each card fans the first few posters of its set into an
- * arc that expands on hover. Collections whose every item is filtered out are
- * hidden.
+ * Curated collections: each card fans its server-supplied `preview` posters into
+ * an arc that expands on hover. The endpoint is group-first and filter-aware, so
+ * this lens just renders the cards (no client filtering or lookup) and paginates
+ * the group stream through the shared `VirtualGrid` — `onEndReached` fetches the
+ * next cursor, guarded by `hasNextPage && !isFetchingNextPage`.
  */
-export function CollectionsLens({ items, collections }: CollectionsLensProps) {
-  const lookup = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
-  const visible = useMemo(
-    () => collections.filter((collection) => collection.itemIds.some((id) => lookup.has(id))),
-    [collections, lookup],
-  );
+export function CollectionsLens({
+  collections,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: CollectionsLensProps) {
+  const onEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      {visible.map((collection, index) => (
-        <CollectionCard key={collection.id} collection={collection} lookup={lookup} index={index} />
-      ))}
+    <div className="flex flex-col gap-8">
+      <VirtualGrid
+        items={collections}
+        getKey={(collection) => collection.id}
+        minColumnWidthPx={MIN_COLUMN_PX}
+        gapPx={GAP_PX}
+        estimateRowHeight={() => EST_ROW_HEIGHT}
+        renderItem={(collection, index) => <CollectionCard collection={collection} index={index} />}
+        onEndReached={onEndReached}
+      />
+      {hasNextPage ? (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? m.library_loading_more() : m.library_load_more()}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,29 +5,31 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { useLibrary } from "../hooks/use-library";
+import { useLibraryFacets } from "../hooks/use-library-facets";
 import { useLibraryFilters } from "../hooks/use-library-filters";
-import { useLibraryView } from "../hooks/use-library-view";
+import { libraryOwnedTotal } from "../lib/facets";
 import { LibraryFilterPopover } from "./library-filter-popover";
 import { LibraryLensTabs } from "./library-lens-tabs";
 
 /**
  * The library header region: eyebrow + title and the control bar (lens tabs on
  * the lead edge; filters on the trail edge). Rendered once in the layout, it
- * reads the shared payload and URL filters itself so it stays
- * mounted while the lens routes swap below it.
+ * reads the non-blocking facet totals and the URL filters itself so it stays
+ * mounted while the lens routes swap below it. The eyebrow count is the
+ * whole-library owned total (sum of the per-kind facet totals), matching the
+ * unfiltered facets semantics; it shows nothing until the facets land.
  */
 export function LibraryHeader() {
-  const { data } = useLibrary();
   const { filters, setFilters } = useLibraryFilters();
-  const { filtered, facetValues, facetCounts } = useLibraryView({ data, filters });
+  const { facetValues, facetCounts } = useLibraryFacets();
+  const count = libraryOwnedTotal(facetCounts);
 
   return (
     <header>
       <SectionHead size="page">
         <SectionHeadHeading>
           <SectionHeadEyebrow size="page">
-            {m.library_eyebrow({ count: String(filtered.length) })}
+            {m.library_eyebrow({ count: String(count) })}
           </SectionHeadEyebrow>
           <SectionHeadTitle as="h1" size="page">
             {m.library_title()}

@@ -15,6 +15,7 @@ import { notificationsApp, adminNotificationsApp } from "./procedures/notificati
 import { artworkApp } from "./procedures/artwork";
 import { homeApp } from "./procedures/home";
 import { mediaApp } from "./procedures/media";
+import { libraryApp } from "./procedures/library";
 import { searchApp } from "./procedures/search";
 import {
   requestContextMiddleware,
@@ -51,6 +52,7 @@ export const appRouter = new Hono()
   .route("/artwork", artworkApp)
   .route("/home", homeApp)
   .route("/media", mediaApp)
+  .route("/library", libraryApp)
   .route("/search", searchApp)
   .onError(errorHandler);
 

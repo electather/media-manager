@@ -60,15 +60,17 @@
   ],
   "library_section_count": "{count} عنوان",
   "library_timeline_unknown": "سال نامشخص",
-  "library_row_prev": "{decade} قبلی",
-  "library_row_next": "{decade} بعدی",
   "library_az_rail_label": "پرش به حرف",
   "library_az_jump": "پرش به {letter}",
+  "library_decade_rail_label": "پرش به دهه",
+  "library_decade_jump": "پرش به {decade}",
   "library_empty_title": "چیزی یافت نشد",
   "library_empty_description": "برای دیدن عنوان‌های بیشتر یک فیلتر را حذف کنید.",
   "library_empty_reset": "بازنشانی فیلترها",
   "library_card_open": "نمایش جزئیات {title}",
   "library_card_progress": "{percent}٪ تماشا شده",
   "library_load_error_title": "کتابخانه بارگذاری نشد",
-  "library_load_error_retry": "تلاش مجدد"
+  "library_load_error_retry": "تلاش مجدد",
+  "library_load_more": "بارگذاری بیشتر",
+  "library_loading_more": "در حال بارگذاری…"
 }

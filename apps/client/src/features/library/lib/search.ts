@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { WATCHED_STATES } from "@ent-mcp/shared/library";
 import { MEDIA_TYPES } from "@ent-mcp/shared/media";
-import { WATCHED_STATES, type LibraryFilters } from "./types";
+import type { LibraryFilters } from "./types";
 
 /**
  * A tolerant array search param. A single value (`?kinds=movie`) is coerced to

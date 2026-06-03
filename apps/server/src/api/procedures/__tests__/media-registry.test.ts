@@ -8,16 +8,18 @@ vi.mock("../../../env", () => ({
 
 const { homeMediaSources } = await import("../../../home");
 const { watchlistMediaSources } = await import("../../../watchlist");
+const { libraryMediaSources } = await import("../../../library");
 
 /**
- * The adapter composes one registry from the two consumer barrels exactly as
- * `api/procedures/media.ts` will (design §A4) — `media` never imports a concrete
+ * The adapter composes one registry from the three consumer barrels exactly as
+ * `api/procedures/media.ts` does (design §A4) — `media` never imports a concrete
  * source (invariant V.RG1); the registry lives adapter-side.
  */
-const REGISTRY = { ...homeMediaSources, ...watchlistMediaSources };
+const REGISTRY = { ...homeMediaSources, ...watchlistMediaSources, ...libraryMediaSources };
 
 const HOME_IDS = Object.keys(homeMediaSources);
 const WATCHLIST_IDS = Object.keys(watchlistMediaSources);
+const LIBRARY_IDS = Object.keys(libraryMediaSources);
 
 // A stub context is safe: `build` is pure construction (it captures the context
 // in the lazy enrich closure but never runs `fetchRawSet`), so no DB/plugin
@@ -44,7 +46,7 @@ describe("media source registry (US-002)", () => {
     expect(Object.keys(REGISTRY).sort()).toEqual([...MEDIA_SOURCE_IDS].sort());
   });
 
-  it("partitions the tuple cleanly across the two consumer barrels", () => {
+  it("partitions the tuple cleanly across the three consumer barrels", () => {
     expect(HOME_IDS).toHaveLength(10);
     expect(WATCHLIST_IDS).toEqual([
       "watchlist-items",
@@ -52,8 +54,17 @@ describe("media source registry (US-002)", () => {
       "watchlist-recently",
       "watchlist-tonight",
     ]);
-    // Disjoint — no id is registered by both consumers.
-    expect(HOME_IDS.filter((id) => WATCHLIST_IDS.includes(id))).toEqual([]);
+    expect(LIBRARY_IDS).toEqual([
+      "library-az",
+      "library-timeline",
+      "library-server",
+      "library-quality",
+    ]);
+    // Disjoint — no id is registered by more than one consumer.
+    expect(HOME_IDS.filter((id) => WATCHLIST_IDS.includes(id) || LIBRARY_IDS.includes(id))).toEqual(
+      [],
+    );
+    expect(WATCHLIST_IDS.filter((id) => LIBRARY_IDS.includes(id))).toEqual([]);
   });
 
   it("builds a source whose stages line up with the registration for every id", () => {
@@ -90,6 +101,14 @@ describe("media source registry (US-002)", () => {
       // fan-out runs, so no override is supplied.
       expect(built.enrichRows, `${id} should not override enrich`).toBeUndefined();
     }
+    for (const id of LIBRARY_IDS) {
+      const reg = REGISTRY[id]!;
+      const built = reg.build(stubCtx, reg.paramSchema.parse(SAMPLE_INPUT[id] ?? {}), null);
+      // Library lenses read the denormalized columns via a custom enrich (no
+      // availability re-probe, no row collapse), so they inject enrichRows like
+      // the home rows rather than running the default fan-out.
+      expect(typeof built.enrichRows, `${id} should inject enrichRows`).toBe("function");
+    }
   });
 
   it("preserves per-consumer cursor-null policy + rate limit (V.CU1 / §A7)", () => {
@@ -104,6 +123,12 @@ describe("media source registry (US-002)", () => {
       expect(reg.cursorOnNull, `${id} watchlist → first page`).toBe("firstPage");
       expect(reg.rateLimit, `${id} watchlist read limiter`).toBe("read");
       expect(typeof reg.eligibility, `${id} watchlist always eligible`).toBe("undefined");
+    }
+    for (const id of LIBRARY_IDS) {
+      const reg = REGISTRY[id]!;
+      expect(reg.cursorOnNull, `${id} library → first page`).toBe("firstPage");
+      expect(reg.rateLimit, `${id} library read limiter`).toBe("read");
+      expect(typeof reg.eligibility, `${id} library always eligible`).toBe("undefined");
     }
   });
 

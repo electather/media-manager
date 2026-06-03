@@ -108,8 +108,11 @@ export interface CompactMediaItem {
     name?: string;
   };
   /**
-   * Reserved for a future media-features capability (e.g. `["4K","HDR","Atmos"]`).
-   * Always undefined in v1; the client renders nothing when absent.
+   * Free-form display tags. The library lenses populate this with the title's
+   * quality-tier strings (e.g. `["1080p","4K"]`), which the card chip strip and
+   * the quality facet read. Home and discovery sources leave it undefined (the
+   * reserved media-features capability, e.g. `["4K","HDR","Atmos"]`, is not yet
+   * emitted there); the client renders nothing when absent.
    */
   tags?: string[];
   /**
@@ -119,6 +122,18 @@ export interface CompactMediaItem {
   addedAt?: number | null;
   /** How a persistent-table row entered the watchlist; absent/null on discovery rows. */
   addedSource?: WatchlistSource | null;
+  /**
+   * Which section this row belongs to within a section-grouped lens. Set ONLY
+   * by the library `server`/`quality` lenses, whose `json_each` expansion makes
+   * the same title appear once per server / quality tier — so a flat page can
+   * carry the same `id` more than once, each occurrence tagged with the section
+   * it expanded into. `id` is the group key (the server connection id, or the
+   * tier label); `label` is the human-readable header text. The library FE
+   * inserts a section header whenever `section.id` changes down the flat stream
+   * and keys its list on `id + section.id` (not `id` alone). Absent on every
+   * non-grouped source, so those callers render nothing extra.
+   */
+  section?: { id: string; label: string };
 }
 
 /**

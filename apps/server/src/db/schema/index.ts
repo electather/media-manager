@@ -6,6 +6,7 @@ export * from "./auth";
 export * from "./catalog";
 export * from "./home";
 export * from "./infra";
+export * from "./library";
 export * from "./notifications";
 export * from "./plugin-runtime";
 export * from "./preferences";

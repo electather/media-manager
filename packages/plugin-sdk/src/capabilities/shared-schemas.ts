@@ -38,6 +38,10 @@ export const mediaItem = z.object({
   writers: z.array(z.string()).optional(),
   creators: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
+  // Franchise membership for the collections lens. Optional and nullable so
+  // existing plugins that never set it stay valid; movies set it when the
+  // title belongs to a TMDB collection, everything else reports null.
+  collection: z.object({ id: z.string(), name: z.string() }).nullable().optional(),
 });
 
 export type MediaItemShape = z.infer<typeof mediaItem>;

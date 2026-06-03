@@ -258,6 +258,14 @@
         "patterns": ["apps/server/src/home/**"]
       },
       {
+        "name": "server-mod-library",
+        "patterns": ["apps/server/src/library/index.ts"]
+      },
+      {
+        "name": "server-mod-library-internal",
+        "patterns": ["apps/server/src/library/**"]
+      },
+      {
         "name": "server-mod-media",
         "patterns": ["apps/server/src/media/index.ts"]
       },
@@ -312,6 +320,10 @@
       {
         "name": "server-schema-home",
         "patterns": ["apps/server/src/db/schema/home/**"]
+      },
+      {
+        "name": "server-schema-library",
+        "patterns": ["apps/server/src/db/schema/library/**"]
       },
       {
         "name": "server-schema-media",
@@ -466,7 +478,14 @@
       },
       {
         "from": "client-feat-library",
-        "allow": ["client-shared-ui", "client-shared-components", "client-shared-lib", "shared-pkg"]
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-virtualized",
+          "client-shared-lib",
+          "client-shared-media",
+          "shared-pkg"
+        ]
       },
       {
         "from": "client-feat-auth",
@@ -725,6 +744,7 @@
           "server-mod-auth",
           "server-mod-catalog",
           "server-mod-home",
+          "server-mod-library",
           "server-mod-media",
           "server-mod-notifications",
           "server-mod-preferences",
@@ -744,6 +764,7 @@
           "server-mod-auth",
           "server-mod-catalog",
           "server-mod-home",
+          "server-mod-library",
           "server-mod-media",
           "server-mod-notifications",
           "server-mod-preferences",
@@ -770,6 +791,7 @@
           "server-mod-auth",
           "server-mod-catalog",
           "server-mod-home",
+          "server-mod-library",
           "server-mod-media",
           "server-mod-notifications",
           "server-mod-preferences",
@@ -920,6 +942,42 @@
           "server-mod-watchlist",
           "server-infra",
           "server-schema-home",
+          "server-schema-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-library",
+        "allow": [
+          "server-mod-library-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-library-internal",
+        "allow": [
+          "server-mod-library",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "server-schema-library",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -1114,6 +1172,7 @@
           "server-schema-auth",
           "server-schema-catalog",
           "server-schema-home",
+          "server-schema-library",
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",
@@ -1133,6 +1192,10 @@
       },
       {
         "from": "server-schema-home",
+        "allow": ["server-schema-auth", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-library",
         "allow": ["server-schema-auth", "shared-pkg"]
       },
       {
@@ -1157,6 +1220,7 @@
           "server-schema-auth",
           "server-schema-catalog",
           "server-schema-home",
+          "server-schema-library",
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",

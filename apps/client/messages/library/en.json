@@ -60,15 +60,17 @@
   ],
   "library_section_count": "{count} titles",
   "library_timeline_unknown": "Unknown year",
-  "library_row_prev": "Previous {decade}",
-  "library_row_next": "Next {decade}",
   "library_az_rail_label": "Jump to letter",
   "library_az_jump": "Jump to {letter}",
+  "library_decade_rail_label": "Jump to decade",
+  "library_decade_jump": "Jump to {decade}",
   "library_empty_title": "Nothing matches",
   "library_empty_description": "Try clearing a filter to see more titles.",
   "library_empty_reset": "Reset filters",
   "library_card_open": "Open details for {title}",
   "library_card_progress": "{percent}% watched",
   "library_load_error_title": "Library couldn't load",
-  "library_load_error_retry": "Retry"
+  "library_load_error_retry": "Retry",
+  "library_load_more": "Load more",
+  "library_loading_more": "Loading…"
 }

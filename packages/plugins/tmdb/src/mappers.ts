@@ -122,6 +122,10 @@ export function mapMovie(ctx: Ctx, m: MovieRaw): unknown {
     overview: m.overview ?? "",
     posterUrl: buildPosterUrl(ctx, m.poster_path ?? null),
     backdropUrl: buildBackdropUrl(ctx, m.backdrop_path ?? null),
+    // Franchise grouping for the collections lens; null when the film stands alone.
+    collection: m.belongs_to_collection
+      ? { id: String(m.belongs_to_collection.id), name: m.belongs_to_collection.name }
+      : null,
     ids: {
       tmdb_id: String(m.id),
       imdb_id: imdb || undefined,
@@ -148,6 +152,8 @@ export function mapShow(ctx: Ctx, s: TvRaw): unknown {
     overview: s.overview ?? "",
     posterUrl: buildPosterUrl(ctx, s.poster_path ?? null),
     backdropUrl: buildBackdropUrl(ctx, s.backdrop_path ?? null),
+    // TMDB has no franchise concept for shows, so TV items never carry a collection.
+    collection: null,
     ids: {
       tmdb_id: String(s.id),
       imdb_id: imdb || undefined,

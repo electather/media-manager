@@ -1,25 +1,23 @@
+import type { WatchedState } from "@ent-mcp/shared/library";
 import type { CompactMediaItem, MediaType } from "@ent-mcp/shared/media";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
 
 /**
- * The library renders the same wire shape as the home feed. Quality tiers ride
- * along on `CompactMediaItem.tags` (e.g. `["4K HDR", "Atmos"]`) and server
- * availability on `availability.servers`, so no feature-local extension of the
- * media item is needed — the shared `MediaRowCard` consumes it directly.
+ * The library renders the shared wire item directly — quality tiers ride on
+ * `tags` and server availability on `availability.servers`, so no feature-local
+ * extension is needed. Kept as an alias the card/grid components read; new code
+ * should import `CompactMediaItem` from `@ent-mcp/shared/media` directly.
  */
 export type LibraryItem = CompactMediaItem;
 
 /**
- * The five viewing "lenses" the page slices its catalog through. Each is a
- * different grouping of the same filtered item set (design: lens tabs).
+ * The facet axes a user can narrow the catalog by, in addition to free-text
+ * search. This is UI-local filter state (the URL search params hydrate it), so
+ * it stays in the feature; the lens/quality/watched tuples it draws from live
+ * in `@ent-mcp/shared/library` and are imported directly (never re-exported
+ * through this module — see the shared-package rules).
  */
-export const LIBRARY_LENSES = ["az", "timeline", "collections", "server", "quality"] as const;
-export type LibraryLens = (typeof LIBRARY_LENSES)[number];
-
-/** Watched-progress buckets used by the filter facet. */
-export const WATCHED_STATES = ["watched", "partial", "unwatched"] as const;
-export type WatchedState = (typeof WATCHED_STATES)[number];
-
-/** The facet axes a user can narrow the catalog by, in addition to free-text search. */
 export interface LibraryFilters {
   kinds: MediaType[];
   genres: string[];
@@ -37,25 +35,38 @@ export const EMPTY_FILTERS: LibraryFilters = {
   watched: [],
 };
 
-/** A curated, user-defined grouping of items, surfaced by the Collections lens. */
-export interface LibraryCollection {
-  id: string;
-  title: string;
-  /** Composite ids referencing items in the library set. */
-  itemIds: string[];
+/**
+ * The one client-side library error (rule 3, mirrors the shared media
+ * `MediaApiError`). Every library read — the lens pages routed through the
+ * shared media source, the collections feed, and the facets query — surfaces
+ * the same typed envelope: the HTTP `status`, the parsed `body`, and the stable
+ * `code` the ErrorBoundary keys its retry copy off.
+ *
+ * The lens pages reuse the shared media source (`defineMediaSource`), which
+ * throws `MediaApiError`; the collections + facets fetchers below throw this.
+ * Both extend `Error` with the identical `{ status, body, code }` surface, so a
+ * shared boundary handles either uniformly.
+ */
+export class LibraryApiError extends Error {
+  readonly status: number;
+  readonly body: ApiErrorBody | null;
+  readonly code: string | undefined;
+
+  constructor(status: number, body: ApiErrorBody | null) {
+    super(body?.message ?? body?.devMessage ?? `library request failed (${status})`);
+    this.name = "LibraryApiError";
+    this.status = status;
+    this.body = body;
+    this.code = typeof body?.code === "string" ? body.code : undefined;
+  }
 }
 
-/** The full mock payload the (currently mocked) library fetch resolves. */
-export interface LibraryData {
-  items: LibraryItem[];
-  collections: LibraryCollection[];
-}
-
-/** Per-option match counts shown as badges next to each facet pill. */
-export interface LibraryFacetCounts {
-  kinds: Record<MediaType, number>;
-  genres: Record<string, number>;
-  qualities: Record<string, number>;
-  servers: Record<string, number>;
-  watched: Record<WatchedState, number>;
+/**
+ * The one library `throwOnError` tail. Delegates to the shared
+ * `throwOnApiError` idiom (so this module carries no local copy of the
+ * read-envelope-and-throw dance) bound to {@link LibraryApiError}. The
+ * collections + facets fetchers call this on a non-OK response.
+ */
+export async function throwOnError(res: Response): Promise<never> {
+  return throwOnApiError(res, LibraryApiError);
 }
