@@ -21,7 +21,11 @@ import type {
 } from "@ent-mcp/plugin-sdk";
 import { captureError, capturePerf } from "../../diagnostics/capture";
 import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import { sharedCredentialsService } from "../internal/shared-credentials";
+import {
+  requirePluginRow,
+  sharedCredentialsService,
+  type PluginRow,
+} from "../internal/shared-credentials";
 import { listReadyUserConnections, markUserConnectionExhausted } from "../internal/user-pool";
 
 /**
@@ -69,15 +73,6 @@ interface PickedCredential {
   entryId: string;
   value: unknown;
   userConfig: unknown;
-}
-
-interface PluginRow {
-  id: string;
-  version: string;
-  enabled: number;
-  globalConfig: string | null;
-  personalKeyFallback: PersonalKeyFallbackPolicy;
-  manifest: string;
 }
 
 /**
@@ -188,10 +183,7 @@ export class PluginRuntime {
   }
 
   private async getPluginRow(pluginId: string): Promise<PluginRow> {
-    const db = getDb();
-    const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
-    if (!row) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
-    return row as PluginRow;
+    return requirePluginRow(pluginId);
   }
 
   /**

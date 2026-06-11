@@ -1,19 +1,12 @@
 import { and, desc, eq, ne, notExists } from "drizzle-orm";
 import { getDb, type Db } from "../db/client";
 import { serviceConnections } from "../db/schema";
-import { env } from "../env";
-import { encrypt, decrypt } from "../crypto/vault";
+import { encryptJson } from "../crypto/helpers";
 import { internal, notFound } from "../diagnostics/http-errors";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { invalidateUserCache } from "../media";
 import { isNil } from "es-toolkit/predicate";
-
-function split(combined: string): { iv: string; data: string } {
-  const [iv, ...rest] = combined.split(":");
-  if (!iv || rest.length === 0) throw internal("http.internal_error", "invalid ciphertext");
-  return { iv, data: rest.join(":") };
-}
 
 /**
  * Loads the connection row owned by `userId` or returns `null`. Used by
@@ -40,21 +33,6 @@ export async function requireConnection(db: Db, connectionId: string, userId: st
   const row = await fetchConnectionByOwner(db, connectionId, userId);
   if (!row) throw notFound("connection.not_found", "connection not found");
   return row;
-}
-
-export async function encryptJson(value: unknown): Promise<{ iv: string; data: string }> {
-  const combined = await encrypt(JSON.stringify(value), env.ENCRYPTION_KEY);
-  return split(combined);
-}
-
-export async function decryptJson(iv: string | null, data: string | null): Promise<unknown> {
-  if (!iv || !data) return null;
-  const plain = await decrypt(`${iv}:${data}`, env.ENCRYPTION_KEY);
-  try {
-    return JSON.parse(plain);
-  } catch {
-    return plain;
-  }
 }
 
 /**

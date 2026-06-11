@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy, ValidatedManifest } from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
 import { pluginSharedCredentials } from "../../db/schema/plugin-runtime/plugin-shared-credentials";
 import { plugins } from "../../db/schema/plugin-runtime/plugins";
@@ -50,10 +50,25 @@ function isPoolable(manifestJson: string): boolean {
   }
 }
 
-async function requirePluginManifestJson(pluginId: string): Promise<string> {
+export interface PluginRow {
+  id: string;
+  version: string;
+  enabled: number;
+  globalConfig: string | null;
+  personalKeyFallback: PersonalKeyFallbackPolicy;
+  manifest: string;
+}
+
+/** Fetches the plugins row by id, throwing when the plugin is not installed. */
+export async function requirePluginRow(pluginId: string): Promise<PluginRow> {
   const db = getDb();
   const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
   if (!row) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
+  return row as PluginRow;
+}
+
+async function requirePluginManifestJson(pluginId: string): Promise<string> {
+  const row = await requirePluginRow(pluginId);
   return row.manifest;
 }
 

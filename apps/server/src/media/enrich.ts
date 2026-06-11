@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
+import { buildFacets } from "./internal/facets";
 import { batchLoad } from "./pipeline/batch-load";
 import { capabilityRegistry } from "../plugin-runtime";
 import type { StatusBatchMemo } from "./status-batch";
@@ -517,14 +518,7 @@ function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
   // multiple names; trimming here would silently break clusters that combine
   // more than the first three. The card UI clamps the visible chip count.
   if (meta.genres && meta.genres.length > 0) item.genres = meta.genres;
-  const facets: NonNullable<CompactMediaItem["facets"]> = {};
-  if (meta.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
-  // `releaseDate` doubles as the "upcoming?" flag on the client. Only emit
-  // it when the release year is in the future so already-released items
-  // don't land in the upcoming bucket.
-  if (meta.year != null && meta.year > new Date().getUTCFullYear()) {
-    facets.releaseDate = String(meta.year);
-  }
+  const facets = buildFacets(meta);
   if (Object.keys(facets).length > 0) item.facets = facets;
   return item;
 }

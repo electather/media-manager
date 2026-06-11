@@ -10,6 +10,7 @@ import {
   loadPluginAndContext,
   mergeSecretCredentials,
   parseUserConfig,
+  recordDeliveryFailure,
 } from "../internal/deliver-handler";
 import { parseStoredEventPayload } from "../internal/parse-event-payload";
 
@@ -79,9 +80,13 @@ export function registerDelivery(): void {
       try {
         channelConfig = parseUserConfig(conn.userConfig);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log.error("user_config parse failed", { deliveryId, pluginId: conn.pluginId, error: msg });
-        await repo.markDeliveryFailed(deliveryId, "config_parse_failed", msg);
+        await recordDeliveryFailure(
+          deliveryId,
+          conn,
+          "user_config parse failed",
+          "config_parse_failed",
+          err,
+        );
         return;
       }
 
@@ -95,13 +100,13 @@ export function registerDelivery(): void {
         const credentials = await decryptJson(conn.credentialsIv, conn.encryptedCredentials);
         channelConfig = mergeSecretCredentials(channelConfig, credentials);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log.error("credentials decrypt failed", {
+        await recordDeliveryFailure(
           deliveryId,
-          pluginId: conn.pluginId,
-          error: msg,
-        });
-        await repo.markDeliveryFailed(deliveryId, "credentials_decrypt_failed", msg);
+          conn,
+          "credentials decrypt failed",
+          "credentials_decrypt_failed",
+          err,
+        );
         return;
       }
 

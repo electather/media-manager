@@ -3,7 +3,7 @@ import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
-import { selectEnabledPlugins } from "../db/queries";
+import { markConnectionExhausted, selectEnabledPlugins } from "../db/queries";
 import { decryptJson } from "../crypto/helpers";
 import { captureError } from "../diagnostics/capture";
 // fallow-allow: phase-2 infra-to-module decoupling
@@ -244,15 +244,7 @@ export async function invokePerConnectionHandler(args: {
         retryAfterMs !== null && retryAfterMs >= 0
           ? Math.min(Math.ceil(retryAfterMs / 1000), MAX_JOB_RATE_LIMIT_RETRY_SEC)
           : DEFAULT_JOB_RATE_LIMIT_RETRY_SEC;
-      const nowSec = Math.floor(Date.now() / 1000);
-      await db
-        .update(serviceConnections)
-        .set({
-          lastExhaustedAt: nowSec,
-          retryAfter: nowSec + retryAfterSec,
-          updatedAt: Date.now(),
-        })
-        .where(eq(serviceConnections.id, row.id));
+      await markConnectionExhausted(row.id, retryAfterSec);
       logger.warn("Plugin connection rate-limited; parked until cooldown elapses", {
         pluginId: job.pluginId,
         jobId: job.id,
