@@ -698,6 +698,26 @@ export class MediaService {
     return this.aggregateFeed<unknown>("collection", "getCollection", opts.deadlineMs);
   }
 
+  /**
+   * Aggregate `collection@v1.getCollection` for the owned-library membership
+   * sync. Mirrors `getWatchlistFeed`: surfaces the `partial` flag and throws
+   * `AllPluginsFailedError` on a terminal all-providers failure so the library
+   * sync can classify the run outcome. The library module is the first consumer
+   * of this capability (design §Sync + hydrate).
+   */
+  // fallow-ignore-next-line unused-class-member
+  async getCollectionFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "collection",
+      version: "v1",
+      method: "getCollection",
+      input: {},
+      deadlineMs: opts.deadlineMs,
+    });
+    return interpretAggregate("collection@v1", result);
+  }
+
   /** Aggregate `recommendations@v1.getTrending`. */
   // fallow-ignore-next-line unused-class-member
   async getTrendingFeed(opts: {
