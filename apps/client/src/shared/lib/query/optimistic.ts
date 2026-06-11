@@ -16,7 +16,11 @@ export async function snapshotQuery<T>(
   return { prev };
 }
 
-/** Restores a previously captured snapshot into the cache entry for `key`. */
+/**
+ * Restores a previously captured snapshot into the cache entry for `key`.
+ * A `prev` of `undefined` is a no-op: passing it to `setQueryData` would
+ * remove the cache entry rather than leave it untouched.
+ */
 export function rollbackQuery<T>(qc: QueryClient, key: QueryKey, prev: T | undefined): void {
-  qc.setQueryData<T>(key, prev);
+  if (prev !== undefined) qc.setQueryData<T>(key, prev);
 }
