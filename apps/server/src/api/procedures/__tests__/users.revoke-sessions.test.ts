@@ -53,6 +53,7 @@ vi.mock("../../../auth", async () => {
     },
     auth: { api: {} },
     PERMISSIONS,
+    SYSTEM_ADMIN_ROLE_SLUG: "admin",
   };
 });
 

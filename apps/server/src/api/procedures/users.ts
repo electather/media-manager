@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
-import { requireSession, requirePermission, sessionUserId, PERMISSIONS, auth } from "../../auth";
+import {
+  requireSession,
+  requirePermission,
+  sessionUserId,
+  PERMISSIONS,
+  SYSTEM_ADMIN_ROLE_SLUG,
+  auth,
+} from "../../auth";
 import { getDb } from "../../db/client";
 import {
   user,
@@ -13,10 +20,6 @@ import {
 import { userRoles, roles } from "../../db/schema/auth/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
-
-// Mirrors the SYSTEM_ADMIN_ROLE_NAME constant in auth/service.ts. Both must
-// stay in sync — changing the seed role's name requires updating both.
-const SYSTEM_ADMIN_ROLE_NAME = "Admin" as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -43,12 +46,10 @@ async function requireUser(userId: string) {
   return existing;
 }
 
-async function requireRole(
-  roleId: string,
-): Promise<{ id: string; isSystem: number; name: string }> {
+async function requireRole(roleId: string): Promise<{ id: string; systemSlug: string | null }> {
   const db = getDb();
   const roleExists = await db
-    .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
+    .select({ id: roles.id, systemSlug: roles.systemSlug })
     .from(roles)
     .where(eq(roles.id, roleId))
     .get();
@@ -148,7 +149,7 @@ export const adminUsersApp = new Hono()
     await requireUniqueEmail(email);
     if (roleId) {
       const role = await requireRole(roleId);
-      if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) {
+      if (role.systemSlug === SYSTEM_ADMIN_ROLE_SLUG) {
         throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
       }
     }
@@ -202,7 +203,7 @@ export const adminUsersApp = new Hono()
     await requireUser(id);
     const role = await requireRole(roleId);
 
-    if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) {
+    if (role.systemSlug === SYSTEM_ADMIN_ROLE_SLUG) {
       throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
     }
 
