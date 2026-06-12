@@ -18,9 +18,21 @@ export async function snapshotQuery<T>(
 
 /**
  * Restores a previously captured snapshot into the cache entry for `key`.
- * A `prev` of `undefined` is a no-op: passing it to `setQueryData` would
- * remove the cache entry rather than leave it untouched.
+ * When `prev` is `undefined` the default behaviour is a no-op: passing it to
+ * `setQueryData` would remove the cache entry rather than leave it untouched.
+ * Pass `removeOnEmpty: true` to explicitly clean up a stale optimistic write
+ * that was applied against an empty cache (i.e. when there was no prior entry
+ * to restore).
  */
-export function rollbackQuery<T>(qc: QueryClient, key: QueryKey, prev: T | undefined): void {
-  if (prev !== undefined) qc.setQueryData<T>(key, prev);
+export function rollbackQuery<T>(
+  qc: QueryClient,
+  key: QueryKey,
+  prev: T | undefined,
+  { removeOnEmpty = false }: { removeOnEmpty?: boolean } = {},
+): void {
+  if (prev !== undefined) {
+    qc.setQueryData<T>(key, prev);
+  } else if (removeOnEmpty) {
+    qc.removeQueries({ queryKey: key });
+  }
 }

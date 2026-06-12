@@ -1,7 +1,7 @@
 # Watchlist Backend Service
 
-**Status:** design (rev 5) — partial supersession
-**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23, rev 5: 2026-05-26)
+**Status:** design (rev 6) — partial supersession
+**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23, rev 5: 2026-05-26, rev 6: 2026-06-12)
 **Author:** Omid Astaraki
 **Deps:** [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-04-27-catalog-service-design.md](./2026-04-27-catalog-service-design.md), [2026-04-20-job-service-design.md](./2026-04-20-job-service-design.md), `frontend-feature-architecture` skill ([.claude/skills/frontend-feature-architecture/SKILL.md](../.claude/skills/frontend-feature-architecture/SKILL.md)), `backend-feature-architecture` skill ([.claude/skills/backend-feature-architecture/SKILL.md](../.claude/skills/backend-feature-architecture/SKILL.md)), plugin `watchlist@v1`
 **Partial supersession:** API surface + client layout sections superseded by [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md). Seed, sync, events semantics unchanged.
@@ -12,6 +12,9 @@ Caveman ultra. Pseudocode = shape-only, ⊥ literal.
 
 ## Revision history
 
+- **rev 6 (2026-06-12)** — Terminology and heading corrections to match current codebase.
+  - `WatchlistRow` → `ActiveRow` in §M.1 and §M.3 pseudocode (rename landed after consolidation).
+  - §M.3 heading updated: `enrich.ts (local, ⊥ home/internal import)` → `media/enrich.ts (shared media pipeline)` to reflect that enrich moved out of watchlist and into the shared `media/` pipeline.
 - **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
   - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
   - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
@@ -188,16 +191,16 @@ Historical layout (this doc's original v1, before media consolidation): watchlis
 > **Ownership (2026-05-26):** moved to `media/repo/` — `media` owns `watchlist_items` reads + writes + seed. The signatures below are the contract; they now live behind the `media` barrel. See consolidation doc §A.
 
 ```ts
-list(userId, opts?: {state?: WatchlistState}) → WatchlistRow[]        // default state="active"
-findByKey(userId, key) → WatchlistRow | null                           // any state
-upsertActive(userId, key, source, now) → { row: WatchlistRow, created: boolean, wasActive: boolean }
+list(userId, opts?: {state?: WatchlistState}) → ActiveRow[]        // default state="active"
+findByKey(userId, key) → ActiveRow | null                           // any state
+upsertActive(userId, key, source, now) → { row: ActiveRow, created: boolean, wasActive: boolean }
 softRemove(userId, key, now) → void                                    // UPDATE state="removed", removed_at=now WHERE state="active"
 bulkInsertIgnoreConflict(userId, keys[], source, seeded) → number      // INSERT ... ON CONFLICT DO NOTHING. Returns affected.
 allKnownKeys(userId) → Set<`${tmdb_id}:${media_type}`>
 trySeedLock(userId, now) → boolean                                     // ON CONFLICT (user_id) DO NOTHING on user_watchlist_seed
 hasSeeded(userId) → boolean
 hasAny(userId) → boolean                                               // EXISTS active row
-listAvailableKeys(userId, opts?: {limit?: number}) → WatchlistRow[]    // active rows, no enrich (caller filters by avail)
+listAvailableKeys(userId, opts?: {limit?: number}) → ActiveRow[]    // active rows, no enrich (caller filters by avail)
 ```
 
 **`upsertActive` semantics (SQLite, single tx):**
@@ -312,12 +315,12 @@ hasAny(userId) → boolean
 
 Caller doc: `addItem` enrich cost = single-key fan-out (catalog + status + avail + progress for 1 item). Acceptable. Client may rely on the returned `item` + skip refetch invalidation if hot.
 
-### M.3 enrich.ts (local, ⊥ `home/internal` import)
+### M.3 media/enrich.ts (shared media pipeline)
 
 > **Ownership (2026-05-26):** enrich is no longer watchlist-local. It is a stage of the shared `media` pipeline (`media/enrich.ts` + `media/pipeline` `batchLoad`), producing the single `CompactMediaItem` shape for every source. `WatchlistItem` is deleted — callers use the extended `CompactMediaItem` (`+ addedAt`/`addedSource`). See consolidation doc §C/§D. The pseudocode below documents the enrich semantics now owned by media.
 
 ```ts
-enrich(rows: WatchlistRow[], ctx) → { items: WatchlistItem[], partial: boolean }
+enrich(rows: ActiveRow[], ctx) → { items: WatchlistItem[], partial: boolean }
   if rows.empty: return { items: [], partial: false }
   keys = rows.map(r => ({ tmdbId: r.tmdb_id, mediaType: r.media_type }))
   let partial = false

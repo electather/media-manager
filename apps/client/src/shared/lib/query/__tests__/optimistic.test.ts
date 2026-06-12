@@ -57,4 +57,27 @@ describe("rollbackQuery", () => {
 
     expect(qc.getQueryData(KEY)).toBe(42);
   });
+
+  it("removes the stale optimistic entry when removeOnEmpty is true and prev is undefined", () => {
+    const qc = new QueryClient();
+    // Simulate a stale optimistic write against an initially-empty cache.
+    qc.setQueryData(KEY, 99);
+
+    // The snapshot captured before the mutation was undefined (empty cache),
+    // so the normal guard would leave the optimistic write in place. With
+    // removeOnEmpty the entry is cleaned up instead.
+    rollbackQuery<number>(qc, KEY, undefined, { removeOnEmpty: true });
+
+    expect(qc.getQueryData(KEY)).toBeUndefined();
+  });
+
+  it("does not remove an existing entry when removeOnEmpty is false and prev is undefined", () => {
+    const qc = new QueryClient();
+    qc.setQueryData(KEY, 42);
+
+    rollbackQuery<number>(qc, KEY, undefined, { removeOnEmpty: false });
+
+    // Default behaviour is preserved: entry untouched.
+    expect(qc.getQueryData(KEY)).toBe(42);
+  });
 });
