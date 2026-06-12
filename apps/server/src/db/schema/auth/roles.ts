@@ -7,6 +7,12 @@ export const roles = sqliteTable("roles", {
   description: text("description"),
   /** 1 = built-in role that cannot be deleted or renamed. */
   isSystem: integer("is_system").notNull().default(0),
+  /**
+   * Stable machine identifier for built-in roles (e.g. "admin"). Null for
+   * user-created roles. Code that needs to single out a system role checks
+   * this slug, never the display name.
+   */
+  systemSlug: text("system_slug").unique(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
