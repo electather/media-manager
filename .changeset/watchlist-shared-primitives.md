@@ -2,4 +2,4 @@
 "@ent-mcp/client": patch
 ---
 
-Migrated watchlist card and skeleton to shared MediaRowCard and GridSkeleton primitives; corrected Paraglide message key names for bucket labels and chip ARIA strings.
+Watchlist cards and loading placeholders now match the rest of the app, and watchlist items without a logo no longer show their title as a stand-in wordmark.

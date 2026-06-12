@@ -49,20 +49,6 @@
       }
     }
   ],
-  "watchlist_filter": [
-    {
-      "declarations": ["input bucket"],
-      "selectors": ["bucket"],
-      "match": {
-        "bucket=all": "All",
-        "bucket=ready": "Ready",
-        "bucket=in-progress": "In progress",
-        "bucket=awaiting": "Awaiting",
-        "bucket=unavailable": "Unavailable",
-        "bucket=upcoming": "Upcoming"
-      }
-    }
-  ],
   "watchlist_filter_note": [
     {
       "declarations": ["input bucket"],

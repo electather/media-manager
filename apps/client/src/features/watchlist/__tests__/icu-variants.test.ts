@@ -17,10 +17,14 @@ function readMessages(rel: string): Record<string, unknown> {
 describe("US-011 watchlist ICU variants — copy parity", () => {
   it("renders bucket / sort / section / mood / source labels unchanged", () => {
     // Bucket filter chips (selector `bucket`, incl. the hyphenated `in-progress`).
-    expect(m.watchlist_filter({ bucket: "all" }, { locale: "en" })).toBe("All");
-    expect(m.watchlist_filter({ bucket: "ready" }, { locale: "en" })).toBe("Ready");
-    expect(m.watchlist_filter({ bucket: "in-progress" }, { locale: "en" })).toBe("In progress");
-    expect(m.watchlist_filter({ bucket: "unavailable" }, { locale: "en" })).toBe("Unavailable");
+    expect(m.watchlist_bucket_label({ bucket: "all" }, { locale: "en" })).toBe("All");
+    expect(m.watchlist_bucket_label({ bucket: "ready" }, { locale: "en" })).toBe("Ready");
+    expect(m.watchlist_bucket_label({ bucket: "in-progress" }, { locale: "en" })).toBe(
+      "In progress",
+    );
+    expect(m.watchlist_bucket_label({ bucket: "unavailable" }, { locale: "en" })).toBe(
+      "Unavailable",
+    );
 
     // Sort options (selector `sortKey`).
     expect(m.watchlist_sort({ sortKey: "recent" }, { locale: "en" })).toBe("Recently added");
