@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { requireSession } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 
 const updateSettingsSchema = z.object({
@@ -8,6 +9,7 @@ const updateSettingsSchema = z.object({
 });
 
 export const settingsApp = new Hono()
+  .use("*", requireSession)
   .get("/", async (c) => {
     // TODO: return user settings from DB.
     return c.json({ dbProvider: "sqlite", cacheProvider: "memory", integrations: [] });
