@@ -84,6 +84,13 @@ function basenameOf(file: string): string {
   return segments[segments.length - 1]!;
 }
 
+/** Whether a bundle basename is one we could have a map for: only emitted JS
+ *  modules carry sourcemaps, so native and internal frames are skipped. Shared
+ *  by frame resolution and cache warming so both target the exact same set. */
+function isJsBundle(fileName: string): boolean {
+  return fileName.endsWith(".js") || fileName.endsWith(".mjs");
+}
+
 /** Reads the newest stored map for a bundle file (optionally scoped to a build)
  *  and parses it into a `TraceMap`. Returns null when no row exists or the
  *  stored content fails to parse — a map that passed the upload check but no
@@ -134,7 +141,7 @@ async function resolveFrame(frame: string, buildId?: string): Promise<string | n
   const [, open, file, lineText, columnText, close] = match;
   const fileName = basenameOf(file!);
   // Only JS bundles have maps; skip native/internal frames early.
-  if (!fileName.endsWith(".js") && !fileName.endsWith(".mjs")) return null;
+  if (!isJsBundle(fileName)) return null;
   const map = await loadTraceMap(fileName, buildId);
   if (!map) return null;
   const position = originalPositionFor(map, {
@@ -151,6 +158,21 @@ async function resolveFrame(frame: string, buildId?: string): Promise<string | n
   return resolved;
 }
 
+/** Collects the distinct JS bundle basenames a stack's frames would load a map
+ *  for — the exact set {@link resolveFrame} hits, including the same
+ *  `.js`/`.mjs` filter, so warming adds no DB reads the serial pass would not
+ *  have made. */
+function bundleFilesIn(lines: string[]): string[] {
+  const files = new Set<string>();
+  for (const line of lines) {
+    const match = FRAME_LOCATION.exec(line);
+    if (!match) continue;
+    const fileName = basenameOf(match[2]!);
+    if (isJsBundle(fileName)) files.add(fileName);
+  }
+  return [...files];
+}
+
 /** Translates a minified stack trace to original source positions using the
  *  uploaded sourcemaps. Frames that cannot be resolved are kept verbatim.
  *  Returns null when not a single frame resolved, so callers can store
@@ -159,6 +181,10 @@ async function resolveFrame(frame: string, buildId?: string): Promise<string | n
  *  maps; otherwise the newest map for each bundle file name is used. */
 export async function resolveStackTrace(stack: string, buildId?: string): Promise<string | null> {
   const lines = stack.split("\n");
+  // Warm every distinct bundle's parsed map concurrently before the per-frame
+  // pass, so a cold stack touching N files pays one round of parallel DB reads
+  // instead of N serial ones; the loop below then resolves from cache hits.
+  await Promise.all(bundleFilesIn(lines).map((file) => loadTraceMap(file, buildId)));
   let resolvedAny = false;
   const out: string[] = [];
   for (const line of lines) {

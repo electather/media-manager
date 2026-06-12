@@ -36,6 +36,17 @@ const HOME_PAGE_MAP = JSON.stringify({
   mappings: "AASKA",
 });
 
+/** A second bundle with the same single-segment shape as {@link HOME_PAGE_MAP}
+ *  but a distinct source and name, used to prove a stack spanning more than one
+ *  file resolves every frame after concurrent cache warming. */
+const SETTINGS_PAGE_MAP = JSON.stringify({
+  version: 3,
+  file: "chunk-def456.js",
+  sources: ["src/features/settings/settings-page.tsx"],
+  names: ["loadSettings"],
+  mappings: "AASKA",
+});
+
 const MINIFIED_STACK = [
   "Error: boom",
   "    at t (https://app.example.com/assets/index-abc123.js:1:42)",
@@ -58,6 +69,34 @@ describe("resolveStackTrace", () => {
     expect(resolved).toContain("src/features/home/home-page.tsx:10:6");
     expect(resolved).toContain("[loadHomeRows]");
     expect(resolved).not.toContain("index-abc123.js:1:42");
+  });
+
+  it("resolves every frame of a stack spanning multiple bundle files", async () => {
+    await saveSourcemap({
+      buildId: "build-1",
+      fileName: "index-abc123.js",
+      content: HOME_PAGE_MAP,
+    });
+    await saveSourcemap({
+      buildId: "build-1",
+      fileName: "chunk-def456.js",
+      content: SETTINGS_PAGE_MAP,
+    });
+
+    const stack = [
+      "Error: boom",
+      "    at t (https://app.example.com/assets/index-abc123.js:1:42)",
+      "    at r (https://app.example.com/assets/chunk-def456.js:1:9)",
+    ].join("\n");
+    const resolved = await resolveStackTrace(stack, "build-1");
+
+    expect(resolved).not.toBeNull();
+    // Warming the two maps concurrently must not drop either frame: both
+    // bundles resolve to their own original source, line, column, and name.
+    expect(resolved).toContain("src/features/home/home-page.tsx:10:6");
+    expect(resolved).toContain("[loadHomeRows]");
+    expect(resolved).toContain("src/features/settings/settings-page.tsx:10:6");
+    expect(resolved).toContain("[loadSettings]");
   });
 
   it("keeps frames verbatim when no map covers their bundle file", async () => {
