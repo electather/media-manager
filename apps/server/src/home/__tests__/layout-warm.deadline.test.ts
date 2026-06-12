@@ -56,7 +56,7 @@ describe("host.home.layout_warm deadline propagation (rev 6 regression)", () => 
     expect(opts.deadlineMs).toBe(start + WARM_COMPOSE_BUDGET_MS);
   });
 
-  it("forwards ~45s budget to composeLayout and writes back the returned partial blob", async () => {
+  it("forwards the compose budget to composeLayout and writes back the returned partial blob", async () => {
     // `composeLayout` is stubbed — this test does not exercise the live
     // leaf-level abort path (that's covered by `invoke.deadline-clip.test.ts`
     // and `enrich.deadline.test.ts`). The assertion here is that the warm
@@ -75,11 +75,12 @@ describe("host.home.layout_warm deadline propagation (rev 6 regression)", () => 
       generatedAt: Date.now(),
     };
     composeLayoutSpy.mockImplementation(async (ctx: { deadlineMs?: number }) => {
-      // Assert the budget is what we expect (~45s) — the composer would have
-      // returned partial because of leaf-level AbortError; here we just
-      // confirm the budget flowed through.
-      expect(ctx.deadlineMs).toBeGreaterThan(Date.now() + 40_000);
-      expect(ctx.deadlineMs).toBeLessThan(Date.now() + 50_000);
+      // Assert the budget tracks WARM_COMPOSE_BUDGET_MS — the composer would
+      // have returned partial because of leaf-level AbortError; here we just
+      // confirm the budget flowed through. Pinned to the exported constant so
+      // tuning the budget (#428 raised it to 105s) doesn't silently drift.
+      expect(ctx.deadlineMs).toBeGreaterThan(Date.now() + WARM_COMPOSE_BUDGET_MS - 5_000);
+      expect(ctx.deadlineMs).toBeLessThanOrEqual(Date.now() + WARM_COMPOSE_BUDGET_MS);
       return partialBlob;
     });
 

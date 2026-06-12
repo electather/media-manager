@@ -199,7 +199,10 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 - Order eligible providers by capability-declared `providerPriority` (lower = higher priority); ties broken alphabetical by plugin id.
 - Fan-out parallel, per-call timeout default 15s.
 - Merge per-kind: for each field listed in `strategy.perKindFields`, walk results in priority order, take first non-empty array.
-- All eligible providers fulfilled w/ empty | all eligible providers throw → return empty bundle (every kind empty array). All-empty cached as negative; all-fail ⊥ cached.
+- A provider with no usable connection for the user is **skipped**: `invokeProvider` returns `null` (not a failure, just unconfigured) and the row is excluded from the attempted set. A skip therefore counts toward neither success nor all-failed (#280) — a missing provider must not turn a partial success into an all-failed negative cache.
+- `allFailed` predicate: `attempted > 0 && succeeded === 0` — i.e. at least one provider was actually attempted (connected, then fulfilled-empty-with-error or rejected) and every attempt failed. `allFailed` → return empty bundle, ⊥ cached (transient outage, retry next call).
+- All eligible attempted providers fulfilled w/ empty → return empty bundle, cached as negative (stable empty).
+- Zero attempts (every eligible provider skipped for no connection) → stable empty bundle, distinct from the all-failed transient case. Not a negative-cache poison from a transient outage.
 - Zero eligible providers (no provider can serve given input) → throw capability-specific `unsupported` error (e.g. `artwork.unsupported_id_combo`).
 - Failed provider calls update connection `status`; ⊥ poison merged result.
 

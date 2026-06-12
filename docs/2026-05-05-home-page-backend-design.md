@@ -898,15 +898,15 @@ TopContributor = {
 ## New job
 
 ```
-host.home.layout_warm     (scheduled_per_row, every 60 min; runTimeoutSec = 30 * 60; perRowTimeoutSec = 60)
+host.home.layout_warm     (scheduled_per_row, every 60 min; runTimeoutSec = 30 * 60; perRowTimeoutSec = 120)
   rows = users w/ activity in last 14d
   per user:
-    ctx  = buildContext(userId, { deadlineMs: now + 45_000 })   // 15s SQLite slack under 60s row cap
+    ctx  = buildContext(userId, { deadlineMs: now + 105_000 })  // 15s SQLite slack under 120s row cap
     blob = composeLayout(ctx, { forceFresh: true, skipWriteback: true })
     layoutCache.write(userId, blob)                              // sync, awaited
 ```
 
-Reuses existing `scheduled_per_row` job kind. Per-user mutex. Idempotent. Failure isolated per row. Per rev 6, compose runs under a 45 s deadline that flows through every plugin call and enrichment leaf; the 60 s per-row cap is now a backstop, not the primary budget.
+Reuses existing `scheduled_per_row` job kind. Per-user mutex. Idempotent. Failure isolated per row. Per rev 7 (#428), compose runs under a 105 s deadline that flows through every plugin call and enrichment leaf; the 120 s per-row cap is a backstop, not the primary budget. The cap was raised from 60 s to 120 s because a slow or offline plugin's TCP connect can take longer than 60 s to resolve or reject, which tripped the old per-row timeout before the compose could degrade to a partial layout. A per-run circuit breaker (`MAX_CONSECUTIVE_FAILURES = 3`, keyed by one run-level constant since `listActiveUsers` yields each user once) short-circuits the remaining rows once consecutive failures indicate a shared upstream source is offline, so the run stops paying the full per-row timeout on every remaining user.
 
 ## getDetails composition
 
@@ -979,7 +979,7 @@ apps/server/src/home/__tests__/
     - write upserts
     - isFresh boundary at 60 min
   layout-warm.deadline.test.ts                          (rev 6)
-    - warm-job handler sets ctx.deadlineMs ≈ now + 45_000 (±10ms via fake clock)
+    - warm-job handler sets ctx.deadlineMs ≈ now + 105_000 (±10ms via fake clock)
     - fake continueWatching@v1.getContinueWatching sleeps 90s, all other
       providers respond < 1s → layoutCache.write called with partial blob
       (hero present from non-CW pools, CW row dropped or partial:true);
@@ -1132,7 +1132,7 @@ CHANGED
 - **R2.** ~~`playback@v1.getResumeUrl`~~ MOVED to non-goals. Hero `resumeUrl` always `null` v1; UI Play button = nav-to-detail.
 - **R3.** `rec.items[].topContributors` field added; existing rec-list rows pre-migration ⊥ have field. Job rerun on first deploy fills. Orchestrator handles missing as "fallback to highly_rated".
 - **R4.** Layout cache JSON blob can grow if rows × items expanded. Cap = ~2KB at v1 sizes (9 rows × ~200B stub = 1.8KB). Acceptable.
-- **R5.** `host.home.layout_warm` runs hourly across all active users — for 1000-user install w/ 60s budget per row × 9 rows = up to 9 min worst-case per user. `runTimeoutSec=30*60` accommodates. Stagger via existing job-service jitter.
+- **R5.** `host.home.layout_warm` runs hourly across all active users — for a 1000-user install the 120 s per-row cap (rev 7, #428) bounds worst-case per user; `runTimeoutSec=30*60` accommodates the run. Stagger via existing job-service jitter. A per-run circuit breaker (rev 7) skips the remaining rows once `MAX_CONSECUTIVE_FAILURES = 3` consecutive failures signal a shared upstream is offline, so a dead source no longer costs 120 s × every remaining user.
 - **R6.** `home_layout_cache` blob shape evolves w/ wire format. Add `schema_version integer NOT NULL` column; `layoutCache.read` discards blobs w/ mismatched version → live recompose. Bump on any `HomeLayoutResponse`/`HomeRowStub`/`LayoutHero` shape change.
 - **R7.** `continueWatching@v1` cache TTL stays at SDK default (`5 * MIN`). ⊥ change capability default — affects all consumers including future MCP tools. Per-call freshness via dispatcher `skipCache: true` on hero cascade only when staleness signal detected (deferred — v1 accepts 5-min staleness in hero).
 - **A1.** Active-user signal = activity last 14d. Reuse existing `last_activity_at` if present; else default to all users (small installs).
@@ -1144,7 +1144,7 @@ CHANGED
 - **R12.** (rev 4) Degenerate fill — when only one source has supply (e.g. brand-new install w/ only TMDB trending populated), backfill exhausts that single pool and the hero ships fewer than 6 slides, all same source. Acceptable: still distinct from any single row (pool size = 6 vs row first page ≤ 12), and rare in practice once recs job has run once. Tests cover the all-same-source branch.
 - **R13.** (rev 4) Schema bump 1 → 2 invalidates every existing `home_layout_cache` row on first deploy. First request per active user falls through to live composition + write-back. Cost = N active users × one cold compose (≤ 5 s budget); spread by `host.home.layout_warm` jitter on next hourly tick.
 - **A9.** (rev 4) Mixer bypasses the previous `pickContinueWatchingHero` / `pickRecommendedHero` / `pickTrendingHero` / `pickNewReleaseHero` exports. They are removed in PR 7; nothing else imports them (only `pickHero` is exported via `home/hero.ts`). Verify before delete via grep.
-- **R14.** (rev 6) Warm-job per-row 60 s cap split into 45 s compose + 15 s writeback. Assumes SQLite `home_layout_cache` upsert p99 < 15 s (single PK, ~2 KB blob; sub-ms in practice). Concurrent retention job, large cache table, or WAL checkpoint pressure could erode the margin — both numbers re-tune together if violated. Diagnostics surface `cron.job_failed` with message `per-row timeout` on breach; that capture is the canary for retuning.
+- **R14.** (rev 7, #428) Warm-job per-row cap raised to 120 s, split into 105 s compose + 15 s writeback (was 60 s = 45 s + 15 s in rev 6). The cap was raised because a slow or offline plugin's TCP connect can exceed 60 s before it resolves or rejects, so the old cap tripped the per-row timeout before the compose could degrade to a partial layout. Assumes SQLite `home_layout_cache` upsert p99 < 15 s (single PK, ~2 KB blob; sub-ms in practice). Concurrent retention job, large cache table, or WAL checkpoint pressure could erode the margin — both numbers re-tune together if violated. Diagnostics surface `cron.job_failed` with message `per-row timeout` on breach; that capture is the canary for retuning.
 - **A10.** (rev 6) `invokeWithTimeout` clip applies to ALL deadline-bearing callers, not just warm. Request path (`ctx.deadlineMs = now + 8_000`) gets the same semantics for free — a single slow plugin can no longer consume the whole 8 s. Tested via `media/__tests__/invoke.deadline-clip.test.ts`.
 
 ## Implementation phases (PR breakdown)
