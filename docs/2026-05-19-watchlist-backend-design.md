@@ -16,6 +16,7 @@ Caveman ultra. Pseudocode = shape-only, ⊥ literal.
   - `WatchlistRow` → `ActiveRow` in §M.1 and §M.3 pseudocode (rename landed after consolidation).
   - §M.3 heading updated: `enrich.ts (local, ⊥ home/internal import)` → `media/enrich.ts (shared media pipeline)` to reflect that enrich moved out of watchlist and into the shared `media/` pipeline.
   - §M.3 `enrich` return type annotated `CompactMediaItem[]` (was the stale `WatchlistItem[]`) to match the ownership note above it — `WatchlistItem` is deleted.
+  - Service signatures `getItems`/`addItem`/`listAvailable` updated from `WatchlistItem` to the unified `CompactMediaItem` shape, consistent with the same ownership note. The historical `WatchlistItem` intersection type is retained only in the §Types appendix for reference.
 - **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
   - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
   - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
@@ -227,7 +228,7 @@ db.transaction(tx => {
 ```ts
 type Key = { tmdbId: string; mediaType: typeof MEDIA_TYPES[number] }
 
-getItems(userId, { cursor, limit, filter }, ctx) → { items: WatchlistItem[], cursor: string|null, partial: boolean }
+getItems(userId, { cursor, limit, filter }, ctx) → { items: CompactMediaItem[], cursor: string|null, partial: boolean }
   // Keyset pagination over (addedAt DESC, id DESC). `cursor` encodes the last
   // returned (addedAt, id) pair; `null` returns the first page. `filter` runs
   // a cheap pre-classification (status + availability via a per-request cache)
@@ -253,7 +254,7 @@ getCounts(userId, ctx) → WatchlistCounts
   rows = repo.listAllActive(userId)
   return classify.aggregate(rows, userId, ctx)
 
-addItem(userId, key, source, ctx) → { item: WatchlistItem, created: boolean, wasActive: boolean }
+addItem(userId, key, source, ctx) → { item: CompactMediaItem, created: boolean, wasActive: boolean }
   // source ∈ USER_SOURCES (enforced at route zod; service trusts caller).
   result = repo.upsertActive(userId, key, source, now())
   if !result.wasActive:
@@ -292,7 +293,7 @@ syncFromPlugins(userId, ctx) → { added: number, partial: boolean }
   return { added: inserted, partial: feed.partial }
 
 // For home row delegation (see §H): pre-filter to bounded set before full enrich.
-listAvailable(userId, limit, ctx) → { items: WatchlistItem[], partial: boolean }
+listAvailable(userId, limit, ctx) → { items: CompactMediaItem[], partial: boolean }
   rows = repo.listAvailableKeys(userId, { limit: limit * 4 })    // overshoot to allow filter
   if rows.empty:
     // Auto-seed when plugin has data but user never loaded /watchlist page.

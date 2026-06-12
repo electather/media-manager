@@ -1,5 +1,6 @@
 ---
 "@ent-mcp/server": patch
+"@ent-mcp/client": patch
 ---
 
-Changed diagnostics endpoint permission gate from ADMIN_PLUGINS to ADMIN_SERVER for correct access control.
+Restricted the diagnostics pages and their menu entry to server administrators.
