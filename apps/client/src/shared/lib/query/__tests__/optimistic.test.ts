@@ -71,14 +71,17 @@ describe("rollbackQuery", () => {
     expect(qc.getQueryData(KEY)).toBeUndefined();
   });
 
-  it("does not remove an existing entry when removeOnEmpty is false and prev is undefined", () => {
+  it("restores the snapshot normally when removeOnEmpty is false and prev is defined", () => {
     const qc = new QueryClient();
-    qc.setQueryData(KEY, 42);
+    // An optimistic write replaced a real prior value (7) with 99.
+    qc.setQueryData(KEY, 99);
 
-    rollbackQuery<number>(qc, KEY, undefined, { removeOnEmpty: false });
+    // With a real snapshot the flag must not interfere: the captured value is
+    // restored, not removed — confirming removeOnEmpty only affects the
+    // empty-cache (prev === undefined) path.
+    rollbackQuery<number>(qc, KEY, 7, { removeOnEmpty: false });
 
-    // Default behaviour is preserved: entry untouched.
-    expect(qc.getQueryData(KEY)).toBe(42);
+    expect(qc.getQueryData(KEY)).toBe(7);
   });
 
   it("removes only the exact key, leaving sibling keys under the same prefix intact", () => {

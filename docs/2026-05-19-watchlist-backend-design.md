@@ -16,7 +16,7 @@ Caveman ultra. Pseudocode = shape-only, ⊥ literal.
   - `WatchlistRow` → `ActiveRow` in §M.1 and §M.3 pseudocode (rename landed after consolidation).
   - §M.3 heading updated: `enrich.ts (local, ⊥ home/internal import)` → `media/enrich.ts (shared media pipeline)` to reflect that enrich moved out of watchlist and into the shared `media/` pipeline.
   - §M.3 `enrich` return type annotated `CompactMediaItem[]` (was the stale `WatchlistItem[]`) to match the ownership note above it — `WatchlistItem` is deleted.
-  - Service signatures `getItems`/`addItem`/`listAvailable` updated from `WatchlistItem` to the unified `CompactMediaItem` shape, consistent with the same ownership note. The historical `WatchlistItem` intersection type is retained only in the §Types appendix for reference.
+  - Swept the remaining live-section `WatchlistItem` references to the unified `CompactMediaItem` shape, consistent with the same ownership note: service signatures (`getItems`/`addItem`/`listAvailable`), the §C `AddOptimisticInput.seed`, `deriveMoods`, and the §T fixtures note. The historical `WatchlistItem` intersection type is retained only in the §Types appendix for reference.
 - **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
   - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
   - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
@@ -739,7 +739,7 @@ Callers compose via shared `keyToId({tmdbId, mediaType})`.
 ```ts
 type AddOptimisticInput = {
   request: AddWatchlistRequest
-  seed?:   Partial<WatchlistItem>                   // optional: callers w/ metadata pass seed for optimistic flip
+  seed?:   Partial<CompactMediaItem>                // optional: callers w/ metadata pass seed for optimistic flip
 }
 
 useAddToWatchlist() {
@@ -790,7 +790,7 @@ const MOOD_RULES = [
   { id: "comedy",       require: ["Comedy"] },
 ]
 
-deriveMoods(items: WatchlistItem[], opts?: { minItems?: number }) → MoodCluster[]
+deriveMoods(items: CompactMediaItem[], opts?: { minItems?: number }) → MoodCluster[]
   min = opts?.minItems ?? 3
   return MOOD_RULES.flatMap(rule => {
     matches = items.filter(it => rule.require.every(g => it.genres?.includes(g)))
@@ -894,7 +894,7 @@ Relative-time labels (e.g. "2h ago") computed client-side via `formatDistance` u
 - `use-remove-from-watchlist.test.ts` — optimistic filter, rollback on err
 - `derive-moods.test.ts` — AND rule matching on names, ≥3 threshold, multi-cluster overlap
 
-Mock fetchers (not RQ). Fixtures = `WatchlistItem[]` under `__fixtures__/`.
+Mock fetchers (not RQ). Fixtures = `CompactMediaItem[]` under `__fixtures__/`.
 
 ## §F Failure modes
 
