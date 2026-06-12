@@ -10,7 +10,7 @@ import { getCatalogService } from "../../catalog";
 import { zValidator } from "../../diagnostics/validator";
 import { getFacets, listCollections } from "../../library";
 import { MediaService } from "../../media";
-import { rateLimitOrNull } from "../rate-limit";
+import { makeRateLimitMiddleware } from "../rate-limit";
 import { watchlistReadLimiter } from "./media";
 
 /** Per-request plugin-call deadline for the library reads, matching the watchlist bridges. */
@@ -43,21 +43,20 @@ function buildLibraryContext(userId: string) {
  * Both routes reuse the shared read `TokenBucketLimiter` (`watchlistReadLimiter`,
  * the read-family bucket the §A7 cutover centralized) so the library reads share
  * the same per-user read budget as the rest of the media surface, and both sit
- * behind `requireSession`.
+ * behind `requireSession`. The read limit is applied once at the router level
+ * (after `requireSession`, before either handler) so both routes debit the same
+ * per-user bucket identically.
  */
 export const libraryApp = new Hono()
   .use("*", requireSession)
+  .use("*", makeRateLimitMiddleware({ limiter: watchlistReadLimiter }))
   .get("/facets", async (c) => {
     const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
-    if (limited) return limited;
     const facets: LibraryFacetCounts = await getFacets(buildLibraryContext(userId));
     return c.json(facets);
   })
   .get("/collections", zValidator("query", libraryCollectionsQuerySchema), async (c) => {
     const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
-    if (limited) return limited;
     const response: LibraryCollectionsResponse = await listCollections(
       buildLibraryContext(userId),
       c.req.valid("query"),
