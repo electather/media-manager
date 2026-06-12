@@ -2,4 +2,4 @@
 "@ent-mcp/client": patch
 ---
 
-Removed redundant load-more button from watchlist all-items view and eliminated duplicate in-component ErrorBoundary wrappers from watchlist routes.
+Removed the redundant load-more button from the watchlist all-items and mood views, leaving infinite scroll as the single way to page through results.
