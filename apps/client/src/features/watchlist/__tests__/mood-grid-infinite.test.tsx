@@ -52,6 +52,42 @@ describe("WatchlistMoodPage virtual-window fetch (#519)", () => {
     await waitFor(() => expect(fetchNextPageMock).toHaveBeenCalled());
   });
 
+  it("does not fetch while the end is still far below the window", async () => {
+    // A long list with a short viewport: only the first rows mount, so the
+    // last row stays out of the window and no fetch fires on first paint.
+    env = setupVirtualizerEnv({ width: 1024, height: 400, elementWidth: 1024, elementHeight: 336 });
+    const items = Array.from({ length: 500 }, (_, i) =>
+      makeItem({ id: `movie:${i}`, tmdbId: String(i) }),
+    );
+    useMoodClusterMock.mockReturnValue({
+      items,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      fetchNextPage: fetchNextPageMock,
+    });
+    render(<WatchlistMoodPage />);
+    // Let any pending effects flush, then assert the trigger stayed quiet.
+    await waitFor(() =>
+      expect(document.querySelectorAll("[data-index]").length).toBeGreaterThan(0),
+    );
+    expect(fetchNextPageMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch when the source reports no next page", async () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 1024, elementHeight: 336 });
+    useMoodClusterMock.mockReturnValue({
+      items: [makeItem({ id: "movie:1", tmdbId: "1" })],
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: fetchNextPageMock,
+    });
+    render(<WatchlistMoodPage />);
+    await waitFor(() =>
+      expect(document.querySelectorAll("[data-index]").length).toBeGreaterThan(0),
+    );
+    expect(fetchNextPageMock).not.toHaveBeenCalled();
+  });
+
   it("renders no load-more button — infinite scroll is the only pagination affordance", () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 1024, elementHeight: 336 });
     useMoodClusterMock.mockReturnValue({
