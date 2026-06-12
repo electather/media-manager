@@ -16,23 +16,7 @@ export async function snapshotQuery<T>(
   return { prev };
 }
 
-/**
- * Restores a previously captured snapshot into the cache entry for `key`.
- * When `prev` is `undefined` the default behaviour is a no-op: passing it to
- * `setQueryData` would remove the cache entry rather than leave it untouched.
- * Pass `removeOnEmpty: true` to explicitly clean up a stale optimistic write
- * that was applied against an empty cache (i.e. when there was no prior entry
- * to restore).
- *
- * The cleanup uses `removeQueries` with `exact: true` so it only evicts the
- * exact key that was optimistically written. The restore path (`setQueryData`)
- * is already exact, and the keys passed here are prefixes of other keys in the
- * query-key factories (e.g. `inboxAll()` is a prefix of `popoverInbox(...)`);
- * a non-exact removal would tear down unrelated list/detail caches. We remove
- * the entry rather than `setQueryData(key, undefined)` because the goal is to
- * drop a cache entry that should never have existed, not to leave a live query
- * observing `undefined`.
- */
+/** Restores a captured snapshot into `key`; with `removeOnEmpty` and no prior entry, evicts the exact key (see exact-key test) instead of leaving a stale optimistic write. */
 export function rollbackQuery<T>(
   qc: QueryClient,
   key: QueryKey,
