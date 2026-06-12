@@ -36,7 +36,8 @@ describe("BucketTabs — V.WL9 active state derives from pathname only", () => {
     pathname = "/watchlist/ready";
     search = {};
     render(<BucketTabs />);
-    // Bucket tabs are route-navigation links with aria-label from watchlist_bucket_chip_aria.
+    // Bucket tabs are route-navigation links (aria-label from watchlist_bucket_chip_aria); the
+    // active one uses aria-current="page", not aria-selected/role=tab, because there is no tabpanel.
     const tab = screen.getByRole("link", { name: /Show ready to watch/i });
     expect(tab.getAttribute("data-status")).toBe("active");
     expect(tab.getAttribute("aria-current")).toBe("page");

@@ -30,7 +30,7 @@
         "bucket=awaiting": "TODO",
         "bucket=unavailable": "TODO",
         "bucket=upcoming": "TODO",
-        "*": "{bucket}"
+        "*": "TODO"
       }
     }
   ],
@@ -45,7 +45,7 @@
         "bucket=awaiting": "TODO",
         "bucket=unavailable": "TODO",
         "bucket=upcoming": "TODO",
-        "*": "{bucket}"
+        "*": "TODO"
       }
     }
   ],
