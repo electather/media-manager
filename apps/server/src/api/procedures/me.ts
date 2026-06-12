@@ -9,12 +9,16 @@ import { listAuthorizedApps, revokeAuthorizedApp } from "./me/apps";
 import { buildUserExport } from "./me/export";
 import { deleteAccount } from "./me/delete";
 import { TokenBucketLimiter } from "../../mcp/rate-limit";
-import { rateLimitOrNull } from "../rate-limit";
+import { makeRateLimitMiddleware } from "../rate-limit";
 
 // 5 exports per hour per user. The export builds a multi-table ZIP in memory,
 // so a low burst cap is intentional to prevent memory exhaustion from flooding.
 // @internal — exported only so tests can call `.reset()`; no production caller.
 export const exportLimiter = new TokenBucketLimiter({ capacity: 5, refillPerSec: 5 / 3600 });
+
+// The export limit guards `/export` alone — the other `me` routes are unmetered —
+// so it is applied as route-scoped middleware rather than on the whole router.
+const exportRateLimit = makeRateLimitMiddleware({ limiter: exportLimiter });
 
 export const meApp = new Hono()
   .use("*", requireSession)
@@ -32,10 +36,8 @@ export const meApp = new Hono()
     const { apps } = await revokeAuthorizedApp(getDb(), sessionUserId(c), c.req.param("clientId"));
     return c.json({ ok: true, apps } as const);
   })
-  .get("/export", async (c) => {
+  .get("/export", exportRateLimit, async (c) => {
     const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(exportLimiter, c, userId);
-    if (limited) return limited;
     const { zipBytes, filename } = await buildUserExport(getDb(), userId);
     return new Response(zipBytes, {
       status: 200,
