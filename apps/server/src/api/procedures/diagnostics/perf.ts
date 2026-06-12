@@ -15,11 +15,12 @@ import { AGGREGATE_ROW_BUDGET, aggregatePerfRows, percentile } from "./perf-aggr
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Admin endpoints mounted at `/admin/diagnostics/perf`. Permission gated by
- *  `admin:plugins`. */
+ *  `admin:server`. Diagnostics is a server-monitoring surface; `ADMIN_SERVER`
+ *  is the correct gate (was incorrectly `admin:plugins`). */
 // fallow-ignore-next-line complexity
 export const adminPerfApp = new Hono()
   .use("*", requireSession)
-  .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  .use("*", requirePermission(PERMISSIONS.ADMIN_SERVER))
   // fallow-ignore-next-line complexity
   .get("/list", zValidator("query", perfListQuerySchema), async (c) => {
     const q = c.req.valid("query");
