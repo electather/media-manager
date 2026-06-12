@@ -106,8 +106,8 @@ export default definePlugin({
       const parsedBase = new URL(trimmed);
       const isLoopback =
         parsedBase.hostname === "localhost" ||
-        parsedBase.hostname === "127.0.0.1" ||
-        parsedBase.hostname === "::1";
+        parsedBase.hostname.startsWith("127.") ||
+        parsedBase.hostname === "[::1]";
       if (parsedBase.protocol !== "https:" && !isLoopback) {
         return {
           status: "error",

@@ -175,6 +175,38 @@ describe("seerr auth lifecycle", () => {
     expect(result.status).toBe("completed");
   });
 
+  it("startAuth: allows http on ::1 for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://[::1]:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
+  it("startAuth: does not reject a valid https remote URL", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
   it("startAuth: userConfigPatch nulls the password on success", async () => {
     const ctx = makeTestContext({
       responses: [
