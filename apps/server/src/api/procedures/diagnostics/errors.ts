@@ -84,12 +84,12 @@ export const errorsReportApp = new Hono()
   });
 
 /** Admin endpoints mounted at `/admin/diagnostics/errors`. Permission gated by
- *  `admin:plugins`. Same shape as the prior `/admin/errors` tree — only the
- *  prefix moved. */
+ *  `admin:server`. Diagnostics is a server-monitoring surface; `ADMIN_SERVER`
+ *  is the correct gate (was incorrectly `admin:plugins`). */
 // fallow-ignore-next-line complexity
 export const adminErrorsApp = new Hono()
   .use("*", requireSession)
-  .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  .use("*", requirePermission(PERMISSIONS.ADMIN_SERVER))
   // fallow-ignore-next-line complexity
   .get("/", zValidator("query", listSchema), async (c) => {
     const q = c.req.valid("query");

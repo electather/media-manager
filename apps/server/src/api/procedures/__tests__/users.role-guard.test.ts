@@ -39,6 +39,7 @@ vi.mock("../../../auth", async () => {
       await next();
     },
     PERMISSIONS,
+    SYSTEM_ADMIN_ROLE_SLUG: "admin",
     auth: {
       api: {
         signUpEmail: (...args: any[]) => mockSignUpEmail(...args),
@@ -76,7 +77,14 @@ async function seedBaseData() {
   ]);
 
   await db.insert(roles).values([
-    { id: ADMIN_ROLE_ID, name: "Admin", isSystem: 1, createdAt: 0, updatedAt: 0 },
+    {
+      id: ADMIN_ROLE_ID,
+      name: "Admin",
+      isSystem: 1,
+      systemSlug: "admin",
+      createdAt: 0,
+      updatedAt: 0,
+    },
     { id: MEMBER_ROLE_ID, name: "Member", isSystem: 1, createdAt: 0, updatedAt: 0 },
   ]);
 }
@@ -103,26 +111,25 @@ afterAll(() => cleanupInMemoryDbs());
 describe("users role-assignment guard: DB shape", () => {
   beforeEach(seedBaseData);
 
-  it("Admin role satisfies both guard conditions (isSystem=1 AND name='Admin')", async () => {
+  it("Admin role carries the guard condition (systemSlug='admin')", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
+      .select({ id: roles.id, systemSlug: roles.systemSlug })
       .from(roles)
       .where(eq(roles.id, ADMIN_ROLE_ID))
       .get();
 
-    expect(row?.isSystem).toBe(1);
-    expect(row?.name).toBe("Admin");
+    expect(row?.systemSlug).toBe("admin");
   });
 
-  it("Member role has isSystem=1 but name≠'Admin' — does NOT match the guard condition", async () => {
+  it("Member role has isSystem=1 but no admin slug — does NOT match the guard condition", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
+      .select({ id: roles.id, isSystem: roles.isSystem, systemSlug: roles.systemSlug })
       .from(roles)
       .where(eq(roles.id, MEMBER_ROLE_ID))
       .get();
 
     expect(row?.isSystem).toBe(1);
-    expect(row?.name).not.toBe("Admin");
+    expect(row?.systemSlug).toBeNull();
   });
 });
 

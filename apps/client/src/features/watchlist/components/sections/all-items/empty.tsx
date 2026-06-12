@@ -27,8 +27,8 @@ const BUCKET_ICON: Record<WatchlistBucket, LucideIcon> = {
   upcoming: CalendarIcon,
 };
 
-// Title / description copy is resolved through the keyed `watchlist_empty_title`
-// / `watchlist_empty_description` ICU variants (selector `bucket`); only the
+// Title / body copy is resolved through the keyed `watchlist_empty_title`
+// / `watchlist_empty_body` ICU variants (selector `bucket`); only the
 // per-bucket glyph stays mapped here.
 const BUCKET_COPY: Record<WatchlistBucket, BucketCopy> = Object.fromEntries(
   (Object.keys(BUCKET_ICON) as WatchlistBucket[]).map((bucket): [WatchlistBucket, BucketCopy] => [
@@ -36,7 +36,7 @@ const BUCKET_COPY: Record<WatchlistBucket, BucketCopy> = Object.fromEntries(
     {
       icon: BUCKET_ICON[bucket],
       title: () => m.watchlist_empty_title({ bucket }),
-      description: () => m.watchlist_empty_description({ bucket }),
+      description: () => m.watchlist_empty_body({ bucket }),
     },
   ]),
 ) as Record<WatchlistBucket, BucketCopy>;

@@ -131,7 +131,12 @@ vi.mock("../../../watchlist", async () => {
   };
 });
 
-vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
+// Spy on `rateLimitOrNull` while keeping the real `makeRateLimitMiddleware`, so
+// the resolver's dynamic per-source limiter assertions still observe the calls.
+vi.mock("../../rate-limit", async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import("../../rate-limit");
+  return { ...actual, rateLimitOrNull: vi.fn(() => null) };
+});
 
 const media = await import("../../../media");
 const home = await import("../../../home");

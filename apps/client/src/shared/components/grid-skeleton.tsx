@@ -1,5 +1,3 @@
-// fallow-ignore-file unused-file
-// Reason: this skeleton lands before its consumers — it replaces the per-feature grid fallbacks, wired into the shells in US-008 / US-009.
 import { Skeleton } from "@/shared/ui/skeleton";
 
 export interface GridSkeletonProps {
