@@ -152,7 +152,7 @@ describe("seerr auth lifecycle", () => {
         }),
       ],
       overrides: {
-        config: { global: { baseUrl: "http://127.0.0.1:5055" }, user: null },
+        config: { global: { baseUrl: "http://127.0.0.2:5055" }, user: null },
       },
     });
     const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
