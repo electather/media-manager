@@ -50,15 +50,30 @@ vi.mock("../../db/schema", () => ({
   serviceConnections: { id: "id" },
 }));
 
+// Tests override `decryptResult` to exercise the missing-ciphertext path.
+let decryptResult: unknown = { token: "stale" };
 vi.mock("../../crypto/helpers", () => ({
-  decryptJson: async () => ({ token: "stale" }),
+  decryptJson: async () => decryptResult,
   encryptJson: async (value: unknown) => ({ iv: "iv", data: JSON.stringify(value) }),
 }));
+
+const buildJobContextMock = vi.fn(
+  async (
+    _pluginId: string,
+    _userId: string | null,
+    _credentials: unknown,
+    _userConfig: unknown,
+  ) => ({
+    user: null,
+    credentials: {},
+    userConfig: null,
+  }),
+);
 
 vi.mock("../../plugin-runtime", () => ({
   capabilityRegistry: { get: () => undefined },
   pluginRuntime: {
-    buildJobContext: async () => ({ user: null, credentials: {}, userConfig: null }),
+    buildJobContext: buildJobContextMock,
   },
 }));
 
@@ -177,6 +192,8 @@ beforeEach(() => {
   setCalls.length = 0;
   emitMock.mockClear();
   captureErrorMock.mockClear();
+  buildJobContextMock.mockClear();
+  decryptResult = { token: "stale" };
   pluginRows = defaultPluginRows;
 });
 
@@ -257,6 +274,25 @@ describe("invokePerConnectionHandler", () => {
 
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.status).toBe("expired");
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it("skips the handler when decryptJson returns null (missing ciphertext) (#452)", async () => {
+    // A row with no stored ciphertext decrypts to null. The handler must not
+    // run with null credentials — that would be a silent unauthenticated
+    // invocation. Mirrors the guard in plugin-runtime/internal/user-pool.ts.
+    const job = makeJob();
+    const row = makeRow();
+    row.encryptedCredentials = null;
+    row.credentialsIv = null;
+    decryptResult = null;
+    const handler = vi.fn(async () => ({ token: "fresh" }));
+
+    await invokePerConnectionHandler({ job, row, handler, logger: noopLogger });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(buildJobContextMock).not.toHaveBeenCalled();
+    expect(setCalls).toHaveLength(0);
     expect(emitMock).not.toHaveBeenCalled();
   });
 

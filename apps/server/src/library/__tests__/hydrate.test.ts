@@ -214,6 +214,7 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
 
     // Hydrate it at `T` so `hydrated_at = T`.
     await writeHydration(
+      USER_ID,
       [
         {
           id: "movie:550",
