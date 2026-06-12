@@ -42,7 +42,7 @@ describe("US-011 watchlist ICU variants — copy parity", () => {
 
   it("renders empty-state / source / chip / relative-time copy unchanged", () => {
     expect(m.watchlist_empty_title({ bucket: "ready" }, { locale: "en" })).toBe("Nothing ready");
-    expect(m.watchlist_empty_description({ bucket: "upcoming" }, { locale: "en" })).toBe(
+    expect(m.watchlist_empty_body({ bucket: "upcoming" }, { locale: "en" })).toBe(
       "Future releases on your watchlist show up here.",
     );
     expect(m.watchlist_source({ source: "manual" }, { locale: "en" })).toBe("Added manually");

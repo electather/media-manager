@@ -36,10 +36,8 @@ describe("BucketTabs — V.WL9 active state derives from pathname only", () => {
     pathname = "/watchlist/ready";
     search = {};
     render(<BucketTabs />);
-    // Bucket tabs are route-navigation links, so the active one is marked
-    // `aria-current="page"` rather than the `role=tab`/`aria-selected` widget
-    // pattern (no tabpanel exists).
-    const tab = screen.getByRole("link", { name: /Ready/i });
+    // Bucket tabs are route-navigation links with aria-label from watchlist_bucket_chip_aria.
+    const tab = screen.getByRole("link", { name: /Show ready to watch/i });
     expect(tab.getAttribute("data-status")).toBe("active");
     expect(tab.getAttribute("aria-current")).toBe("page");
   });
@@ -48,8 +46,8 @@ describe("BucketTabs — V.WL9 active state derives from pathname only", () => {
     pathname = "/watchlist/ready";
     search = { sort: "alpha" };
     render(<BucketTabs />);
-    const tab = screen.getByRole("link", { name: /Ready/i });
-    // V.WL9 — sort flip ⊥ kill active. Regression would surface as
+    const tab = screen.getByRole("link", { name: /Show ready to watch/i });
+    // V.WL9 — sort flip must not kill active. Regression would surface as
     // `data-status="inactive"` here because the default TanStack
     // `includeSearch` is true.
     expect(tab.getAttribute("data-status")).toBe("active");
@@ -60,6 +58,6 @@ describe("BucketTabs — V.WL9 active state derives from pathname only", () => {
     pathname = "/watchlist";
     search = {};
     render(<BucketTabs />);
-    expect(screen.getByRole("link", { name: /Unavailable/i })).toBeDefined();
+    expect(screen.getByRole("link", { name: /Show unavailable/i })).toBeDefined();
   });
 });
