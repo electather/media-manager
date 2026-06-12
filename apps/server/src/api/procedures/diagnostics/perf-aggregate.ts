@@ -1,4 +1,4 @@
-import type { PerfKind } from "@ent-mcp/shared/diagnostics";
+import type { PerfKind } from "@nama/shared/diagnostics";
 import { groupBy } from "es-toolkit";
 
 /** Bound on the number of rows we will pull into JS for in-memory percentile

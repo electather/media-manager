@@ -33,7 +33,7 @@ import { Switch } from "@/shared/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { api } from "@/shared/lib/api";
 import { useNow } from "@/shared/hooks/use-now";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 
 import { SharedCredentialDialog } from "./dialog";
 

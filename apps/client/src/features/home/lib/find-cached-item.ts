@@ -1,6 +1,6 @@
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
-import type { CompactMediaItem, HomeLayoutResponse } from "@ent-mcp/shared/home";
-import type { Page } from "@ent-mcp/shared/media";
+import type { CompactMediaItem, HomeLayoutResponse } from "@nama/shared/home";
+import type { Page } from "@nama/shared/media";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { homeKeys } from "./query-keys";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 import { derive } from "../derive";
 
 function meta(overrides: Partial<CanonicalMetadata>): CanonicalMetadata {

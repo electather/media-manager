@@ -1,12 +1,12 @@
 {
-  "name": "@ent-mcp/plugin-fanart",
+  "name": "@nama/plugin-fanart",
   "version": "0.1.0",
   "private": false,
-  "description": "ent-mcp plugin — high-resolution posters, backdrops, clear logos, and thumbs from fanart.tv.",
+  "description": "nama plugin — high-resolution posters, backdrops, clear logos, and thumbs from fanart.tv.",
   "keywords": [
-    "ent-mcp",
     "fanart",
     "mcp",
+    "nama",
     "plugin"
   ],
   "license": "MIT",
@@ -19,7 +19,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

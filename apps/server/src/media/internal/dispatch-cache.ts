@@ -1,5 +1,5 @@
 import { cacheKey, getCacheProvider, ttlMsFor } from "../service/cache";
-import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import type { DispatchRequest } from "../types";
 
 export function cacheKeyFor(req: DispatchRequest, scope: ResolvedCapabilityScope): Promise<string> {

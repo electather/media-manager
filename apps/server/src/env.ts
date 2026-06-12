@@ -2,20 +2,16 @@ import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
 export const env = createEnv({
-  // Must throw rather than `process.exit(1)` — on Cloudflare Workers with
-  // `nodejs_compat`, `process.exit` is a no-op that logs a warning and
-  // returns. A silent return causes `createEnv` to yield `undefined`,
-  // which then blows up with a confusing `Cannot read properties of
-  // undefined (reading 'CACHE_PROVIDER')` on the first downstream access.
-  // Throwing surfaces the real validation failure at module-load time on
-  // both Node and Workers.
+  // Throw so the real validation failure surfaces at module-load time. A
+  // silent return would cause `createEnv` to yield `undefined`, which then
+  // blows up with a confusing `Cannot read properties of undefined (reading
+  // 'CACHE_PROVIDER')` on the first downstream access.
   onValidationError: (issues) => {
     console.error("❌ Invalid environment variables:", issues);
     throw new Error(`Invalid environment variables: ${JSON.stringify(issues)}`);
   },
   server: {
     SQLITE_PATH: z.string().optional(),
-    LIBSQL_AUTH_TOKEN: z.string().optional(),
     CACHE_PROVIDER: z.enum(["memory", "redis"]).default("memory"),
     REDIS_URL: z.url().optional(),
     PORT: z.coerce.number().default(3000),

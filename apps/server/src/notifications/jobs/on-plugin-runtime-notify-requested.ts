@@ -1,4 +1,4 @@
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@nama/shared/notifications";
 import { on } from "../../jobs/events";
 import { PLUGIN_RUNTIME_EVENTS, notifyRequestedPayload } from "../../plugin-runtime";
 import { getNotificationsService } from "../service";

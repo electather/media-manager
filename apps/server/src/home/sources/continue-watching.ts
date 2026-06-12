@@ -1,4 +1,4 @@
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { orderBy } from "es-toolkit/array";
 import { isActiveContinueWatchingEntry } from "../../media";
 import type { MediaSource } from "../../media";

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import type { RoleSummary } from "@ent-mcp/shared/users";
-import { deleteAccountSchema } from "@ent-mcp/shared/users";
+import type { RoleSummary } from "@nama/shared/users";
+import { deleteAccountSchema } from "@nama/shared/users";
 import { requireSession, sessionUserId } from "../../auth";
 import { getDb } from "../../db/client";
 import { fetchUserRole } from "./me/queries";

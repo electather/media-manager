@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
-import { makeTestContext, statusRes } from "@ent-mcp/plugin-sdk/testing";
+import { validatePluginModule } from "@nama/plugin-sdk";
+import { makeTestContext, statusRes } from "@nama/plugin-sdk/testing";
 import seerrPlugin from "../src/plugin";
 
 describe("seerr plugin passes loader validation", () => {

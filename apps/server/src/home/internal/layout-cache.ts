@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse } from "@nama/shared/home";
 import { getDb, type Db } from "../../db/client";
 import { homeLayoutCache } from "../../db/schema/home";
 

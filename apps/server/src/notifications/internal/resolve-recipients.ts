@@ -1,7 +1,7 @@
 import { listUsersHavingPermission, usersHavingPermission } from "../../auth";
 import { listEnabledConnectionsForUsers } from "../../plugin-runtime";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
-import { NOTIFICATION_CATEGORY_PERMISSION } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@nama/shared/notifications";
+import { NOTIFICATION_CATEGORY_PERMISSION } from "@nama/shared/notifications";
 import * as subscriptions from "../repo/subscriptions";
 import type { Recipient } from "../types";
 

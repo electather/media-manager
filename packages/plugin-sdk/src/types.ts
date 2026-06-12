@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@nama/shared";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
+import type { NotificationEvent } from "@nama/shared/notifications";
 
 // ─── Server-only plugin runtime interfaces ────────────────────────────────────
 

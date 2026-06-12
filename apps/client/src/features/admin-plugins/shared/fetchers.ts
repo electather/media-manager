@@ -1,4 +1,4 @@
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 import { api } from "@/shared/lib/api";
 import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { AdminPluginsApiError } from "./types";

@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import type { MatchReason } from "@ent-mcp/shared/home";
+import type { MatchReason } from "@nama/shared/home";
 
 type Props = {
   reason: MatchReason | undefined;

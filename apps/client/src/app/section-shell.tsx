@@ -8,7 +8,7 @@ import { useHasAnyPermission } from "@/shared/hooks/use-has-any-permission";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
-import type { Permission } from "@ent-mcp/shared/auth";
+import type { Permission } from "@nama/shared/auth";
 
 // When every item in a group is permission-gated and the user holds none of
 // those permissions, the whole group (heading included) collapses out of the

@@ -1,8 +1,8 @@
 import type { ConsolaInstance } from "consola";
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import type { ArtworkRequestItem, ArtworkBundle } from "@ent-mcp/shared/artwork";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { MediaRowBucket, MediaType, RowSort } from "@ent-mcp/shared/media";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
+import type { ArtworkRequestItem, ArtworkBundle } from "@nama/shared/artwork";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { MediaRowBucket, MediaType, RowSort } from "@nama/shared/media";
 import type { RawCanonicalSource, CatalogService } from "../catalog";
 import type { Cursor } from "./cursor";
 import type { MediaService, StatusBatchMemo } from "./service";
@@ -208,7 +208,7 @@ export interface PipelineConfig<P = void> {
  * already stripped, invariant V.MI1); `cursor` is the encoded next-page string
  * (`null` when exhausted); `partial` is true when a source soft-failed.
  *
- * Re-exported from `@ent-mcp/shared/media` so client and server share one
+ * Re-exported from `@nama/shared/media` so client and server share one
  * canonical page shape (design §A5, invariant V.WIRE1).
  */
-export type { Page } from "@ent-mcp/shared/media";
+export type { Page } from "@nama/shared/media";

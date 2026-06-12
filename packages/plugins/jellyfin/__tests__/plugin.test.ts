@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
-import { PlaybackSessionsV1, LibraryAvailabilityV1 } from "@ent-mcp/plugin-sdk";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { isPluginError } from "@ent-mcp/plugin-sdk";
+import { PlaybackSessionsV1, LibraryAvailabilityV1 } from "@nama/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { isPluginError } from "@nama/plugin-sdk";
 import jellyfinPlugin from "../src/plugin";
 import { jfItem, jsonRes, makeCtx, statusRes, type FakeCall } from "./helpers";
 

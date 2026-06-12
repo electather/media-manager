@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vite-plus/test";
-import type { PreferenceProfile } from "@ent-mcp/shared/preferences";
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { PreferenceProfile } from "@nama/shared/preferences";
+import type { MediaItem } from "@nama/shared/media";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

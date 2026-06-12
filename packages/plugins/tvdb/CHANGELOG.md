@@ -1,10 +1,10 @@
-# @ent-mcp/plugin-tvdb
+# @nama/plugin-tvdb
 
 ## 0.2.3
 
 ### Patch Changes
 
-- @ent-mcp/plugin-sdk@0.4.1
+- @nama/plugin-sdk@0.4.1
 
 ## 0.2.2
 
@@ -12,7 +12,7 @@
 
 - Updated dependencies [6831fb5]
 - Updated dependencies [6831fb5]
-  - @ent-mcp/plugin-sdk@0.4.0
+  - @nama/plugin-sdk@0.4.0
 
 ## 0.2.1
 
@@ -20,7 +20,7 @@
 
 - Updated dependencies [a31896c]
 - Updated dependencies [2b70a07]
-  - @ent-mcp/plugin-sdk@0.3.0
+  - @nama/plugin-sdk@0.3.0
 
 ## 0.2.0
 
@@ -36,4 +36,4 @@
 - Updated dependencies [b55a04b]
 - Updated dependencies [e9b915f]
 - Updated dependencies [e340f9d]
-  - @ent-mcp/plugin-sdk@0.2.0
+  - @nama/plugin-sdk@0.2.0

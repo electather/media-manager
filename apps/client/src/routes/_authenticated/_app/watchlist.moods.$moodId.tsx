@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { z } from "zod";
-import { MOOD_IDS, type MoodId } from "@ent-mcp/shared/watchlist";
+import { MOOD_IDS, type MoodId } from "@nama/shared/watchlist";
 
 import {
   MOOD_PAGE_LIMIT,

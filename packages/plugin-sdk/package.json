@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-sdk",
+  "name": "@nama/plugin-sdk",
   "version": "0.4.1",
   "private": false,
-  "description": "SDK for building ent-mcp plugins — capability contracts, context API, and testing utilities.",
+  "description": "SDK for building nama plugins — capability contracts, context API, and testing utilities.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "plugin-sdk",
     "sdk"
   ],
@@ -20,7 +20,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/shared": "workspace:*",
+    "@nama/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

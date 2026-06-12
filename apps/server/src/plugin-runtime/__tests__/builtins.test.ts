@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginManifest } from "@ent-mcp/shared/plugins";
+import type { PluginManifest } from "@nama/shared/plugins";
 import { validatePluginModule } from "../internal/loader";
-import traktPlugin from "@ent-mcp/plugin-trakt";
-import tmdbPlugin from "@ent-mcp/plugin-tmdb";
-import tvdbPlugin from "@ent-mcp/plugin-tvdb";
-import seerrPlugin from "@ent-mcp/plugin-seerr";
-import jellyfinPlugin from "@ent-mcp/plugin-jellyfin";
-import plexPlugin from "@ent-mcp/plugin-plex";
+import traktPlugin from "@nama/plugin-trakt";
+import tmdbPlugin from "@nama/plugin-tmdb";
+import tvdbPlugin from "@nama/plugin-tvdb";
+import seerrPlugin from "@nama/plugin-seerr";
+import jellyfinPlugin from "@nama/plugin-jellyfin";
+import plexPlugin from "@nama/plugin-plex";
 
 const tmdbManifest: PluginManifest = tmdbPlugin.manifest;
 

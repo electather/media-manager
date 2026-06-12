@@ -9,8 +9,8 @@ import type {
   NotificationCategory,
   NotificationEvent,
   NotificationSeverity,
-} from "@ent-mcp/shared/notifications";
-import { notificationEventSchema } from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
+import { notificationEventSchema } from "@nama/shared/notifications";
 import * as repo from "./repo";
 import { resolveRecipients } from "./internal/resolve-recipients";
 import { NotificationErrorSink } from "./internal/error-sink";

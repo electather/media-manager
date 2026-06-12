@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-plex",
+  "name": "@nama/plugin-plex",
   "version": "0.3.2",
   "private": false,
-  "description": "ent-mcp plugin — Plex library availability, playback sessions, and continue watching.",
+  "description": "nama plugin — Plex library availability, playback sessions, and continue watching.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "plex",
     "plugin"
   ],
@@ -19,7 +19,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { LibraryLens } from "@ent-mcp/shared/library";
+import type { LibraryLens } from "@nama/shared/library";
 import { toSectionEntries } from "../lib/section-groups";
 import { useLibraryFilters } from "./use-library-filters";
 import { useLibraryLens } from "./use-library-lens";

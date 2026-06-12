@@ -1,4 +1,4 @@
-import type { DiagnosticsConfigBody } from "@ent-mcp/shared/diagnostics";
+import type { DiagnosticsConfigBody } from "@nama/shared/diagnostics";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { rangeToWindow } from "./ranges";

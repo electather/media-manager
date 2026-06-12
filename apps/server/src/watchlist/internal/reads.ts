@@ -1,5 +1,5 @@
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow } from "@nama/shared/media";
+import type { WatchlistResponse } from "@nama/shared/watchlist";
 import {
   decode,
   encode,

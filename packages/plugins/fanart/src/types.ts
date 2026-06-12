@@ -1,4 +1,4 @@
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
 
 export interface FanartSharedCreds {
   apiKey: string;

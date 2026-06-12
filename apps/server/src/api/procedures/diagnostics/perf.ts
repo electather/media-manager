@@ -4,7 +4,7 @@ import {
   perfAggregateQuerySchema,
   perfListQuerySchema,
   type PerfKind,
-} from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { errorRecords, perfRecords } from "../../../db/schema/infra/diagnostics";

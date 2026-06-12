@@ -1,5 +1,5 @@
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import { isPluginError } from "@ent-mcp/plugin-sdk";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
+import { isPluginError } from "@nama/plugin-sdk";
 import { HttpError } from "../diagnostics/http-errors";
 
 /**

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import { searchQuerySchema, type SearchKind } from "@ent-mcp/shared/search";
+import type { CompactMediaItem } from "@nama/shared/home";
+import { searchQuerySchema, type SearchKind } from "@nama/shared/search";
 import { requireSession, sessionUserId } from "../../auth";
 import { MediaService, compactFromRaw, type PluginMediaRaw } from "../../media";
 import { zValidator } from "../../diagnostics/validator";

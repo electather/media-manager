@@ -1,4 +1,4 @@
-import { definePlugin } from "@ent-mcp/plugin-sdk";
+import { definePlugin } from "@nama/plugin-sdk";
 import { startAuth, pollAuth, testConnection } from "./auth";
 import { libraryAvailability } from "./capabilities/library-availability";
 import { playback } from "./capabilities/playback";
@@ -16,7 +16,7 @@ export default definePlugin({
     version: PLEX_VERSION,
     description:
       "Plex Media Server integration — library availability, sessions, continue watching, history, and admin refreshes.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     // Static floor covers the PIN flow. Per-connection server URLs are resolved
     // dynamically via the `x-allowed-host` extension on userConfigSchema below.

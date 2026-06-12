@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
+import type { MediaRequest, RequestTarget } from "@nama/shared/media";
 
 const apiMock = vi.hoisted(() => ({
   targets: vi.fn(),

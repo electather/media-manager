@@ -1,5 +1,5 @@
-import type { LibraryLens, WatchedState } from "@ent-mcp/shared/library";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { LibraryLens, WatchedState } from "@nama/shared/library";
+import type { MediaType } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
 
 /** Localized label functions for the feature's enums (skill rule 9). */

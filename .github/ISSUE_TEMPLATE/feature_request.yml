@@ -22,9 +22,9 @@ body:
       label: Which package would this affect?
       multiple: true
       options:
-        - "@ent-mcp/client"
-        - "@ent-mcp/server"
-        - "@ent-mcp/shared"
+        - "@nama/client"
+        - "@nama/server"
+        - "@nama/shared"
         - Tooling / CI
         - Docs
         - Not sure

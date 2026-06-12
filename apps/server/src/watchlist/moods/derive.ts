@@ -1,5 +1,5 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { MoodId } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { MoodId } from "@nama/shared/watchlist";
 import { MOOD_IDS, MOOD_RULES } from "./registry";
 
 /**

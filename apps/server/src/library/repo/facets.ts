@@ -1,6 +1,6 @@
 import { and, eq, sql, type Column, type SQL } from "drizzle-orm";
-import type { MediaType } from "@ent-mcp/shared/media";
-import type { LibraryFacetCounts, WatchedState } from "@ent-mcp/shared/library";
+import type { MediaType } from "@nama/shared/media";
+import type { LibraryFacetCounts, WatchedState } from "@nama/shared/library";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 

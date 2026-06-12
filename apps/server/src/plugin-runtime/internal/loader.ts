@@ -3,7 +3,7 @@ import {
   validatePluginModule as sdkValidatePluginModule,
   type PluginModule,
   type ValidatedPlugin,
-} from "@ent-mcp/plugin-sdk";
+} from "@nama/plugin-sdk";
 import { sha256 } from "../../crypto/hash";
 
 /**
@@ -61,5 +61,5 @@ export async function validatePluginModule(
 }
 
 // Re-exported so consumers that imported `PluginError` from this loader path
-// keep resolving. New code should import directly from `@ent-mcp/plugin-sdk`.
+// keep resolving. New code should import directly from `@nama/plugin-sdk`.
 export { PluginError };

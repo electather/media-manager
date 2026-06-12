@@ -1,6 +1,6 @@
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 import { SchemaForm } from "@/shared/components/schema-form";
 
 import type { AuthKind, DeviceState, PluginSummary } from "../lib/types";

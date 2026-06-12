@@ -2,8 +2,8 @@ import type {
   SeasonAvailabilityError,
   SeasonAvailabilityResponse,
   SeasonAvailabilityServer,
-} from "@ent-mcp/shared/home";
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/home";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
 import { capabilityRegistry } from "../../plugin-runtime";
 import {
   resolveConnections,

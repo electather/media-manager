@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { ManifestCapability } from "@ent-mcp/shared/plugins";
-import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
-import { capabilityKey, getCapability } from "@ent-mcp/plugin-sdk";
+import type { ManifestCapability } from "@nama/shared/plugins";
+import { pluginManifestSchema } from "@nama/shared/plugins";
+import { capabilityKey, getCapability } from "@nama/plugin-sdk";
 import { classifyScopes } from "../internal/manifest";
 import { CapabilityRegistry } from "../internal/registry";
-import type { PluginModule } from "@ent-mcp/plugin-sdk";
+import type { PluginModule } from "@nama/plugin-sdk";
 
 describe("capability catalog helpers", () => {
   it("keys by id@version", () => {

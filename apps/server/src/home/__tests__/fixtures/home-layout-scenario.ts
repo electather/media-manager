@@ -1,5 +1,5 @@
-import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
+import type { MediaType } from "@nama/shared/media";
 
 /**
  * Deterministic home-layout scenario captured BEFORE the US-020..US-022

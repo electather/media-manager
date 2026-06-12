@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EventName } from "../jobs/events";
-import { notificationEventSchema } from "@ent-mcp/shared/notifications";
+import { notificationEventSchema } from "@nama/shared/notifications";
 
 /**
  * Cross-module events emitted by `plugin-runtime/`. Consumers import the

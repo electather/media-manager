@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
  * Syncs deepsec report findings to GitHub issues.
- * Reads data/media-manager/reports/report.json, fetches existing issue titles,
+ * Reads data/nama/reports/report.json, fetches existing issue titles,
  * and creates issues for any finding not already tracked.
  *
  * Dedup key: title + filePath. Existing issues are matched by title + the
@@ -92,7 +92,7 @@ function createIssue(filePath: string, finding: Finding): string {
 
 const reportPath = join(
   import.meta.dirname,
-  "data/media-manager/reports/report.json"
+  "data/nama/reports/report.json"
 );
 const report: Report = JSON.parse(readFileSync(reportPath, "utf8"));
 

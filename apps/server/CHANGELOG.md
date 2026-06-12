@@ -1,4 +1,4 @@
-# @ent-mcp/server
+# @nama/server
 
 ## 0.6.0
 
@@ -12,7 +12,7 @@
 - 536f4aa: Fixed admin plugin personal-key fallback controls for shared user-scoped plugins.
 - e80b956: Inbox listing now supports forward keyset pagination via an `after` query parameter.
 - Updated dependencies [a389685]
-  - @ent-mcp/plugin-tmdb@0.3.3
+  - @nama/plugin-tmdb@0.3.3
 
 ## 0.5.0
 
@@ -35,18 +35,18 @@
 - Updated dependencies [ce2b0c5]
 - Updated dependencies [a3e4fc3]
 - Updated dependencies [a3e4fc3]
-  - @ent-mcp/shared@0.1.2
-  - @ent-mcp/plugin-telegram@0.2.3
-  - @ent-mcp/plugin-sdk@0.4.1
-  - @ent-mcp/plugin-discord@0.2.3
-  - @ent-mcp/plugin-inbox@0.2.3
-  - @ent-mcp/plugin-ntfy@0.2.3
-  - @ent-mcp/plugin-jellyfin@0.3.2
-  - @ent-mcp/plugin-plex@0.3.2
-  - @ent-mcp/plugin-seerr@0.3.1
-  - @ent-mcp/plugin-tmdb@0.3.2
-  - @ent-mcp/plugin-trakt@0.2.3
-  - @ent-mcp/plugin-tvdb@0.2.3
+  - @nama/shared@0.1.2
+  - @nama/plugin-telegram@0.2.3
+  - @nama/plugin-sdk@0.4.1
+  - @nama/plugin-discord@0.2.3
+  - @nama/plugin-inbox@0.2.3
+  - @nama/plugin-ntfy@0.2.3
+  - @nama/plugin-jellyfin@0.3.2
+  - @nama/plugin-plex@0.3.2
+  - @nama/plugin-seerr@0.3.1
+  - @nama/plugin-tmdb@0.3.2
+  - @nama/plugin-trakt@0.2.3
+  - @nama/plugin-tvdb@0.2.3
 
 ## 0.4.0
 
@@ -67,17 +67,17 @@
 - Updated dependencies [6831fb5]
 - Updated dependencies [6831fb5]
 - Updated dependencies [6831fb5]
-  - @ent-mcp/plugin-sdk@0.4.0
-  - @ent-mcp/plugin-seerr@0.3.0
-  - @ent-mcp/plugin-discord@0.2.2
-  - @ent-mcp/plugin-inbox@0.2.2
-  - @ent-mcp/plugin-jellyfin@0.3.1
-  - @ent-mcp/plugin-ntfy@0.2.2
-  - @ent-mcp/plugin-plex@0.3.1
-  - @ent-mcp/plugin-telegram@0.2.2
-  - @ent-mcp/plugin-tmdb@0.3.1
-  - @ent-mcp/plugin-trakt@0.2.2
-  - @ent-mcp/plugin-tvdb@0.2.2
+  - @nama/plugin-sdk@0.4.0
+  - @nama/plugin-seerr@0.3.0
+  - @nama/plugin-discord@0.2.2
+  - @nama/plugin-inbox@0.2.2
+  - @nama/plugin-jellyfin@0.3.1
+  - @nama/plugin-ntfy@0.2.2
+  - @nama/plugin-plex@0.3.1
+  - @nama/plugin-telegram@0.2.2
+  - @nama/plugin-tmdb@0.3.1
+  - @nama/plugin-trakt@0.2.2
+  - @nama/plugin-tvdb@0.2.2
 
 ## 0.3.0
 
@@ -102,17 +102,17 @@
 - Updated dependencies [a31896c]
 - Updated dependencies [a31896c]
 - Updated dependencies [2b70a07]
-  - @ent-mcp/plugin-jellyfin@0.3.0
-  - @ent-mcp/plugin-plex@0.3.0
-  - @ent-mcp/plugin-trakt@0.2.1
-  - @ent-mcp/plugin-sdk@0.3.0
-  - @ent-mcp/plugin-tmdb@0.3.0
-  - @ent-mcp/plugin-discord@0.2.1
-  - @ent-mcp/plugin-inbox@0.2.1
-  - @ent-mcp/plugin-ntfy@0.2.1
-  - @ent-mcp/plugin-seerr@0.2.1
-  - @ent-mcp/plugin-telegram@0.2.1
-  - @ent-mcp/plugin-tvdb@0.2.1
+  - @nama/plugin-jellyfin@0.3.0
+  - @nama/plugin-plex@0.3.0
+  - @nama/plugin-trakt@0.2.1
+  - @nama/plugin-sdk@0.3.0
+  - @nama/plugin-tmdb@0.3.0
+  - @nama/plugin-discord@0.2.1
+  - @nama/plugin-inbox@0.2.1
+  - @nama/plugin-ntfy@0.2.1
+  - @nama/plugin-seerr@0.2.1
+  - @nama/plugin-telegram@0.2.1
+  - @nama/plugin-tvdb@0.2.1
 
 ## 0.2.0
 
@@ -149,18 +149,18 @@
 - Updated dependencies [e340f9d]
 - Updated dependencies [db2b076]
 - Updated dependencies [e92154f]
-  - @ent-mcp/shared@0.1.1
-  - @ent-mcp/plugin-sdk@0.2.0
-  - @ent-mcp/plugin-tmdb@0.2.0
-  - @ent-mcp/plugin-discord@0.2.0
-  - @ent-mcp/plugin-ntfy@0.2.0
-  - @ent-mcp/plugin-inbox@0.2.0
-  - @ent-mcp/plugin-telegram@0.2.0
-  - @ent-mcp/plugin-jellyfin@0.2.0
-  - @ent-mcp/plugin-plex@0.2.0
-  - @ent-mcp/plugin-seerr@0.2.0
-  - @ent-mcp/plugin-trakt@0.2.0
-  - @ent-mcp/plugin-tvdb@0.2.0
+  - @nama/shared@0.1.1
+  - @nama/plugin-sdk@0.2.0
+  - @nama/plugin-tmdb@0.2.0
+  - @nama/plugin-discord@0.2.0
+  - @nama/plugin-ntfy@0.2.0
+  - @nama/plugin-inbox@0.2.0
+  - @nama/plugin-telegram@0.2.0
+  - @nama/plugin-jellyfin@0.2.0
+  - @nama/plugin-plex@0.2.0
+  - @nama/plugin-seerr@0.2.0
+  - @nama/plugin-trakt@0.2.0
+  - @nama/plugin-tvdb@0.2.0
 
 ## 0.1.0
 
@@ -199,7 +199,7 @@
 - bde0d39: Route backend-originated validation errors to the specific form input that caused them, instead of only the top-of-modal banner. Reuses the existing `params` slot on `UserFacingError` via a `params.field` convention — any `PluginError` can carry `{ field, value }` params that thread through `runAuth` → `AuthResult.error.params` → `unprocessable(..., { ..., field })` → wire-body `params.field`. The client's new `packages/client/src/lib/errors/form-errors.ts` helper (`splitFormError` + `parseFormErrorResponse`) is reusable from any form surface — given a body and the form's property names it returns `{ message, fieldErrors }` so the caller just assigns into existing state. `allowed-hosts.ts` is the first emitter: a bad URL or blocked hostname now highlights the `externalServerUrl` input directly.
 - 45a18f1: Extend `idResolve@v1` to accept the server-local id types `plex:ratingKey` and `jellyfin:itemId` on both input `from` and output bundles so user-scoped media-server plugins (Plex, Jellyfin) can resolve their local ids to cross-service ids on a per-user basis.
 - 74a7eaf: Add the Jellyfin built-in plugin covering libraryAvailability, playback, playbackSessions, continueWatching, watchHistory, libraryAdmin, and idResolve capabilities. The plugin authenticates users against Jellyfin's AuthenticateByName endpoint, caches the resolved Jellyfin user id on userConfig, post-filters /Sessions results to the cached user for privacy (with a server-side `controllableByUserId` payload-size hint), and keeps server-to-server fetches on the internal URL while building every player/web link from the external URL. To support server-resolved identifiers during auth, the AuthResult "completed" variant now carries an optional userConfigPatch that the form/redirect/device auth completion paths merge into the stored userConfig; `null` patch values delete the key from the persisted userConfig so plugins can promote submitted secrets into the encrypted credentials blob (Jellyfin moves the user-entered password there and reads it back from `ctx.credentials` on re-auth).
-- ec33991: Add `libraryAvailability@v1` and `continueWatching@v1` capability contracts for self-hosted media-server plugins (Plex, Jellyfin). Introduce a shared `LibraryItem` zod schema (`@ent-mcp/shared/plugins/library`) reused by both capabilities and earmarked for the upcoming `playbackSessions@v1` / `libraryAdmin@v1` contracts.
+- ec33991: Add `libraryAvailability@v1` and `continueWatching@v1` capability contracts for self-hosted media-server plugins (Plex, Jellyfin). Introduce a shared `LibraryItem` zod schema (`@nama/shared/plugins/library`) reused by both capabilities and earmarked for the upcoming `playbackSessions@v1` / `libraryAdmin@v1` contracts.
 - d6c7887: Scaffold /api/me sub-app with GET /role endpoint. First of several user-scoped endpoints for the settings surface.
 - 613b278: Add the Plex built-in plugin. Implements `libraryAvailability@v1`,
   `playback@v1`, `playbackSessions@v1`, `continueWatching@v1`, `watchHistory@v1`,
@@ -256,4 +256,4 @@
 - Updated dependencies [c336404]
 - Updated dependencies [df3624f]
 - Updated dependencies [09f1101]
-  - @ent-mcp/shared@0.1.0
+  - @nama/shared@0.1.0

@@ -1,5 +1,5 @@
-import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import type { AuthResult } from "@ent-mcp/plugin-sdk";
+import { definePlugin, toErrorMessage } from "@nama/plugin-sdk";
+import type { AuthResult } from "@nama/plugin-sdk";
 import {
   pickFetchBase,
   authHeader,
@@ -23,7 +23,7 @@ export default definePlugin({
     version: "1.0.2",
     description:
       "Self-hosted Jellyfin server integration. Users sign in with their Jellyfin username and password; the plugin caches an access token and the resolved Jellyfin user id per connection.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: [],
     userConfigSchema: {

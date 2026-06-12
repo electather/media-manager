@@ -1,5 +1,5 @@
-import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow, MediaRowBucket } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import { getMatchingServersCached } from "../availability-cache";
 import { classifyBucket, previewForClassify } from "../classify";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";

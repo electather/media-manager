@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { LibraryFacetCounts } from "@ent-mcp/shared/library";
+import type { LibraryFacetCounts } from "@nama/shared/library";
 import { deriveFacetValues, libraryOwnedTotal } from "../lib/facets";
 import { shouldFetchNext } from "../components/lenses/library-section-grid";
 

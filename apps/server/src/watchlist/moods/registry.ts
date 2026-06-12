@@ -1,6 +1,6 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { MoodId } from "@ent-mcp/shared/watchlist";
-import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { MoodId } from "@nama/shared/watchlist";
+import { MOOD_IDS } from "@nama/shared/watchlist";
 
 /** Re-export so server-internal callers don't reach into the shared barrel. */
 export { MOOD_IDS };

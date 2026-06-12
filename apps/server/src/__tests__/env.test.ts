@@ -40,11 +40,10 @@ describe("server env schema", () => {
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  // Env validation now throws instead of calling `process.exit(1)`. On
-  // Cloudflare Workers `process.exit` is a no-op with nodejs_compat, so a
-  // silent return from `onValidationError` left `env` undefined and triggered
-  // a misleading downstream crash. Throwing surfaces the real failure at
-  // module-load on both runtimes.
+  // Env validation throws instead of calling `process.exit(1)`. A silent
+  // return from `onValidationError` would leave `env` undefined and trigger a
+  // misleading downstream crash; throwing surfaces the real failure at
+  // module-load.
   it("fails startup when APP_EXTERNAL_URL is missing", async () => {
     delete process.env.APP_EXTERNAL_URL;
     await expect(import("../env")).rejects.toThrow(/Invalid environment variables/);

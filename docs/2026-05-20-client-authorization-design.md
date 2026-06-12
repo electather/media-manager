@@ -46,11 +46,11 @@ session.data = {
 
 ## 2. Client Auth Client — Add `customSessionClient`
 
-`@ent-mcp/server` is already a devDependency of `apps/client`. Import `Auth` type only.
+`@nama/server` is already a devDependency of `apps/client`. Import `Auth` type only.
 
 ```
 // apps/client/src/shared/lib/auth.ts
-import type { Auth } from "@ent-mcp/server/auth"
+import type { Auth } from "@nama/server/auth"
 import { customSessionClient } from "better-auth/client/plugins"
 
 authClient = createAuthClient({

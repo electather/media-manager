@@ -1,6 +1,6 @@
 import { Suspense, useCallback } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import type { MoodId } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@nama/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { GridSkeleton } from "@/shared/components/grid-skeleton";
 import { VirtualGrid } from "@/shared/components/virtualized";

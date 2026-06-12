@@ -9,7 +9,7 @@ import {
   oauthDevicePollSchema as devicePollSchema,
   oauthRedirectStartSchema as redirectStartSchema,
   oauthRedirectCompleteSchema as redirectCompleteSchema,
-} from "@ent-mcp/shared/connections";
+} from "@nama/shared/connections";
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../diagnostics/validator";

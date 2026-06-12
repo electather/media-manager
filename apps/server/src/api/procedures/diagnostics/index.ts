@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { diagnosticsConfigSchema } from "@ent-mcp/shared/diagnostics";
+import { diagnosticsConfigSchema } from "@nama/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import {
   getAppConfig,

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import type { LibraryCollection } from "@ent-mcp/shared/library";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { LibraryCollection } from "@nama/shared/library";
+import type { CompactMediaItem } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";

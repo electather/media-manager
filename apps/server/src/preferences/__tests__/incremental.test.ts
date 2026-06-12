@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
-import type { FeedbackRecord } from "@ent-mcp/shared/preferences";
+import type { FeedbackRecord } from "@nama/shared/preferences";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

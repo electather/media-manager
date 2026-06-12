@@ -1,4 +1,4 @@
-export * from "@ent-mcp/shared/diagnostics";
+export * from "@nama/shared/diagnostics";
 export * from "./capture";
 export * from "./http-errors";
 export * from "./request-context";

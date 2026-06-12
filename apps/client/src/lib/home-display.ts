@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@nama/shared/home";
 
 export const PEEK_ID_REGEX = /^(movie|tv):[\w-]+$/;
 

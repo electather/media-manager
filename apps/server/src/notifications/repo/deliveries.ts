@@ -9,7 +9,7 @@ import type {
   NotificationEventType,
   NotificationSeverity,
   AdminDeliveryRow,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { notificationDeliveries } from "../../db/schema/notifications";
 import type { Recipient } from "../types";
 

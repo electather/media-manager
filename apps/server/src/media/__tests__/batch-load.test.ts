@@ -1,5 +1,5 @@
 import type { ConsolaInstance } from "consola";
-import type { ActiveRow } from "@ent-mcp/shared/media";
+import type { ActiveRow } from "@nama/shared/media";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";
 

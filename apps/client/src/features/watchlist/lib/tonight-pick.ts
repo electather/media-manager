@@ -3,7 +3,7 @@
 // (apps/server/src/watchlist/tonight/{pick,score}.ts). The resolver returns the
 // flat unranked candidate page, so the hero/alternate split runs client-side
 // (design §B3); the server keeps its copy for the old endpoint until US-013.
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 /**
  * Tonight-pick scoring weights — kept byte-identical to the server's

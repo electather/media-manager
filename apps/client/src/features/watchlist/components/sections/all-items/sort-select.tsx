@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
-import type { WatchlistSort } from "@ent-mcp/shared/watchlist";
-import { WATCHLIST_SORTS } from "@ent-mcp/shared/watchlist";
+import type { WatchlistSort } from "@nama/shared/watchlist";
+import { WATCHLIST_SORTS } from "@nama/shared/watchlist";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
 interface SortSelectProps {

@@ -1,5 +1,5 @@
 import { useMediaRows } from "@/shared/media/use-media-rows";
-import type { MoodId } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@nama/shared/watchlist";
 import { watchlistMoodItemsSource } from "../lib/sources";
 
 const STALE_TIME_MS = 60_000;

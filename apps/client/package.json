@@ -1,12 +1,12 @@
 {
-  "name": "@ent-mcp/client",
+  "name": "@nama/client",
   "version": "0.6.0",
   "private": false,
-  "description": "React dashboard for ent-mcp — browse watchlist, history, requests, and settings for your self-hosted entertainment platform.",
+  "description": "React dashboard for nama — browse watchlist, history, requests, and settings for your self-hosted entertainment platform.",
   "keywords": [
     "dashboard",
     "mcp",
-    "media-manager",
+    "nama",
     "react",
     "self-hosted"
   ],
@@ -22,8 +22,8 @@
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@better-auth/oauth-provider": "catalog:",
-    "@ent-mcp/shared": "workspace:*",
     "@fontsource-variable/geist": "^5.2.8",
+    "@nama/shared": "workspace:*",
     "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-query-devtools": "^5.100.9",
@@ -47,8 +47,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@ent-mcp/server": "workspace:*",
     "@inlang/paraglide-js": "^2.18.0",
+    "@nama/server": "workspace:*",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/react-form": "^1.29.1",
     "@tanstack/router-plugin": "^1.167.33",

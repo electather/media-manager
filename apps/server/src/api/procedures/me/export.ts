@@ -154,12 +154,12 @@ function serializeRow(row: Record<string, unknown>): Record<string, unknown> {
 
 function filenameFor(userId: string): string {
   const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
-  return `ent-mcp-export-${userId}-${today}.zip`;
+  return `nama-export-${userId}-${today}.zip`;
 }
 
 function buildReadme(): string {
   return [
-    `ent-mcp data export`,
+    `nama data export`,
     ``,
     `schema-version: ${EXPORT_SCHEMA_VERSION}`,
     `exported-at: ${new Date().toISOString()}`,
