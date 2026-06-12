@@ -53,7 +53,7 @@ const { emit } = await import("../../jobs/events");
 const { addItem, listItems, listMoodItems, getTonightSection, getRecentlyAdded } =
   await import("../service");
 const mediaRepo = await import("../../media/repo");
-const { __resetAvailabilityCache } = await import("../../media");
+const { __resetAvailabilityCache } = await import("../../media/testing");
 const { __resetTonightCache } = await import("../tonight/section");
 
 let testDb: Db;

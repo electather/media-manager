@@ -1,7 +1,7 @@
 export {
   listActiveRows,
   listActiveRowsKeyset,
-  getActiveRow,
+  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,

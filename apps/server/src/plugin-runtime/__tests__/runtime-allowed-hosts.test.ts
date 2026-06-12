@@ -26,10 +26,14 @@ const dbMock = {
     return {
       from(_table: unknown) {
         return {
-          where(_: unknown) {
+          where(predicate: unknown) {
+            const pred = predicate as { id?: string } | null | undefined;
+            const pluginId = pred?.id;
             return {
               async get() {
-                return [...pluginRows.values()][0];
+                return pluginId != null
+                  ? (pluginRows.get(pluginId) ?? null)
+                  : ([...pluginRows.values()][0] ?? null);
               },
             };
           },
@@ -67,7 +71,7 @@ vi.mock("../internal/shared-credentials", () => ({
     getDecrypted: async () => ({ id: "", label: "", value: null }),
   },
   // Mirrors the real helper against the in-memory plugin store the dbMock serves.
-  requirePluginRow: async (_pluginId: string) => [...pluginRows.values()][0],
+  requirePluginRow: async (pluginId: string) => pluginRows.get(pluginId) ?? null,
 }));
 
 const listReadyUserConnectionsMock = vi.fn();

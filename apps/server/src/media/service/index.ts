@@ -32,7 +32,7 @@ import type { MatchingServer } from "../types";
 import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
 
-export { getMatchingServersCached, __resetAvailabilityCache } from "../availability-cache";
+export { getMatchingServersCached } from "../availability-cache";
 export { StatusBatchMemo } from "../status-batch";
 export {
   classifyBucket,
@@ -1156,7 +1156,7 @@ export {
 export {
   listActiveRows,
   listActiveRowsKeyset,
-  getActiveRow,
+  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,

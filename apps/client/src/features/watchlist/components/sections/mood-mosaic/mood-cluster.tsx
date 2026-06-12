@@ -49,10 +49,10 @@ export function MoodCluster({ moodId, count }: MoodClusterProps) {
   return (
     <article className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-4">
       <header className="mb-3.5">
-        <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+        <div className="mb-1 font-mono text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
           {m.watchlist_mood_cluster_eyebrow()} · {String(count).padStart(2, "0")}
         </div>
-        <h3 className="m-0 text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
+        <h3 className="m-0 text-2xl font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
           {copy.label()}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">{copy.note()}</p>

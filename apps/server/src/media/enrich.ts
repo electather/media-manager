@@ -1,8 +1,8 @@
 import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType, RowSource } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistBucket, type WatchlistSource } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistBucket } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../catalog";
 import type {
   GetArtworkFn,
@@ -23,7 +23,7 @@ export interface MediaEnrichRow {
   tmdbId: string;
   mediaType: MediaType;
   addedAt: number;
-  source: WatchlistSource;
+  source: RowSource;
 }
 
 export interface MediaProgressSnapshot {

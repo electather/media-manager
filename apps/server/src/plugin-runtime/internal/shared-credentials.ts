@@ -64,7 +64,7 @@ export async function requirePluginRow(pluginId: string): Promise<PluginRow> {
   const db = getDb();
   const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
   if (!row) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
-  return row as PluginRow;
+  return row satisfies PluginRow;
 }
 
 async function requirePluginManifestJson(pluginId: string): Promise<string> {
