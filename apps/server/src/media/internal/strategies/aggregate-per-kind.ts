@@ -106,6 +106,14 @@ function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
   return orderBy(providers, [(p) => p.providerPriority, (p) => p.pluginId], ["asc", "asc"]);
 }
 
+/** A `media.no_connection` PluginCallError means the provider has no usable
+ *  connection for this user — not a failure, just unconfigured — so the caller
+ *  skips it rather than counting it toward the all-failed outcome. Any other
+ *  throw is a real error and must propagate. */
+function isNoConnection(err: unknown): boolean {
+  return err instanceof PluginCallError && err.code === "media.no_connection";
+}
+
 /**
  * `null` is returned when the provider has no usable connection for this user.
  * That is not a failure — the provider was simply not configured — so the
@@ -123,10 +131,7 @@ async function invokeProvider(
   try {
     conn = await pickSingleConnection(req.userId, provider.pluginId, scope);
   } catch (err) {
-    // A `media.no_connection` PluginCallError means this provider has nothing
-    // to contribute; skip it instead of propagating so a partial fan-out still
-    // returns the providers that did connect. Re-throw anything else.
-    if (err instanceof PluginCallError && err.code === "media.no_connection") return null;
+    if (isNoConnection(err)) return null;
     throw err;
   }
   if (!conn) return null;

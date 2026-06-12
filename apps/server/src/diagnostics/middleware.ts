@@ -2,8 +2,7 @@ import type { Context, Next, ErrorHandler } from "hono";
 import { consola } from "consola";
 import { captureError, capturePerf } from "./capture";
 import { runWithRequestContext, newRequestId } from "./request-context";
-import { HttpError, isExpectedUserError } from "./http-errors";
-import { PluginCallError } from "../media/errors";
+import { HttpError, isExpectedUserError, isNoConnectionError } from "./http-errors";
 
 const REQUEST_ID_HEADER = "x-request-id";
 // Accepts request IDs that are 1–64 characters of alphanumeric, hyphen, or underscore only.
@@ -116,17 +115,20 @@ export const errorHandler: ErrorHandler = (err, c) => {
   const matchedRoute = c.req.routePath;
   const route = matchedRoute && matchedRoute !== "*" && matchedRoute !== "/*" ? matchedRoute : null;
 
-  // A `media.no_connection` PluginCallError means the user simply has no
-  // provider configured for the requested capability — an expected user state,
-  // not a server fault. Service-layer callers normally swallow it (e.g.
+  // A `media.no_connection` error means the user simply has no provider
+  // configured for the requested capability — an expected user state, not a
+  // server fault. Service-layer callers normally swallow it (e.g.
   // `MediaService.getRequests`), but any that miss it must not escape here as a
   // captured 500. Return 200 with a structured no-provider body so the client
   // can render an empty/connect-a-provider state instead of an error toast.
-  if (err instanceof PluginCallError && err.code === "media.no_connection") {
+  // Matched structurally (see `isNoConnectionError`) so this infra layer never
+  // imports the media module that throws it. `devMessage` is intentionally
+  // omitted: this is a 200 success envelope on the public API surface, so no
+  // internal log message is leaked.
+  if (isNoConnectionError(err)) {
     return c.json(
       {
         code: err.code,
-        devMessage: err.message,
         pluginId: err.pluginId,
         requestId,
       },

@@ -34,10 +34,12 @@ export const HOME_LAYOUT_WARM_JOB_ID = "host.home.layout_warm";
 
 /**
  * Per-run consecutive-failure tracker keyed by source. The layout-warm run
- * keys it by user id (the row it iterates), but a sustained run of failures
- * reflects a shared upstream plugin source being slow or offline. Once a
- * source trips the threshold it is skipped for the remainder of the run
- * instead of paying the full per-row timeout again.
+ * records every row against one run-level key (`RUN_BREAKER_KEY`), because a
+ * sustained run of failures reflects a shared upstream plugin source being slow
+ * or offline rather than any single user. Once the key trips the threshold the
+ * remaining rows are skipped instead of paying the full per-row timeout again.
+ * The map stays keyed (rather than a bare counter) so callers can track
+ * independent sources separately if needed.
  */
 export class CircuitBreaker {
   private readonly consecutiveFailures = new Map<string, number>();
@@ -110,22 +112,31 @@ export async function listActiveUsers(now: number = Date.now()): Promise<ActiveU
 }
 
 /**
+ * Run-level breaker key. `listActiveUsers` deduplicates and yields each user
+ * exactly once per run, so keying the breaker by `userId` would never see two
+ * failures for the same key and could never trip. The breaker tracks
+ * *consecutive failures across rows* as a proxy for a shared upstream source
+ * being offline, so every row in a run records against one constant key.
+ */
+const RUN_BREAKER_KEY = "run";
+
+/**
  * Drives one warm-compose row through `breaker`. Skips the compose when the
- * source has already tripped the breaker (so the run stops paying the per-row
- * timeout on a known-dead upstream); otherwise records the outcome so the
- * breaker can trip after enough consecutive failures. Re-throws on failure so
- * the per-row runner still captures the error and updates run aggregates.
+ * run has already tripped the breaker (so the run stops paying the per-row
+ * timeout once an upstream looks dead); otherwise records the outcome so the
+ * breaker trips after enough consecutive failures. Re-throws on failure so the
+ * per-row runner still captures the error and updates run aggregates.
  *
  * Exported for the regression test, which drives the breaker directly without
  * the scheduler.
  */
 export async function runWarmRow(breaker: CircuitBreaker, userId: string): Promise<void> {
-  if (breaker.shouldSkip(userId)) return;
+  if (breaker.shouldSkip(RUN_BREAKER_KEY)) return;
   try {
     await runWarmComposeForUser(userId);
-    breaker.recordSuccess(userId);
+    breaker.recordSuccess(RUN_BREAKER_KEY);
   } catch (err) {
-    breaker.recordFailure(userId);
+    breaker.recordFailure(RUN_BREAKER_KEY);
     throw err;
   }
 }

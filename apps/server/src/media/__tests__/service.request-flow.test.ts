@@ -84,6 +84,18 @@ describe("MediaService combined-id parsing (#456)", () => {
     expect(dispatchPrimaryMock).not.toHaveBeenCalled();
   });
 
+  it("rejects a combined id with an empty id segment before any dispatch", async () => {
+    const svc = new MediaService("u1");
+    // WHY: "movie:" passed the length+type checks and produced ["movie", ""],
+    // leaking an empty id into the plugin dispatch layer. A non-empty id
+    // segment is now required, so it must fail loud as a 400.
+    await expect(svc.getDetails("movie:")).rejects.toMatchObject({
+      status: 400,
+      code: "media.invalid_combined_id",
+    });
+    expect(dispatchPrimaryMock).not.toHaveBeenCalled();
+  });
+
   it("treats a colon-free id as a bare id under the supplied type", async () => {
     dispatchPrimaryMock.mockResolvedValueOnce({ data: null });
     const svc = new MediaService("u1");
