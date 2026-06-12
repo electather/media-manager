@@ -66,12 +66,18 @@ async function loadConnectionById(
     .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
     .get();
   if (!row || row.enabled !== 1) return null;
+  const credentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
+  // Treat a connection with no stored ciphertext the same as a missing one:
+  // decryptField returns null when iv/data are absent, and propagating null
+  // would invoke the plugin unauthenticated. The caller maps null to a typed
+  // mcp.target_not_found error.
+  if (credentials === null) return null;
   return {
     kind: "user",
     pluginId: row.pluginId,
     connectionId: row.id,
     isDefault: row.isDefault === 1,
-    credentials: await decryptField(row.credentialsIv, row.encryptedCredentials),
+    credentials,
     userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
   };
 }

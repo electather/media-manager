@@ -214,6 +214,18 @@ export async function invokePerConnectionHandler(args: {
   const db = getDb();
   try {
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+    if (credentials === null) {
+      // Skip rows with no stored ciphertext (null iv or data). A null result
+      // means no credentials were ever written; passing null to the plugin
+      // handler would produce a silent unauthenticated invocation. Mirrors the
+      // guard in plugin-runtime/internal/user-pool.ts.
+      logger.warn("Skipping connection with missing credentials", {
+        pluginId: job.pluginId,
+        jobId: job.id,
+        connectionId: row.id,
+      });
+      return;
+    }
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const ctx = await pluginRuntime.buildJobContext(
       job.pluginId,
