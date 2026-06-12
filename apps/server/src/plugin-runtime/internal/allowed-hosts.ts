@@ -52,9 +52,11 @@ const BLOCKED_EXACT_HOSTNAMES = new Set([
 
 // URL.hostname lowercases DNS names but returns IPv6 addresses wrapped in
 // square brackets (`[::1]`). Strip the brackets so exact-match and prefix
-// predicates can be written without worrying about the wrapping.
+// predicates can be written without worrying about the wrapping. Trailing
+// dots are stripped too — `localhost.` is RFC-equivalent to `localhost` and
+// must not slip past the exact-match blocklist (issue #448).
 function normalizeHostname(hostname: string): string {
-  const lower = hostname.toLowerCase();
+  const lower = hostname.toLowerCase().replace(/\.+$/, "");
   if (lower.startsWith("[") && lower.endsWith("]")) return lower.slice(1, -1);
   return lower;
 }

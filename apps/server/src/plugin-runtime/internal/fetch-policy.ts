@@ -99,7 +99,11 @@ export function buildFetch(
     const inManifest = isHostAllowed(hostname, allowedHosts);
     const inAdmin = isNil(adminAllowlist) ? true : isHostAllowed(hostname, adminAllowlist);
     const staticAllowed = inManifest && inAdmin;
-    const dynamicAllowed = dynamicHosts ? dynamicHosts.has(hostname.toLowerCase()) : false;
+    // Strip trailing dots so `localhost.`-style hostnames compare against the
+    // same canonical form the dynamic allowlist stores (issue #448).
+    const dynamicAllowed = dynamicHosts
+      ? dynamicHosts.has(hostname.toLowerCase().replace(/\.+$/, ""))
+      : false;
     if (!staticAllowed && !dynamicAllowed) {
       if (inManifest && !inAdmin) {
         // Admin-imposed block: audit-log it before surfacing the existing

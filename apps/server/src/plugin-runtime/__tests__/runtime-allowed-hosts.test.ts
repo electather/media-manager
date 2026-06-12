@@ -605,6 +605,64 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  // Regression for issue #448: trailing-dot hostnames (`localhost.`,
+  // `metadata.google.internal.`) are RFC-equivalent to their dotless forms.
+  // Before normalisation stripped the trailing dot, these bypassed the
+  // exact-match blocklist and entered the dynamic allowlist, opening SSRF to
+  // loopback and cloud-metadata endpoints.
+  it.each([
+    { raw: "http://localhost./admin", blocked: "localhost" },
+    {
+      raw: "http://metadata.google.internal./computeMetadata",
+      blocked: "metadata.google.internal",
+    },
+  ])(
+    "rejects trailing-dot blocked hostname in userConfig.baseUrl ($raw)",
+    async ({ raw, blocked }) => {
+      pluginRows.set("plex-like", {
+        id: "plex-like",
+        globalConfig: null,
+        manifest: "{}",
+        personalKeyFallback: "off",
+      });
+      listReadyUserConnectionsMock.mockResolvedValue([
+        {
+          connectionId: "conn-1",
+          isDefault: true,
+          credentials: { token: "t" },
+          userConfig: { baseUrl: raw },
+        },
+      ]);
+
+      const capabilitySpy = vi.fn();
+      capabilityRegistry.register({
+        pluginId: "plex-like",
+        module: buildSelfHostedPlugin(async () => {
+          capabilitySpy();
+          return { items: [] };
+        }),
+        enabled: true,
+      });
+
+      await expect(
+        pluginRuntime.invoke({
+          pluginId: "plex-like",
+          capability: "library",
+          version: "v1",
+          method: "list",
+          input: {},
+          scope: "user",
+          userId: "user-1",
+        }),
+      ).rejects.toMatchObject({
+        code: "plugin.invalid_base_url",
+        params: { field: "baseUrl", hostname: blocked },
+      });
+      expect(capabilitySpy).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    },
+  );
+
   // Regression: an `x-allowed-host` field on a `sharedCredentialsSchema` whose
   // submitted value is malformed must return a friendly { ok: false, message }
   // instead of bubbling out of `runSharedCredentialProbe` as an uncaught throw.
