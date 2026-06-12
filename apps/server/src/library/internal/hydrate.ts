@@ -64,7 +64,7 @@ export async function hydrate(
     progress: await loadProgress(ctx),
   };
   const updates = await Promise.all(targets.map((target) => buildUpdate(ctx, target, sources)));
-  const hydrated = await writeHydration(updates, now);
+  const hydrated = await writeHydration(ctx.userId, updates, now);
   return { considered: targets.length, hydrated };
 }
 

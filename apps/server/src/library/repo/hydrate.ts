@@ -76,6 +76,7 @@ export async function staleOrNew(
  * hydrated rather than an arbitrary scatter.
  */
 export async function writeHydration(
+  userId: string,
   updates: HydrationUpdate[],
   now: number,
   db: Db = getDb(),
@@ -96,7 +97,7 @@ export async function writeHydration(
         collectionName: update.collectionName,
         hydratedAt: now,
       })
-      .where(eq(libraryItems.id, update.id));
+      .where(and(eq(libraryItems.userId, userId), eq(libraryItems.id, update.id)));
     written += 1;
   }
   return written;

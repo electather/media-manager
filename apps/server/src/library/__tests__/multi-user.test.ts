@@ -33,7 +33,7 @@ vi.mock("../../db/client", async () => {
 // stubbed `getDb`. The repo and service are imported real (NOT mocked): mocking
 // either would defeat the very per-user isolation invariants these tests guard.
 const { syncMembership } = await import("../service");
-const { allKnownKeys, upsertOwned, tombstoneMissing, __resetLibraryForTests } =
+const { allKnownKeys, upsertOwned, tombstoneMissing, writeHydration, __resetLibraryForTests } =
   await import("../repo");
 const { asLibraryContext } = await import("../internal/context");
 
@@ -217,6 +217,64 @@ describe("library multi-user membership (design §Sync + hydrate, composite-PK i
     const bRow = await rowById(USER_B, "movie:550");
     expect(bRow?.owned).toBe(true);
     expect(bRow?.unownedAt).toBeNull();
+  });
+
+  // PER-USER HYDRATION ISOLATION — `writeHydration` is userId-scoped, so
+  // hydrating a title for uA MUST NOT touch uB's identically-keyed row. The
+  // projection mixes movie-global columns (sortTitle, year, …) with per-user
+  // ones (`watchedState`, `servers`, `qualityTiers`): uA's resume position and
+  // connected backends are NOT uB's, so leaking the write across users corrupts
+  // uB's continue-watching and availability chips. Worse, it stamps uB's
+  // `hydratedAt`, so uB's own next hydrate pass skips the row as fresh and the
+  // corruption persists for a full TTL instead of self-healing. If the update
+  // ever dropped its `user_id` predicate again, uB's row would carry uA's
+  // projection and a non-null `hydratedAt` — both assertions below fail.
+  it("hydrates a title for one user without touching the other owner's row", async () => {
+    await upsertOwned(
+      [{ id: "movie:550", userId: USER_A, tmdbId: "550", mediaType: "movie", ownedAt: Date.now() }],
+      testDb,
+    );
+    await upsertOwned(
+      [{ id: "movie:550", userId: USER_B, tmdbId: "550", mediaType: "movie", ownedAt: Date.now() }],
+      testDb,
+    );
+
+    // Hydrate the shared title for uA only, with uA's per-user projection.
+    const written = await writeHydration(
+      USER_A,
+      [
+        {
+          id: "movie:550",
+          sortTitle: "matrix",
+          year: 1999,
+          genres: ["Action"],
+          servers: [{ id: "plex-a", label: "uA's Plex" }],
+          qualityTiers: ["4K HDR"],
+          watchedState: "partial",
+          collectionId: null,
+          collectionName: null,
+        },
+      ],
+      Date.now(),
+      testDb,
+    );
+    // One update processed. The count is per-update, not per-row, so the real
+    // isolation proof is the uB assertions below — not this number.
+    expect(written).toBe(1);
+
+    // uA's row carries the projection and is stamped hydrated.
+    const aRow = await rowById(USER_A, "movie:550");
+    expect(aRow?.watchedState).toBe("partial");
+    expect(aRow?.servers).toEqual([{ id: "plex-a", label: "uA's Plex" }]);
+    expect(aRow?.hydratedAt).not.toBeNull();
+
+    // uB's identically-keyed row is untouched: no leaked per-user projection
+    // and no stamped `hydratedAt`, so uB's own hydrate still sees it as new.
+    const bRow = await rowById(USER_B, "movie:550");
+    expect(bRow?.watchedState).toBeNull();
+    expect(bRow?.servers).toEqual([]);
+    expect(bRow?.qualityTiers).toEqual([]);
+    expect(bRow?.hydratedAt).toBeNull();
   });
 
   // END-TO-END via syncMembership — two users each sync a feed that contains the
