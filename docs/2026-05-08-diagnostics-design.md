@@ -383,7 +383,7 @@ Defaults: err=30d (clamp 7-365d), perf=7d (clamp 1-90d). Read once per sweep fro
 
 ## §Adm Admin Viewer — `/admin/diagnostics`
 
-Permission: `admin:plugins`. Replaces `/admin/errors` (file `admin/logs.tsx` → `admin/diagnostics.tsx`).
+Permission: `admin:server`. Replaces `/admin/errors` (file `admin/logs.tsx` → `admin/diagnostics.tsx`).
 
 ### §Adm.Lay Layout
 
@@ -452,7 +452,7 @@ Sidebar `/admin/diagnostics` badge = err-count last hour. Red @ threshold (v1 = 
 
 ### §Adm.API Endpoints
 
-Permission `admin:plugins` ∀:
+Permission `admin:server` ∀:
 
 ```
 GET    /admin/diagnostics/errors                  list + filters + pagination

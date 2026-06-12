@@ -1,7 +1,7 @@
 # Watchlist Backend Service
 
-**Status:** design (rev 5) — partial supersession
-**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23, rev 5: 2026-05-26)
+**Status:** design (rev 6) — partial supersession
+**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23, rev 5: 2026-05-26, rev 6: 2026-06-12)
 **Author:** Omid Astaraki
 **Deps:** [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-04-27-catalog-service-design.md](./2026-04-27-catalog-service-design.md), [2026-04-20-job-service-design.md](./2026-04-20-job-service-design.md), `frontend-feature-architecture` skill ([.claude/skills/frontend-feature-architecture/SKILL.md](../.claude/skills/frontend-feature-architecture/SKILL.md)), `backend-feature-architecture` skill ([.claude/skills/backend-feature-architecture/SKILL.md](../.claude/skills/backend-feature-architecture/SKILL.md)), plugin `watchlist@v1`
 **Partial supersession:** API surface + client layout sections superseded by [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md). Seed, sync, events semantics unchanged.
@@ -12,6 +12,11 @@ Caveman ultra. Pseudocode = shape-only, ⊥ literal.
 
 ## Revision history
 
+- **rev 6 (2026-06-12)** — Terminology and heading corrections to match current codebase.
+  - `WatchlistRow` → `ActiveRow` in §M.1 and §M.3 pseudocode (rename landed after consolidation).
+  - §M.3 heading updated: `enrich.ts (local, ⊥ home/internal import)` → `media/enrich.ts (shared media pipeline)` to reflect that enrich moved out of watchlist and into the shared `media/` pipeline.
+  - §M.3 `enrich` return type annotated `CompactMediaItem[]` (was the stale `WatchlistItem[]`) to match the ownership note above it — `WatchlistItem` is deleted.
+  - Swept the remaining live-section `WatchlistItem` references to the unified `CompactMediaItem` shape, consistent with the same ownership note: service signatures (`getItems`/`addItem`/`listAvailable`), the §C `AddOptimisticInput.seed`, `deriveMoods`, and the §T fixtures note. The historical `WatchlistItem` intersection type is retained only in the §Types appendix for reference.
 - **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
   - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
   - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
@@ -188,16 +193,16 @@ Historical layout (this doc's original v1, before media consolidation): watchlis
 > **Ownership (2026-05-26):** moved to `media/repo/` — `media` owns `watchlist_items` reads + writes + seed. The signatures below are the contract; they now live behind the `media` barrel. See consolidation doc §A.
 
 ```ts
-list(userId, opts?: {state?: WatchlistState}) → WatchlistRow[]        // default state="active"
-findByKey(userId, key) → WatchlistRow | null                           // any state
-upsertActive(userId, key, source, now) → { row: WatchlistRow, created: boolean, wasActive: boolean }
+list(userId, opts?: {state?: WatchlistState}) → ActiveRow[]        // default state="active"
+findByKey(userId, key) → ActiveRow | null                           // any state
+upsertActive(userId, key, source, now) → { row: ActiveRow, created: boolean, wasActive: boolean }
 softRemove(userId, key, now) → void                                    // UPDATE state="removed", removed_at=now WHERE state="active"
 bulkInsertIgnoreConflict(userId, keys[], source, seeded) → number      // INSERT ... ON CONFLICT DO NOTHING. Returns affected.
 allKnownKeys(userId) → Set<`${tmdb_id}:${media_type}`>
 trySeedLock(userId, now) → boolean                                     // ON CONFLICT (user_id) DO NOTHING on user_watchlist_seed
 hasSeeded(userId) → boolean
 hasAny(userId) → boolean                                               // EXISTS active row
-listAvailableKeys(userId, opts?: {limit?: number}) → WatchlistRow[]    // active rows, no enrich (caller filters by avail)
+listAvailableKeys(userId, opts?: {limit?: number}) → ActiveRow[]    // active rows, no enrich (caller filters by avail)
 ```
 
 **`upsertActive` semantics (SQLite, single tx):**
@@ -223,7 +228,7 @@ db.transaction(tx => {
 ```ts
 type Key = { tmdbId: string; mediaType: typeof MEDIA_TYPES[number] }
 
-getItems(userId, { cursor, limit, filter }, ctx) → { items: WatchlistItem[], cursor: string|null, partial: boolean }
+getItems(userId, { cursor, limit, filter }, ctx) → { items: CompactMediaItem[], cursor: string|null, partial: boolean }
   // Keyset pagination over (addedAt DESC, id DESC). `cursor` encodes the last
   // returned (addedAt, id) pair; `null` returns the first page. `filter` runs
   // a cheap pre-classification (status + availability via a per-request cache)
@@ -249,7 +254,7 @@ getCounts(userId, ctx) → WatchlistCounts
   rows = repo.listAllActive(userId)
   return classify.aggregate(rows, userId, ctx)
 
-addItem(userId, key, source, ctx) → { item: WatchlistItem, created: boolean, wasActive: boolean }
+addItem(userId, key, source, ctx) → { item: CompactMediaItem, created: boolean, wasActive: boolean }
   // source ∈ USER_SOURCES (enforced at route zod; service trusts caller).
   result = repo.upsertActive(userId, key, source, now())
   if !result.wasActive:
@@ -288,7 +293,7 @@ syncFromPlugins(userId, ctx) → { added: number, partial: boolean }
   return { added: inserted, partial: feed.partial }
 
 // For home row delegation (see §H): pre-filter to bounded set before full enrich.
-listAvailable(userId, limit, ctx) → { items: WatchlistItem[], partial: boolean }
+listAvailable(userId, limit, ctx) → { items: CompactMediaItem[], partial: boolean }
   rows = repo.listAvailableKeys(userId, { limit: limit * 4 })    // overshoot to allow filter
   if rows.empty:
     // Auto-seed when plugin has data but user never loaded /watchlist page.
@@ -312,12 +317,12 @@ hasAny(userId) → boolean
 
 Caller doc: `addItem` enrich cost = single-key fan-out (catalog + status + avail + progress for 1 item). Acceptable. Client may rely on the returned `item` + skip refetch invalidation if hot.
 
-### M.3 enrich.ts (local, ⊥ `home/internal` import)
+### M.3 media/enrich.ts (shared media pipeline)
 
 > **Ownership (2026-05-26):** enrich is no longer watchlist-local. It is a stage of the shared `media` pipeline (`media/enrich.ts` + `media/pipeline` `batchLoad`), producing the single `CompactMediaItem` shape for every source. `WatchlistItem` is deleted — callers use the extended `CompactMediaItem` (`+ addedAt`/`addedSource`). See consolidation doc §C/§D. The pseudocode below documents the enrich semantics now owned by media.
 
 ```ts
-enrich(rows: WatchlistRow[], ctx) → { items: WatchlistItem[], partial: boolean }
+enrich(rows: ActiveRow[], ctx) → { items: CompactMediaItem[] /* WatchlistItem deleted; see ownership note */, partial: boolean }
   if rows.empty: return { items: [], partial: false }
   keys = rows.map(r => ({ tmdbId: r.tmdb_id, mediaType: r.media_type }))
   let partial = false
@@ -734,7 +739,7 @@ Callers compose via shared `keyToId({tmdbId, mediaType})`.
 ```ts
 type AddOptimisticInput = {
   request: AddWatchlistRequest
-  seed?:   Partial<WatchlistItem>                   // optional: callers w/ metadata pass seed for optimistic flip
+  seed?:   Partial<CompactMediaItem>                // optional: callers w/ metadata pass seed for optimistic flip
 }
 
 useAddToWatchlist() {
@@ -785,7 +790,7 @@ const MOOD_RULES = [
   { id: "comedy",       require: ["Comedy"] },
 ]
 
-deriveMoods(items: WatchlistItem[], opts?: { minItems?: number }) → MoodCluster[]
+deriveMoods(items: CompactMediaItem[], opts?: { minItems?: number }) → MoodCluster[]
   min = opts?.minItems ?? 3
   return MOOD_RULES.flatMap(rule => {
     matches = items.filter(it => rule.require.every(g => it.genres?.includes(g)))
@@ -889,7 +894,7 @@ Relative-time labels (e.g. "2h ago") computed client-side via `formatDistance` u
 - `use-remove-from-watchlist.test.ts` — optimistic filter, rollback on err
 - `derive-moods.test.ts` — AND rule matching on names, ≥3 threshold, multi-cluster overlap
 
-Mock fetchers (not RQ). Fixtures = `WatchlistItem[]` under `__fixtures__/`.
+Mock fetchers (not RQ). Fixtures = `CompactMediaItem[]` under `__fixtures__/`.
 
 ## §F Failure modes
 
