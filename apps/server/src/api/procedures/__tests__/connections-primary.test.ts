@@ -43,13 +43,13 @@ vi.mock("../../../auth", async () => {
   const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
   async function loadUserRole(userId: string) {
     const row = await db
-      .select({ roleId: userRoles.roleId, isSystem: roles.isSystem, name: roles.name })
+      .select({ roleId: userRoles.roleId, systemSlug: roles.systemSlug })
       .from(userRoles)
       .innerJoin(roles, eq(roles.id, userRoles.roleId))
       .where(eq(userRoles.userId, userId))
       .get();
     if (!row) return null;
-    return { roleId: row.roleId, isSystemAdmin: row.isSystem === 1 && row.name === "Admin" };
+    return { roleId: row.roleId, isSystemAdmin: row.systemSlug === "admin" };
   }
   async function roleHasPermission(
     role: { roleId: string; isSystemAdmin: boolean },

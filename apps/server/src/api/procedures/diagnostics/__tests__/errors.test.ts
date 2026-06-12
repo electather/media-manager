@@ -29,7 +29,7 @@ vi.mock("../../../../auth", () => ({
   requirePermission: () => async (_c: any, next: any) => {
     await next();
   },
-  PERMISSIONS: { ADMIN_PLUGINS: "admin:plugins" },
+  PERMISSIONS: { ADMIN_PLUGINS: "admin:plugins", ADMIN_SERVER: "admin:server" },
 }));
 
 // `captureError` writes to the DB; for these tests we only care about request

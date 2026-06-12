@@ -24,5 +24,11 @@ export {
 } from "./service";
 export { AUTH_EVENTS } from "./events";
 export { AuthError } from "./errors";
-export { PERMISSIONS, type Permission, ALL_PERMISSIONS, type UserRoleInfo } from "./types";
+export {
+  PERMISSIONS,
+  type Permission,
+  ALL_PERMISSIONS,
+  SYSTEM_ADMIN_ROLE_SLUG,
+  type UserRoleInfo,
+} from "./types";
 export { registerJobs } from "./jobs";

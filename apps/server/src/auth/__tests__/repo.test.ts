@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { eq } from "drizzle-orm";
 import { ALL_PERMISSIONS, PERMISSIONS } from "@ent-mcp/shared/auth";
 
 vi.mock("../../env", () => ({
@@ -41,7 +42,14 @@ async function seed() {
   ]);
 
   await db.insert(roles).values([
-    { id: "role_admin", name: "Admin", isSystem: 1, createdAt: 0, updatedAt: 0 },
+    {
+      id: "role_admin",
+      name: "Admin",
+      isSystem: 1,
+      systemSlug: "admin",
+      createdAt: 0,
+      updatedAt: 0,
+    },
     { id: "role_member", name: "Member", isSystem: 1, createdAt: 0, updatedAt: 0 },
     { id: "role_viewer", name: "Viewer", isSystem: 1, createdAt: 0, updatedAt: 0 },
   ]);
@@ -93,6 +101,23 @@ describe("loadUserPermissions", () => {
     expect(perms.sort()).toEqual(
       [PERMISSIONS.MEDIA_DISCOVER, PERMISSIONS.MEDIA_DETAILS, PERMISSIONS.MEDIA_ACTIVITY].sort(),
     );
+  });
+
+  // The slug, not the display name, identifies the admin role — renaming the
+  // role must not revoke the admin bypass.
+  it("still returns ALL_PERMISSIONS after the Admin role is renamed", async () => {
+    await db.update(roles).set({ name: "Owner" }).where(eq(roles.id, "role_admin"));
+    const perms = await loadUserPermissions(USER_ADMIN);
+    expect(perms.sort()).toEqual([...ALL_PERMISSIONS].sort());
+  });
+
+  // Conversely, a role merely named "Admin" without the system slug must not
+  // receive the bypass.
+  it("does not grant ALL_PERMISSIONS to a role named Admin without the system slug", async () => {
+    await db.update(roles).set({ name: "Admin Jr" }).where(eq(roles.id, "role_admin"));
+    await db.update(roles).set({ name: "Admin" }).where(eq(roles.id, "role_member"));
+    const perms = await loadUserPermissions(USER_MEMBER);
+    expect(perms.every((p) => !p.startsWith("admin:"))).toBe(true);
   });
 
   it("returns an empty list when the user has no role", async () => {

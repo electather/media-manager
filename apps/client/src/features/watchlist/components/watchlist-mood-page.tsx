@@ -1,10 +1,8 @@
 import { Suspense, useCallback } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import * as m from "@/paraglide/messages";
 import type { MoodId } from "@ent-mcp/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { GridSkeleton } from "@/shared/components/grid-skeleton";
-import { Button } from "@/shared/ui/button";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
@@ -61,27 +59,13 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   return (
-    <>
-      <VirtualGrid
-        items={items}
-        getKey={(it) => it.id}
-        minColumnWidthPx={180}
-        estimateRowHeight={() => 336}
-        renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
-        onEndReached={onEndReached}
-      />
-      {hasNextPage ? (
-        <div className="mt-8 flex justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void fetchNextPage()}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? m.watchlist_loading_more() : m.watchlist_load_more()}
-          </Button>
-        </div>
-      ) : null}
-    </>
+    <VirtualGrid
+      items={items}
+      getKey={(it) => it.id}
+      minColumnWidthPx={180}
+      estimateRowHeight={() => 336}
+      renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
+      onEndReached={onEndReached}
+    />
   );
 }
