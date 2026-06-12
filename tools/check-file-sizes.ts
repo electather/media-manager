@@ -39,7 +39,6 @@ const BANNED_NAMES = new Set(["utils.ts", "helpers.ts", "misc.ts"]);
 // New files cannot be allowlisted without a paired plan task that schedules the split.
 const ALLOWLIST: Record<string, string> = {
   "apps/server/src/catalog/jobs/recommendation-build.ts": "TASK-045: catalog jobs reshape",
-  "apps/server/src/catalog/jobs/user-mirror-sync.ts": "TASK-045: catalog jobs reshape",
   "apps/server/src/catalog/service/index.ts":
     "TASK-046: CatalogService class decomposition deferred",
   "apps/server/src/media/service/index.ts": "TASK-047: MediaService class decomposition deferred",
