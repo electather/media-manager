@@ -269,6 +269,79 @@ describe("dispatchAggregatePerKind", () => {
     expect(result.poster).toEqual([{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }]);
   });
 
+  it("skips a no-connection provider and still serves data from a connected peer (#280)", async () => {
+    mockRegistry([
+      {
+        pluginId: "fanart",
+        supportedIdTypes: { movie: ["tmdb", "imdb"], tv: ["tvdb"] },
+        providerPriority: 10,
+      },
+      {
+        pluginId: "tmdb",
+        supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+        providerPriority: 20,
+      },
+    ]);
+    // fanart has no usable connection for this user; tmdb does. WHY: a missing
+    // connection used to throw media.no_connection into the fan-out, and before
+    // #280 that risked a 500 / poisoned the all-failed negative cache. It must
+    // instead be skipped so tmdb's data still comes through.
+    resolveConnectionsMock.mockImplementation(async (_userId: string, pluginId: string) =>
+      pluginId === "fanart"
+        ? []
+        : [
+            {
+              kind: "shared",
+              pluginId,
+              connectionId: null,
+              credentials: { apiKey: "k" },
+              userConfig: null,
+            },
+          ],
+    );
+    invokeMock.mockResolvedValue({
+      ...emptyBundle(),
+      poster: [{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }],
+    });
+
+    const result = await dispatchAggregatePerKind<{ poster: unknown[] }>({
+      userId: "u1",
+      capability: "artwork",
+      version: "v1",
+      method: "getArtwork",
+      input: { ids: { tmdb: "550" }, type: "movie" },
+    });
+
+    // Only the connected provider was invoked; the result is the served data,
+    // not an empty all-failed bundle.
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock.mock.calls[0]![0]).toMatchObject({ pluginId: "tmdb" });
+    expect(result.poster).toEqual([{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }]);
+  });
+
+  it("returns an empty bundle (not an error) when every provider lacks a connection (#280)", async () => {
+    mockRegistry([
+      {
+        pluginId: "tmdb",
+        supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+        providerPriority: 20,
+      },
+    ]);
+    resolveConnectionsMock.mockResolvedValue([]);
+
+    const result = await dispatchAggregatePerKind({
+      userId: "u1",
+      capability: "artwork",
+      version: "v1",
+      method: "getArtwork",
+      input: { ids: { tmdb: "550" }, type: "movie" },
+    });
+
+    // No connection anywhere = stable empty, never a thrown PluginCallError.
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(result).toEqual(emptyBundle());
+  });
+
   it("excludes a provider whose manifest extras fail schema validation", async () => {
     // Plugin claims artwork but ships a malformed manifest (negative
     // priority + missing supportedIdTypes.tv). The dispatcher must skip it

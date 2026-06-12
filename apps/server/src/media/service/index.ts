@@ -83,7 +83,20 @@ interface CreateRequestOutput {
  */
 function parseCombinedId(idOrCombined: string, type?: "movie" | "tv"): ["movie" | "tv", string] {
   if (isNil(type) && idOrCombined.includes(":")) {
-    return idOrCombined.split(":") as ["movie" | "tv", string];
+    // Validate the split rather than trusting the colon-delimited shape: a
+    // malformed id like "movie:tt1:extra" or "show:550" must surface as a
+    // bad-request, not be force-cast into the typed tuple downstream.
+    const parts = idOrCombined.split(":");
+    if (parts.length !== 2 || (parts[0] !== "movie" && parts[0] !== "tv")) {
+      throw badRequest(
+        "media.invalid_combined_id",
+        `combined id must be "movie:<id>" or "tv:<id>"`,
+        {
+          id: idOrCombined,
+        },
+      );
+    }
+    return [parts[0], parts[1]!];
   }
   return [type ?? "movie", idOrCombined];
 }

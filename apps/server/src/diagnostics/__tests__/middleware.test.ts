@@ -7,7 +7,7 @@ import { zValidator } from "../validator";
 import { z } from "zod";
 import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
 import type { DiagnosticSink } from "../types";
-import { AllPluginsFailedError } from "../../media/errors";
+import { AllPluginsFailedError, PluginCallError } from "../../media/errors";
 
 class CollectingSink implements DiagnosticSink {
   records: ErrorRecord[] = [];
@@ -40,6 +40,9 @@ function buildApp() {
       { pluginId: "trakt", code: "plugin.rate_limited", devMessage: "429" },
       { pluginId: "jellyfin", code: "plugin.upstream_error", devMessage: "ECONNRESET" },
     ]);
+  });
+  app.get("/no-connection", () => {
+    throw new PluginCallError("media.no_connection", "no connection for seerr", "seerr", null);
   });
   app.post("/validate", zValidator("json", z.object({ name: z.string() })), (c) =>
     c.json({ ok: true, received: c.req.valid("json") }),
@@ -119,6 +122,22 @@ describe("errorHandler", () => {
     expect(collector.records[0]!.code).toBe("media.providers_failed");
     expect(collector.records[0]!.httpStatus).toBe(503);
     expect(collector.records[0]!.severity).toBe("error");
+  });
+
+  it("routes an escaping media.no_connection PluginCallError to 200, not a captured 500", async () => {
+    const app = buildApp();
+    const res = await app.request("/no-connection");
+    // WHY: no provider configured is an expected user state. Before #280 this
+    // escaped as a 500 and polluted the error store; it must now resolve to a
+    // structured no-provider body the client can render as an empty state.
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { code: string; pluginId: string; requestId: string };
+    expect(body.code).toBe("media.no_connection");
+    expect(body.pluginId).toBe("seerr");
+    expect(typeof body.requestId).toBe("string");
+    await flushCaptures();
+    // Not a server fault — must never enter the error store.
+    expect(collector.records).toHaveLength(0);
   });
 
   it("maps unknown throws to 500 and captures them", async () => {
