@@ -21,7 +21,7 @@ vi.mock("../../plugin-runtime", async () => {
 
 const { listRows } = await import("../service/list-rows");
 const { decode } = await import("../cursor");
-const { __resetAvailabilityCache } = await import("../availability-cache");
+const { __resetAvailabilityCache } = await import("../testing");
 
 const CURRENT_YEAR = new Date().getUTCFullYear();
 

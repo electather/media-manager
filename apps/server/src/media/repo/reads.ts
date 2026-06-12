@@ -61,7 +61,7 @@ export async function listActiveRowsKeyset(
   return rows.map(toRow);
 }
 
-export async function getActiveRow(
+export async function findRowByKey(
   userId: string,
   key: WatchlistKey,
   db: Db = getDb(),

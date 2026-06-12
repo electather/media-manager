@@ -30,7 +30,7 @@
     "@ent-mcp/plugin-ntfy",
     "@ent-mcp/plugin-telegram"
   ],
-  "entry": ["apps/server/src/worker.ts"],
+  "entry": ["apps/server/src/worker.ts", "apps/server/src/media/testing.ts"],
   "ignorePatterns": [
     "**/*.test.ts",
     "**/*.test.tsx",
