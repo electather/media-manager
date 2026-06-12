@@ -15,6 +15,7 @@ Caveman ultra. Pseudocode = shape-only, ⊥ literal.
 - **rev 6 (2026-06-12)** — Terminology and heading corrections to match current codebase.
   - `WatchlistRow` → `ActiveRow` in §M.1 and §M.3 pseudocode (rename landed after consolidation).
   - §M.3 heading updated: `enrich.ts (local, ⊥ home/internal import)` → `media/enrich.ts (shared media pipeline)` to reflect that enrich moved out of watchlist and into the shared `media/` pipeline.
+  - §M.3 `enrich` return type annotated `CompactMediaItem[]` (was the stale `WatchlistItem[]`) to match the ownership note above it — `WatchlistItem` is deleted.
 - **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
   - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
   - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
@@ -320,7 +321,7 @@ Caller doc: `addItem` enrich cost = single-key fan-out (catalog + status + avail
 > **Ownership (2026-05-26):** enrich is no longer watchlist-local. It is a stage of the shared `media` pipeline (`media/enrich.ts` + `media/pipeline` `batchLoad`), producing the single `CompactMediaItem` shape for every source. `WatchlistItem` is deleted — callers use the extended `CompactMediaItem` (`+ addedAt`/`addedSource`). See consolidation doc §C/§D. The pseudocode below documents the enrich semantics now owned by media.
 
 ```ts
-enrich(rows: ActiveRow[], ctx) → { items: WatchlistItem[], partial: boolean }
+enrich(rows: ActiveRow[], ctx) → { items: CompactMediaItem[] /* WatchlistItem deleted; see ownership note */, partial: boolean }
   if rows.empty: return { items: [], partial: false }
   keys = rows.map(r => ({ tmdbId: r.tmdb_id, mediaType: r.media_type }))
   let partial = false

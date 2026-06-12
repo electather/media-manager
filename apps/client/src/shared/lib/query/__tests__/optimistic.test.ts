@@ -80,4 +80,20 @@ describe("rollbackQuery", () => {
     // Default behaviour is preserved: entry untouched.
     expect(qc.getQueryData(KEY)).toBe(42);
   });
+
+  it("removes only the exact key, leaving sibling keys under the same prefix intact", () => {
+    const qc = new QueryClient();
+    // The query-key factories produce prefix-style keys, e.g. `inboxAll()` is a
+    // prefix of `popoverInbox(...)`. A non-exact removal would evict the sibling
+    // too, so removeOnEmpty must scope the eviction to the exact key.
+    const prefix = ["notifications", "inbox"] as const;
+    const sibling = ["notifications", "inbox", "popover"] as const;
+    qc.setQueryData(prefix, 99);
+    qc.setQueryData(sibling, 7);
+
+    rollbackQuery<number>(qc, prefix, undefined, { removeOnEmpty: true });
+
+    expect(qc.getQueryData(prefix)).toBeUndefined();
+    expect(qc.getQueryData(sibling)).toBe(7);
+  });
 });
