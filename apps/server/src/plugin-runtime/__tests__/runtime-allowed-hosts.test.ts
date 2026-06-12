@@ -26,14 +26,14 @@ const dbMock = {
     return {
       from(_table: unknown) {
         return {
-          where(predicate: unknown) {
-            const pred = predicate as { id?: string } | null | undefined;
-            const pluginId = pred?.id;
+          // The real query passes a Drizzle `SQL` predicate object, not a plain
+          // `{ id }`, so the mock cannot extract the id to key the lookup. Each
+          // test populates exactly one plugin row, so returning that single
+          // entry mirrors the real `requirePluginRow(pluginId)` result.
+          where(_predicate: unknown) {
             return {
               async get() {
-                return pluginId != null
-                  ? (pluginRows.get(pluginId) ?? null)
-                  : ([...pluginRows.values()][0] ?? null);
+                return [...pluginRows.values()][0] ?? null;
               },
             };
           },
@@ -70,8 +70,14 @@ vi.mock("../internal/shared-credentials", () => ({
     delete: async () => {},
     getDecrypted: async () => ({ id: "", label: "", value: null }),
   },
-  // Mirrors the real helper against the in-memory plugin store the dbMock serves.
-  requirePluginRow: async (pluginId: string) => pluginRows.get(pluginId) ?? null,
+  // Mirrors the real helper against the in-memory plugin store the dbMock
+  // serves, including the not-found throw so callers fail loudly rather than
+  // null-dereferencing.
+  requirePluginRow: async (pluginId: string) => {
+    const row = pluginRows.get(pluginId);
+    if (!row) throw new Error(`plugin ${pluginId} not installed`);
+    return row;
+  },
 }));
 
 const listReadyUserConnectionsMock = vi.fn();

@@ -4,7 +4,7 @@ import type { MediaType } from "./enums";
 export const ROW_SORTS = ["recentDesc", "recentAsc"] as const;
 export type RowSort = (typeof ROW_SORTS)[number];
 
-/** Source values a persistent active row can carry. Superset of watchlist-specific sources. */
+/** Alias for WatchlistSource; decouples media-layer types from the watchlist domain. */
 export type RowSource = WatchlistSource;
 
 export interface RowFilter {
