@@ -66,6 +66,14 @@ await bootstrap();
 const app = new Hono();
 
 registerApiRoutes(app);
+// Defence in depth: never serve sourcemaps to browsers. The client build moves
+// hidden `.map` files out of `dist/`, but a stale or hand-copied build could
+// leave one behind — refuse them here so the maps stay private diagnostics
+// inputs regardless of what is on disk.
+app.use("/*", async (c, next) => {
+  if (c.req.path.endsWith(".map")) return c.notFound();
+  await next();
+});
 app.use("/*", serveStatic({ root: "../client/dist" }));
 
 app.get("*", async (c) => {

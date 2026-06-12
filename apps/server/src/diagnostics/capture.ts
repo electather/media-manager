@@ -31,6 +31,9 @@ export interface CaptureMeta {
   devMessage?: string;
   /** When provided, overrides the stack trace derived from `err`. */
   stack?: string;
+  /** Stack already translated to original source positions via uploaded
+   *  sourcemaps. Stored alongside the raw stack. */
+  resolvedStack?: string;
 }
 
 export interface PerfCaptureMeta {
@@ -121,6 +124,7 @@ function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
     code: meta.code ?? null,
     devMessage: scrubText(meta.devMessage ?? devMessageFrom(err)),
     stack: rawStack != null ? scrubText(rawStack) : null,
+    resolvedStack: meta.resolvedStack != null ? scrubText(meta.resolvedStack) : null,
     userId: meta.userId ?? ctx?.userId ?? null,
     pluginId: meta.pluginId ?? null,
     connectionId: meta.connectionId ?? null,

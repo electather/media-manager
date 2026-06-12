@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { ERROR_SEVERITIES, ERROR_SOURCES, PERF_KINDS } from "@ent-mcp/shared/diagnostics";
 import { user } from "../auth/auth";
@@ -18,6 +18,9 @@ export const errorRecords = sqliteTable(
     code: text("code"),
     devMessage: text("dev_message").notNull(),
     stack: text("stack"),
+    // Stack with minified frames translated to original source positions via
+    // uploaded sourcemaps. Null when no map matched or the stack was absent.
+    resolvedStack: text("resolved_stack"),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
     pluginId: text("plugin_id").references(() => plugins.id, { onDelete: "set null" }),
     connectionId: text("connection_id").references(() => serviceConnections.id, {
@@ -59,6 +62,26 @@ export const perfRecords = sqliteTable(
   ],
 );
 
+/** Hidden sourcemaps uploaded by CI after a client build (admin endpoint only;
+ *  never served to browsers). Keyed by bundle file name within a build —
+ *  Vite content-hashes file names, so a frame's basename uniquely identifies
+ *  the map to resolve it with. */
+export const sourcemaps = sqliteTable(
+  "sourcemaps",
+  {
+    id: text("id").primaryKey(),
+    buildId: text("build_id").notNull(),
+    fileName: text("file_name").notNull(),
+    // Raw JSON text of the .map file.
+    content: text("content").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("sourcemaps_build_file_idx").on(table.buildId, table.fileName),
+    index("sourcemaps_file_created_idx").on(table.fileName, table.createdAt),
+  ],
+);
+
 /** Global, single-row app configuration. Houses retention settings for diagnostics
  *  and notifications. Perf retention default of 7d is shorter than errors (30d) because
  *  the row volume is meaningfully higher. */
@@ -77,3 +100,5 @@ export const insertPerfRecordSchema = createInsertSchema(perfRecords);
 export const selectPerfRecordSchema = createSelectSchema(perfRecords);
 export const insertAppConfigSchema = createInsertSchema(appConfig);
 export const selectAppConfigSchema = createSelectSchema(appConfig);
+export const insertSourcemapSchema = createInsertSchema(sourcemaps);
+export const selectSourcemapSchema = createSelectSchema(sourcemaps);

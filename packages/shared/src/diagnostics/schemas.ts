@@ -26,6 +26,9 @@ export const errorReportSchema = z.object({
   stack: z.string().max(10000).optional(),
   route: z.string().max(500).optional(),
   code: z.string().max(200).optional(),
+  // Identifies the client build that produced the stack so the server can
+  // pick the matching uploaded sourcemaps when resolving minified frames.
+  buildId: z.string().max(100).optional(),
   // Cap at 20 keys × 1000-char string values to keep total context size bounded;
   // anything richer should be flattened on the client before reporting.
   context: z
@@ -36,6 +39,24 @@ export const errorReportSchema = z.object({
     .optional(),
 });
 export type ErrorReportPayload = z.infer<typeof errorReportSchema>;
+
+/** Body for `POST /api/diagnostics/sourcemaps` (admin only). One uploaded map
+ *  per bundle file; `map` is the raw JSON text of the `.map` file emitted by
+ *  the hidden-sourcemap client build. The 20 MB cap bounds memory per upload
+ *  while comfortably fitting real-world bundle maps. */
+export const sourcemapUploadSchema = z.object({
+  buildId: z.string().min(1).max(100),
+  // Semantically a JS bundle basename (Vite content-hashed). Constrain to that
+  // shape so traversal-looking or wildcard values are rejected at the boundary;
+  // the resolver only ever matches frames against `.js`/`.mjs` basenames anyway.
+  fileName: z
+    .string()
+    .min(1)
+    .max(300)
+    .regex(/^[\w\-.]+\.m?js$/, "must be a JS bundle filename"),
+  map: z.string().min(2).max(20_000_000),
+});
+export type SourcemapUploadBody = z.infer<typeof sourcemapUploadSchema>;
 
 /** Helper that turns a comma-delimited query param into a filtered string-literal list. */
 const commaList = <T extends readonly [string, ...string[]]>(values: T) =>

@@ -22,6 +22,7 @@ export class DatabaseSink implements DiagnosticSink {
       code: record.code,
       devMessage: record.devMessage,
       stack: record.stack,
+      resolvedStack: record.resolvedStack,
       userId: toUserFkValue(record.userId),
       pluginId: record.pluginId,
       connectionId: record.connectionId,
