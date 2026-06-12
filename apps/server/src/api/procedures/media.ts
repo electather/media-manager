@@ -266,9 +266,11 @@ export const mediaApp = new Hono()
    * barrel (`addItem` / `removeItem`; media-owned since consolidation Phase 2).
    * `POST` returns `AddWatchlistResponse` (201 on a fresh insert, 200 when the
    * row was already active); `DELETE` is 204. `:type/:tmdbId` are path params.
-   * `watchlistWriteLimiter` is preserved per §A7.
+   * `watchlistWriteLimiter` is preserved per §A7, and `writeRateLimit` is mounted
+   * AFTER the validator so a schema-invalid request 400s without debiting the
+   * write bucket — parity with the old inline call, which ran after `c.req.valid`.
    */
-  .post("/watchlist", writeRateLimit, zValidator("json", addWatchlistRequestSchema), async (c) => {
+  .post("/watchlist", zValidator("json", addWatchlistRequestSchema), writeRateLimit, async (c) => {
     const userId = sessionUserId(c);
     const { tmdbId, mediaType, source } = c.req.valid("json");
     const result = await addItem({ tmdbId, mediaType }, source, buildWatchlistContext(userId));
@@ -277,8 +279,8 @@ export const mediaApp = new Hono()
   })
   .delete(
     "/watchlist/:type/:tmdbId",
-    writeRateLimit,
     zValidator("param", watchlistWriteParamSchema),
+    writeRateLimit,
     async (c) => {
       const userId = sessionUserId(c);
       const { type, tmdbId } = c.req.valid("param");

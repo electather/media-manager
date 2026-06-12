@@ -73,9 +73,10 @@ vi.mock("../../../watchlist", () => ({
   removeItem: vi.fn(),
 }));
 
-// Spy on `rateLimitOrNull` (the function the middleware factory calls under the
-// hood) so the limiter-selection and 429 assertions below still hold, while
-// keeping the real `makeRateLimitMiddleware` so the route-scoped wiring runs.
+// `media.ts` calls `rateLimitOrNull` directly in the `/sources/:sourceId` resolver.
+// Mock only that import (pass-through) so moods/write tests are unaffected by
+// resolver rate-limit logic; keep the real `makeRateLimitMiddleware` so the
+// route-scoped middleware actually debits the real buckets (tested below).
 vi.mock("../../rate-limit", async (importOriginal) => {
   const actual = (await importOriginal()) as typeof import("../../rate-limit");
   return { ...actual, rateLimitOrNull: vi.fn(() => null) };
@@ -201,6 +202,9 @@ describe("media moods / writes (US-005, design §A6/§A7)", () => {
     const app = buildApp();
     await app.request("/media/moods");
     // The read bucket lost a token for the moods read; the write bucket is full.
+    // `check()` is destructive on SUCCESS (tokens consumed) — the passing write
+    // assertion below drains 30. `beforeEach` resets both buckets, so this is safe
+    // as the last assertion, but a request added after it would see an empty bucket.
     expect(watchlistReadLimiter.check("u1", 30)).not.toBeNull();
     expect(watchlistWriteLimiter.check("u1", 30)).toBeNull();
   });
@@ -218,6 +222,21 @@ describe("media moods / writes (US-005, design §A6/§A7)", () => {
     // Two writes drained two tokens from the write bucket; the read bucket is full.
     expect(watchlistWriteLimiter.check("u1", 29)).not.toBeNull();
     expect(watchlistReadLimiter.check("u1", 30)).toBeNull();
+  });
+
+  it("rejects a schema-invalid POST /watchlist with 400 without debiting the write bucket", async () => {
+    // The write limiter is mounted AFTER `zValidator` (§A7 parity), so a bad body
+    // 400s before any token is charged — matching the old inline `rateLimitOrNull`
+    // call that ran only after `c.req.valid("json")`.
+    const res = await buildApp().request("/media/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId: 550, mediaType: "anime" }),
+    });
+    expect(res.status).toBe(400);
+    expect(media.addItem).not.toHaveBeenCalled();
+    // The full write bucket survived the rejected request.
+    expect(watchlistWriteLimiter.check("u1", 30)).toBeNull();
   });
 
   it("short-circuits with a 429 before touching the service when the read bucket is empty", async () => {

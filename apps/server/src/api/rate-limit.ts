@@ -38,7 +38,7 @@ export interface RateLimitMiddlewareConfig {
  * session) and before the handlers it should guard.
  */
 export function makeRateLimitMiddleware(config: RateLimitMiddlewareConfig): MiddlewareHandler {
-  const { limiter, key = (c) => sessionUserId(c), cost = 1 } = config;
+  const { limiter, key = sessionUserId, cost = 1 } = config;
   return async (c, next) => {
     const limited = rateLimitOrNull(limiter, c, key(c), cost);
     if (limited) return limited;
