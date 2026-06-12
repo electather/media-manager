@@ -16,7 +16,7 @@ vi.mock("../../plugin-runtime", async () => {
 });
 
 const { enrich } = await import("../enrich");
-const { __resetAvailabilityCache } = await import("../availability-cache");
+const { __resetAvailabilityCache } = await import("../testing");
 
 function meta(overrides: Partial<CanonicalMetadata>): CanonicalMetadata {
   return {

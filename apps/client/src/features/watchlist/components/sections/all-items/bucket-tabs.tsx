@@ -17,15 +17,17 @@ export function BucketTabs() {
     <RouteTabs aria-label={m.watchlist_filter_label()}>
       <RouteTab
         to="/watchlist"
-        title={m.watchlist_filter({ bucket: "all" })}
+        title={m.watchlist_bucket_label({ bucket: "all" })}
         subtitle={m.watchlist_filter_note({ bucket: "all" })}
+        aria-label={m.watchlist_bucket_chip_aria({ bucket: "all" })}
       />
       {WATCHLIST_BUCKETS.map((bucket: WatchlistBucket) => (
         <RouteTab
           key={bucket}
           to={`/watchlist/${bucket}`}
-          title={m.watchlist_filter({ bucket })}
+          title={m.watchlist_bucket_label({ bucket })}
           subtitle={m.watchlist_filter_note({ bucket })}
+          aria-label={m.watchlist_bucket_chip_aria({ bucket })}
         />
       ))}
     </RouteTabs>

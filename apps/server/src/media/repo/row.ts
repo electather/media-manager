@@ -1,5 +1,4 @@
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import type { WatchlistSource } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow, RowSource } from "@ent-mcp/shared/media";
 import { watchlistItems } from "../../db/schema/media";
 
 export function toRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {
@@ -9,7 +8,7 @@ export function toRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {
     tmdbId: raw.tmdbId,
     mediaType: raw.mediaType,
     state: raw.state,
-    source: raw.source as WatchlistSource,
+    source: raw.source as RowSource,
     addedAt: raw.addedAt,
     removedAt: raw.removedAt,
     seeded: Boolean(raw.seeded),

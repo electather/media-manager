@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "fdde5172-0f42-42fc-9e35-a0f94bdaa705",
+  "id": "2b5d0fb0-a36a-4451-9b4d-81779dfb7a9d",
   "prevId": "91002cfb-995f-45b6-a9ce-db051e4b8c36",
   "tables": {
     "account": {
@@ -1024,6 +1024,13 @@
           "autoincrement": false,
           "default": 0
         },
+        "system_slug": {
+          "name": "system_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -1043,6 +1050,11 @@
         "roles_name_unique": {
           "name": "roles_name_unique",
           "columns": ["name"],
+          "isUnique": true
+        },
+        "roles_system_slug_unique": {
+          "name": "roles_system_slug_unique",
+          "columns": ["system_slug"],
           "isUnique": true
         }
       },
@@ -1952,13 +1964,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "resolved_stack": {
-          "name": "resolved_stack",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -2180,62 +2185,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "sourcemaps": {
-      "name": "sourcemaps",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "build_id": {
-          "name": "build_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_name": {
-          "name": "file_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "sourcemaps_build_file_idx": {
-          "name": "sourcemaps_build_file_idx",
-          "columns": ["build_id", "file_name"],
-          "isUnique": true
-        },
-        "sourcemaps_file_created_idx": {
-          "name": "sourcemaps_file_created_idx",
-          "columns": ["file_name", "created_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

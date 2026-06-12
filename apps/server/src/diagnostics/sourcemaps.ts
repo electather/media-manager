@@ -4,15 +4,29 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { sourcemaps } from "../db/schema/infra/diagnostics";
 
-/** Parsed `TraceMap`s are expensive to build and fetch for large bundles, so
- *  lookups (including misses, stored as `"missing"`) are kept in memory keyed
- *  by `buildId:fileName`. `saveSourcemap` clears the cache so a re-upload is
- *  picked up immediately. */
-const traceMapCache = new LRUCache<string, TraceMap | "missing">({ max: 32 });
+/** Sentinel cached for `(buildId, fileName)` pairs with no stored or parsable
+ *  map, so a stack full of unmapped vendor frames does not re-hit the DB. */
+const MISSING = "missing";
+type CachedMap = TraceMap | typeof MISSING;
 
-/** Clears the parsed-map cache. Called on every upload and by tests. */
+/** Parsed `TraceMap`s are expensive to build and fetch for large bundles, so
+ *  lookups (including misses, stored as `MISSING`) are kept in memory keyed by
+ *  `buildId:fileName`. `saveSourcemap` evicts the affected keys so a re-upload
+ *  is picked up immediately. */
+const traceMapCache = new LRUCache<string, CachedMap>({ max: 32 });
+
+/** Clears the entire parsed-map cache. Kept for tests; production upload uses
+ *  targeted eviction so a batch of sequential uploads does not cold-start every
+ *  already-warmed entry. */
 export function resetSourcemapCache(): void {
   traceMapCache.clear();
+}
+
+/** Drops just the cache entries that a freshly uploaded `(buildId, fileName)`
+ *  could satisfy: the build-scoped key and the filename-only fallback key. */
+function evictSourcemapCache(buildId: string, fileName: string): void {
+  traceMapCache.delete(`${buildId}:${fileName}`);
+  traceMapCache.delete(`:${fileName}`);
 }
 
 export interface SourcemapUpload {
@@ -51,7 +65,7 @@ export async function saveSourcemap(upload: SourcemapUpload): Promise<void> {
       target: [sourcemaps.buildId, sourcemaps.fileName],
       set: { content: upload.content, createdAt: Date.now() },
     });
-  resetSourcemapCache();
+  evictSourcemapCache(upload.buildId, upload.fileName);
 }
 
 // Matches the trailing `file:line:column` location of a V8 (`at fn (url:1:2)`)
@@ -66,35 +80,44 @@ function basenameOf(file: string): string {
   return segments[segments.length - 1] ?? withoutQuery;
 }
 
-async function loadTraceMap(fileName: string, buildId?: string): Promise<TraceMap | null> {
-  const cacheKey = `${buildId ?? ""}:${fileName}`;
-  const cached = traceMapCache.get(cacheKey);
-  if (cached) return cached === "missing" ? null : cached;
-  const db = getDb();
+/** Reads the newest stored map for a bundle file (optionally scoped to a build)
+ *  and parses it into a `TraceMap`. Returns null when no row exists or the
+ *  stored content fails to parse — a map that passed the upload check but no
+ *  longer parses is treated as missing so the raw frame survives. */
+async function fetchTraceMap(fileName: string, buildId?: string): Promise<TraceMap | null> {
   const filters = [eq(sourcemaps.fileName, fileName)];
   if (buildId) filters.push(eq(sourcemaps.buildId, buildId));
   // Newest map wins if the same file name ever appears in multiple builds.
-  const row = await db
+  const row = await getDb()
     .select({ content: sourcemaps.content })
     .from(sourcemaps)
     .where(and(...filters))
     .orderBy(desc(sourcemaps.createdAt))
     .limit(1)
     .get();
-  if (!row) {
-    traceMapCache.set(cacheKey, "missing");
-    return null;
-  }
+  if (!row) return null;
   try {
-    const map = new TraceMap(row.content);
-    traceMapCache.set(cacheKey, map);
-    return map;
+    return new TraceMap(row.content);
   } catch {
-    // A map that passed the upload check but still fails to parse is treated
-    // as missing; the raw frame is kept.
-    traceMapCache.set(cacheKey, "missing");
     return null;
   }
+}
+
+/** Maps the cache sentinel back to the public `TraceMap | null` contract. */
+function unwrap(cached: CachedMap): TraceMap | null {
+  return cached === MISSING ? null : cached;
+}
+
+/** Cache-fronted accessor for a bundle's parsed `TraceMap`. Misses are cached as
+ *  `MISSING` so a stack full of unmapped vendor frames does not hammer the DB. */
+async function loadTraceMap(fileName: string, buildId?: string): Promise<TraceMap | null> {
+  const cacheKey = `${buildId ?? ""}:${fileName}`;
+  const cached = traceMapCache.get(cacheKey);
+  if (cached !== undefined) return unwrap(cached);
+  const map = await fetchTraceMap(fileName, buildId);
+  const value: CachedMap = map ?? MISSING;
+  traceMapCache.set(cacheKey, value);
+  return map;
 }
 
 /** Rewrites one frame's location to the original source position, or returns

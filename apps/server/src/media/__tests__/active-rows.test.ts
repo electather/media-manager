@@ -18,7 +18,7 @@ vi.mock("../../db/client", async () => {
 const {
   listActiveRows,
   listActiveRowsKeyset,
-  getActiveRow,
+  findRowByKey,
   listAllActiveRows,
   upsertActiveRow,
   softRemoveRow,
@@ -151,16 +151,16 @@ describe("listActiveRowsKeyset", () => {
   });
 });
 
-// ─── getActiveRow ─────────────────────────────────────────────────────────────
+// ─── findRowByKey ─────────────────────────────────────────────────────────────
 
-describe("getActiveRow", () => {
+describe("findRowByKey", () => {
   it("returns null when row does not exist", async () => {
-    expect(await getActiveRow(U1, MOVIE_KEY)).toBeNull();
+    expect(await findRowByKey(U1, MOVIE_KEY)).toBeNull();
   });
 
   it("returns the row when it exists", async () => {
     await upsertActiveRow(U1, MOVIE_KEY, "manual", Date.now());
-    const row = await getActiveRow(U1, MOVIE_KEY);
+    const row = await findRowByKey(U1, MOVIE_KEY);
     expect(row).not.toBeNull();
     expect(row!.tmdbId).toBe(MOVIE_KEY.tmdbId);
   });
@@ -169,7 +169,7 @@ describe("getActiveRow", () => {
     const now = Date.now();
     await upsertActiveRow(U1, MOVIE_KEY, "manual", now);
     await softRemoveRow(U1, MOVIE_KEY, now + 1);
-    const row = await getActiveRow(U1, MOVIE_KEY);
+    const row = await findRowByKey(U1, MOVIE_KEY);
     expect(row?.state).toBe("removed");
   });
 });
@@ -180,7 +180,7 @@ describe("sort key plumbing — addedAt ordering", () => {
   it("upsertActiveRow records the supplied addedAt timestamp", async () => {
     const ts = 1_700_000_000_000;
     await upsertActiveRow(U1, MOVIE_KEY, "manual", ts);
-    const row = await getActiveRow(U1, MOVIE_KEY);
+    const row = await findRowByKey(U1, MOVIE_KEY);
     expect(row!.addedAt).toBe(ts);
   });
 
@@ -190,7 +190,7 @@ describe("sort key plumbing — addedAt ordering", () => {
     await upsertActiveRow(U1, MOVIE_KEY, "manual", first);
     await softRemoveRow(U1, MOVIE_KEY, first + 1);
     await upsertActiveRow(U1, MOVIE_KEY, "manual", second);
-    const row = await getActiveRow(U1, MOVIE_KEY);
+    const row = await findRowByKey(U1, MOVIE_KEY);
     expect(row!.addedAt).toBe(second);
   });
 

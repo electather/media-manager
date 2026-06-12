@@ -33,6 +33,28 @@ export function isExpectedUserError(status: number): boolean {
   return status >= 400 && status < 500;
 }
 
+/** Structural shape of a "no provider configured" escape. Recognised by its
+ *  stable wire `code` rather than its concrete class so this infra layer stays
+ *  decoupled from the media module that throws it (the architecture boundary
+ *  forbids `server-infra` from importing `server-mod-media`). `pluginId` is the
+ *  provider the dispatch targeted. */
+export interface NoConnectionError {
+  code: "media.no_connection";
+  pluginId: string;
+}
+
+/** True when `err` is an escaped `media.no_connection` dispatcher error. A no
+ *  provider configured state is expected user product behaviour, so callers
+ *  return a structured 200 instead of capturing a 500. Matched structurally to
+ *  avoid coupling infra to the media module's error class. */
+export function isNoConnectionError(err: unknown): err is NoConnectionError {
+  return (
+    err instanceof Error &&
+    (err as { code?: unknown }).code === "media.no_connection" &&
+    typeof (err as { pluginId?: unknown }).pluginId === "string"
+  );
+}
+
 /** Factory helpers so call sites read as intent, not as HTTP status arithmetic. */
 export const badRequest = (
   code: string,

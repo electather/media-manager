@@ -19,11 +19,12 @@ export const diagnosticsApp = new Hono()
   .route("/sourcemaps", sourcemapsApp);
 
 /** Admin diagnostics tree mounted at `/api/admin/diagnostics`. Permission
- *  gated by `admin:plugins` on every route, including the unified
- *  errors/perf retention config endpoint. */
+ *  gated by `admin:server` on every route, including the unified
+ *  errors/perf retention config endpoint. Diagnostics is a server-monitoring
+ *  surface; `ADMIN_SERVER` is a more appropriate gate than `ADMIN_PLUGINS`. */
 export const adminDiagnosticsApp = new Hono()
   .use("*", requireSession)
-  .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  .use("*", requirePermission(PERMISSIONS.ADMIN_SERVER))
   .get("/config", async (c) => {
     const cfg = await getAppConfig();
     return c.json(cfg);

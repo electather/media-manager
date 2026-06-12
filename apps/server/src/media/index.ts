@@ -39,7 +39,6 @@ export {
   clearPrimaryConnection,
   getPrimaryConnection,
   getMatchingServersCached,
-  __resetAvailabilityCache,
   classifyBucket,
   isActiveProgress,
   matchesBucket,
@@ -131,7 +130,7 @@ export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
 export {
   listActiveRows,
   listActiveRowsKeyset,
-  getActiveRow,
+  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,

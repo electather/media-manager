@@ -5,7 +5,7 @@ import { user } from "./schema/auth";
 import { roles, rolePermissions, userRoles } from "./schema/auth/roles";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
-import { ALL_PERMISSIONS, PERMISSIONS, auth } from "../auth";
+import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ADMIN_ROLE_SLUG, auth } from "../auth";
 
 /** Built-in roles seeded on first run. Permissions for Admin are enforced in code, not DB. */
 const SYSTEM_ROLES = [
@@ -14,6 +14,7 @@ const SYSTEM_ROLES = [
     name: "Admin",
     description: "Full access to all features. Assigned to the first user to register.",
     isSystem: 1,
+    systemSlug: SYSTEM_ADMIN_ROLE_SLUG,
     permissions: ALL_PERMISSIONS,
   },
   {
@@ -21,6 +22,7 @@ const SYSTEM_ROLES = [
     name: "Member",
     description: "Standard role for friends and family. Access to all features except admin tools.",
     isSystem: 1,
+    systemSlug: null,
     permissions: ALL_PERMISSIONS.filter((p) => !p.startsWith("admin:")),
   },
   {
@@ -29,6 +31,7 @@ const SYSTEM_ROLES = [
     description:
       "Read-only browsing access. Can browse and see what's available, but cannot request downloads, submit feedback, or manage connections.",
     isSystem: 1,
+    systemSlug: null,
     permissions: [
       PERMISSIONS.MEDIA_DISCOVER,
       PERMISSIONS.MEDIA_DETAILS,
@@ -50,6 +53,7 @@ export async function seedRoles(): Promise<void> {
         name: role.name,
         description: role.description,
         isSystem: role.isSystem,
+        systemSlug: role.systemSlug,
         createdAt: now,
         updatedAt: now,
       })

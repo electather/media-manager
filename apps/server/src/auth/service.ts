@@ -6,7 +6,7 @@ import {
   oauthAuthorizationServerHandler,
   oauthProtectedResourceHandler,
 } from "./internal/oauth-metadata";
-import type { Permission, UserRoleInfo } from "./types";
+import { SYSTEM_ADMIN_ROLE_SLUG, type Permission, type UserRoleInfo } from "./types";
 import {
   checkRolePermission,
   filterUsersWithPermission,
@@ -21,14 +21,10 @@ export { auth, type Auth };
 export { authRouteHandler };
 export { oauthAuthorizationServerHandler, oauthProtectedResourceHandler };
 
-// The seed creates exactly one system-admin role with this name. Changing the
-// seed name without updating this constant silently breaks the admin bypass.
-const SYSTEM_ADMIN_ROLE_NAME = "Admin" as const;
-
 function rowToRoleInfo(row: UserRoleRow): UserRoleInfo {
   return {
     roleId: row.roleId,
-    isSystemAdmin: row.isSystem === 1 && row.name === SYSTEM_ADMIN_ROLE_NAME,
+    isSystemAdmin: row.systemSlug === SYSTEM_ADMIN_ROLE_SLUG,
   };
 }
 

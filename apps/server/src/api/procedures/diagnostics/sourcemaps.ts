@@ -11,7 +11,10 @@ import { badRequest } from "../../../diagnostics/http-errors";
  *  they exist solely so error ingest can resolve minified stack frames. */
 export const sourcemapsApp = new Hono()
   .use("*", requireSession)
-  .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  // Sourcemaps are a diagnostics surface, so gate them with the same
+  // `admin:server` permission as the rest of `/admin/diagnostics` rather than
+  // `admin:plugins`.
+  .use("*", requirePermission(PERMISSIONS.ADMIN_SERVER))
   .post("/", zValidator("json", sourcemapUploadSchema), async (c) => {
     const body = c.req.valid("json");
     try {

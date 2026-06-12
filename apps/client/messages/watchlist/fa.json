@@ -19,7 +19,7 @@
     }
   ],
   "watchlist_filter_label": "TODO",
-  "watchlist_filter": [
+  "watchlist_bucket_label": [
     {
       "declarations": ["input bucket"],
       "selectors": ["bucket"],
@@ -29,7 +29,23 @@
         "bucket=in-progress": "TODO",
         "bucket=awaiting": "TODO",
         "bucket=unavailable": "TODO",
-        "bucket=upcoming": "TODO"
+        "bucket=upcoming": "TODO",
+        "*": "TODO"
+      }
+    }
+  ],
+  "watchlist_bucket_chip_aria": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "TODO",
+        "bucket=ready": "TODO",
+        "bucket=in-progress": "TODO",
+        "bucket=awaiting": "TODO",
+        "bucket=unavailable": "TODO",
+        "bucket=upcoming": "TODO",
+        "*": "TODO"
       }
     }
   ],
@@ -190,7 +206,7 @@
       }
     }
   ],
-  "watchlist_empty_description": [
+  "watchlist_empty_body": [
     {
       "declarations": ["input bucket"],
       "selectors": ["bucket"],
@@ -211,8 +227,6 @@
   "watchlist_toggle_remove": "TODO",
   "watchlist_load_error_title": "TODO",
   "watchlist_load_error_retry": "TODO",
-  "watchlist_load_more": "TODO",
-  "watchlist_loading_more": "TODO",
   "watchlist_source": [
     {
       "declarations": ["input source"],

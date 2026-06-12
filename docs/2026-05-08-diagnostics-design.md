@@ -315,9 +315,9 @@ V1 ⊥ FE perf reporting. V2 = Web Vitals.
 
 Production FE stacks are minified and useless as-is. Resolution pipeline:
 
-- **Build**: client `vite.config.ts` sets `build.sourcemap = "hidden"` — `.map` files emit next to bundles but no `//# sourceMappingURL` comment is added, so browsers never fetch them. Maps are NOT deployed publicly.
-- **Ingest**: `POST /api/diagnostics/sourcemaps` (admin, `admin:plugins`) accepts `{ buildId, fileName, map }` per `.map` file (CI calls it post-build). Stored in `sourcemaps` table (`id, build_id, file_name, content, created_at`; UNIQUE(build_id, file_name) upsert; private — never served).
-- **Resolution**: on `POST /api/diagnostics/errors`, `resolveStackTrace(stack, buildId?)` (`apps/server/src/diagnostics/sourcemaps.ts`) parses each frame's `file:line:col`, matches the bundle basename (Vite content-hashes names, so basename ⊥ build collisions) against stored maps — scoped to `buildId` when the report carries one (optional `buildId` on `errorReportSchema`) — and translates positions via `@jridgewell/trace-mapping`. Parsed `TraceMap`s sit in an LRU (incl. negative entries; cleared on upload).
+- **Build**: client `vite.config.ts` sets `build.sourcemap = "hidden"` — `.map` files emit next to bundles but no `//# sourceMappingURL` comment is added, so browsers never fetch them. `"hidden"` only strips the comment; the maps still land in `dist/`, which both deploy targets serve verbatim (Hono `serveStatic` root + Cloudflare `[assets]` directory). So the `extract-hidden-sourcemaps` build plugin moves every `.map` out of `dist/` into a sibling `dist-sourcemaps/` after the build, and the server refuses any `*.map` request as defence in depth. Maps are NOT deployed publicly.
+- **Ingest**: `POST /api/diagnostics/sourcemaps` (admin, `admin:server` — same gate as the rest of `/admin/diagnostics`) accepts `{ buildId, fileName, map }` per `.map` file (CI uploads from `dist-sourcemaps/` post-build). `fileName` is constrained to a JS bundle basename. Stored in `sourcemaps` table (`id, build_id, file_name, content, created_at`; UNIQUE(build_id, file_name) upsert; private — never served).
+- **Resolution**: on `POST /api/diagnostics/errors`, `resolveStackTrace(stack, buildId?)` (`apps/server/src/diagnostics/sourcemaps.ts`) parses each frame's `file:line:col`, matches the bundle basename (Vite content-hashes names, so basename ⊥ build collisions) against stored maps — scoped to `buildId` when the report carries one (optional `buildId` on `errorReportSchema`) — and translates positions via `@jridgewell/trace-mapping`. Parsed `TraceMap`s sit in an LRU (incl. negative entries; the just-uploaded `(buildId, fileName)` keys are evicted on upload).
 - **Storage**: raw stack stays in `stack`; the translated stack lands in `resolved_stack` (both scrubbed §DM.Ctx). Unresolvable frames are kept verbatim; if zero frames resolve the column is null.
 
 Resolution failure never blocks ingest (catch → null).
@@ -395,7 +395,7 @@ Defaults: err=30d (clamp 7-365d), perf=7d (clamp 1-90d). Read once per sweep fro
 
 ## §Adm Admin Viewer — `/admin/diagnostics`
 
-Permission: `admin:plugins`. Replaces `/admin/errors` (file `admin/logs.tsx` → `admin/diagnostics.tsx`).
+Permission: `admin:server`. Replaces `/admin/errors` (file `admin/logs.tsx` → `admin/diagnostics.tsx`).
 
 ### §Adm.Lay Layout
 
@@ -464,7 +464,7 @@ Sidebar `/admin/diagnostics` badge = err-count last hour. Red @ threshold (v1 = 
 
 ### §Adm.API Endpoints
 
-Permission `admin:plugins` ∀:
+Permission `admin:server` ∀:
 
 ```
 GET    /admin/diagnostics/errors                  list + filters + pagination
@@ -477,6 +477,7 @@ GET    /admin/diagnostics/perf/summary            last-24h req/min + percentiles
 GET    /admin/diagnostics/config                  read both retentions
 PUT    /admin/diagnostics/config                  set both retentions (clamped)
 POST   /api/diagnostics/errors                    FE error report (no admin perm; rate-limit)
+POST   /api/diagnostics/sourcemaps                 hidden-map upload (admin:server; CI post-build)
 ```
 
 HTTP error envelope: `{ code, devMessage, params?, details?, requestId }`. `details` carries code-specific structured payloads (e.g. `media.providers_failed` exposes per-provider `errors[]`); flat translation values live in `params`.

@@ -46,7 +46,14 @@ export type ErrorReportPayload = z.infer<typeof errorReportSchema>;
  *  while comfortably fitting real-world bundle maps. */
 export const sourcemapUploadSchema = z.object({
   buildId: z.string().min(1).max(100),
-  fileName: z.string().min(1).max(300),
+  // Semantically a JS bundle basename (Vite content-hashed). Constrain to that
+  // shape so traversal-looking or wildcard values are rejected at the boundary;
+  // the resolver only ever matches frames against `.js`/`.mjs` basenames anyway.
+  fileName: z
+    .string()
+    .min(1)
+    .max(300)
+    .regex(/^[\w\-. ]+\.m?js$/, "must be a JS bundle filename"),
   map: z.string().min(2).max(20_000_000),
 });
 export type SourcemapUploadBody = z.infer<typeof sourcemapUploadSchema>;

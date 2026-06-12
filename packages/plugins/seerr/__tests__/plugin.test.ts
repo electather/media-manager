@@ -113,6 +113,100 @@ describe("seerr auth lifecycle", () => {
     }
   });
 
+  it("startAuth: returns error when baseUrl uses http on a non-loopback host", async () => {
+    // Guards issue #332: credentials must never be POSTed over cleartext http
+    // to a remote host, so a non-HTTPS baseUrl is rejected before any fetch.
+    const ctx = makeTestContext({
+      responses: [],
+      overrides: {
+        config: { global: { baseUrl: "http://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.invalid_base_url");
+    }
+  });
+
+  it("startAuth: returns error when baseUrl is not a valid URL", async () => {
+    const ctx = makeTestContext({
+      responses: [],
+      overrides: {
+        config: { global: { baseUrl: "not-a-url" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.invalid_base_url");
+    }
+  });
+
+  it("startAuth: allows http on 127.0.0.1 for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://127.0.0.2:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
+  it("startAuth: allows http on localhost for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://localhost:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
+  it("startAuth: allows http on ::1 for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://[::1]:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
+  it("startAuth: does not reject a valid https remote URL", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
   it("startAuth: userConfigPatch nulls the password on success", async () => {
     const ctx = makeTestContext({
       responses: [

@@ -188,4 +188,39 @@ describe("saveSourcemap", () => {
     expect(resolved).toContain("src/features/home/home-page.tsx:10:6");
     expect(resolved).not.toContain("src/old.ts");
   });
+
+  it("only evicts the uploaded file's cache entry, leaving sibling maps warm", async () => {
+    const otherMap = JSON.stringify({
+      version: 3,
+      file: "vendor-zzz999.js",
+      sources: ["src/vendor.ts"],
+      names: [],
+      mappings: "AASKA",
+    });
+    await saveSourcemap({
+      buildId: "build-1",
+      fileName: "index-abc123.js",
+      content: HOME_PAGE_MAP,
+    });
+    await saveSourcemap({ buildId: "build-1", fileName: "vendor-zzz999.js", content: otherMap });
+
+    // Warm both bundles' parsed maps into the cache.
+    await resolveStackTrace(MINIFIED_STACK, "build-1");
+
+    // Delete the vendor row directly so a cache miss would surface as an
+    // unresolved frame; then re-upload only `index-abc123.js`. Targeted
+    // eviction must keep the still-warm vendor entry, so the vendor frame
+    // resolves from cache even though its row is gone.
+    await db.delete(sourcemaps).where(eq(sourcemaps.fileName, "vendor-zzz999.js")).run();
+    await saveSourcemap({
+      buildId: "build-1",
+      fileName: "index-abc123.js",
+      content: HOME_PAGE_MAP,
+    });
+
+    const resolved = await resolveStackTrace(MINIFIED_STACK, "build-1");
+    // The vendor frame is still resolved from the warm cache entry that a full
+    // `clear()` would have wiped.
+    expect(resolved).toContain("src/vendor.ts");
+  });
 });

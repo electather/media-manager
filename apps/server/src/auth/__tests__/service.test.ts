@@ -68,17 +68,17 @@ describe("AuthService.loadUserRole", () => {
     expect(await service.loadUserRole("u1")).toBeNull();
   });
 
-  it("maps row to UserRoleInfo with isSystemAdmin=true for Admin system role", async () => {
-    mockFindUserRole.mockResolvedValue({ roleId: "r1", isSystem: 1, name: "Admin" });
+  it("maps row to UserRoleInfo with isSystemAdmin=true for the admin system slug", async () => {
+    mockFindUserRole.mockResolvedValue({ roleId: "r1", systemSlug: "admin" });
     const result = await service.loadUserRole("u1");
     expect(result).toEqual({ roleId: "r1", isSystemAdmin: true });
   });
 
-  it("maps isSystemAdmin=false for non-Admin system flag or non-Admin name", async () => {
-    mockFindUserRole.mockResolvedValue({ roleId: "r1", isSystem: 0, name: "Admin" });
+  it("maps isSystemAdmin=false for a missing or non-admin system slug", async () => {
+    mockFindUserRole.mockResolvedValue({ roleId: "r1", systemSlug: null });
     expect((await service.loadUserRole("u1"))?.isSystemAdmin).toBe(false);
 
-    mockFindUserRole.mockResolvedValue({ roleId: "r1", isSystem: 1, name: "Family" });
+    mockFindUserRole.mockResolvedValue({ roleId: "r1", systemSlug: "member" });
     expect((await service.loadUserRole("u1"))?.isSystemAdmin).toBe(false);
   });
 });
@@ -203,7 +203,7 @@ describe("AuthService.requirePermission", () => {
   });
 
   it("throws forbidden when role lacks the permission", async () => {
-    mockFindUserRole.mockResolvedValue({ roleId: "r1", isSystem: 0, name: "Member" });
+    mockFindUserRole.mockResolvedValue({ roleId: "r1", systemSlug: null });
     mockCheckRolePermission.mockResolvedValue(false);
     const middleware = service.requirePermission(PERM);
     const c = makeContext({ user: { id: "u1" } });
@@ -211,7 +211,7 @@ describe("AuthService.requirePermission", () => {
   });
 
   it("calls next when role has the permission", async () => {
-    mockFindUserRole.mockResolvedValue({ roleId: "r1", isSystem: 0, name: "Member" });
+    mockFindUserRole.mockResolvedValue({ roleId: "r1", systemSlug: null });
     mockCheckRolePermission.mockResolvedValue(true);
     const middleware = service.requirePermission(PERM);
     const c = makeContext({ user: { id: "u1" } });

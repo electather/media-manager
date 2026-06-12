@@ -35,7 +35,7 @@ const {
   syncFromPlugins,
 } = await import("../service");
 const mediaRepo = await import("../../media/repo");
-const { __resetAvailabilityCache } = await import("../../media");
+const { __resetAvailabilityCache } = await import("../../media/testing");
 
 let testDb: Db;
 
@@ -218,7 +218,7 @@ describe("watchlist/service", () => {
     });
 
     await syncFromPlugins(ctx);
-    const row = await mediaRepo.getActiveRow(ctx.userId, { tmdbId: "400", mediaType: "movie" });
+    const row = await mediaRepo.findRowByKey(ctx.userId, { tmdbId: "400", mediaType: "movie" });
     expect(row?.state).toBe("removed");
   });
 
@@ -244,7 +244,7 @@ describe("watchlist/service", () => {
     (emit as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("no handler"));
     const result = await addItem({ tmdbId: "600", mediaType: "movie" }, "manual", ctx);
     expect(result.wasActive).toBe(false);
-    const row = await mediaRepo.getActiveRow(ctx.userId, { tmdbId: "600", mediaType: "movie" });
+    const row = await mediaRepo.findRowByKey(ctx.userId, { tmdbId: "600", mediaType: "movie" });
     expect(row?.state).toBe("active");
   });
 });

@@ -32,7 +32,7 @@ import type { MatchingServer } from "../types";
 import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
 
-export { getMatchingServersCached, __resetAvailabilityCache } from "../availability-cache";
+export { getMatchingServersCached } from "../availability-cache";
 export { StatusBatchMemo } from "../status-batch";
 export {
   classifyBucket,
@@ -81,9 +81,29 @@ interface CreateRequestOutput {
  * the plugin layer directly. Shapes results so the MCP tools and RPC
  * procedures can consume arrays/objects directly.
  */
+const COMBINED_ID_KINDS = new Set(["movie", "tv"] as const);
+
+/**
+ * Validates a colon-delimited combined id and returns its typed tuple. Rejects
+ * any shape other than exactly `movie:<id>` or `tv:<id>` with a non-empty id —
+ * a malformed value like `movie:tt1:extra`, `show:550`, or `movie:` (empty
+ * segment) must surface as a bad-request rather than be force-cast into the
+ * typed tuple and propagate an empty id into the plugin dispatch layer.
+ */
+function parseValidCombinedId(combined: string): ["movie" | "tv", string] {
+  const [kind, id, ...rest] = combined.split(":");
+  const valid = COMBINED_ID_KINDS.has(kind as "movie" | "tv") && id && rest.length === 0;
+  if (!valid) {
+    throw badRequest("media.invalid_combined_id", `combined id must be "movie:<id>" or "tv:<id>"`, {
+      id: combined,
+    });
+  }
+  return [kind as "movie" | "tv", id!];
+}
+
 function parseCombinedId(idOrCombined: string, type?: "movie" | "tv"): ["movie" | "tv", string] {
   if (isNil(type) && idOrCombined.includes(":")) {
-    return idOrCombined.split(":") as ["movie" | "tv", string];
+    return parseValidCombinedId(idOrCombined);
   }
   return [type ?? "movie", idOrCombined];
 }
@@ -1156,7 +1176,7 @@ export {
 export {
   listActiveRows,
   listActiveRowsKeyset,
-  getActiveRow,
+  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,

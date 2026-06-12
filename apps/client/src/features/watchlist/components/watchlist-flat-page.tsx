@@ -2,9 +2,9 @@ import { Suspense } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
+import { GridSkeleton } from "@/shared/components/grid-skeleton";
 import { watchlistKeys } from "../lib/query-keys";
 import { AllItems } from "./sections/all-items";
-import { WatchlistGridSkeleton } from "./sections/all-items/grid-skeleton";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
 interface FlatSearch {
@@ -31,7 +31,7 @@ export function WatchlistFlatPage({ bucket }: WatchlistFlatPageProps) {
         <WatchlistErrorFallback error={error} resetErrorBoundary={reset} queryKey={queryKey} />
       )}
     >
-      <Suspense fallback={<WatchlistGridSkeleton />}>
+      <Suspense fallback={<GridSkeleton />}>
         <AllItems sort={sort} bucket={bucket} />
       </Suspense>
     </ErrorBoundary>
