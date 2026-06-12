@@ -19,7 +19,7 @@
     }
   ],
   "watchlist_filter_label": "Filter watchlist",
-  "watchlist_filter": [
+  "watchlist_bucket_label": [
     {
       "declarations": ["input bucket"],
       "selectors": ["bucket"],
@@ -29,7 +29,23 @@
         "bucket=in-progress": "In progress",
         "bucket=awaiting": "Awaiting",
         "bucket=unavailable": "Unavailable",
-        "bucket=upcoming": "Upcoming"
+        "bucket=upcoming": "Upcoming",
+        "*": "{bucket}"
+      }
+    }
+  ],
+  "watchlist_bucket_chip_aria": [
+    {
+      "declarations": ["input bucket"],
+      "selectors": ["bucket"],
+      "match": {
+        "bucket=all": "Show all items",
+        "bucket=ready": "Show ready to watch",
+        "bucket=in-progress": "Show in progress",
+        "bucket=awaiting": "Show awaiting",
+        "bucket=unavailable": "Show unavailable",
+        "bucket=upcoming": "Show upcoming",
+        "*": "Show {bucket}"
       }
     }
   ],
@@ -195,7 +211,7 @@
       }
     }
   ],
-  "watchlist_empty_description": [
+  "watchlist_empty_body": [
     {
       "declarations": ["input bucket"],
       "selectors": ["bucket"],
