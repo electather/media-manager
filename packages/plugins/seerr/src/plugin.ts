@@ -111,14 +111,14 @@ export default definePlugin({
       if (parsedBase.protocol !== "https:" && !isLoopback) {
         return {
           status: "error",
-          code: "plugin.bad_credentials",
+          code: "plugin.invalid_base_url",
           devMessage: "Seerr baseUrl must use HTTPS to protect credentials in transit",
         };
       }
     } catch {
       return {
         status: "error",
-        code: "plugin.bad_credentials",
+        code: "plugin.invalid_base_url",
         devMessage: "Seerr baseUrl is not a valid URL",
       };
     }

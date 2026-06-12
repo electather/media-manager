@@ -125,8 +125,38 @@ describe("seerr auth lifecycle", () => {
     const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
     expect(result.status).toBe("error");
     if (result.status === "error") {
-      expect(result.code).toBe("plugin.bad_credentials");
+      expect(result.code).toBe("plugin.invalid_base_url");
     }
+  });
+
+  it("startAuth: returns error when baseUrl is not a valid URL", async () => {
+    const ctx = makeTestContext({
+      responses: [],
+      overrides: {
+        config: { global: { baseUrl: "not-a-url" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.invalid_base_url");
+    }
+  });
+
+  it("startAuth: allows http on 127.0.0.1 for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://127.0.0.1:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
   });
 
   it("startAuth: allows http on localhost for development", async () => {
