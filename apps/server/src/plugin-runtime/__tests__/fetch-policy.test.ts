@@ -439,6 +439,16 @@ describe("isBlockedHostname", () => {
     expect(isBlockedHostname("[fe80::1]")).toBe(true);
   });
 
+  // Regression for issue #448: a trailing dot is RFC-equivalent to the
+  // dotless form, so `localhost.` must hit the exact-match blocklist after
+  // normalisation instead of bypassing it.
+  it.each([["localhost."], ["metadata.google.internal."], ["localhost.."]])(
+    "blocks trailing-dot variant %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
   // Private networks are the expected topology for self-hosted deployments
   // (docker-compose, LAN Plex/Jellyfin). Blocking them would defeat the
   // design — these must keep working.
