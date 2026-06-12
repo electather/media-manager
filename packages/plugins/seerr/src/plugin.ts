@@ -99,6 +99,30 @@ export default definePlugin({
     }
     const trimmed = base.replace(/\/$/, "");
 
+    // Require HTTPS for credential submission except on loopback. The email and
+    // password are POSTed to this admin-supplied URL, so a non-HTTPS endpoint
+    // would expose them in cleartext on the wire.
+    try {
+      const parsedBase = new URL(trimmed);
+      const isLoopback =
+        parsedBase.hostname === "localhost" ||
+        /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(parsedBase.hostname) ||
+        parsedBase.hostname === "[::1]";
+      if (parsedBase.protocol !== "https:" && !isLoopback) {
+        return {
+          status: "error",
+          code: "plugin.invalid_base_url",
+          devMessage: "Seerr baseUrl must use HTTPS to protect credentials in transit",
+        };
+      }
+    } catch {
+      return {
+        status: "error",
+        code: "plugin.invalid_base_url",
+        devMessage: "Seerr baseUrl is not a valid URL",
+      };
+    }
+
     // On re-auth (e.g. updateUserConfig), the form-stripped userConfig no
     // longer carries the password — fall back to the copy kept in the
     // encrypted credentials blob, mirroring the Jellyfin pattern.
