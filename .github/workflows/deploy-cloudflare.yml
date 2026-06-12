@@ -81,8 +81,15 @@ jobs:
         if: steps.target.outputs.mode == 'preview'
         run: |
           set -euo pipefail
-          curl -sSfL https://get.tur.so/install.sh | bash
-          echo "$HOME/.turso" >> "$GITHUB_PATH"
+          TURSO_VERSION="v1.0.26"
+          TURSO_SHA256="97a4192f403943ad398b19cb6f73b2f796fbef8ce8674d4124eaff532bca3b03"
+          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso-cli_Linux_x86_64.tar.gz" -o /tmp/turso.tgz
+          echo "${TURSO_SHA256}  /tmp/turso.tgz" | sha256sum -c -
+          tar -xzf /tmp/turso.tgz -C /tmp/
+          mkdir -p "$HOME/.local/bin"
+          cp /tmp/turso "$HOME/.local/bin/turso"
+          chmod +x "$HOME/.local/bin/turso"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Provision per-PR Turso branch
         if: steps.target.outputs.mode == 'preview'
@@ -247,8 +254,15 @@ jobs:
       - name: Install Turso CLI
         run: |
           set -euo pipefail
-          curl -sSfL https://get.tur.so/install.sh | bash
-          echo "$HOME/.turso" >> "$GITHUB_PATH"
+          TURSO_VERSION="v1.0.26"
+          TURSO_SHA256="97a4192f403943ad398b19cb6f73b2f796fbef8ce8674d4124eaff532bca3b03"
+          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso-cli_Linux_x86_64.tar.gz" -o /tmp/turso.tgz
+          echo "${TURSO_SHA256}  /tmp/turso.tgz" | sha256sum -c -
+          tar -xzf /tmp/turso.tgz -C /tmp/
+          mkdir -p "$HOME/.local/bin"
+          cp /tmp/turso "$HOME/.local/bin/turso"
+          chmod +x "$HOME/.local/bin/turso"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       # `vp dlx` pulls wrangler on demand so cleanup skips the full workspace
       # install that every deploy job needs — this runs on every PR close,
