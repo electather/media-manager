@@ -40,11 +40,11 @@ describe("Suspense fallback identity (V.WL10)", () => {
     render(<WatchlistFlatPage bucket={bucket} />);
     // Identity assertion — fallback uses the shared grid-skeleton, not a
     // generic <Skeleton h-[Npx]/> placeholder.
-    expect(screen.getByTestId("watchlist-grid-skeleton")).toBeDefined();
+    expect(screen.getByTestId("grid-skeleton")).toBeDefined();
   });
 
   it("WatchlistMoodPage suspends with WatchlistGridSkeleton", () => {
     render(<WatchlistMoodPage />);
-    expect(screen.getByTestId("watchlist-grid-skeleton")).toBeDefined();
+    expect(screen.getByTestId("grid-skeleton")).toBeDefined();
   });
 });

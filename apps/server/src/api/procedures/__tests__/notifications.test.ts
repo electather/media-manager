@@ -53,13 +53,13 @@ vi.mock("../../../auth", async () => {
   type RoleInfo = { roleId: string; isSystemAdmin: boolean };
   async function loadUserRole(userId: string): Promise<RoleInfo | null> {
     const row = await db
-      .select({ roleId: userRoles.roleId, isSystem: roles.isSystem, name: roles.name })
+      .select({ roleId: userRoles.roleId, systemSlug: roles.systemSlug })
       .from(userRoles)
       .innerJoin(roles, eq(roles.id, userRoles.roleId))
       .where(eq(userRoles.userId, userId))
       .get();
     if (!row) return null;
-    return { roleId: row.roleId, isSystemAdmin: row.isSystem === 1 && row.name === "Admin" };
+    return { roleId: row.roleId, isSystemAdmin: row.systemSlug === "admin" };
   }
   async function roleHasPermission(role: RoleInfo, permission: string): Promise<boolean> {
     if (role.isSystemAdmin) return true;

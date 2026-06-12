@@ -20,10 +20,11 @@ vi.mock("../service/connection-targeted", () => ({
 }));
 
 const dispatchSingleMock = vi.fn();
+const dispatchPrimaryMock = vi.fn();
 
 vi.mock("../service/dispatch", () => ({
   dispatchAggregate: vi.fn(),
-  dispatchPrimary: vi.fn(),
+  dispatchPrimary: (...args: unknown[]) => dispatchPrimaryMock(...args),
   dispatchSingle: (...args: unknown[]) => dispatchSingleMock(...args),
 }));
 
@@ -46,6 +47,63 @@ beforeEach(() => {
   dispatchToConnectionMock.mockReset();
   listEligibleConnectionsMock.mockReset();
   dispatchSingleMock.mockReset();
+  dispatchPrimaryMock.mockReset();
+});
+
+describe("MediaService combined-id parsing (#456)", () => {
+  it("dispatches the parsed type+id for a well-formed combined id", async () => {
+    dispatchPrimaryMock.mockResolvedValueOnce({ data: { title: "ok" } });
+    const svc = new MediaService("u1");
+    await svc.getDetails("tv:1396");
+    // Split is trusted only after validation: "tv" → type, "1396" → id.
+    expect(dispatchPrimaryMock).toHaveBeenCalledTimes(1);
+    expect(dispatchPrimaryMock.mock.calls[0]![0]).toMatchObject({
+      input: { id: "1396", type: "tv" },
+      mediaType: "tv",
+    });
+  });
+
+  it("rejects a combined id with more than two segments before any dispatch", async () => {
+    const svc = new MediaService("u1");
+    // WHY: the old code cast `split(":")` straight to a 2-tuple, so
+    // "movie:tt1:extra" silently produced a 3-element array and a corrupt id.
+    // It must now fail loud as a 400 and never reach the plugin layer.
+    await expect(svc.getDetails("movie:tt1:extra")).rejects.toMatchObject({
+      status: 400,
+      code: "media.invalid_combined_id",
+    });
+    expect(dispatchPrimaryMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a combined id whose type segment is not movie|tv", async () => {
+    const svc = new MediaService("u1");
+    await expect(svc.getDetails("show:550")).rejects.toMatchObject({
+      status: 400,
+      code: "media.invalid_combined_id",
+    });
+    expect(dispatchPrimaryMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a combined id with an empty id segment before any dispatch", async () => {
+    const svc = new MediaService("u1");
+    // WHY: "movie:" passed the length+type checks and produced ["movie", ""],
+    // leaking an empty id into the plugin dispatch layer. A non-empty id
+    // segment is now required, so it must fail loud as a 400.
+    await expect(svc.getDetails("movie:")).rejects.toMatchObject({
+      status: 400,
+      code: "media.invalid_combined_id",
+    });
+    expect(dispatchPrimaryMock).not.toHaveBeenCalled();
+  });
+
+  it("treats a colon-free id as a bare id under the supplied type", async () => {
+    dispatchPrimaryMock.mockResolvedValueOnce({ data: null });
+    const svc = new MediaService("u1");
+    await svc.getDetails("550", "movie");
+    expect(dispatchPrimaryMock.mock.calls[0]![0]).toMatchObject({
+      input: { id: "550", type: "movie" },
+    });
+  });
 });
 
 describe("MediaService.listRequestTargets", () => {

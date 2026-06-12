@@ -60,7 +60,13 @@ vi.mock("../../../home", () => ({
 }));
 
 vi.mock("../../../watchlist", () => ({ watchlistMediaSources: {} }));
-vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
+// Keep the real `makeRateLimitMiddleware` (the title routes are unmetered, but
+// `media.ts` builds the watchlist limiters at module load) and stub the inner
+// `rateLimitOrNull` to a pass-through.
+vi.mock("../../rate-limit", async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import("../../rate-limit");
+  return { ...actual, rateLimitOrNull: vi.fn(() => null) };
+});
 
 const home = await import("../../../home");
 const { mediaApp } = await import("../media");

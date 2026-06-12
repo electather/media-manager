@@ -106,21 +106,35 @@ function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
   return orderBy(providers, [(p) => p.providerPriority, (p) => p.pluginId], ["asc", "asc"]);
 }
 
+/** A `media.no_connection` PluginCallError means the provider has no usable
+ *  connection for this user — not a failure, just unconfigured — so the caller
+ *  skips it rather than counting it toward the all-failed outcome. Any other
+ *  throw is a real error and must propagate. */
+function isNoConnection(err: unknown): boolean {
+  return err instanceof PluginCallError && err.code === "media.no_connection";
+}
+
+/**
+ * `null` is returned when the provider has no usable connection for this user.
+ * That is not a failure — the provider was simply not configured — so the
+ * caller skips it entirely rather than counting it toward the all-failed
+ * outcome (which would short-TTL negative-cache an empty bundle and mask the
+ * fact that other providers may have served data).
+ */
 async function invokeProvider(
   req: DispatchRequest,
   provider: PerKindProvider,
   timeoutMs: number,
   scope: ResolvedCapabilityScope,
-): Promise<InvocationOutcome<Record<string, unknown[]>>> {
-  const conn = await pickSingleConnection(req.userId, provider.pluginId, scope);
-  if (!conn) {
-    throw new PluginCallError(
-      "media.no_connection",
-      `no connection available for plugin ${provider.pluginId}`,
-      provider.pluginId,
-      null,
-    );
+): Promise<InvocationOutcome<Record<string, unknown[]>> | null> {
+  let conn;
+  try {
+    conn = await pickSingleConnection(req.userId, provider.pluginId, scope);
+  } catch (err) {
+    if (isNoConnection(err)) return null;
+    throw err;
   }
+  if (!conn) return null;
   return invokeOne<Record<string, unknown[]>>(
     {
       userId: req.userId,
@@ -138,15 +152,17 @@ async function invokeProvider(
 
 // fallow-ignore-next-line complexity
 function collectSuccessful(
-  settled: PromiseSettledResult<InvocationOutcome<Record<string, unknown[]>>>[],
+  settled: PromiseSettledResult<InvocationOutcome<Record<string, unknown[]>> | null>[],
   providers: PerKindProvider[],
   req: DispatchRequest,
 ): { successful: Array<Record<string, unknown[]>>; allFailed: boolean } {
   const successful: Array<Record<string, unknown[]>> = [];
-  let allFailed = true;
+  let attempted = 0;
+  let succeeded = 0;
   for (const [outcome, provider] of zip(settled, providers)) {
     if (!outcome || !provider) continue;
     if (outcome.status !== "fulfilled") {
+      attempted += 1;
       consola.debug(
         `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} rejected:`,
         outcome.reason,
@@ -154,6 +170,12 @@ function collectSuccessful(
       continue;
     }
     const result = outcome.value;
+    // `null` = provider had no connection and was skipped (see invokeProvider).
+    // A skip is not an attempt, so it neither counts toward all-failed nor
+    // toward success — a missing provider must not turn a partial success into
+    // an all-failed negative cache.
+    if (result === null) continue;
+    attempted += 1;
     if (result.error) {
       consola.debug(
         `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} errored:`,
@@ -161,11 +183,15 @@ function collectSuccessful(
       );
       continue;
     }
-    allFailed = false;
+    succeeded += 1;
     if (result.data && typeof result.data === "object" && !Array.isArray(result.data)) {
       successful.push(result.data as Record<string, unknown[]>);
     }
   }
+  // All-failed only when at least one provider was actually attempted and every
+  // attempt failed. Zero attempts (every provider skipped) is treated as a
+  // stable empty, not a transient outage.
+  const allFailed = attempted > 0 && succeeded === 0;
   return { successful, allFailed };
 }
 
