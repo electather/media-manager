@@ -9,11 +9,14 @@ import {
 import { zValidator } from "../../../diagnostics/validator";
 import { adminErrorsApp, errorsReportApp } from "./errors";
 import { adminPerfApp } from "./perf";
+import { sourcemapsApp } from "./sourcemaps";
 
-/** Frontend-facing diagnostics tree mounted at `/api/diagnostics`. Currently
- *  only hosts the error report POST; perf reporting from the FE is deferred
- *  to a future Web Vitals iteration. */
-export const diagnosticsApp = new Hono().route("/errors", errorsReportApp);
+/** Frontend-facing diagnostics tree mounted at `/api/diagnostics`. Hosts the
+ *  error report POST and the admin-only sourcemap upload; perf reporting from
+ *  the FE is deferred to a future Web Vitals iteration. */
+export const diagnosticsApp = new Hono()
+  .route("/errors", errorsReportApp)
+  .route("/sourcemaps", sourcemapsApp);
 
 /** Admin diagnostics tree mounted at `/api/admin/diagnostics`. Permission
  *  gated by `admin:plugins` on every route, including the unified

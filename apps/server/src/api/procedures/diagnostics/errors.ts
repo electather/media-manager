@@ -10,6 +10,7 @@ import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { errorRecords } from "../../../db/schema/infra/diagnostics";
 import { captureError } from "../../../diagnostics/capture";
+import { resolveStackTrace } from "../../../diagnostics/sourcemaps";
 import { zValidator } from "../../../diagnostics/validator";
 import { notFound, unauthorized } from "../../../diagnostics/http-errors";
 import { TokenBucketLimiter } from "../../../mcp/rate-limit";
@@ -69,6 +70,12 @@ export const errorsReportApp = new Hono()
       const syntheticError = new Error(body.message);
       syntheticError.name = body.name ?? "FrontendError";
       if (body.stack) syntheticError.stack = body.stack;
+      // Translate minified frames to original source positions when a map for
+      // the reporting build has been uploaded. The raw stack is stored either
+      // way; resolution failure must never block ingest.
+      const resolvedStack = body.stack
+        ? await resolveStackTrace(body.stack, body.buildId).catch(() => null)
+        : null;
       await captureError(syntheticError, {
         severity: body.severity,
         source: "frontend",
@@ -76,6 +83,7 @@ export const errorsReportApp = new Hono()
         route: body.route,
         userId: session?.user.id ?? null,
         context: body.context,
+        resolvedStack: resolvedStack ?? undefined,
       });
     } catch {
       // Intentionally swallow. See docstring.

@@ -16,6 +16,7 @@ function makeRecord(overrides: Partial<ErrorRecord> = {}): ErrorRecord {
     code: "http.internal_error",
     devMessage: "boom",
     stack: null,
+    resolvedStack: null,
     userId: null,
     pluginId: null,
     connectionId: null,

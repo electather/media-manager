@@ -9,6 +9,9 @@ export interface ErrorRecord {
   code: string | null;
   devMessage: string;
   stack: string | null;
+  /** Stack with minified frames translated to original source positions via
+   *  uploaded sourcemaps; null when no map matched or the stack was absent. */
+  resolvedStack: string | null;
   userId: string | null;
   pluginId: string | null;
   connectionId: string | null;

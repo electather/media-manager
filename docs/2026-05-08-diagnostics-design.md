@@ -200,7 +200,7 @@ Discipline: ⊥ user-facing err via string concat. Lint flags concat-to-toast.
 
 ## §DM Data Model
 
-### §DM.E `error_records` (unchanged from prev doc)
+### §DM.E `error_records` (unchanged from prev doc, + `resolved_stack` per §Maps)
 
 ```
 error_records
@@ -211,6 +211,7 @@ error_records
 ├── code            text                 nullable for unhandled
 ├── dev_message     text NOT NULL       free-text scrubbed (§DM.Ctx)
 ├── stack           text                 free-text scrubbed (§DM.Ctx)
+├── resolved_stack  text                 §Maps — minified frames translated to original source; null when no map matched
 ├── user_id         text FK→user.id      nullable
 ├── plugin_id       text FK→plugins.id   nullable
 ├── connection_id   text FK→service_connections.id  nullable
@@ -309,6 +310,17 @@ reportError(err, severity, context?, code?): Promise<void>
 ```
 
 V1 ⊥ FE perf reporting. V2 = Web Vitals.
+
+### §Maps Hidden-sourcemap stack resolution (frontend stacks)
+
+Production FE stacks are minified and useless as-is. Resolution pipeline:
+
+- **Build**: client `vite.config.ts` sets `build.sourcemap = "hidden"` — `.map` files emit next to bundles but no `//# sourceMappingURL` comment is added, so browsers never fetch them. Maps are NOT deployed publicly.
+- **Ingest**: `POST /api/diagnostics/sourcemaps` (admin, `admin:plugins`) accepts `{ buildId, fileName, map }` per `.map` file (CI calls it post-build). Stored in `sourcemaps` table (`id, build_id, file_name, content, created_at`; UNIQUE(build_id, file_name) upsert; private — never served).
+- **Resolution**: on `POST /api/diagnostics/errors`, `resolveStackTrace(stack, buildId?)` (`apps/server/src/diagnostics/sourcemaps.ts`) parses each frame's `file:line:col`, matches the bundle basename (Vite content-hashes names, so basename ⊥ build collisions) against stored maps — scoped to `buildId` when the report carries one (optional `buildId` on `errorReportSchema`) — and translates positions via `@jridgewell/trace-mapping`. Parsed `TraceMap`s sit in an LRU (incl. negative entries; cleared on upload).
+- **Storage**: raw stack stays in `stack`; the translated stack lands in `resolved_stack` (both scrubbed §DM.Ctx). Unresolvable frames are kept verbatim; if zero frames resolve the column is null.
+
+Resolution failure never blocks ingest (catch → null).
 
 ### §Cap-API.MW Middleware (perf)
 

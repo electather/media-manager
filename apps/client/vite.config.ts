@@ -21,6 +21,12 @@ export default defineConfig({
     }),
   ],
   envDir: "../../",
+  build: {
+    // Emit .map files next to the bundle without a sourceMappingURL comment so
+    // browsers never fetch them. The maps are uploaded privately to the server
+    // diagnostics store and used to resolve minified stack traces.
+    sourcemap: "hidden",
+  },
   resolve: {
     alias: {
       "@/app": new URL("./src/app", import.meta.url).pathname,
