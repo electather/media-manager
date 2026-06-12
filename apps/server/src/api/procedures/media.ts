@@ -33,7 +33,7 @@ import { getMoodSummary, watchlistMediaSources } from "../../watchlist";
 import { libraryMediaSources } from "../../library";
 import { badRequest, notFound } from "../../diagnostics/http-errors";
 import { zValidator } from "../../diagnostics/validator";
-import { rateLimitOrNull } from "../rate-limit";
+import { makeRateLimitMiddleware, rateLimitOrNull } from "../rate-limit";
 import { TokenBucketLimiter } from "../../mcp/rate-limit";
 
 /** ~30 add/remove ops per minute per user (burst=30, refill=0.5/s). Relocated from the
@@ -100,6 +100,15 @@ const sourceQuerySchema = z.record(z.string(), z.string());
 
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
+
+/**
+ * Route-scoped limits for the fixed-bucket watchlist routes (§A7). Each is mounted
+ * on its own route rather than the whole router because the title routes
+ * (`/details`, `/availability`) are unmetered and `/sources/:sourceId` picks its
+ * bucket dynamically from the registration. The read/write split mirrors `limiterFor`.
+ */
+const readRateLimit = makeRateLimitMiddleware({ limiter: watchlistReadLimiter });
+const writeRateLimit = makeRateLimitMiddleware({ limiter: watchlistWriteLimiter });
 
 /**
  * Per-request plugin-call deadline for the watchlist moods / writes
@@ -247,10 +256,8 @@ export const mediaApp = new Hono()
    * ownership is unchanged (§G consolidation). `watchlistReadLimiter` is
    * preserved per §A7 (the same bucket the old route used — keys unchanged).
    */
-  .get("/moods", async (c) => {
+  .get("/moods", readRateLimit, async (c) => {
     const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
-    if (limited) return limited;
     const summary: WatchlistMoodSummary = await getMoodSummary(buildWatchlistContext(userId));
     return c.json(summary);
   })
@@ -261,23 +268,24 @@ export const mediaApp = new Hono()
    * row was already active); `DELETE` is 204. `:type/:tmdbId` are path params.
    * `watchlistWriteLimiter` is preserved per §A7.
    */
-  .post("/watchlist", zValidator("json", addWatchlistRequestSchema), async (c) => {
+  .post("/watchlist", writeRateLimit, zValidator("json", addWatchlistRequestSchema), async (c) => {
     const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
-    if (limited) return limited;
     const { tmdbId, mediaType, source } = c.req.valid("json");
     const result = await addItem({ tmdbId, mediaType }, source, buildWatchlistContext(userId));
     const body: AddWatchlistResponse = { item: result.item, wasActive: result.wasActive };
     return c.json(body, result.wasActive ? 200 : 201);
   })
-  .delete("/watchlist/:type/:tmdbId", zValidator("param", watchlistWriteParamSchema), async (c) => {
-    const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
-    if (limited) return limited;
-    const { type, tmdbId } = c.req.valid("param");
-    await removeItem({ tmdbId, mediaType: type }, buildWatchlistContext(userId));
-    return c.body(null, 204);
-  });
+  .delete(
+    "/watchlist/:type/:tmdbId",
+    writeRateLimit,
+    zValidator("param", watchlistWriteParamSchema),
+    async (c) => {
+      const userId = sessionUserId(c);
+      const { type, tmdbId } = c.req.valid("param");
+      await removeItem({ tmdbId, mediaType: type }, buildWatchlistContext(userId));
+      return c.body(null, 204);
+    },
+  );
 
 /**
  * Decode the opaque outer cursor for one read, reproducing each consumer's V.CU1
