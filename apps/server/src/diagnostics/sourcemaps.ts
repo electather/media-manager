@@ -52,6 +52,7 @@ export async function saveSourcemap(upload: SourcemapUpload): Promise<void> {
     throw new Error("sourcemap content has no `mappings` field");
   }
   const db = getDb();
+  const now = Date.now();
   await db
     .insert(sourcemaps)
     .values({
@@ -59,11 +60,11 @@ export async function saveSourcemap(upload: SourcemapUpload): Promise<void> {
       buildId: upload.buildId,
       fileName: upload.fileName,
       content: upload.content,
-      createdAt: Date.now(),
+      createdAt: now,
     })
     .onConflictDoUpdate({
       target: [sourcemaps.buildId, sourcemaps.fileName],
-      set: { content: upload.content, createdAt: Date.now() },
+      set: { content: upload.content, createdAt: now },
     });
   evictSourcemapCache(upload.buildId, upload.fileName);
 }
@@ -75,9 +76,12 @@ const FRAME_LOCATION = /(\(?)(\S+?):(\d+):(\d+)(\)?)\s*$/;
 /** Extracts the bundle file basename from a frame URL or path, dropping any
  *  query string or hash fragment appended by cache busting. */
 function basenameOf(file: string): string {
-  const withoutQuery = file.split(/[?#]/, 1)[0] ?? file;
+  // `String.prototype.split` always yields a non-empty array, so the first and
+  // last index accesses are guaranteed present; the `!` only satisfies
+  // `noUncheckedIndexedAccess` without a runtime fallback that can never run.
+  const withoutQuery = file.split(/[?#]/, 1)[0]!;
   const segments = withoutQuery.split("/");
-  return segments[segments.length - 1] ?? withoutQuery;
+  return segments[segments.length - 1]!;
 }
 
 /** Reads the newest stored map for a bundle file (optionally scoped to a build)

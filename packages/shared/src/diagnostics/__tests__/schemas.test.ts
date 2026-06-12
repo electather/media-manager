@@ -14,7 +14,16 @@ describe("diagnostics schemas — sourcemapUploadSchema fileName", () => {
   it("rejects traversal- and wildcard-shaped names so the field stays a bundle filename", () => {
     // The field is semantically a JS bundle basename; reject anything that
     // looks like a path or a glob even though the store parameterises the query.
-    for (const fileName of ["../../etc/passwd", "*", "   ", "index.js/../evil", "map.txt"]) {
+    // A literal space is rejected too — Vite-hashed basenames never contain one,
+    // and allowing it widened the surface for free.
+    for (const fileName of [
+      "../../etc/passwd",
+      "*",
+      "   ",
+      "index.js/../evil",
+      "map.txt",
+      "index abc.js",
+    ]) {
       expect(sourcemapUploadSchema.safeParse({ ...valid, fileName }).success).toBe(false);
     }
   });

@@ -53,7 +53,7 @@ export const sourcemapUploadSchema = z.object({
     .string()
     .min(1)
     .max(300)
-    .regex(/^[\w\-. ]+\.m?js$/, "must be a JS bundle filename"),
+    .regex(/^[\w\-.]+\.m?js$/, "must be a JS bundle filename"),
   map: z.string().min(2).max(20_000_000),
 });
 export type SourcemapUploadBody = z.infer<typeof sourcemapUploadSchema>;

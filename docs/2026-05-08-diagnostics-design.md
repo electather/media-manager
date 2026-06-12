@@ -319,6 +319,7 @@ Production FE stacks are minified and useless as-is. Resolution pipeline:
 - **Ingest**: `POST /api/diagnostics/sourcemaps` (admin, `admin:server` — same gate as the rest of `/admin/diagnostics`) accepts `{ buildId, fileName, map }` per `.map` file (CI uploads from `dist-sourcemaps/` post-build). `fileName` is constrained to a JS bundle basename. Stored in `sourcemaps` table (`id, build_id, file_name, content, created_at`; UNIQUE(build_id, file_name) upsert; private — never served).
 - **Resolution**: on `POST /api/diagnostics/errors`, `resolveStackTrace(stack, buildId?)` (`apps/server/src/diagnostics/sourcemaps.ts`) parses each frame's `file:line:col`, matches the bundle basename (Vite content-hashes names, so basename ⊥ build collisions) against stored maps — scoped to `buildId` when the report carries one (optional `buildId` on `errorReportSchema`) — and translates positions via `@jridgewell/trace-mapping`. Parsed `TraceMap`s sit in an LRU (incl. negative entries; the just-uploaded `(buildId, fileName)` keys are evicted on upload).
 - **Storage**: raw stack stays in `stack`; the translated stack lands in `resolved_stack` (both scrubbed §DM.Ctx). Unresolvable frames are kept verbatim; if zero frames resolve the column is null.
+- **Retention**: the nightly sweep (§Retn) bounds `sourcemaps` by build count, not age — it keeps maps for the 50 most-recently-active `build_id`s (newest `created_at` per build) and deletes the rest. A long-lived deploy keeps its maps however old it is, so the current build's maps can never be pruned out from under it.
 
 Resolution failure never blocks ingest (catch → null).
 
@@ -388,10 +389,13 @@ sweep() {
   const now = Date.now()
   await db.delete(errorRecords).where(lt(createdAt, now - cfg.errorRetentionDays * 86400e3))
   await db.delete(perfRecords ).where(lt(createdAt, now - cfg.perfRetentionDays  * 86400e3))
+  // Sourcemaps are bounded by build count, not age (§Maps Retention):
+  // keep maps for the 50 most-recently-active build_ids, delete the rest.
+  pruneSourcemaps()
 }
 ```
 
-Defaults: err=30d (clamp 7-365d), perf=7d (clamp 1-90d). Read once per sweep from `app_config`.
+Defaults: err=30d (clamp 7-365d), perf=7d (clamp 1-90d). Read once per sweep from `app_config`. Sourcemap prune uses a hardcoded N=50 builds — no `app_config` column.
 
 ## §Adm Admin Viewer — `/admin/diagnostics`
 

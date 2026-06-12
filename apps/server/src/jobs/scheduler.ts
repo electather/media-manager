@@ -47,13 +47,16 @@ export const scheduler = {
     registerScheduled({
       id: "host.diagnostics.retention_sweep",
       name: "Diagnostics retention",
-      description: "Deletes error and perf records older than their respective retention windows.",
+      description:
+        "Deletes error and perf records older than their retention windows and prunes sourcemaps for superseded builds.",
       schedule: "0 3 * * *",
       adminTriggerable: true,
       handler: async () => {
-        const { errors, perf } = await sweepDiagnostics();
-        if (errors > 0 || perf > 0) {
-          consola.debug(`diagnostics-retention-sweep removed ${errors} errors / ${perf} perf rows`);
+        const { errors, perf, sourcemaps } = await sweepDiagnostics();
+        if (errors > 0 || perf > 0 || sourcemaps > 0) {
+          consola.debug(
+            `diagnostics-retention-sweep removed ${errors} errors / ${perf} perf rows / ${sourcemaps} sourcemaps`,
+          );
         }
       },
     });

@@ -5,7 +5,12 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { appConfig, errorRecords, perfRecords } from "../../db/schema/infra/diagnostics";
+import {
+  appConfig,
+  errorRecords,
+  perfRecords,
+  sourcemaps,
+} from "../../db/schema/infra/diagnostics";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -46,6 +51,27 @@ async function insertPerf(id: string, ageDays: number): Promise<void> {
     durationMs: 100,
     createdAt: Date.now() - ageDays * DAY_MS,
   });
+}
+
+/** Mirrors the production constant in `retention.ts`; the prune keeps maps for
+ *  this many most-recently-active builds. */
+const RETAINED_BUILDS = 50;
+
+/** Inserts one map for `buildId` whose `createdAt` encodes its activity recency
+ *  (smaller `ageDays` = more recent). */
+async function insertMap(buildId: string, ageDays: number): Promise<void> {
+  await db.insert(sourcemaps).values({
+    id: `map-${buildId}`,
+    buildId,
+    fileName: `index-${buildId}.js`,
+    content: '{"version":3,"mappings":"AAAA"}',
+    createdAt: Date.now() - ageDays * DAY_MS,
+  });
+}
+
+async function remainingBuildIds(): Promise<string[]> {
+  const rows = await db.select({ buildId: sourcemaps.buildId }).from(sourcemaps).all();
+  return rows.map((r) => r.buildId).sort();
 }
 
 describe("retention sweep", () => {
@@ -104,6 +130,62 @@ describe("retention sweep", () => {
     await insertPerf("perf-fresh", 0.1);
 
     const result = await sweepDiagnostics();
-    expect(result).toEqual({ errors: 0, perf: 0 });
+    expect(result).toEqual({ errors: 0, perf: 0, sourcemaps: 0 });
+  });
+});
+
+describe("sourcemap retention", () => {
+  beforeEach(async () => {
+    // Sweep reads app_config; seed defaults so it focuses on sourcemap prune.
+    await getAppConfig();
+  });
+
+  it("does not prune when there are at most N distinct builds", async () => {
+    for (let i = 0; i < RETAINED_BUILDS; i++) {
+      await insertMap(`build-${i}`, i);
+    }
+
+    const result = await sweepDiagnostics();
+
+    expect(result.sourcemaps).toBe(0);
+    const remaining = await remainingBuildIds();
+    expect(remaining).toHaveLength(RETAINED_BUILDS);
+  });
+
+  it("keeps the N most recently active builds and deletes older ones", async () => {
+    // 55 builds: build-0 is the most recently active, build-54 the least.
+    const total = RETAINED_BUILDS + 5;
+    for (let i = 0; i < total; i++) {
+      await insertMap(`build-${i}`, i);
+    }
+
+    const result = await sweepDiagnostics();
+
+    // The 5 oldest builds (build-50..build-54) fall outside the window.
+    expect(result.sourcemaps).toBe(5);
+    const remaining = await remainingBuildIds();
+    expect(remaining).toHaveLength(RETAINED_BUILDS);
+    expect(remaining).toContain("build-0");
+    expect(remaining).toContain("build-49");
+    expect(remaining).not.toContain("build-50");
+    expect(remaining).not.toContain("build-54");
+  });
+
+  it("never prunes the most-recently-active build even when its deploy is old", async () => {
+    // A long-lived build deployed ages ago: most rows are old, but it keeps
+    // resolving fresh stacks, so its newest map is the most recent of all.
+    await insertMap("long-lived", -1); // newest activity (future-most createdAt)
+    // Fill the window with newer deploys so the boundary is exercised.
+    for (let i = 0; i < RETAINED_BUILDS; i++) {
+      await insertMap(`build-${i}`, i + 10);
+    }
+
+    const result = await sweepDiagnostics();
+
+    // One build (the oldest-activity of the 51) drops out, never long-lived.
+    expect(result.sourcemaps).toBe(1);
+    const remaining = await remainingBuildIds();
+    expect(remaining).toContain("long-lived");
+    expect(remaining).not.toContain(`build-${RETAINED_BUILDS - 1}`);
   });
 });

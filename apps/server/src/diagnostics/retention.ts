@@ -1,6 +1,6 @@
-import { lt } from "drizzle-orm";
+import { lt, max, notInArray, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { appConfig, errorRecords, perfRecords } from "../db/schema/infra/diagnostics";
+import { appConfig, errorRecords, perfRecords, sourcemaps } from "../db/schema/infra/diagnostics";
 
 const APP_CONFIG_ID = "global";
 
@@ -12,6 +12,11 @@ const DEFAULT_PERF_RETENTION_DAYS = 7;
 const MIN_PERF_RETENTION_DAYS = 1;
 const MAX_PERF_RETENTION_DAYS = 90;
 
+/** Keep maps for the 50 most recently active builds. Bounds the `sourcemaps`
+ *  table by build count rather than age, so a long-lived deploy never loses its
+ *  maps just because it shipped a while ago — only superseded builds age out. */
+const SOURCEMAP_RETAINED_BUILDS = 50;
+
 export interface AppConfigRow {
   errorRetentionDays: number;
   perfRetentionDays: number;
@@ -20,6 +25,8 @@ export interface AppConfigRow {
 export interface SweepResult {
   errors: number;
   perf: number;
+  /** Sourcemap rows pruned for builds outside the retained-builds window. */
+  sourcemaps: number;
 }
 
 /** Reads (and if missing, seeds) the global app config row. */
@@ -102,16 +109,42 @@ export async function setPerfRetentionDays(days: number): Promise<number> {
   return clamped;
 }
 
-/** Deletes diagnostic records older than the configured retention windows.
- *  Each table is read once and swept independently — perf typically has a
- *  much shorter window than errors. Run nightly via the diagnostics cron. */
+/** Prunes sourcemaps for builds outside the most-recently-active window. Maps
+ *  are bounded by build count, not age: the N builds with the newest stored map
+ *  are retained and every row for any other build is deleted. A build with no
+ *  newer build to displace it is always inside the window, so the current
+ *  deploy's maps can never be pruned. Returns the number of rows deleted. */
+async function pruneSourcemaps(): Promise<number> {
+  const db = getDb();
+  // N most recently active distinct builds, newest map first.
+  const retained = await db
+    .select({ buildId: sourcemaps.buildId })
+    .from(sourcemaps)
+    .groupBy(sourcemaps.buildId)
+    .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
+    .limit(SOURCEMAP_RETAINED_BUILDS)
+    .all();
+  // Fewer builds than the window means nothing is outside it.
+  if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
+  const keepIds = retained.map((r) => r.buildId);
+  const deleted = await db
+    .delete(sourcemaps)
+    .where(notInArray(sourcemaps.buildId, keepIds))
+    .returning({ id: sourcemaps.id });
+  return deleted.length;
+}
+
+/** Deletes diagnostic records older than the configured retention windows and
+ *  prunes sourcemaps for superseded builds. Each table is read once and swept
+ *  independently — perf typically has a much shorter window than errors. Run
+ *  nightly via the diagnostics cron. */
 export async function sweepDiagnostics(): Promise<SweepResult> {
   const db = getDb();
   const { errorRetentionDays, perfRetentionDays } = await getAppConfig();
   const now = Date.now();
   const errCutoff = now - errorRetentionDays * 86_400_000;
   const perfCutoff = now - perfRetentionDays * 86_400_000;
-  const [errResult, perfResult] = await Promise.all([
+  const [errResult, perfResult, sourcemapCount] = await Promise.all([
     db
       .delete(errorRecords)
       .where(lt(errorRecords.createdAt, errCutoff))
@@ -120,6 +153,7 @@ export async function sweepDiagnostics(): Promise<SweepResult> {
       .delete(perfRecords)
       .where(lt(perfRecords.createdAt, perfCutoff))
       .returning({ id: perfRecords.id }),
+    pruneSourcemaps(),
   ]);
-  return { errors: errResult.length, perf: perfResult.length };
+  return { errors: errResult.length, perf: perfResult.length, sourcemaps: sourcemapCount };
 }
