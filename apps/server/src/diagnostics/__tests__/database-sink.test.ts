@@ -7,7 +7,7 @@ import {
 } from "../../__tests__/helpers/in-memory-db";
 import { errorRecords, perfRecords } from "../../db/schema/infra/diagnostics";
 import { user } from "../../db/schema/auth";
-import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
+import { SYSTEM_USER_ID } from "@nama/shared/jobs";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

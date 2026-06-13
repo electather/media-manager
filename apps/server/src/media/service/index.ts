@@ -4,16 +4,16 @@ import {
   dispatchSingle,
   type AggregateResult,
 } from "./dispatch";
-import type { CapabilityScope, LibraryItemQuality } from "@ent-mcp/shared/plugins";
-import type { SeasonInfo } from "@ent-mcp/shared/home";
+import type { CapabilityScope, LibraryItemQuality } from "@nama/shared/plugins";
+import type { SeasonInfo } from "@nama/shared/home";
 import {
   mediaRequestSchema,
   type CreateMediaRequestBody,
   type MediaRequest,
   type RequestTarget,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import { z } from "zod";
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime";
 import {
   AllPluginsFailedError,

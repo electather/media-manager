@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 
 import { OverviewTab } from "../detail/tabs/overview-tab";
 import type { PluginRow } from "../shared/types";

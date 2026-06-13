@@ -5,7 +5,7 @@ import {
   NOTIFICATION_EVENT_TYPES,
   NOTIFICATION_DELIVERY_STATUSES,
   NOTIFICATION_SEVERITIES,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { user } from "../auth/auth";
 import { serviceConnections } from "../plugin-runtime/credentials";
 

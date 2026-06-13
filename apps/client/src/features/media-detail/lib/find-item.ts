@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { splitCompositeId } from "@/shared/lib/media-id";

@@ -1,8 +1,5 @@
 import { Hono } from "hono";
-import {
-  primaryConnectionSetSchema,
-  primaryConnectionClearSchema,
-} from "@ent-mcp/shared/connections";
+import { primaryConnectionSetSchema, primaryConnectionClearSchema } from "@nama/shared/connections";
 import { sessionUserId } from "../../auth";
 import { primaryConnectionsService } from "../../connections/primary-service";
 import { zValidator } from "../../diagnostics/validator";

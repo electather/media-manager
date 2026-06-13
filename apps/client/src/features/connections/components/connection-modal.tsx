@@ -17,7 +17,7 @@ import {
 import { useInterval } from "@/shared/hooks/use-interval";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 import {
   defaultsFromSchema,
   stripEmptySecrets,

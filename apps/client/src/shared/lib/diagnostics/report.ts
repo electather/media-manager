@@ -1,4 +1,4 @@
-import type { ErrorReportPayload, ErrorSeverity } from "@ent-mcp/shared/diagnostics";
+import type { ErrorReportPayload, ErrorSeverity } from "@nama/shared/diagnostics";
 import { REQUEST_ID_HEADER } from "./request-id";
 
 function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | "stack"> {

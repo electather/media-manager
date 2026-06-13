@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { sourcemapUploadSchema } from "@ent-mcp/shared/diagnostics";
+import { sourcemapUploadSchema } from "@nama/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { saveSourcemap } from "../../../diagnostics/sourcemaps";
 import { zValidator } from "../../../diagnostics/validator";

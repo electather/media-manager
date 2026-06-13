@@ -491,7 +491,7 @@ HTTP error envelope: `{ code, devMessage, params?, details?, requestId }`. `deta
 Pre-stable → DB & API breaking changes acceptable. Steps:
 
 1. **BE rename**: `apps/server/src/errors/*` → `apps/server/src/diagnostics/*`. Update imports.
-2. **Shared rename**: `packages/shared/src/errors/*` → `packages/shared/src/diagnostics/*`. Subpath export `@ent-mcp/shared/diagnostics`.
+2. **Shared rename**: `packages/shared/src/errors/*` → `packages/shared/src/diagnostics/*`. Subpath export `@nama/shared/diagnostics`.
 3. **FE rename**: `apps/client/src/shared/lib/errors/*` → `apps/client/src/shared/lib/diagnostics/*`. Update imports (error-boundary, global-handlers).
 4. **DB migration**: add `perf_records` table + indexes; add `app_config.perf_retention_days` col default 7. **`error_records` table NAME unchanged** — deliberate exception to rename pattern (table rename = needless migration churn; name only visible in SQL logs).
 5. **Iface rename**: `ErrorSink` → `DiagnosticSink` w/ optional `captureError` ∧ `capturePerf`. `NotificationErrorSink` adapt (only `captureError`).

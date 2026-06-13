@@ -1,6 +1,6 @@
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { useMemo, useSyncExternalStore } from "react";
-import type { CompactMediaItem, MediaSourceId, Page } from "@ent-mcp/shared/media";
+import type { CompactMediaItem, MediaSourceId, Page } from "@nama/shared/media";
 import { mediaKeys } from "./query-keys";
 
 /** The source id of the canonical watchlist user-list (the unfiltered all-items feed). */

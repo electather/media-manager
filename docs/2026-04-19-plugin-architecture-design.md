@@ -13,7 +13,7 @@ Connections subsystem redesigned: every service integration (Trakt, Seerr, TMDB,
 
 > **v1 scope:** Built-in plugins run as trusted TypeScript modules inside host process — no sandbox boundary. QuickJS WASM sandbox & 3rd-party install/update/rollback → deferred. See §Deferred.
 
-> **Packaging update (2026-04-25):** Each integration → own workspace package under `packages/plugins/<id>/`, depends on `@ent-mcp/plugin-sdk`. Apps → `apps/{client,server}/`. Built-ins load via workspace TypeScript imports (no runtime bundle loading in v1); each plugin builds `dist/plugin.js` bundle for distribution. Versioning independent per package via Changesets. Full design: `docs/2026-04-25-plugin-monorepo-design.md`.
+> **Packaging update (2026-04-25):** Each integration → own workspace package under `packages/plugins/<id>/`, depends on `@nama/plugin-sdk`. Apps → `apps/{client,server}/`. Built-ins load via workspace TypeScript imports (no runtime bundle loading in v1); each plugin builds `dist/plugin.js` bundle for distribution. Versioning independent per package via Changesets. Full design: `docs/2026-04-25-plugin-monorepo-design.md`.
 
 Capabilities declare **scope** — `global` | `user` — so single plugin can expose both server-wide source (TMDB metadata) & per-user integration (TMDB watchlist). Admins configure **admin-owned pool** of shared creds for pool-safe plugins so quota-limited services (TMDB) fail over across multiple keys. Per-plugin `personalKeyFallback` policy optionally links pools for per-user requests without sharing keys across users.
 
@@ -614,7 +614,7 @@ interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
   // Networking — only way plugins reach the outside world.
   fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts ∪ x-allowed-host hosts + per-plugin rate limit; redirects always rejected (redirect: 'manual')
 
-  // Media-manager's own public URL (APP_EXTERNAL_URL). Used by plugins to build
+  // Nama's own public URL (APP_EXTERNAL_URL). Used by plugins to build
   // OAuth redirect_uri values and any client-facing link-back. Never the
   // internal/docker URL — always the one a user's browser can reach.
   appBaseUrl: string;
@@ -657,7 +657,7 @@ interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
 
   // Emit a pre-registered notification event. The discriminated union enforces
   // at the type level that plugins can only emit events declared in
-  // `@ent-mcp/shared/notifications`. Plugin-declared event types are deferred.
+  // `@nama/shared/notifications`. Plugin-declared event types are deferred.
   // See `docs/2026-04-25-notifications-design.md` for the registry, dispatch
   // pipeline, and audience model.
   notify(event: Omit<NotificationEvent, "id" | "occurredAt">): Promise<void>;
@@ -703,7 +703,7 @@ packages/plugin-sdk/src/             plugin-author API (consumed by apps/server 
 ├── capabilities/    capability schema definitions (WatchHistoryV1 etc.)
 ├── validate.ts      validatePluginModule
 ├── version.ts       SDK_VERSION + isSdkCompatible
-└── manifest.ts      re-exports pluginManifestSchema from @ent-mcp/shared
+└── manifest.ts      re-exports pluginManifestSchema from @nama/shared
 
 packages/plugins/<id>/src/           one workspace package per integration
 └── plugin.ts        the plugin module (definePlugin({...}))
@@ -995,7 +995,7 @@ Former bespoke "shared-key model" = instance of general scope + pool system:
 
 ## Self-hosted Network Topology
 
-Media-manager, Plex, Jellyfin, & browser that opens deep link often live on three different network vantage points. Typical docker-compose: media-manager reaches Plex at `http://plex:32400` over private bridge; user's phone reaches at `https://plex.mydomain.com`. Two URLs ≠ interchangeable; conflating them breaks silently — host talks to Plex fine, but every `playerLink` 404s on client.
+Nama, Plex, Jellyfin, & browser that opens deep link often live on three different network vantage points. Typical docker-compose: nama reaches Plex at `http://plex:32400` over private bridge; user's phone reaches at `https://plex.mydomain.com`. Two URLs ≠ interchangeable; conflating them breaks silently — host talks to Plex fine, but every `playerLink` 404s on client.
 
 Design handles this in three places.
 

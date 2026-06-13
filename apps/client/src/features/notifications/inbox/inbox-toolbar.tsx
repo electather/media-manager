@@ -1,6 +1,6 @@
 import { startTransition } from "react";
 import { CheckCheckIcon, Trash2Icon } from "lucide-react";
-import type { NotificationCategory, NotificationSeverity } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory, NotificationSeverity } from "@nama/shared/notifications";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";

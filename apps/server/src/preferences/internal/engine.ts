@@ -1,11 +1,11 @@
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { MediaItem } from "@nama/shared/media";
 import type {
   FeedbackAction,
   PreferenceProfile,
   ProfileMediaType,
   RebuildResult,
   UpdateResult,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { renderMatchReason, renderProfileUpdate, explainAgainstProfile } from "./explain";
 import { applyIncrementalUpdate } from "./incremental";

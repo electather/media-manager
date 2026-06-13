@@ -179,7 +179,7 @@ node tools/check-file-sizes.ts
 
 ```md
 ---
-"@ent-mcp/server": minor
+"@nama/server": minor
 ---
 
 Restructured media to flat-with-reserved-files layout; public API unchanged.

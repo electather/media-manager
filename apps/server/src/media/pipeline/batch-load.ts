@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { ActiveRow } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import type { CatalogService } from "../../catalog";
 import { loadProgressMap, type ProgressMap } from "../progress";
 import type { MediaEnrichService, MediaProgressService } from "../types";

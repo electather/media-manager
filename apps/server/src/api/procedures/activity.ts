@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import {
   activityHistoryQuerySchema as historySchema,
   activityWatchlistQuerySchema as watchlistSchema,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import { zValidator } from "../../diagnostics/validator";
 
 export const activityApp = new Hono()

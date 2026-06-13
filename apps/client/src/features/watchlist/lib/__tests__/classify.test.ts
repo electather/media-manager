@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { bucketize, classifyStatus, splitRuntime, totalRuntimeMinutes } from "../classify";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 function makeItem(overrides: Partial<CompactMediaItem> = {}): CompactMediaItem {
   return {

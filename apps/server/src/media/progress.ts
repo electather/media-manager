@@ -1,5 +1,5 @@
-import type { MediaType } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { MediaType } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import type { MediaProgressContext, MediaProgressService } from "./types";
 
 /** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */

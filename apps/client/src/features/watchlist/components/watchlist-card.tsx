@@ -4,7 +4,7 @@ import * as m from "@/paraglide/messages";
 import { MediaCardQuickAction } from "@/shared/components/media-card";
 import { MediaRowCard } from "@/shared/components/media-row-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 import { useToggleWatchlist } from "../hooks";
 
 interface WatchlistCardProps {

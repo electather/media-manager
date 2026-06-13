@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LibraryLens } from "@ent-mcp/shared/library";
+import type { LibraryLens } from "@nama/shared/library";
 import { useLibraryContent } from "../../hooks/use-library-content";
 import { LibraryEmpty } from "../library-empty";
 

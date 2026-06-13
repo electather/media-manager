@@ -1,4 +1,4 @@
-import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
+import { pluginManifestSchema } from "@nama/shared/plugins";
 import type { z } from "zod";
 import { getCapability } from "./capabilities";
 import { PluginError } from "./errors/plugin-error";

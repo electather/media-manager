@@ -15,10 +15,4 @@
  * `features/media-detail/lib/related-items.ts`), so the client-built cursor is
  * accepted by the resolver's `decode` unchanged.
  */
-export {
-  type Cursor,
-  type CursorMode,
-  decode,
-  encode,
-  encodeSeedCursor,
-} from "@ent-mcp/shared/media";
+export { type Cursor, type CursorMode, decode, encode, encodeSeedCursor } from "@nama/shared/media";

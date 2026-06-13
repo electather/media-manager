@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { MediaItem } from "../types";
 
-const STORAGE_KEY = "media-manager:command-menu:recents:v1";
+const STORAGE_KEY = "nama:command-menu:recents:v1";
 const MAX_RECENTS = 5;
 
 // fallow-ignore-next-line complexity

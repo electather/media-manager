@@ -75,6 +75,10 @@ export async function seedRoles(): Promise<void> {
  * Credentials: admin@me.com / password123
  */
 export async function seedDevUser(): Promise<void> {
+  // Self-contained guard so any direct caller can never seed the well-known
+  // dev credentials outside development, even if it bypasses migrate.ts.
+  if (process.env.NODE_ENV !== "development") return;
+
   const db = getDb();
 
   // Check whether the dev user already exists so this stays idempotent.

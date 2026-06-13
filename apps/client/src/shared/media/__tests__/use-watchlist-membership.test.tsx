@@ -3,7 +3,7 @@ import { type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
-import type { CompactMediaItem, Page } from "@ent-mcp/shared/media";
+import type { CompactMediaItem, Page } from "@nama/shared/media";
 import { mediaKeys } from "../query-keys";
 import { useIsInWatchlist, useWatchlistIdSet } from "../use-watchlist-membership";
 

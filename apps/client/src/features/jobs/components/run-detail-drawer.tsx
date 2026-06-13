@@ -4,7 +4,7 @@ import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/shared/ui/alert";
 import { TriangleAlertIcon, Logs } from "lucide-react";
-import type { JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
+import type { JobRunSummary, JobHandle } from "@nama/shared/jobs";
 import { LogViewerFilterable, type LogEntry } from "@/shared/components/log-viewer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
 

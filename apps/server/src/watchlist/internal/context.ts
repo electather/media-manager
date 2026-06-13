@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { consola } from "consola";
-import { WATCHLIST_LIST_DEFAULT_LIMIT, WATCHLIST_LIST_MAX_LIMIT } from "@ent-mcp/shared/watchlist";
+import { WATCHLIST_LIST_DEFAULT_LIMIT, WATCHLIST_LIST_MAX_LIMIT } from "@nama/shared/watchlist";
 import { ArtworkService } from "../../artwork";
 import { toCanonicalRow, type CatalogService } from "../../catalog";
 import {

@@ -13,7 +13,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 import { isNil } from "es-toolkit/predicate";
 
 interface FieldSchema {

@@ -24,9 +24,9 @@ body:
       label: Which package is affected?
       multiple: true
       options:
-        - "@ent-mcp/client"
-        - "@ent-mcp/server"
-        - "@ent-mcp/shared"
+        - "@nama/client"
+        - "@nama/server"
+        - "@nama/shared"
         - Tooling / CI
         - Docs
         - Not sure

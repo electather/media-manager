@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { PluginError } from "@ent-mcp/plugin-sdk";
+import { PluginError } from "@nama/plugin-sdk";
 import { normalizeError, PluginCallError } from "../errors";
 
 describe("normalizeError", () => {

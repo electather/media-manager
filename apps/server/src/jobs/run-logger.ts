@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { consola, type ConsolaInstance, type LogType } from "consola";
 import { scrub, scrubText } from "../diagnostics/scrubber";
-import type { LogLevel } from "@ent-mcp/shared/jobs";
+import type { LogLevel } from "@nama/shared/jobs";
 import { isPrimitive } from "es-toolkit/predicate";
 
 const BUFFER_MAX_BYTES = 500 * 1024;

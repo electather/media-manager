@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { consola } from "consola";
 import { z } from "zod";
-import { mediaTypeSchema } from "@ent-mcp/shared/media";
+import { mediaTypeSchema } from "@nama/shared/media";
 import {
   addWatchlistRequestSchema,
   type AddWatchlistResponse,
   type WatchlistMoodSummary,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
 import { ArtworkService } from "../../artwork";
 import { getCatalogService, toCanonicalRow } from "../../catalog";

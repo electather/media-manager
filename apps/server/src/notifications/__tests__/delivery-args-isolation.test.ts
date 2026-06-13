@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
-import inboxPlugin from "@ent-mcp/plugin-inbox";
-import ntfyPlugin from "@ent-mcp/plugin-ntfy";
-import telegramPlugin from "@ent-mcp/plugin-telegram";
-import discordPlugin from "@ent-mcp/plugin-discord";
+import type { NotificationEvent } from "@nama/shared/notifications";
+import inboxPlugin from "@nama/plugin-inbox";
+import ntfyPlugin from "@nama/plugin-ntfy";
+import telegramPlugin from "@nama/plugin-telegram";
+import discordPlugin from "@nama/plugin-discord";
 import { buildDeliverArgs, isHostPrivilegedPlugin } from "../internal/delivery-policy";
 
 const event: NotificationEvent = {

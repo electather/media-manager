@@ -1,4 +1,4 @@
-import type { UserFacingError } from "@ent-mcp/shared/diagnostics";
+import type { UserFacingError } from "@nama/shared/diagnostics";
 
 /**
  * A tool-dispatch failure carried as an exception inside the MCP pipeline.

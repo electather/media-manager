@@ -1,6 +1,6 @@
 import { consola } from "consola";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
+import type { ActiveRow, MediaRowBucket } from "@nama/shared/media";
 import type { SourceContext } from "../../../media";
 
 type ClassifiedRow = { row: ActiveRow; bucket: MediaRowBucket };

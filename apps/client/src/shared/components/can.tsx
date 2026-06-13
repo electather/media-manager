@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Permission } from "@ent-mcp/shared/auth";
+import type { Permission } from "@nama/shared/auth";
 import { usePermission } from "@/shared/hooks/use-permission";
 
 interface CanProps {

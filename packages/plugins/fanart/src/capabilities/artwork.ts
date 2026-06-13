@@ -1,4 +1,4 @@
-import { pluginError, handleHttpStatus } from "@ent-mcp/plugin-sdk";
+import { pluginError, handleHttpStatus } from "@nama/plugin-sdk";
 import { BASE, DEFAULT_LANGUAGES } from "../constants";
 import { parseRetryAfterSec, resolveKey } from "../client";
 import { emptyBundle, shapeBundle } from "../mappers";

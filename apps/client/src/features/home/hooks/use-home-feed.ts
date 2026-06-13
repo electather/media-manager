@@ -1,5 +1,5 @@
 import { useSuspenseQuery, type UseSuspenseQueryResult } from "@tanstack/react-query";
-import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse } from "@nama/shared/home";
 import { homeLayoutQueryOptions } from "../lib/queries";
 
 /**

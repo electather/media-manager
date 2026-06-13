@@ -1,6 +1,6 @@
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import type { CanonicalMetadata, TopContributor } from "@ent-mcp/shared/catalog";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
+import type { CanonicalMetadata, TopContributor } from "@nama/shared/catalog";
+import { keyToId } from "@nama/shared/watchlist";
 import { extractTmdbId } from "../../media";
 import type { InternalCompactMediaItem } from "./types";
 

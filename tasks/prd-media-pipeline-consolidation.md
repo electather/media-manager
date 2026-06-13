@@ -3,7 +3,7 @@
 > **Source of truth:** [`docs/2026-05-26-media-pipeline-consolidation-design.md`](../docs/2026-05-26-media-pipeline-consolidation-design.md) (rev 1).
 > This PRD repackages that design into implementable, independently-verifiable user stories for the Ralph autonomous loop. The design document governs all contract details; where this PRD and the design disagree, the design wins.
 >
-> **Epic:** [#491](https://github.com/electather/media-manager/issues/491). Folds in #496 (split watchlist service) and #502 (`isInfoOnly` → `unavailable`). #500/#501 already shipped.
+> **Epic:** [#491](https://github.com/electather/nama/issues/491). Folds in #496 (split watchlist service) and #502 (`isInfoOnly` → `unavailable`). #500/#501 already shipped.
 
 ## Introduction
 
@@ -39,12 +39,12 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `media/pipeline/` contains `batchLoad` (the single status+metadata+progress fan-out with warn-and-fallback) and the `listRows` stage sequence with a `paginate` that supports both `keyset` (raw-query hop) and `offset` (in-memory slice) modes.
 - [ ] `listRows`, writes, and count-mode helpers land as **new files** under `media/service/` (`service/list-rows.ts`, `service/writes.ts`, `service/count.ts`) — nothing is appended to the already-1073-LOC `service/index.ts`.
 - [ ] `extractTmdbId` and `FINISHING_THRESHOLD`/`isFinishing` exist as a single definition each in `media` (`progress.ts`). Duplicate copies are NOT yet deleted from consumers if they still compile against them, but the canonical `media` copy exists and is exported via the barrel (full dedup completes in later phases).
-- [ ] The **existing** `CompactMediaItem` in `@ent-mcp/shared` is extended with `addedAt?: number | null` (epoch ms) and `addedSource?: WatchlistSource | null` (design §D). The recommendation-engine `MediaItem` at `packages/shared/src/media/types.ts` is untouched.
+- [ ] The **existing** `CompactMediaItem` in `@nama/shared` is extended with `addedAt?: number | null` (epoch ms) and `addedSource?: WatchlistSource | null` (design §D). The recommendation-engine `MediaItem` at `packages/shared/src/media/types.ts` is untouched.
 - [ ] `MediaSource`, `listRows`, `batchLoad`, the cursor codec, and `countBuckets` are exported from the `media/index.ts` barrel; `repo/` and `pipeline/` internals stay behind it.
 - [ ] No consumer (`home`/`watchlist`) code is changed in this phase; `media` is unit-tested in isolation.
 - [ ] Pipeline-stage unit tests exist for `batchLoad` (warn+fallback on partial), `classify`, `filter`, `sort`, and `paginate` (keyset hop + offset slice), each asserting WHY (e.g. sparse-page invariant, empty-streak `cursor:null`) per Rule 9.
 - [ ] Cursor codec tests assert `decode → null` on bad/foreign input for **both** modes and on mode-mismatch.
-- [ ] A `minor` changeset for `@ent-mcp/shared` and `@ent-mcp/server` is included (new public surface + `CompactMediaItem` fields).
+- [ ] A `minor` changeset for `@nama/shared` and `@nama/server` is included (new public surface + `CompactMediaItem` fields).
 - [ ] `vp check` passes.
 - [ ] `vp test` passes.
 
@@ -156,9 +156,9 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 
 - **Toolchain:** Use Vite+ (`vp`) only — `vp check`, `vp test`, `vp install`. Never invoke pnpm/npm/yarn or Vitest/Oxlint directly.
 - **Module size budgets:** `media` grows (pipeline + source). Stay within budgets via subdir promotion (`service/`, `repo/`, new `pipeline/`); never append to the 1073-LOC `service/index.ts`. Do not fold product logic into `media`.
-- **Shared package:** `CompactMediaItem` and the new enums/types that cross the client/server boundary live in `@ent-mcp/shared`; extend the existing type rather than adding a parallel one.
+- **Shared package:** `CompactMediaItem` and the new enums/types that cross the client/server boundary live in `@nama/shared`; extend the existing type rather than adding a parallel one.
 - **Boundaries / fallow:** No new module means no new fallow zone pair. The `circular-deps: error` and zone boundaries must hold. The fallow dead-code baseline must not grow.
-- **Changesets:** Phase 1 needs a `minor` changeset for `@ent-mcp/shared` and `@ent-mcp/server` (new public surface + `CompactMediaItem` fields). Internal-only phases use an empty-frontmatter changeset.
+- **Changesets:** Phase 1 needs a `minor` changeset for `@nama/shared` and `@nama/server` (new public surface + `CompactMediaItem` fields). Internal-only phases use an empty-frontmatter changeset.
 - **Parity fixtures (RISK-103):** Capture home-layout and watchlist-section output fixtures from the pre-refactor code **before** Phases 4 and 5, then assert against them after.
 - **Cursor invalidation (RISK-104):** Existing cursors are invalidated on deploy. Acceptable pre-stable (no live users); note it in the changeset.
 - **Compact between phases:** Each phase is its own focused session/PR; compact context at phase boundaries.

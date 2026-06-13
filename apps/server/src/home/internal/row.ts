@@ -1,4 +1,4 @@
-import type { RowContentResponse } from "@ent-mcp/shared/home";
+import type { RowContentResponse } from "@nama/shared/home";
 import { decode, type Cursor, type Page } from "../../media";
 import { HttpError } from "../../diagnostics/http-errors";
 import { ROW_PROVIDERS } from "../rows";

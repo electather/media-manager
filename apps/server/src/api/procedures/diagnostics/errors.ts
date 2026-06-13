@@ -5,7 +5,7 @@ import {
   errorReportSchema as reportSchema,
   type ErrorSeverity,
   type ErrorSource,
-} from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { errorRecords } from "../../../db/schema/infra/diagnostics";

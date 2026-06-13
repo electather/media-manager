@@ -1,4 +1,4 @@
-import type { ErrorSource } from "@ent-mcp/shared/diagnostics";
+import type { ErrorSource } from "@nama/shared/diagnostics";
 import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { absoluteDateTime, compactRelativeTime } from "@/shared/lib/time-format";

@@ -1,5 +1,5 @@
 import { identifyItem, parseHistoryBase, parseItemDate, type MediaService } from "../../media";
-import type { HistoryEvent, RatingEvent } from "@ent-mcp/shared/catalog";
+import type { HistoryEvent, RatingEvent } from "@nama/shared/catalog";
 import { isNil } from "es-toolkit/predicate";
 
 export async function collectHistoryEvents(

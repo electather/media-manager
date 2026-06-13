@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { compact } from "es-toolkit/array";
-import type { AuthorizedApp, AuthorizedAppStatus } from "@ent-mcp/shared/users";
+import type { AuthorizedApp, AuthorizedAppStatus } from "@nama/shared/users";
 import {
   oauthAccessToken,
   oauthClient,

@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type InfiniteData, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Page } from "@ent-mcp/shared/media";
+import type { Page } from "@nama/shared/media";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { prefetchMediaRows, useMediaRows } from "@/shared/media/use-media-rows";
 import { watchlistItemsSource } from "../lib/sources";

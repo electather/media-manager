@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import type { PrimaryConnectionRow } from "@ent-mcp/shared/connections";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { PrimaryConnectionRow } from "@nama/shared/connections";
+import type { MediaType } from "@nama/shared/media";
 import { getDb } from "../db/client";
 import { primaryConnections } from "../db/schema/preferences/user-preferences";
 // fallow-allow: phase-2 infra-to-module decoupling — same as `connections/service.ts`,

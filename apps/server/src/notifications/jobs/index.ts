@@ -9,22 +9,20 @@ import { registerOnPluginRuntimeNotifyRequested } from "./on-plugin-runtime-noti
 export interface RegisterJobsOptions {
   /**
    * When `false`, scheduled cron-driven registrations (e.g. the
-   * stale-pending-sweep) are skipped. Cloudflare Workers has no persistent
-   * process to run croner schedules, so the Worker entry point passes
-   * `false` here while the Node entry point uses the default.
+   * stale-pending-sweep) are skipped — for callers running without a
+   * persistent scheduler. Defaults to `true`.
    */
   scheduled?: boolean;
 }
 
 /**
  * Registers every notification job at boot. Invoked from
- * `apps/server/src/{index,worker}.ts` in alphabetical module order; ordering
- * inside this function is registration-order — handlers fan out sequentially
- * so adding a new handler in the middle could shift downstream timings.
+ * `apps/server/src/index.ts` in alphabetical module order; ordering inside
+ * this function is registration-order — handlers fan out sequentially so
+ * adding a new handler in the middle could shift downstream timings.
  *
- * `scheduled: false` skips croner-backed registrations so the Worker runtime
- * (no persistent process, no scheduler) still wires triggerable jobs and
- * event handlers without crashing on a cron-schedule attempt.
+ * `scheduled: false` skips croner-backed registrations so a caller without a
+ * persistent scheduler still wires triggerable jobs and event handlers.
  */
 export function registerJobs(opts: RegisterJobsOptions = {}): void {
   const scheduled = opts.scheduled ?? true;

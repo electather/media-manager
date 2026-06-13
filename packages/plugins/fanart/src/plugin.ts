@@ -1,4 +1,4 @@
-import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
+import { definePlugin, toErrorMessage } from "@nama/plugin-sdk";
 import { BASE, VERIFY_FIXTURE_TMDB_ID } from "./constants";
 import { resolveKey } from "./client";
 import { artwork } from "./capabilities/artwork";
@@ -11,7 +11,7 @@ export default definePlugin({
     version: "0.1.0",
     description:
       "High-resolution posters, backdrops, clear logos, and thumbs from fanart.tv. Admin configures one or more API keys; the host rotates across them on rate-limit.",
-    author: { name: "Media Manager", url: "https://github.com/electather/media-manager" },
+    author: { name: "Nama", url: "https://github.com/electather/nama" },
     homepage: "https://fanart.tv",
     logoUrl: "https://fanart.tv/favicon.ico",
     sdkVersion: "^1.0.0",

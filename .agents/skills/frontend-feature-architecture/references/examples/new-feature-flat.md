@@ -29,7 +29,7 @@ features/widgets/
 ## `lib/types.ts`
 
 ```ts
-import type { WidgetDto } from "@ent-mcp/shared/widgets";
+import type { WidgetDto } from "@nama/shared/widgets";
 import { m } from "@/paraglide/messages";
 
 export interface WidgetFilters {

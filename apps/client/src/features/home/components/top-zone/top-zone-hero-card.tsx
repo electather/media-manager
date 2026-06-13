@@ -1,4 +1,4 @@
-import type { RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@nama/shared/home";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { cn } from "@/shared/lib/utils";
 import { MediaCardAvailability, deriveMediaCardAvailability } from "@/shared/components/media-card";

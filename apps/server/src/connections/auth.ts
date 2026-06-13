@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
-import { isPluginError, type AuthResult } from "@ent-mcp/plugin-sdk";
+import { isPluginError, type AuthResult } from "@nama/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import { decryptField, encryptJson } from "../crypto/helpers";
 import {

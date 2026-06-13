@@ -8,7 +8,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { m } from "@/paraglide/messages";
-import { PERMISSIONS } from "@ent-mcp/shared/auth";
+import { PERMISSIONS } from "@nama/shared/auth";
 
 import { SectionIndex, SectionLayout, type SectionNavGroup } from "@/app/section-shell";
 

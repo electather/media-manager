@@ -1,4 +1,4 @@
-import type { MediaSourceId, Page } from "@ent-mcp/shared/media";
+import type { MediaSourceId, Page } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "./error";
 

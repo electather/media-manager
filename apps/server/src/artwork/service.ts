@@ -5,7 +5,7 @@ import type {
   ArtworkGetResponse,
   ArtworkIdMap,
   ArtworkRequestItem,
-} from "@ent-mcp/shared/artwork";
+} from "@nama/shared/artwork";
 import type { CatalogService } from "../catalog";
 import { dispatchAggregatePerKind, PluginCallError } from "../media";
 

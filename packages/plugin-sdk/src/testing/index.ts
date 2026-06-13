@@ -1,12 +1,12 @@
 /**
  * Plugin testing kit. Extracted from `makeCtx` and fetch-helper patterns that
  * were duplicated across every plugin's `__tests__/contract.test.ts`. Plugin
- * authors import from `@ent-mcp/plugin-sdk/testing` to write contract tests
+ * authors import from `@nama/plugin-sdk/testing` to write contract tests
  * without re-implementing the host-side mocks.
  */
 
 import type { PluginContext } from "../types";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@nama/shared/notifications";
 
 export interface FakeCall {
   url: string;

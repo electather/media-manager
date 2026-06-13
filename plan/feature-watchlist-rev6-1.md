@@ -36,7 +36,7 @@ Pre-stable break: `WATCHLIST_BUCKETS` widens from 4 → 5 and `ClassifiedBucket`
 - **GUD-001**: Per CLAUDE.md frontend-feature-architecture skill — read before editing feature folder.
 - **GUD-002**: Per CLAUDE.md — `vp check` + `vp test` clean before commit.
 - **PAT-001**: `EmptyState` visual pattern lifted from `apps/client/src/features/settings-apps/components/apps-empty.tsx`.
-- **PAT-002**: Changeset file under `.changeset/` per CLAUDE.md — single user-facing `@ent-mcp/client` minor entry; `@ent-mcp/server` empty-frontmatter entry.
+- **PAT-002**: Changeset file under `.changeset/` per CLAUDE.md — single user-facing `@nama/client` minor entry; `@nama/server` empty-frontmatter entry.
 
 ## 2. Implementation Steps
 
@@ -122,7 +122,7 @@ Pre-stable break: `WATCHLIST_BUCKETS` widens from 4 → 5 and `ClassifiedBucket`
 | TASK-032 | Run `vp lint` — fix any new findings introduced in Phases 1–6. | ✅ | 2026-05-23 |
 | TASK-033 | Run `vp test` — full test suite green. Re-run failed tests individually if needed; do not skip. | ✅ | 2026-05-23 |
 | TASK-034 | Manually verify in dev (`vp dev`): navigate `/watchlist` → click each bucket chip → flip sort → assert active state persists; assert grid skeleton paints on cold load; assert each empty bucket shows correct copy. Capture the previously-empty awaiting flow + the populated unavailable flow. |  |  |
-| TASK-035 | Create `.changeset/<slug>.md`. Body: `@ent-mcp/client: minor — Added an "Unavailable" filter for wishlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty.` Per CLAUDE.md changeset conventions. | ✅ | 2026-05-23 |
+| TASK-035 | Create `.changeset/<slug>.md`. Body: `@nama/client: minor — Added an "Unavailable" filter for wishlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty.` Per CLAUDE.md changeset conventions. | ✅ | 2026-05-23 |
 | TASK-036 | Create `.changeset/<slug2>.md` for server with empty frontmatter (internal-only): `---\n---` (no body). Server changes are user-invisible. | ✅ | 2026-05-23 |
 
 ## 3. Alternatives
@@ -135,7 +135,7 @@ Pre-stable break: `WATCHLIST_BUCKETS` widens from 4 → 5 and `ClassifiedBucket`
 
 ## 4. Dependencies
 
-- **DEP-001**: `@ent-mcp/shared` workspace package — TASK-001/002/003 changes shared types consumed by both apps.
+- **DEP-001**: `@nama/shared` workspace package — TASK-001/002/003 changes shared types consumed by both apps.
 - **DEP-002**: TanStack Router — `activeOptions.includeSearch` is the API used in TASK-016. Verify version ≥ the release that exposes this option (v1.x current).
 - **DEP-003**: Paraglide — message regeneration runs via `vp check`. No new tool dependency.
 - **DEP-004**: lucide-react icons used in `WatchlistEmpty` (`PlayCircleIcon`, `PauseCircleIcon`, `ClockIcon`, `PackageOpenIcon`, `CalendarIcon`, `BookmarkIcon`). Already a dependency.

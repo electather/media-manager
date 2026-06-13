@@ -36,7 +36,7 @@ vi.mock("../../../db/client", () => ({
 }));
 
 vi.mock("../../../auth", async () => {
-  const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
+  const { PERMISSIONS } = await import("@nama/shared/auth");
   return {
     requireSession: async (c: any, next: any) => {
       if (!mockUserId) throw unauthorized();

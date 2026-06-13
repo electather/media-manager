@@ -141,7 +141,7 @@ Flat layout with reserved files. A file is created only when its role is needed 
 2. **No raw drizzle outside `repo.ts`.** `service.ts` and `jobs/` call `repo.fn()`. Only `repo.ts` (or `repo/<file>.ts`) imports `drizzle-orm` and the schema.
 3. **Own tables only in own `repo.ts`.** A module's `repo.ts` reads/writes only the tables that module owns. Reading another module's table = call the owner's barrel.
 4. **Sync via `service.ts`, async via `events.ts` + `jobs/`.** No cross-module fire-and-forget via direct function calls. No cross-module DB writes through shared schema imports.
-5. **`events.ts` is the published async contract.** Adding or changing event payload fields = changeset entry + semver bump for `@ent-mcp/server`.
+5. **`events.ts` is the published async contract.** Adding or changing event payload fields = changeset entry + semver bump for `@nama/server`.
 6. **Tests live in `__tests__/` next to code.** Unit tests mock `repo.ts`. Integration tests mock other modules' barrels, not their internals.
 7. **One handler per file in `jobs/`.** File name matches the event handled (e.g. `on-media-added.ts` for `catalog.media.added`).
 8. **`internal/` is private.** Never imported from outside the module. Enforced by fallow `<module>-internal` sub-zone.
@@ -581,7 +581,7 @@ Exit criteria: `vp check`, `vp test`, `fallow dead-code`, `fallow health` all gr
 - Refactor `notifications/` to the new shape: extract `repo.ts` from `repos.ts`, declare `events.ts` with current emit points (`emit.ts` → restructure), formalize `internal/` for `resolve-recipients.ts`, `delivery-policy.ts`, etc.
 - Write `.agents/skills/backend-feature-architecture/SKILL.md` + references + symlink.
 - Reference `notifications/` from the skill as canonical example.
-- Add the changeset entry for `@ent-mcp/server` (minor — public surface of `notifications/` changed).
+- Add the changeset entry for `@nama/server` (minor — public surface of `notifications/` changed).
 
 Exit criteria: `notifications/` matches the template; skill lints clean; `vp check` + `vp test` green.
 

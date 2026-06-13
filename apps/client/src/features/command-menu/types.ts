@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import type * as messages from "@/paraglide/messages";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { BaseApiError } from "@/shared/lib/diagnostics/api-error";

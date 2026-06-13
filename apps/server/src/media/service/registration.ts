@@ -1,5 +1,5 @@
 import type { ZodType } from "zod";
-import type { ActiveRow, MediaSourceId } from "@ent-mcp/shared/media";
+import type { ActiveRow, MediaSourceId } from "@nama/shared/media";
 import type { Cursor, CursorMode } from "../cursor";
 import type { MediaSource } from "../source";
 import type { PipelineConfig, SourceContext } from "../types";

@@ -1,6 +1,6 @@
 # Request flow — pending persistence
 
-**Status:** design. Phase 2 of [2026-05-08-request-flow-api-wiring.md](./2026-05-08-request-flow-api-wiring.md). Continues issue [#216](https://github.com/electather/media-manager/issues/216) follow-ups.
+**Status:** design. Phase 2 of [2026-05-08-request-flow-api-wiring.md](./2026-05-08-request-flow-api-wiring.md). Continues issue [#216](https://github.com/electather/nama/issues/216) follow-ups.
 
 Caveman ultra. Pseudocode = source-of-truth shape, not literal.
 

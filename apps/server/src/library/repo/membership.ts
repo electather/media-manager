@@ -1,5 +1,5 @@
 import { and, eq, notInArray } from "drizzle-orm";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 

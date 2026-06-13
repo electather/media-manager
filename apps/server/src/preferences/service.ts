@@ -1,15 +1,15 @@
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { MediaItem } from "@nama/shared/media";
 import type {
   FeedbackAction,
   PreferenceProfile,
   ProfileMediaType,
   RebuildResult,
   UpdateResult,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { getCatalogService } from "../catalog";
 import { anyRunning, find as findJobEntry } from "../jobs";
 import { latestRun } from "../jobs/history";
-import type { JobRunSummary } from "@ent-mcp/shared/jobs";
+import type { JobRunSummary } from "@nama/shared/jobs";
 import type { TriggerSource } from "../jobs/types";
 import { CatalogPreferenceProvider, type FeatureCacheMetrics } from "./internal/catalog-provider";
 import { PreferenceEngine, type RankOptions } from "./internal/engine";

@@ -4,7 +4,7 @@ import {
   libraryCollectionsQuerySchema,
   type LibraryCollectionsResponse,
   type LibraryFacetCounts,
-} from "@ent-mcp/shared/library";
+} from "@nama/shared/library";
 import { requireSession, sessionUserId } from "../../auth";
 import { getCatalogService } from "../../catalog";
 import { zValidator } from "../../diagnostics/validator";

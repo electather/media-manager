@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 import type { MediaEnrichContext, MediaEnrichRow } from "../enrich";
 
 vi.mock("../../env", () => ({

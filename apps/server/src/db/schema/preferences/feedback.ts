@@ -1,7 +1,7 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { MEDIA_TYPES } from "@ent-mcp/shared/media";
-import { FEEDBACK_ACTIONS, NOTE_SENTIMENTS } from "@ent-mcp/shared/preferences";
+import { MEDIA_TYPES } from "@nama/shared/media";
+import { FEEDBACK_ACTIONS, NOTE_SENTIMENTS } from "@nama/shared/preferences";
 import { user } from "../auth/auth";
 
 export const feedback = sqliteTable(

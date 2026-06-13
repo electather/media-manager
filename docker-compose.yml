@@ -1,15 +1,15 @@
 services:
   app:
     # Pin to a tagged release (e.g. `:v1.2.3`) for rollback-capable deploys.
-    image: ghcr.io/electather/media-manager:latest
+    image: ghcr.io/electather/nama:latest
     env_file: .env
     environment:
       # Force the DB into the mounted `/data` volume regardless of whatever
       # value `.env` carries. Without this override, a user who leaves the
-      # shipped `.env.example` default (`file:./data/ent-mcp.db`) would write
+      # shipped `.env.example` default (`file:./data/nama.db`) would write
       # to the container's working directory and lose data on `docker
       # compose down` or `up --force-recreate`.
-      SQLITE_PATH: file:/data/ent-mcp.db
+      SQLITE_PATH: file:/data/nama.db
     ports:
       - "3000:3000"
     volumes:

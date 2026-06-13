@@ -1,5 +1,5 @@
 import type { Confidence, FeedbackAction, NoteSentiment, ProfileMediaType } from "./enums";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 
 export type WeightMap = Record<string, number>;
 

@@ -22,10 +22,10 @@ function findSourcemaps(root: string): string[] {
  *  sibling `dist-sourcemaps/` directory after the build completes.
  *
  *  `build.sourcemap: "hidden"` only strips the `sourceMappingURL` comment; the
- *  `.map` files are still written next to each bundle. Both deploy targets serve
- *  `dist/` verbatim — the Hono `serveStatic` root and the Cloudflare `[assets]`
- *  directory — so leaving the maps there would let anyone fetch
- *  `index-<hash>.js.map` and recover the original sources, defeating the
+ *  `.map` files are still written next to each bundle. The deploy serves
+ *  `dist/` verbatim from the Hono `serveStatic` root — so leaving the maps
+ *  there would let anyone fetch `index-<hash>.js.map` and recover the original
+ *  sources, defeating the
  *  "private diagnostics input" design. Relocating them keeps the maps on disk
  *  for the CI upload step while ensuring they are never served. */
 function extractSourcemaps(): Plugin {
