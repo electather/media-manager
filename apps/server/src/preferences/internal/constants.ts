@@ -1,4 +1,4 @@
-import type { Confidence, FeatureCategory, ProfileFeatures } from "@ent-mcp/shared/preferences";
+import type { Confidence, FeatureCategory, ProfileFeatures } from "@nama/shared/preferences";
 
 export const FEATURE_CATEGORIES: FeatureCategory[] = [
   "genres",

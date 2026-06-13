@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import type { MediaDetailsResponse } from "@ent-mcp/shared/home";
+import type { MediaDetailsResponse } from "@nama/shared/home";
 import { MediaDetailPage } from "../components/media-detail-page";
 import { useMediaItem } from "../lib/find-item";
 

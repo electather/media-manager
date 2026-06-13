@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { eq } from "drizzle-orm";
-import { ALL_PERMISSIONS, PERMISSIONS } from "@ent-mcp/shared/auth";
+import { ALL_PERMISSIONS, PERMISSIONS } from "@nama/shared/auth";
 
 vi.mock("../../env", () => ({
   env: {

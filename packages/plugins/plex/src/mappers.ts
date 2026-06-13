@@ -1,4 +1,4 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
 import type { PlexUserCfg, PlexMetadata, PlexGuid } from "./types";
 import { RESOLUTION_MAP } from "./constants";
 import { externalBase } from "./client";

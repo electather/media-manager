@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import type { MoodId, WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
+import type { MoodId, WatchlistBucket, WatchlistSort } from "@nama/shared/watchlist";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "../../watchlist-card";
 import { useAllItems } from "../../../hooks/use-all-items";

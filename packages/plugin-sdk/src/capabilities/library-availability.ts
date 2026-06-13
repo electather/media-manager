@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
+import { libraryItemSchema } from "@nama/shared/plugins/library";
 import { defineCapability, method } from "../define";
 import { MIN, libraryItemQueryType } from "./shared-schemas";
 

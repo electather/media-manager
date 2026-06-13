@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../recommended-for-you-tv";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 
 vi.mock("../../../env", () => ({
   env: {

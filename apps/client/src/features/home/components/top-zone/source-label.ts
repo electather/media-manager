@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import type { RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@nama/shared/home";
 
 /**
  * Maps the active hero slide's `RowKind` to the existing Paraglide row-header

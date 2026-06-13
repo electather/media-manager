@@ -1,5 +1,5 @@
-import type { MediaDetailsExtra, MediaDetailsResponse } from "@ent-mcp/shared/home";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaDetailsExtra, MediaDetailsResponse } from "@nama/shared/home";
+import type { MediaType } from "@nama/shared/media";
 import { toCanonicalRow, type RawCanonicalSource } from "../../catalog";
 import { HttpError } from "../../diagnostics/http-errors";
 import { classifyError } from "./classify-error";

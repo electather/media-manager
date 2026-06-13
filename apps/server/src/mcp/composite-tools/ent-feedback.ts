@@ -9,7 +9,7 @@ import { getPreferencesService } from "../../preferences";
 import type { ToolHandler, ToolRegistration } from "../registry";
 import { parseMediaId } from "../media-id";
 import { badInput, targetNotFound } from "../errors";
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { MediaItem } from "@nama/shared/media";
 
 type FeedbackAction = "like" | "dislike" | "rate" | "note";
 

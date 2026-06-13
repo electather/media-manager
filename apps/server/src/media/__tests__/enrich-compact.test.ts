@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { CompactMediaItem } from "@nama/shared/home";
 import type { CompactMediaEnrichContext } from "../enrich";
 
 vi.mock("../../env", () => ({

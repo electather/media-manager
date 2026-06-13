@@ -5,7 +5,7 @@ import { getDb } from "../../db/client";
 import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { decryptField } from "../../crypto/helpers";
 import { capabilityRegistry, pluginRuntime } from "../../plugin-runtime";
-import { getCapability } from "@ent-mcp/plugin-sdk";
+import { getCapability } from "@nama/plugin-sdk";
 import { PluginCallError, normalizeError } from "../errors";
 import type { ResolvedConnection } from "../internal/resolve-connection";
 

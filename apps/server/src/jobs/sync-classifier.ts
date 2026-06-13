@@ -1,4 +1,4 @@
-import type { JobKind } from "@ent-mcp/shared/jobs";
+import type { JobKind } from "@nama/shared/jobs";
 
 /**
  * A job is "sync-classified" when its successful completion represents a

@@ -11,7 +11,7 @@ import { cn } from "@/shared/lib/utils";
 import { relativeTime } from "@/shared/lib/time-format";
 import { m } from "@/paraglide/messages";
 
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 import { NameGlyph } from "@/shared/components/name-glyph";
 

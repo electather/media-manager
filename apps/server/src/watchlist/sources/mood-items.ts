@@ -1,5 +1,5 @@
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import { keyToId, WATCHLIST_LIST_MAX_LIMIT, type MoodId } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow } from "@nama/shared/media";
+import { keyToId, WATCHLIST_LIST_MAX_LIMIT, type MoodId } from "@nama/shared/watchlist";
 import {
   listActiveRowsKeyset,
   type Cursor,

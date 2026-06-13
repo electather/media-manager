@@ -1,9 +1,9 @@
-import { definePlugin, pluginError, type PluginContext } from "@ent-mcp/plugin-sdk";
+import { definePlugin, pluginError, type PluginContext } from "@nama/plugin-sdk";
 import type {
   NotificationAction,
   NotificationEvent,
   NotificationMessage,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 interface TelegramUserCfg {
   botToken: string;
@@ -129,7 +129,7 @@ export const telegramPlugin = definePlugin({
     description: "Send notifications to a Telegram chat via a bot.",
     version: "0.1.0",
     sdkVersion: "^1.0.0",
-    author: { name: "Media Manager" },
+    author: { name: "Nama" },
     allowedHosts: ["api.telegram.org"],
     auth: { kind: "none" },
     capabilities: {
@@ -269,7 +269,7 @@ export const telegramPlugin = definePlugin({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             chat_id: cfg.chatId,
-            text: "✅ Test from Media Manager — Telegram channel is wired up.",
+            text: "✅ Test from Nama — Telegram channel is wired up.",
             disable_notification: true,
           }),
         });

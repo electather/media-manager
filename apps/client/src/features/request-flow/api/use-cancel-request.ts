@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { MediaRequestsResponse } from "@ent-mcp/shared/media";
+import type { MediaRequestsResponse } from "@nama/shared/media";
 import { requestsApi } from "./client";
 import { requestFlowKeys } from "./query-keys";
 import { toastFromError } from "./errors";

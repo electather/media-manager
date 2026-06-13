@@ -1,5 +1,5 @@
 <!--
-  Thanks for contributing to media-manager!
+  Thanks for contributing to nama!
   PR titles should follow Conventional Commits, e.g. `feat(client): add plugin list view`.
   Scopes in this repo: client, server, shared, ci, deps, docs.
 -->
@@ -37,9 +37,9 @@
 
 <!-- Which workspace(s) does this touch? Check all that apply. -->
 
-- [ ] `@ent-mcp/client`
-- [ ] `@ent-mcp/server`
-- [ ] `@ent-mcp/shared`
+- [ ] `@nama/client`
+- [ ] `@nama/server`
+- [ ] `@nama/shared`
 - [ ] Tooling / CI
 - [ ] Docs
 

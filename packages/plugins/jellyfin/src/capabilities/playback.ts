@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import type { Ctx, JellyfinItem, MediaItemShape } from "../types";
 import { getUserId, jellyfinJson, jellyfinFetch } from "../client";
 import { mapMediaShape } from "../mappers";

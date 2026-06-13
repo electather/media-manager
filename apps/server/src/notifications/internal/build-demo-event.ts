@@ -3,7 +3,7 @@ import {
   type NotificationEvent,
   type NotificationEventType,
   type NotificationSeverity,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 export const EVENT_TYPE_META: Record<
   NotificationEventType,

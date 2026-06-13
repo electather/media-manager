@@ -1,4 +1,4 @@
-import { MAX_VARIANTS_PER_KIND } from "@ent-mcp/plugin-sdk";
+import { MAX_VARIANTS_PER_KIND } from "@nama/plugin-sdk";
 import type { Ctx, TmdbImage } from "./types";
 import { DEFAULT_POSTER_BASE, DEFAULT_ARTWORK_SIZES } from "./constants";
 import type { ArtworkSizeKind } from "./constants";

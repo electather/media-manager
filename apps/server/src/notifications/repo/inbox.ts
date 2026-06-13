@@ -18,7 +18,7 @@ import type {
   InboxItemDto,
   NotificationCategory,
   NotificationSeverity,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 export interface InsertInboxItemInput {
   id: string;

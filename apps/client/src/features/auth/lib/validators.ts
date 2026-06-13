@@ -1,5 +1,5 @@
 import type { ZodTypeAny } from "zod";
-import { createUserSchema } from "@ent-mcp/shared/users";
+import { createUserSchema } from "@nama/shared/users";
 import { m } from "@/paraglide/messages";
 
 function validateSchemaField(

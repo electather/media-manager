@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 import { fetchToggleSubscription } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
 

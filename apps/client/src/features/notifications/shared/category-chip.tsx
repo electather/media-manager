@@ -1,4 +1,4 @@
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 import { RadioGroupItem } from "@/shared/ui/radio-group";
 import { CATEGORY_META } from "./types";
 

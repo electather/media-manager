@@ -1,4 +1,4 @@
-import { libraryLensQuerySchema, type LibraryLensQueryParsed } from "@ent-mcp/shared/library";
+import { libraryLensQuerySchema, type LibraryLensQueryParsed } from "@nama/shared/library";
 import type { AnyMediaSourceRegistration, MediaSourceRegistration } from "../../media";
 import type { LensFilters } from "../repo";
 import { azSource, type AzParams } from "../sources/az";

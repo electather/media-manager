@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { isPluginError } from "@ent-mcp/plugin-sdk";
-import traktPlugin from "@ent-mcp/plugin-trakt";
-import tmdbPlugin from "@ent-mcp/plugin-tmdb";
-import seerrPlugin from "@ent-mcp/plugin-seerr";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { isPluginError } from "@nama/plugin-sdk";
+import traktPlugin from "@nama/plugin-trakt";
+import tmdbPlugin from "@nama/plugin-tmdb";
+import seerrPlugin from "@nama/plugin-seerr";
 
 // Minimal PluginContext mock with a queue-based fetch. Each test pushes the
 // responses it expects and asserts both the emitted requests and the plugin

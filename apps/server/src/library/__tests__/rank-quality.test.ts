@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { QUALITY_TIERS } from "@ent-mcp/shared/library";
+import { QUALITY_TIERS } from "@nama/shared/library";
 import { decodeCollectionsCursor, encodeCollectionsCursor } from "../internal/collections-cursor";
 import { QUALITY_RANK_UNRANKED, rankQualityTier } from "../internal/rank-quality";
 

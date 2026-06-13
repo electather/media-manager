@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import provider from "../upcoming-for-you";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 
 vi.mock("../../../env", () => ({
   env: {

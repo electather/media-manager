@@ -10,7 +10,7 @@ import { encodeSeedCursor } from "@/shared/media/cursor";
  * separate across detail-page navigations.
  *
  * `encodeSeedCursor` is the SAME helper the server `similarTo` source mints its
- * seed cursor with (`@ent-mcp/shared/media`), so the client-built cursor decodes
+ * seed cursor with (`@nama/shared/media`), so the client-built cursor decodes
  * as the keyset shape the resolver expects (`cursorOnNull: "400"`,
  * `requiresInitialCursor`). The pre-cutover `encodeCursor({tmdbId,mediaType,
  * offset})` shape decoded to `null` against the new resolver and 400'd the row.

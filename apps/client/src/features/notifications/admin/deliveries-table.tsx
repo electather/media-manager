@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { AdminDeliveryRow } from "@ent-mcp/shared/notifications";
+import type { AdminDeliveryRow } from "@nama/shared/notifications";
 import { m } from "@/paraglide/messages";
 import { useAdminDeliveries } from "./use-admin-deliveries";
 import { DeliveryRow } from "./delivery-row";

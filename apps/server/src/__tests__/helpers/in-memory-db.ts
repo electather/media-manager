@@ -24,7 +24,7 @@ const tempDirs: string[] = [];
  * `afterAll` in test files that need it.
  */
 export async function createInMemoryDb(): Promise<Db> {
-  const dir = mkdtempSync(join(tmpdir(), "ent-mcp-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "nama-test-"));
   tempDirs.push(dir);
   const filePath = join(dir, "test.db");
   const client = createClient({ url: `file:${filePath}` });

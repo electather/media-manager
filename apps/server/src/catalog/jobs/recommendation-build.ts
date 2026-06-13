@@ -1,4 +1,4 @@
-import type { FeatureCategory, ProfileMediaType } from "@ent-mcp/shared/preferences";
+import type { FeatureCategory, ProfileMediaType } from "@nama/shared/preferences";
 import {
   getPreferencesService,
   type FeatureContribution,
@@ -8,7 +8,7 @@ import { MediaService, identifyItem, splitCombinedId } from "../../media";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
-import type { RecItem, TopContributor, TopContributorCategory } from "@ent-mcp/shared/catalog";
+import type { RecItem, TopContributor, TopContributorCategory } from "@nama/shared/catalog";
 
 const TOP_N = 60;
 const CANDIDATE_LIMIT = 180;

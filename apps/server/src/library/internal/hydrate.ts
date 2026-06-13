@@ -1,4 +1,4 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 import { loadProgressMap, type ProgressMap } from "../../media";
 import { staleOrNew, writeHydration, type HydrateTarget, type HydrationUpdate } from "../repo";
 import type { LibraryContext } from "../types";

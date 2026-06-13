@@ -1,6 +1,6 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import { discoverTrendingResponseSchema } from "@ent-mcp/shared/media";
-import { searchResponseSchema, type SearchKind } from "@ent-mcp/shared/search";
+import type { CompactMediaItem } from "@nama/shared/home";
+import { discoverTrendingResponseSchema } from "@nama/shared/media";
+import { searchResponseSchema, type SearchKind } from "@nama/shared/search";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { artworkGetInputSchema, type ArtworkRequestItem } from "@ent-mcp/shared/artwork";
+import { artworkGetInputSchema, type ArtworkRequestItem } from "@nama/shared/artwork";
 import { requireSession, sessionUserId } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 import { ArtworkService } from "../../artwork";

@@ -1,5 +1,5 @@
 ---
-"@ent-mcp/server": minor
+"@nama/server": minor
 ---
 
 Migrated preferences to the new modular monolith layout behind a `PreferencesService` facade.

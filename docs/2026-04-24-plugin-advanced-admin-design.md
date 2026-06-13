@@ -375,9 +375,9 @@ Component only renders on `/admin/plugins` (admin role gated). ⊥ extra fronten
 ## Migration
 
 - Drizzle migration adds 3 nullable columns to `plugins` w/ defaults `null`. ⊥ backfill — inheriting manifest = existing behavior; ∀ new rows start there.
-- `@ent-mcp/shared` gains Zod schemas for new API payloads alongside existing `plugin*Schema` exports.
-- `@ent-mcp/client` picks up `PluginRow.advanced` via `InferResponseType`; ⊥ client-side migration beyond rendering new section.
-- ⊥ changeset bump required for docs-only PR. Implementation PRs: `@ent-mcp/server` minor (new capability), `@ent-mcp/client` minor (new UI). ⊥ breaking changes; existing deployments see identical runtime behavior until admin opts in.
+- `@nama/shared` gains Zod schemas for new API payloads alongside existing `plugin*Schema` exports.
+- `@nama/client` picks up `PluginRow.advanced` via `InferResponseType`; ⊥ client-side migration beyond rendering new section.
+- ⊥ changeset bump required for docs-only PR. Implementation PRs: `@nama/server` minor (new capability), `@nama/client` minor (new UI). ⊥ breaking changes; existing deployments see identical runtime behavior until admin opts in.
 - Rollback requires dedicated Drizzle down-migration. SQLite < 3.35 ⊥ `ALTER TABLE … DROP COLUMN`; Drizzle handles via table recreation. Plugins w/ admin policy configured → policy lost on rollback; ∉ affect runtime behavior of already-running deployments.
 
 ## Open questions

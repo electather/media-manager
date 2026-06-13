@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { resolveCredential } from "@ent-mcp/plugin-sdk";
+import { resolveCredential } from "@nama/plugin-sdk";
 
 describe("resolveCredential", () => {
   it("returns the primary value when defined", () => {

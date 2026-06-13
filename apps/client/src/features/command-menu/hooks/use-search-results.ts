@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { SearchKind } from "@ent-mcp/shared/search";
+import type { SearchKind } from "@nama/shared/search";
 import { isNil } from "es-toolkit/predicate";
 import { trim } from "es-toolkit/string";
 import { useDeferredValue } from "react";

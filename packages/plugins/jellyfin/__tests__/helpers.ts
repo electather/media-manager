@@ -1,5 +1,5 @@
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { makeTestContext, type TestContext } from "@nama/plugin-sdk/testing";
 
 // Jellyfin-specific test setup. Builds the standard fake `ctx` around a queue
 // of scripted fetch responses, with credentials and userConfig pre-populated
@@ -32,7 +32,7 @@ export function makeCtx(
   });
 }
 
-export { jsonRes, statusRes, type FakeCall } from "@ent-mcp/plugin-sdk/testing";
+export { jsonRes, statusRes, type FakeCall } from "@nama/plugin-sdk/testing";
 
 export function jfItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {

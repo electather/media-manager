@@ -1,6 +1,6 @@
 import { groupBy, orderBy } from "es-toolkit/array";
-import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
-import type { MetadataKey } from "@ent-mcp/shared/catalog";
+import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@nama/shared/home";
+import type { MetadataKey } from "@nama/shared/catalog";
 import { isActiveContinueWatchingEntry } from "../../media";
 import { fromContinueWatchingEntry } from "./adapters";
 import { enrichHomeItems } from "./media-enrichment";

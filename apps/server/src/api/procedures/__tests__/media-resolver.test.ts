@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import { encode } from "@ent-mcp/shared/media";
+import { encode } from "@nama/shared/media";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { HttpError } from "../../../diagnostics/http-errors";
 
@@ -42,7 +42,7 @@ const sentinelPage = { items: [{ id: "item-1" }], cursor: "next-cursor", partial
 // codec (bad → null, valid → Cursor); stub `listRows` to a sentinel so the
 // resolver mechanics are tested without the read pipeline / db.
 vi.mock("../../../media", async () => {
-  const shared = await import("@ent-mcp/shared/media");
+  const shared = await import("@nama/shared/media");
   return {
     decode: shared.decode,
     listRows: vi.fn(async () => sentinelPage),

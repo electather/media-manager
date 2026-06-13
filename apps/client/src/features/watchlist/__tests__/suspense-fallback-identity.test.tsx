@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { WatchlistBucket } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket } from "@nama/shared/watchlist";
 
 afterEach(() => cleanup());
 

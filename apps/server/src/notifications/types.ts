@@ -1,4 +1,4 @@
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 
 /** Recipient retention configuration; persisted on the `app_config` row. */
 export interface NotificationSettings {

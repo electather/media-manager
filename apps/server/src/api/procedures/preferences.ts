@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { profileQuerySchema } from "@ent-mcp/shared/preferences";
+import { profileQuerySchema } from "@nama/shared/preferences";
 import { requireSession, sessionUserId } from "../../auth";
 import { currentRequestContext } from "../../diagnostics/request-context";
 import { zValidator } from "../../diagnostics/validator";

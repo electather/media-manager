@@ -1,4 +1,4 @@
-import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
+import type { CapabilityDefinition } from "@nama/plugin-sdk";
 import { capabilityRegistry } from "../../../plugin-runtime";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache } from "../dispatch-cache";

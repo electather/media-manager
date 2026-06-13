@@ -442,7 +442,7 @@ Single PR. Internal commit sequence (small focused commits per CLAUDE.md):
 9. i18n keys for `en` + `fa`.
 10. Tests per surface (1 file each per `__tests__/` dir).
 11. Flag flip.
-12. Changeset (`@ent-mcp/client: minor`) — copy from server design's PR-8 line.
+12. Changeset (`@nama/client: minor`) — copy from server design's PR-8 line.
 
 Each commit independently green under `vp check && vp test`.
 
@@ -450,7 +450,7 @@ Each commit independently green under `vp check && vp test`.
 
 - **Router context migration.** `createRouter({ context })` requires every route to declare `context<...>()` if currently typed-strict. Verify by running `vp check` after step 3. If breaking, add `// eslint-disable-next-line` waiver only to prove compile, file follow-up issue. ⊥ block.
 - **`@tanstack/react-virtual` dep add.** Adds ~12 KB gzipped. Acceptable v1 — alt = render full 200 inbox cap unvirtualised (acceptable degenerate case but admin deliveries can have 1000s, virtualise mandatory there). Decide once: add lib, use ∀ surfaces.
-- **`NOTIFICATIONS_ENABLED` lifecycle.** Server `private: false` plugins (`@ent-mcp/plugin-{ntfy,telegram,discord}`) shipped in PR 7 already — no flag-relevant changeset. Client release line acknowledges first user-visible.
+- **`NOTIFICATIONS_ENABLED` lifecycle.** Server `private: false` plugins (`@nama/plugin-{ntfy,telegram,discord}`) shipped in PR 7 already — no flag-relevant changeset. Client release line acknowledges first user-visible.
 - **Reusing `ConnectionModal`.** Modal takes `plugin: PluginSummary | null`. Settings/notifications drives it off `GET /api/notifications/plugins` directly — that endpoint now returns the full `PluginSummary` shape plus `supportsKinds`, so the page hands an entry straight to the modal without a second `/connections/available` round-trip. `/connections/available` excludes notification-only plugins (sole user-scoped cap = `notificationDelivery`) so the two sections own disjoint plugin sets; plugins that mix `notificationDelivery` with another user-scoped capability appear in both. ⊥ breaking.
 - **Mobile admin deliveries.** Filter bar dense; scope to ≥md viewport. Mobile = stacked select column; defer ergonomic polish.
 - **Existing notification panel test coverage.** None today (panel was fixture-only). New tests = first-real notification client tests. Watch for `Suspense`-aware test render adapter; reuse from `features/settings/__tests__/`.

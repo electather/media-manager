@@ -1,6 +1,6 @@
 // Plugin author API. Every symbol a third-party plugin imports comes through
-// this barrel — either owned by the SDK or re-exported from `@ent-mcp/shared`.
-// The SDK never re-exports from `@ent-mcp/server`; host-internal subsystems
+// this barrel — either owned by the SDK or re-exported from `@nama/shared`.
+// The SDK never re-exports from `@nama/server`; host-internal subsystems
 // stay on the server.
 
 // ─── Owned by the SDK ─────────────────────────────────────────────────────────
@@ -37,14 +37,14 @@ export type { MediaItemShape } from "./capabilities/shared-schemas";
 export * from "./validate";
 export * from "./version";
 
-// ─── Re-exported from @ent-mcp/shared so plugin authors only need one dep ─────
+// ─── Re-exported from @nama/shared so plugin authors only need one dep ─────
 export {
   pluginManifestSchema,
   manifestCapabilitySchema,
   manifestJobEntrySchema,
   authKindSchema,
   capabilityScopeSchema,
-} from "@ent-mcp/shared/plugins";
+} from "@nama/shared/plugins";
 export type {
   PluginManifest,
   ManifestCapability,
@@ -53,9 +53,9 @@ export type {
   McpToolAnnotations,
   AuthKind,
   CapabilityScope,
-} from "@ent-mcp/shared/plugins";
-export type { JSONSchema } from "@ent-mcp/shared/common";
-export type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/plugins";
+export type { JSONSchema } from "@nama/shared/common";
+export type { HostErrorCode } from "@nama/shared/diagnostics";
 export {
   artworkVariantSchema,
   artworkBundleSchema,
@@ -67,7 +67,7 @@ export {
   ARTWORK_ID_TYPES,
   ARTWORK_ERROR_CODES,
   MAX_VARIANTS_PER_KIND,
-} from "@ent-mcp/shared/artwork";
+} from "@nama/shared/artwork";
 export type {
   ArtworkVariant,
   ArtworkBundle,
@@ -78,7 +78,7 @@ export type {
   ArtworkKind,
   ArtworkIdType,
   ArtworkErrorCode,
-} from "@ent-mcp/shared/artwork";
+} from "@nama/shared/artwork";
 export {
   libraryItemSchema,
   libraryItemQualitySchema,
@@ -86,7 +86,7 @@ export {
   LIBRARY_ITEM_QUERY_TYPES,
   LIBRARY_ITEM_RESOLUTIONS,
   LIBRARY_ITEM_HDR_FORMATS,
-} from "@ent-mcp/shared/plugins/library";
+} from "@nama/shared/plugins/library";
 export type {
   LibraryItem,
   LibraryItemType,
@@ -94,7 +94,7 @@ export type {
   LibraryItemResolution,
   LibraryItemHdrFormat,
   LibraryItemQuality,
-} from "@ent-mcp/shared/plugins/library";
+} from "@nama/shared/plugins/library";
 export {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_SEVERITIES,
@@ -102,7 +102,7 @@ export {
   NOTIFICATION_CONTENT_KINDS,
   NOTIFICATION_EVENT_TYPES,
   NOTIFICATION_CATEGORY_PERMISSION,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 export type {
   BaseEvent,
   NotificationCategory,
@@ -115,4 +115,4 @@ export type {
   NotificationAction,
   NotificationMessage,
   NotificationEvent,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";

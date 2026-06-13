@@ -37,7 +37,7 @@ Visual redesign already landed (2026-05-10). This doc = wiring contract for swap
 - **Routing:** TanStack Router nested routes (file-based).
 - **State/data:** `authClient` for identity/session primitives; Hono RPC (`hc<AppType>("/api")`) + TanStack Query for app-specific procedures.
 - **UI:** existing shadcn/ui — no new primitives.
-- **Types:** enums/types cross boundary via `@ent-mcp/shared/users`. Local UI types stay in tab files.
+- **Types:** enums/types cross boundary via `@nama/shared/users`. Local UI types stay in tab files.
 
 No sidebar changes. Existing "Settings" entry → `/settings`; redirect to `/settings/profile` at route resolution.
 
@@ -193,7 +193,7 @@ Status mapping divergence — redesign expects `connected | expired | error | di
 
 ### Data model
 
-`AuthorizedApp` (in `@ent-mcp/shared/users`):
+`AuthorizedApp` (in `@nama/shared/users`):
 
 ```ts
 type AuthorizedApp = {
@@ -232,7 +232,7 @@ The page surface is split into two cards. The first card describes the user's MC
 - Scope summary panel: dashed-bordered card. Scope chips ⇐ `mcpScopes` ∈ same `PublicConfig` payload. Single source w/ server `MCP_SCOPES` const (moved into shared package).
 - `⋯` menu: `Setup guide` only. Rotate menu item + RotateDialog component deleted.
 
-**Setup guide modal.** Adaptive Dialog/Drawer (desktop/mobile). Three sections — Claude Desktop, Cursor, generic MCP-compatible — each with a short steps paragraph and (where applicable) a copyable JSON snippet that wires `mcpServers."media-manager".url` to the endpoint. Snippets are produced via `JSON.stringify` so a stray quote in the URL cannot break the copy-paste payload.
+**Setup guide modal.** Adaptive Dialog/Drawer (desktop/mobile). Three sections — Claude Desktop, Cursor, generic MCP-compatible — each with a short steps paragraph and (where applicable) a copyable JSON snippet that wires `mcpServers."nama".url` to the endpoint. Snippets are produced via `JSON.stringify` so a stray quote in the URL cannot break the copy-paste payload.
 
 **Authorized clients card.** Header carries the count, a description, status filter pills (`All` / `Active` / `Idle`), and a `Revoke all` action when at least one client is present.
 
@@ -285,7 +285,7 @@ Each row:
 
 **Action.** "Export my data" button. Click → temporary anchor nav to `GET /api/me/export` (not `fetch`) — browser download pipeline handles stream. Button shows spinner for ~1-2s before download starts.
 
-**Response.** `Content-Type: application/zip`, `Content-Disposition: attachment; filename="ent-mcp-export-${userId}-${yyyymmdd}.zip"`. ZIP:
+**Response.** `Content-Type: application/zip`, `Content-Disposition: attachment; filename="nama-export-${userId}-${yyyymmdd}.zip"`. ZIP:
 
 ```
 identity.json            user row (id, name, email, emailVerified, createdAt, updatedAt)
@@ -396,7 +396,7 @@ Extend `packages/shared/src/users/`:
 - `DeleteAccountBody` zod schema `{ confirmEmail: string, currentPassword: string }`.
 - `PublicConfig` type. **Amended 2026-05-10:** `{ emailEnabled: boolean; mcpEndpointUrl: string; mcpScopes: readonly string[] }`. `mcpEndpointUrl` ⇐ `${env.PUBLIC_BASE_URL}/mcp` (or computed from request origin). `mcpScopes` ⇐ `MCP_SCOPES` const moved from `apps/server/src/mcp/scopes.ts` ⇒ shared package (re-imported by server).
 
-Export via `@ent-mcp/shared/users` subpath.
+Export via `@nama/shared/users` subpath.
 
 ## Prerequisites
 

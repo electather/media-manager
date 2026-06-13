@@ -1,6 +1,6 @@
 import { compact } from "es-toolkit/array";
 import { isNil, isPlainObject } from "es-toolkit/predicate";
-import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import type { ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import { getPrimaryConnection } from "../../service/primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";

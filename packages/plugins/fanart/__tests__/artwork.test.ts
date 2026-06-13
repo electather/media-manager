@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vite-plus/test";
-import { ArtworkV1 } from "@ent-mcp/plugin-sdk";
+import { ArtworkV1 } from "@nama/plugin-sdk";
 import { jsonRes, makeCtx, MOVIE_RICH, TV_RICH } from "./helpers";
 import fanartPlugin from "../src/plugin";
 

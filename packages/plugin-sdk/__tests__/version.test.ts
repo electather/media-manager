@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { isSdkCompatible, SDK_VERSION } from "@ent-mcp/plugin-sdk";
+import { isSdkCompatible, SDK_VERSION } from "@nama/plugin-sdk";
 
 describe("SDK_VERSION", () => {
   it("is a semver string", () => {

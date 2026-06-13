@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import { SYSTEM_ADMIN_ROLE_SLUG, type Permission } from "./types";
-import { ALL_PERMISSIONS } from "@ent-mcp/shared/auth";
+import { ALL_PERMISSIONS } from "@nama/shared/auth";
 
 export interface UserRoleRow {
   roleId: string;

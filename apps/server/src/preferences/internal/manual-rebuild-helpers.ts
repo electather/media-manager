@@ -2,7 +2,7 @@ import {
   PROFILE_MEDIA_TYPES,
   type ProfileMediaType,
   type RebuildResult,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import type { CatalogService } from "../../catalog";
 import type { JobRunContext } from "../../jobs/types";
 import type { FeatureCacheMetrics } from "./catalog-provider";

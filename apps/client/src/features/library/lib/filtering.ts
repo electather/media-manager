@@ -1,5 +1,5 @@
-import type { WatchedState } from "@ent-mcp/shared/library";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { WatchedState } from "@nama/shared/library";
+import type { CompactMediaItem } from "@nama/shared/media";
 import type { LibraryFilters } from "./types";
 
 /**

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
-import type { PreferenceProfile } from "@ent-mcp/shared/preferences";
+import type { PreferenceProfile } from "@nama/shared/preferences";
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,

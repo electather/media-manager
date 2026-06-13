@@ -1,5 +1,5 @@
 // UI-local types for the request flow. Wire types (`CreateMediaRequestBody`,
-// `RequestTarget`, `RequestProfile`) live in `@ent-mcp/shared/media`.
+// `RequestTarget`, `RequestProfile`) live in `@nama/shared/media`.
 
 /**
  * Per-episode status the request flow renders. Values map onto the four

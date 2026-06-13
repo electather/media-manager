@@ -449,13 +449,13 @@ PR sequence (commits):
 2. `feat(client): scroll-row virtualize mode` — extend ScrollRowTrack
 3. `refactor(home): virtualize feed rows + horizontal tracks` — HomeFeed + Row migration; delete use-prefetch-observer
 4. `refactor(watchlist): virtualize sections + grids` — WatchlistContent + Awaiting/ComingUp/FilteredGrid/ReadyRow
-5. `chore: changeset` — `.changeset/virtualize-card-grids.md`, minor bump `@ent-mcp/client`
+5. `chore: changeset` — `.changeset/virtualize-card-grids.md`, minor bump `@nama/client`
 
 ## Changeset draft
 
 ```md
 ---
-"@ent-mcp/client": minor
+"@nama/client": minor
 ---
 
 Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists.

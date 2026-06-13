@@ -1,7 +1,7 @@
 import {
   NOTIFICATION_EVENT_TYPES,
   type NotificationEventType,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { registerTriggerable } from "../../jobs/triggerable";
 import { ensureInboxConnection } from "../../plugin-runtime";
 import * as repo from "../repo";

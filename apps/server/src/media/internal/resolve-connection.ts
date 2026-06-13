@@ -1,4 +1,4 @@
-import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import type { ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import { getDb } from "../../db/client";
 import { queryEnabledConnectionsForPlugin } from "../../db/queries";
 import { decryptField } from "../../crypto/helpers";

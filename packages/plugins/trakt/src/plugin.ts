@@ -1,4 +1,4 @@
-import { definePlugin } from "@ent-mcp/plugin-sdk";
+import { definePlugin } from "@nama/plugin-sdk";
 import { startAuth, pollAuth, refreshAuth, testConnection, refreshTokensJob } from "./auth";
 import { watchHistory } from "./capabilities/watch-history";
 import { watchlist } from "./capabilities/watchlist";
@@ -16,7 +16,7 @@ export default definePlugin({
     name: "Trakt",
     version: "1.2.0",
     description: "Watch history, watchlist, ratings, recommendations, and calendar via Trakt.tv.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api.trakt.tv"],
     sharedCredentialsSchema: {

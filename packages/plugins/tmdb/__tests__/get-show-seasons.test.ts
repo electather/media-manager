@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { MetadataV1 } from "@ent-mcp/plugin-sdk";
+import { MetadataV1 } from "@nama/plugin-sdk";
 import { jsonRes, makeCtx } from "./helpers";
 import tmdbPlugin from "../src/plugin";
 

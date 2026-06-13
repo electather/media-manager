@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { AdminSettingsBody } from "@ent-mcp/shared/notifications";
+import type { AdminSettingsBody } from "@nama/shared/notifications";
 import { m } from "@/paraglide/messages";
 import { fetchUpdateAdminSettings } from "../shared/fetchers";
 import { notificationsKeys } from "../shared/query-keys";

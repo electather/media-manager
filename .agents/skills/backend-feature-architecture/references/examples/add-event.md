@@ -91,7 +91,7 @@ expect(svc.notifyMediaAdded).toHaveBeenCalled()
 
 ```md
 ---
-"@ent-mcp/server": minor
+"@nama/server": minor
 ---
 
 catalog emits media.added; home + notifications react.

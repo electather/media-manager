@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse } from "@nama/shared/home";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { homeKeys } from "../lib/query-keys";
 

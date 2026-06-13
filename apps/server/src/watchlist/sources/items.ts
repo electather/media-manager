@@ -1,11 +1,11 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { ActiveRow } from "@ent-mcp/shared/media";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { ActiveRow } from "@nama/shared/media";
 import {
   keyToId,
   type MoodId,
   type WatchlistBucket,
   type WatchlistSort,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import {
   listActiveRowsKeyset,
   listAllActiveRows,

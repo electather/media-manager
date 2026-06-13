@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import type { CompactMediaItem, RowContentResponse } from "@ent-mcp/shared/home";
+import type { CompactMediaItem, RowContentResponse } from "@nama/shared/home";
 
 import { setupVirtualizerEnv } from "../../../shared/components/virtualized/__tests__/virtualizer-test-env";
 import { Row } from "../components/row/index";

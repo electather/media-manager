@@ -5,10 +5,10 @@ import { selectEnabledPlugins } from "../db/queries";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { pluginRuntime, capabilityRegistry, sharedCredentialsService } from "../plugin-runtime";
-import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
-import { isNotificationOnlyPlugin } from "@ent-mcp/shared/plugins";
-import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
-import type { AuthResult } from "@ent-mcp/plugin-sdk";
+import type { CapabilityScope, ManifestCapability, PluginManifest } from "@nama/shared/plugins";
+import { isNotificationOnlyPlugin } from "@nama/shared/plugins";
+import type { ConnectionListItem, PluginSummary } from "@nama/shared/connections";
+import type { AuthResult } from "@nama/plugin-sdk";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { invalidateUserCache } from "../media";

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test";
-import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse } from "@nama/shared/home";
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,

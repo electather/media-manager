@@ -40,7 +40,7 @@ Design spec: [docs/2026-05-23-watchlist-sections-design.md](../docs/2026-05-23-w
 - **CON-003**: Released-package guard (Phase 0): grep `packages/plugins/*` and `packages/plugin-sdk/` for `WatchlistListFilter` / `WATCHLIST_LIST_FILTERS` before renaming.
 - **CON-004**: Sub-component nesting cap — single-file sections sit flat in `apps/client/src/features/watchlist/components/sections/<name>.tsx`. Only multi-file sections (`mood-mosaic/`, `all-items/`) get a folder.
 - **CON-005**: No subdir barrels under `features/watchlist/components/sections/` (V57).
-- **CON-006**: Server changeset = empty frontmatter (internal); client changeset = single `@ent-mcp/client` minor with end-user language.
+- **CON-006**: Server changeset = empty frontmatter (internal); client changeset = single `@nama/client` minor with end-user language.
 - **GUD-001**: Mirror notifications-pattern for listener registration: `<module>/jobs/on-*.ts` exporting `register()`, wired into module-level `registerJobs()`.
 - **GUD-002**: Caveman ultra in the design doc; normal prose in code, commits, PR bodies. i18n via paraglide `m.*` for any new translatable copy.
 - **GUD-003**: Tests pin invariants (V.WL1–V.WL7) per CLAUDE.md rule 9; each test must encode the WHY.
@@ -143,7 +143,7 @@ Design spec: [docs/2026-05-23-watchlist-sections-design.md](../docs/2026-05-23-w
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-053 | Create `.changeset/feat-watchlist-sections.md` with `"@ent-mcp/client": minor` frontmatter and a one-sentence end-user description (e.g., "Watchlist page now lists every item in a sortable flat view and shows a paginated per-mood listing when 'See all' is selected."). | | |
+| TASK-053 | Create `.changeset/feat-watchlist-sections.md` with `"@nama/client": minor` frontmatter and a one-sentence end-user description (e.g., "Watchlist page now lists every item in a sortable flat view and shows a paginated per-mood listing when 'See all' is selected."). | | |
 | TASK-054 | Create `.changeset/internal-watchlist-server-sections.md` with empty frontmatter (`---\n---`) for the server-only changes per CLAUDE.md "internal-only" rule. | | |
 | TASK-055 | Open a PR using `.github/PULL_REQUEST_TEMPLATE/pull_request_template.md`. Body links the design doc, lists the phases that landed, and includes the manual verification checklist below. | | |
 

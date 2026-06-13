@@ -1,6 +1,6 @@
 # Primary-Connection Picker (metadata@v1) — Design
 
-**Issue:** [#476](https://github.com/electather/media-manager/issues/476)
+**Issue:** [#476](https://github.com/electather/nama/issues/476)
 **Date:** 2026-05-22
 **Status:** Draft
 
@@ -83,7 +83,7 @@ import { Hono } from "hono";
 import {
   primaryConnectionSetSchema,
   primaryConnectionClearSchema,
-} from "@ent-mcp/shared/connections";
+} from "@nama/shared/connections";
 import { sessionUserId } from "../../auth";
 import { primaryConnectionsService } from "../../connections/primary-service";
 import { zValidator } from "../../diagnostics/validator";

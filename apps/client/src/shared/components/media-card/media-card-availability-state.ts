@@ -1,4 +1,4 @@
-import type { Availability, Facets } from "@ent-mcp/shared/home";
+import type { Availability, Facets } from "@nama/shared/home";
 
 export type MediaCardAvailabilityKind = "server" | "request" | "requested" | "upcoming" | "info";
 
