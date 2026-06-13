@@ -12,7 +12,6 @@ import type {
   RecommendationList,
   RecommendationListKind,
 } from "@nama/shared/catalog";
-import { candidateId } from "../features";
 import { PerUserMutex } from "../internal/mutex";
 import { recordMetadataAccess } from "./access-throttle";
 import { discoverFeedExists, selectDiscoverFeed, upsertDiscoverSnapshot } from "./discover-feed";
@@ -28,6 +27,7 @@ import { selectRecommendations, upsertRecommendationList } from "./recommendatio
 import {
   appendHistoryEvents,
   appendRatingEvents,
+  type MirrorStore,
   selectHistoryCursors,
   selectRatingsCursors,
   selectUserHistory,
@@ -210,7 +210,7 @@ export class CatalogService {
     return deleteOldDiscoverSnapshots(this.db, olderThanDays);
   }
 
-  private mirrorStore(): { db: Db; mutex: PerUserMutex } {
+  private mirrorStore(): MirrorStore {
     return { db: this.db, mutex: this.mirrorMutex };
   }
 }
