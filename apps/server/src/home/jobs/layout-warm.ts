@@ -4,10 +4,6 @@ import { buildContext, composeLayout } from "../service";
 import { write as writeLayoutCache } from "../internal/layout-cache";
 import { listActiveUsers, type ActiveUserRow } from "../internal/active-users";
 
-// Re-exported so the per-row regression test can drive the cross-module query
-// without reaching into `internal/`.
-export { listActiveUsers };
-
 const RUN_TIMEOUT_SEC = 30 * 60;
 // Per-row cap raised from 60s to 120s (#428): a slow or offline plugin's TCP
 // connect can take longer than 60s to resolve/reject, so the old cap tripped
