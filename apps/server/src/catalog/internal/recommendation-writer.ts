@@ -1,3 +1,6 @@
+// Pre-existing catalog<->preferences cycle, baselined on sibling jobs/recommendation-build.ts.
+// This is the relocated writer body reusing the same preferences service singleton via the barrel.
+// fallow-ignore-file circular-dependencies
 import type { FeatureCategory } from "@nama/shared/preferences";
 import { getPreferencesService, type FeatureContribution } from "../../preferences";
 import { MediaService, identifyItem, splitCombinedId } from "../../media";
@@ -64,16 +67,7 @@ export async function writeRecommendationsForUser(
   // `perRowTimeoutSec` cap guards runaway plugin calls. Re-checking here
   // shortens the window where a cancelled job still does post-fetch work.
   abortSignal.throwIfAborted();
-  const candidateItems = candidates.items as Array<{
-    id?: string;
-    type?: "movie" | "tv";
-    title?: string;
-    ids?: { tmdb_id?: string };
-    year?: number | null;
-    overview?: string;
-    posterUrl?: string | null;
-    rating?: number | null;
-  }>;
+  const candidateItems = candidates.items as RawCandidate[];
   if (candidateItems.length === 0) return;
 
   const adapted = candidateItems
