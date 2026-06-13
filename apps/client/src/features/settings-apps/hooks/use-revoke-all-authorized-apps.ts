@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 import { revokeAuthorizedApp } from "../lib/fetchers";
 import { settingsAppsKeys } from "../lib/query-keys";

@@ -3,7 +3,7 @@
  * (or feeds) the `HomeAggregate` envelope so the home orchestrator sees
  * uniform `partial` / `AllPluginsFailedError` semantics across rows.
  */
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { dispatchAggregate, dispatchPrimary } from "./dispatch";
 import { interpretAggregate, type HomeAggregate } from "./interpret-aggregate";
 

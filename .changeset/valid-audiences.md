@@ -1,5 +1,5 @@
 ---
-"@ent-mcp/server": patch
+"@nama/server": patch
 ---
 
 Accepted both trailing-slash and non-slash forms of the OAuth provider audience.

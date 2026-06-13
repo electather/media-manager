@@ -5,7 +5,7 @@ import { errorHandler, requestContextMiddleware } from "../middleware";
 import { HttpError, badRequest, internal, notFound, unauthorized } from "../http-errors";
 import { zValidator } from "../validator";
 import { z } from "zod";
-import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
+import type { ErrorRecord } from "@nama/shared/diagnostics";
 import type { DiagnosticSink } from "../types";
 import { AllPluginsFailedError, PluginCallError } from "../../media/errors";
 

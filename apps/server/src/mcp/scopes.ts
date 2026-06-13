@@ -1,6 +1,6 @@
 import { compact } from "es-toolkit/array";
 
-export { MCP_SCOPES, type McpScope } from "@ent-mcp/shared/users";
+export { MCP_SCOPES, type McpScope } from "@nama/shared/users";
 
 export function parseScopes(raw: string | null | undefined): string[] {
   if (!raw) return [];

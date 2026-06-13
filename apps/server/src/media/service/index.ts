@@ -1,7 +1,7 @@
-import type { CapabilityScope, LibraryItemQuality } from "@ent-mcp/shared/plugins";
-import type { SeasonInfo } from "@ent-mcp/shared/home";
-import type { CreateMediaRequestBody, MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
+import type { CapabilityScope, LibraryItemQuality } from "@nama/shared/plugins";
+import type { SeasonInfo } from "@nama/shared/home";
+import type { CreateMediaRequestBody, MediaRequest, RequestTarget } from "@nama/shared/media";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime";
 import type { RawCanonicalSource } from "../../catalog";
 import { resolveConnections } from "../internal/resolve-connection";
@@ -285,6 +285,7 @@ export class MediaService {
 // Re-exports of public items from service/ and internal/ sub-modules.
 export type { DispatchRequest, AggregateResult } from "../types";
 export { interpretAggregate, type HomeAggregate } from "./interpret-aggregate";
+export type { DiscoverFeedFilters, RankedFeedOptions, SimilarFeedInput } from "./home-feeds";
 export {
   dispatch,
   dispatchSingle,

@@ -2,7 +2,7 @@ import { consola } from "consola";
 import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { effectiveSchedule, getConfig } from "./config";
 import { isRunning } from "./runner";
-import type { JobHandle, JobKind } from "@ent-mcp/shared/jobs";
+import type { JobHandle, JobKind } from "@nama/shared/jobs";
 
 interface BaseJobOpts {
   id: string;

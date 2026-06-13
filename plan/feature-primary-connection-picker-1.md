@@ -40,7 +40,7 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 ### Implementation Phase 1 — Shared schemas
 
-- GOAL-001: Add zod schemas + types for primary-connection endpoints to `@ent-mcp/shared/connections` so server validators and client fetchers share one source of truth.
+- GOAL-001: Add zod schemas + types for primary-connection endpoints to `@nama/shared/connections` so server validators and client fetchers share one source of truth.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
@@ -135,7 +135,7 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | TASK-028 | Run `vp install`, then `vp check` and `vp test` until clean. | ✅ | 2026-05-22 |
-| TASK-029 | Add `.changeset/<slug>.md` with `"@ent-mcp/server": minor` + `"@ent-mcp/client": minor` frontmatter. Body: "Added a picker for choosing which provider drives metadata details per media type." | ✅ | 2026-05-22 |
+| TASK-029 | Add `.changeset/<slug>.md` with `"@nama/server": minor` + `"@nama/client": minor` frontmatter. Body: "Added a picker for choosing which provider drives metadata details per media type." | ✅ | 2026-05-22 |
 | TASK-030 | Open PR; link to issue #476 and the spec under `docs/superpowers/specs/2026-05-22-primary-connection-picker-design.md`. | ✅ | 2026-05-22 |
 
 ## 3. Alternatives
@@ -147,7 +147,7 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 ## 4. Dependencies
 
-- **DEP-001**: `@ent-mcp/shared/connections` package — extending `schemas.ts`, `types.ts`, `index.ts`.
+- **DEP-001**: `@nama/shared/connections` package — extending `schemas.ts`, `types.ts`, `index.ts`.
 - **DEP-002**: Existing server modules: `connections/service.ts`, `connections/helpers.ts`, `media/service/primary-preference.ts`, `media` barrel (`invalidateUserCache`), `plugin-runtime` barrel (`capabilityRegistry`), `diagnostics/http-errors.ts` (`notFound`, `unprocessable`), `diagnostics/validator.ts` (`zValidator`), `auth` barrel (`sessionUserId`, `PERMISSIONS`, `requirePermission`, `requireSession`).
 - **DEP-003**: Existing client modules: `@/shared/hooks/use-optimistic-array-mutation`, `@/shared/ui/select` (shadcn), `@/shared/ui/skeleton`, `@/shared/components/settings-error-boundary`, `@/features/settings` (`SettingsCard`, `SettingsCardHeader`), `@/shared/lib/api`, `@/shared/lib/api/throw-on-error`, paraglide messages.
 - **DEP-004**: Atomic upsert in `setPrimaryConnection` (commit `330b2189`) — required so optimistic writes are race-safe; already merged.
@@ -203,9 +203,9 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 ## 8. Related Specifications / Further Reading
 
-- Issue: [#476 — Wire primary-connection picker (metadata@v1) to API + client UI](https://github.com/electather/media-manager/issues/476)
+- Issue: [#476 — Wire primary-connection picker (metadata@v1) to API + client UI](https://github.com/electather/nama/issues/476)
 - Spec: `docs/superpowers/specs/2026-05-22-primary-connection-picker-design.md`
-- Related issue: [#458 — race in `setPrimaryConnection`](https://github.com/electather/media-manager/issues/458) (fixed in commit `330b2189`)
+- Related issue: [#458 — race in `setPrimaryConnection`](https://github.com/electather/nama/issues/458) (fixed in commit `330b2189`)
 - Existing service: `apps/server/src/media/service/primary-preference.ts`
 - Strategy that consumes the value: `apps/server/src/media/internal/strategies/primary-with-enrichment.ts`
 - DB schema: `apps/server/src/db/schema/preferences/user-preferences.ts`

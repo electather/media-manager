@@ -1,8 +1,8 @@
-# SPEC — ent-mcp
+# SPEC — nama
 
 ## §G Goal
 
-Personal entertainment management platform. MCP server (Streamable HTTP) + React dashboard. Agents & users discover, request, track, rate media. Plugin system fan-out to external services (Trakt, Plex, TMDB, …). Two deploy targets: Cloudflare Workers (hosted) + Docker (self-hosted).
+Personal entertainment management platform. MCP server (Streamable HTTP) + React dashboard. Agents & users discover, request, track, rate media. Plugin system fan-out to external services (Trakt, Plex, TMDB, …). Self-hosted deploy: Docker (SQLite).
 
 ## §C Constraints
 
@@ -11,15 +11,14 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - C3. No sandbox in v1. Built-in plugins run as trusted TS modules in-process.
 - C4. No npm publish. Packages `private: false` for Changesets/GitHub Releases only.
 - C5. No product analytics. Error capture ≠ funnel tracking.
-- C6. Cloudflare Workers runtime: no `croner` scheduler, no `node:fs`, no serveStatic. Excluded from `worker.ts`.
-- C7. `@ent-mcp/shared` isomorphic — only `zod` runtime dep. No drizzle, no hono, no plugin imports.
-- C8. Plugins depend only on `@ent-mcp/plugin-sdk`. Never on `@ent-mcp/shared` direct, never on server, never on each other.
+- C7. `@nama/shared` isomorphic — only `zod` runtime dep. No drizzle, no hono, no plugin imports.
+- C8. Plugins depend only on `@nama/plugin-sdk`. Never on `@nama/shared` direct, never on server, never on each other.
 - C9. Credentials never logged, never stored plaintext. AES-256-GCM at rest.
 - C10. Preference engine host-owned. No plugin surface, no outbound calls.
 - C11. ∀ utility code (array, object, string, fn, predicate) → `es-toolkit` submodule. ⊥ custom re-impl of `compact`/`merge`/`cloneDeep`/`sortBy`/`orderBy`/`debounce`/`throttle`/`uniq`/`invariant`. Import from `es-toolkit/array`, `es-toolkit/object`, `es-toolkit/string`, `es-toolkit/function`, `es-toolkit/predicate`, `es-toolkit/util`. Patterns: `.agents/skills/es-toolkit/references/patterns.md`.
 - C12. Client app feature-first. Three top-level domains under `apps/client/src/`: `app/` (shell), `features/<x>/` (modules), `shared/` (primitives). ⊥ sibling-feature imports. Public surface = `features/<x>/index.ts` barrel only. Cross-feature reach = fallow boundary violation. Routes (`apps/client/src/routes/`) thin — file-based per TanStack Router, ⊥ business logic. Design: `docs/2026-04-29-frontend-structure-design.md`.
 - C13. **Mechanical migration only** for T34–T37. Allowed per-file change set: (1) `git mv` to new path, (2) update import paths in moved file + ∀ consumers, (3) update `index.ts` barrel exports. **Forbidden:** rewriting component bodies, renaming symbols, refactoring logic, splitting/merging files, changing prop signatures, restyling, modernizing patterns, "while we're here" cleanup. Diff per moved file = path delta + import path delta. Behavior parity = pre-existing tests pass unmodified (test imports get path-updated, test bodies stay). ⊥ token spend on rewrites — restructure ≠ rewrite. Drift to rewriting = stop, revert, redo as separate PR after migration lands.
-- C14. Paraglide i18n client-only v1. ⊥ server use, ⊥ `@ent-mcp/shared` import (preserve V12). Server emits English event names + raw params; client maps event kind → translated string.
+- C14. Paraglide i18n client-only v1. ⊥ server use, ⊥ `@nama/shared` import (preserve V12). Server emits English event names + raw params; client maps event kind → translated string.
 - C15. Generated `apps/client/src/paraglide/` = build artifact. ⊥ commit, ⊥ hand-edit. `.gitignore` entry mandatory.
 
 ## §I Interfaces
@@ -49,7 +48,7 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - `ent_account` — connected plugins + capabilities summary
 - `ext_*` — plugin-contributed tools (namespaced per plugin)
 
-### I.plugin — Plugin SDK (`@ent-mcp/plugin-sdk`)
+### I.plugin — Plugin SDK (`@nama/plugin-sdk`)
 
 Capabilities versioned: `metadata@v1`, `watchHistory@v1`, `watchlist@v1`, `ratings@v1`, `recommendations@v1`, `calendar@v1`, `mediaRequest@v1`, `idResolve@v1` (mixed-scope), `userComments@v1`, `watchProviders@v1`, `trailers@v1`, `playback@v1`, `collection@v1`, `libraryAvailability@v1`, `playbackSessions@v1`, `continueWatching@v1`, `libraryAdmin@v1`, `notificationDelivery@v1`.
 Auth kinds: `form` | `oauth_redirect` | `oauth_device` | `none`.
@@ -63,9 +62,8 @@ Scope: `global` (admin creds, shared pool) | `user` (per-connection creds) | `mi
 
 ### I.deploy — deployment
 
-- CF: `worker.ts` entry, Turso DB, Wrangler, multi-env (`app` / `app-nightly` / `app-pr-{n}`).
 - Docker: compiled Bun binary + static client, SQLite volume `/data`, `ghcr.io` images (`nightly` / `latest` / `v*`).
-- Migrations run pre-deploy (CF) or at startup (Docker).
+- Migrations run at startup (Docker).
 
 ### I.notifications — notification events (v1)
 
@@ -76,7 +74,7 @@ Delivery: per-row `notification_deliveries` table, CAS lock (`pending→in_progr
 Subscription captured at emit time. Already-queued delivery fires even if user disables subscription after emit.
 HTTP user: `/api/notifications/{inbox,channels,subscriptions,plugins,categories}`.
 HTTP admin: `/api/admin/notifications/{deliveries,settings}`.
-Shared schemas + event registry: `@ent-mcp/shared/notifications`.
+Shared schemas + event registry: `@nama/shared/notifications`.
 
 ### I.i18n — paraglide-js client i18n
 
@@ -99,15 +97,15 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V6. Every error tagged `requestId` (UUID). Frontend generates per-call; backend reads header or generates; propagated to plugin via `ctx.log`.
 - V7. Shared credentials encrypted AES-256-GCM. Ciphertext + IV stored as separate base64 columns. Plaintext lives in memory only for single `buildContext` invocation.
 - V8. Preference engine pure function of profile + candidates. No tracking of what was shown to user. `match_reason` falls out of scoring bookkeeping.
-- V12. `@ent-mcp/shared` has no runtime deps besides `zod`. Any symbol crossing server/client boundary lives in shared. Drizzle tables, server-internal interfaces stay on server.
+- V12. `@nama/shared` has no runtime deps besides `zod`. Any symbol crossing server/client boundary lives in shared. Drizzle tables, server-internal interfaces stay on server.
 - V13. `notifications.emit()` sole entry point for notification dispatch. All call sites (job runner hooks, `ctx.notify()`, server modules) go through it. Delivery durable: every dispatch persisted + retried on transient fail.
 - V14. User-facing connections list excludes pure-global plugins (those with no `userScopedCapabilities`). Pure-global plugin surface is admin-only.
 - V17. RBAC double-gated on notifications. UI hides categories user lacks permission for. `resolveRecipients()` re-checks permission before writing delivery row. Both gates required — defense in depth.
 - V18. Delivery handler acquires row via CAS: `UPDATE notification_deliveries SET status='in_progress' WHERE id=:id AND status='pending'`. Zero rows → exit immediately, no duplicate `deliver()` call. Stale `in_progress` rows (>2 min) reset to `pending` by sweep every 5 min.
 - V19. v2 bus migration zero-footprint on callers. `emit()` signature, all call sites, all plugin code, all DB tables, full HTTP surface unchanged. Only `emit()` body replaced by `bus.publish()`. Zero call-site changes required.
-- V20. Plugin bundles declare `@ent-mcp/plugin-sdk` as `pack.external`. SDK ⊥ inlined — single shared instance required; `instanceof PluginError` across server/plugin boundary breaks if each plugin ships own copy.
+- V20. Plugin bundles declare `@nama/plugin-sdk` as `pack.external`. SDK ⊥ inlined — single shared instance required; `instanceof PluginError` across server/plugin boundary breaks if each plugin ships own copy.
 - V21. Plugin packages use conditional exports: `development` → `src/index.ts` (Bun resolves TS), `default` → `dist/plugin.js`, `types` → `dist/plugin.d.ts`. ⊥ "bundle not yet built" fallback — dev always TS source, prod always prebuilt.
-- V22. `scripts/check-plugin-deps.ts` wired into `vp check`; CI fails if any file under `packages/plugins/*` imports from `@ent-mcp/shared` or `@ent-mcp/server` directly. Plugins reach those only via SDK re-exports.
+- V22. `scripts/check-plugin-deps.ts` wired into `vp check`; CI fails if any file under `packages/plugins/*` imports from `@nama/shared` or `@nama/server` directly. Plugins reach those only via SDK re-exports.
 - V23. `scripts/check-sdk-compat.ts` wired into `vp check`; CI fails if any plugin `manifest.sdkVersion` semver range does not satisfy current SDK `package.json` version. Catches "bumped SDK major, forgot to widen plugin ranges."
 - V24. `personalKeyFallback` fallback always scoped to requesting user. Admin-pool pick per-user-request only; ⊥ cross-user credential mixing ever.
 - V25. Connection create rejected when validated creds payload resolves to empty object for plugin with `credentialsSchema`. ⊥ parked connections.
@@ -115,7 +113,7 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V27. OAuth 2.1 JWT validated before MCP tool dispatch. ∀ tool handler unreachable w/o valid token. Auth check ∈ transport layer; runs before tool routing — ⊥ handler reachable unauthenticated.
 - V28. `config.public` sole unauthenticated endpoint. ∀ other routes & procedures → valid session | JWT required. ⊥ accidental info leak when adding new routes.
 - V29. `me.accountDelete` cascades ∀ user-owned rows: connections, `notification_deliveries`, preferences, activity, watchlist, ratings, feedback, errors. ⊥ orphaned user data post-deletion.
-- V49. MCP tool `outputSchema` item shapes → Zod schema via `zodToItemSchema`. ⊥ hand-written JSON Schema literals for typed item shapes. Zod schema = single source: `z.infer` → TS type, `zodToItemSchema` → JSON Schema. `zodToItemSchema` ∈ `@ent-mcp/shared/common`; strips `$schema` URI meta field emitted by `z.toJSONSchema`.
+- V49. MCP tool `outputSchema` item shapes → Zod schema via `zodToItemSchema`. ⊥ hand-written JSON Schema literals for typed item shapes. Zod schema = single source: `z.infer` → TS type, `zodToItemSchema` → JSON Schema. `zodToItemSchema` ∈ `@nama/shared/common`; strips `$schema` URI meta field emitted by `z.toJSONSchema`.
 - V50. ∀ server utility code → `es-toolkit` submodule import (C11). ⊥ `compact`, `merge`, `cloneDeep`, `orderBy`, `sortBy`, `uniq`, `debounce`, `throttle`, `invariant` reimplemented inline. `.filter(Boolean)` → `compact`. `structuredClone` on plain objects → `cloneDeep`. `.sort((a,b)=>...)` for ordering → `orderBy`/`sortBy`. Violation detectable via fallow unused-dep signal inversed: if `es-toolkit` unused → new utility code added without consulting it.
 - V51. `apps/client/src/` layout = three top-level domains: `app/` (shell + root chrome), `features/<x>/` (self-contained modules w/ `components/`, `hooks/`, `lib/`, `__tests__/` + `index.ts` barrel), `shared/` (`ui/`, `components/`, `hooks/`, `lib/`). Routes file-based, thin, ⊥ business logic. New feature = new dir under `features/`.
 - V52. ∀ outside-feature import resolves through `@/features/<x>` path alias (= `features/<x>/index.ts` barrel). ⊥ deep-import `@/features/<x>/components/foo` from outside feature. Inside-feature imports = relative paths.
@@ -133,7 +131,7 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
   - **Mechanical rule:** every new `apps/client/src/features/<x>/` dir = exactly one matching `client-feat-<x>` zone in same PR. ⊥ orphan dir, ⊥ orphan zone.
   - Legacy zones `client-components`, `client-hooks`, `client-lib` removed by T34. Their absence = post-migration baseline.
 - V61. Translatable chrome copy imported via `@/paraglide/messages` only. ⊥ inline literals for translated strings. Generated `paraglide/` ⊥ hand-edited; vite plugin recompiles on `messages/*.json` + `project.inlang/settings.json` change.
-- V62. `@ent-mcp/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
+- V62. `@nama/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
 - V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy needs redirect-loop audit w/ modal navigation.
 - V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
 - V65. Admin plugin personal-key fallback controls render iff server-derived `supportsPersonalKeyFallback` is true: plugin declares `sharedCredentialsSchema` ∧ at least one user-scoped capability. Pure-global plugins and user-scoped plugins without shared credentials schema ⊥ show fallback mode choices.
@@ -159,8 +157,8 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 | T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                                                                                                                                         | V2,V3,V4,I.api                             |
 | T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                                                                                                                               | I.notifications,V13                        |
 | T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                                                                                                                                | I.api                                      |
-| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                                                                                                                                       | I.deploy,C6                                |
-| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                                                                                                                                  | C8,V23                                     |
+| T12 | ✓      | Deployment — Docker, CI workflows                                                                                                                                                                                               | I.deploy                                   |
+| T17 | .      | `@nama/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                                                                                                                                  | C8,V23                                     |
 | T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk                                                                                                               | C8,V22,V23,V24                             |
 | T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                                                                                                                                      | V24,V25                                    |
 | T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                                                                                                                                   | I.deploy                                   |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import { BACKOFF_INTERVALS_MS, MAX_ATTEMPTS, decideFailure } from "../internal/delivery-policy";
 
 describe("delivery backoff schedule", () => {

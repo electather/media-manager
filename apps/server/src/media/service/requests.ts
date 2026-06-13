@@ -8,7 +8,7 @@ import {
   type CreateMediaRequestBody,
   type MediaRequest,
   type RequestTarget,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import { z } from "zod";
 import { HttpError, badRequest } from "../../diagnostics/http-errors";
 import { mapRequestPluginError, PluginCallError } from "../errors";

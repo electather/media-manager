@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import type { PublicConfig } from "@ent-mcp/shared/users";
-import { MCP_SCOPES } from "@ent-mcp/shared/users";
+import type { PublicConfig } from "@nama/shared/users";
+import { MCP_SCOPES } from "@nama/shared/users";
 import { env } from "../../env";
 
 /**

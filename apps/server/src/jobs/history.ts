@@ -1,7 +1,7 @@
 import { and, desc, eq, notInArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { jobRuns } from "../db/schema/infra/jobs";
-import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "@ent-mcp/shared/jobs";
+import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "@nama/shared/jobs";
 import { isNil } from "es-toolkit/predicate";
 
 const RESULT_MAX_BYTES = 4096;

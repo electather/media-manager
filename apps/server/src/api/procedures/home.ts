@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { homeGetLayoutInputSchema } from "@ent-mcp/shared/home";
+import { homeGetLayoutInputSchema } from "@nama/shared/home";
 import { requireSession, sessionUserId } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 import { buildContext, composeLayout } from "../../home";

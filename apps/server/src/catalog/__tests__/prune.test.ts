@@ -18,7 +18,7 @@ import {
 } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
 import { toCanonicalRow } from "../canonical";
-import type { MetadataKey, RecItem } from "@ent-mcp/shared/catalog";
+import type { MetadataKey, RecItem } from "@nama/shared/catalog";
 import { seedUser } from "./helpers";
 
 afterAll(() => cleanupInMemoryDbs());

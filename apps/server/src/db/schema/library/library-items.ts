@@ -6,8 +6,8 @@ import {
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
-import { MEDIA_TYPES } from "@ent-mcp/shared/media";
-import { WATCHED_STATES } from "@ent-mcp/shared/library";
+import { MEDIA_TYPES } from "@nama/shared/media";
+import { WATCHED_STATES } from "@nama/shared/library";
 import { user } from "../auth/auth";
 
 /**

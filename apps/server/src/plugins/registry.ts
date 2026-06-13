@@ -1,15 +1,15 @@
 import { registerBuiltin } from "../plugin-runtime";
-import traktPlugin from "@ent-mcp/plugin-trakt";
-import tmdbPlugin from "@ent-mcp/plugin-tmdb";
-import tvdbPlugin from "@ent-mcp/plugin-tvdb";
-import fanartPlugin from "@ent-mcp/plugin-fanart";
-import seerrPlugin from "@ent-mcp/plugin-seerr";
-import jellyfinPlugin from "@ent-mcp/plugin-jellyfin";
-import plexPlugin from "@ent-mcp/plugin-plex";
-import inboxPlugin from "@ent-mcp/plugin-inbox";
-import ntfyPlugin from "@ent-mcp/plugin-ntfy";
-import telegramPlugin from "@ent-mcp/plugin-telegram";
-import discordPlugin from "@ent-mcp/plugin-discord";
+import traktPlugin from "@nama/plugin-trakt";
+import tmdbPlugin from "@nama/plugin-tmdb";
+import tvdbPlugin from "@nama/plugin-tvdb";
+import fanartPlugin from "@nama/plugin-fanart";
+import seerrPlugin from "@nama/plugin-seerr";
+import jellyfinPlugin from "@nama/plugin-jellyfin";
+import plexPlugin from "@nama/plugin-plex";
+import inboxPlugin from "@nama/plugin-inbox";
+import ntfyPlugin from "@nama/plugin-ntfy";
+import telegramPlugin from "@nama/plugin-telegram";
+import discordPlugin from "@nama/plugin-discord";
 
 const BUILTIN_PLUGINS = [
   traktPlugin,

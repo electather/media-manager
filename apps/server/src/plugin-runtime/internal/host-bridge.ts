@@ -1,7 +1,7 @@
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { pluginStore } from "../../db/schema/plugin-runtime/plugins";
-import type { PluginStoreApi, StoreScopeOpts } from "@ent-mcp/plugin-sdk";
+import type { PluginStoreApi, StoreScopeOpts } from "@nama/plugin-sdk";
 
 export { isHostAllowed, TokenBucket, getBucket, buildFetch, buildLogger } from "./fetch-policy";
 

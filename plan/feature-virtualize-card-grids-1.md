@@ -31,7 +31,7 @@ Spec: `docs/2026-05-21-virtualize-card-grids-design.md`.
 - **CON-002**: No inner-scroll-container refactor — preserve `min-h-svh` document-scroll in `app-shell.tsx`.
 - **CON-003**: Pre-stable; breaking changes inside client OK (no compat shims).
 - **CON-004**: Must not regress `apps/client/src/features/notifications/inbox/inbox-list.tsx` (already virtualized — unchanged).
-- **CON-005**: Must obey project changeset rule — minor bump `@ent-mcp/client`.
+- **CON-005**: Must obey project changeset rule — minor bump `@nama/client`.
 - **GUD-001**: Follow `frontend-feature-architecture` skill conventions; new shared zone gets fallow boundary entry.
 - **GUD-002**: Decompose any new file >300 LOC into sub-directory siblings (per memory `feedback_no_double_nest_components`).
 - **PAT-001**: Mirror existing virt example `inbox-list.tsx`: `measureElement` ref on absolutely-positioned wrapper; `transform: translateY(start - scrollMargin)`.
@@ -110,7 +110,7 @@ Spec: `docs/2026-05-21-virtualize-card-grids-design.md`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-037 | Create `.changeset/virtualize-card-grids.md` — frontmatter `"@ent-mcp/client": minor`, body: "Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists." | ✅ | 2026-05-21 |
+| TASK-037 | Create `.changeset/virtualize-card-grids.md` — frontmatter `"@nama/client": minor`, body: "Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists." | ✅ | 2026-05-21 |
 | TASK-038 | Run `vp check && vp test` at repo root one final time. Fix any newly surfaced lint/format issues. | ✅ | 2026-05-21 |
 | TASK-039 | Manual smoke: `vp dev`, scroll home (≥3 rows full of cards), scroll watchlist (filtered mode + default mode), verify no jank, no console errors, resize browser to confirm grid col recomputes. | ⏭️ | 2026-05-21 (deferred — headless agent; reviewer must run locally before merge) |
 | TASK-040 | Update PR description w/ spec link + plan link + screenshots/gifs of smooth scroll if available. | ✅ | 2026-05-21 |
@@ -169,7 +169,7 @@ Spec: `docs/2026-05-21-virtualize-card-grids-design.md`.
 - **RISK-005**: `WatchlistCard` may rely on grid `<div>` parent styles in `Awaiting` (e.g. `opacity-90 hover:opacity-100`). Mitigation: keep wrapper `<div>` inside `renderItem`.
 - **ASSUMPTION-001**: All consumer card components are independently testable React components (no Context required from grid parent).
 - **ASSUMPTION-002**: `vp test` (Vitest) supports `ResizeObserver` polyfill or accepts a per-test mock — confirm at TASK-006.
-- **ASSUMPTION-003**: `RowData.id` is unique across `layout.rows` — used as `getKey`. Confirm in `@ent-mcp/shared/home` types.
+- **ASSUMPTION-003**: `RowData.id` is unique across `layout.rows` — used as `getKey`. Confirm in `@nama/shared/home` types.
 - **ASSUMPTION-004**: Watchlist `useWatchlistItems` returns stable `hasNextPage`/`fetchNextPage` references (React Query) — required for `footer` prop stability.
 
 ## 8. Related Specifications / Further Reading

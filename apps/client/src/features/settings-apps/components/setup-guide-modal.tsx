@@ -39,15 +39,13 @@ const SECTIONS: ReadonlyArray<GuideSection> = [
     id: "claude-desktop",
     title: () => m.settings_apps_setup_guide_claude_desktop_title(),
     steps: () => m.settings_apps_setup_guide_claude_desktop_steps(),
-    snippet: (endpoint) =>
-      JSON.stringify({ mcpServers: { "media-manager": { url: endpoint } } }, null, 2),
+    snippet: (endpoint) => JSON.stringify({ mcpServers: { nama: { url: endpoint } } }, null, 2),
   },
   {
     id: "cursor",
     title: () => m.settings_apps_setup_guide_cursor_title(),
     steps: () => m.settings_apps_setup_guide_cursor_steps(),
-    snippet: (endpoint) =>
-      JSON.stringify({ mcpServers: { "media-manager": { url: endpoint } } }, null, 2),
+    snippet: (endpoint) => JSON.stringify({ mcpServers: { nama: { url: endpoint } } }, null, 2),
   },
   {
     id: "generic",

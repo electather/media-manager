@@ -7,7 +7,7 @@ import type {
   ProfileFeatures,
   ProfileMediaType,
   RebuildResult,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
 import { profileStorage } from "./profile-storage";

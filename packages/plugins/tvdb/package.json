@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-tvdb",
+  "name": "@nama/plugin-tvdb",
   "version": "0.2.3",
   "private": false,
-  "description": "ent-mcp plugin — TVDB series and episode metadata.",
+  "description": "nama plugin — TVDB series and episode metadata.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "plugin",
     "tvdb"
   ],
@@ -19,7 +19,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

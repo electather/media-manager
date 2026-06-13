@@ -3,7 +3,7 @@
  * Every function dispatches through the primary-plugin strategy and shapes the
  * result so MCP tools and RPC procedures can consume arrays/objects directly.
  */
-import type { SeasonInfo } from "@ent-mcp/shared/home";
+import type { SeasonInfo } from "@nama/shared/home";
 import { isNil } from "es-toolkit/predicate";
 import type { RawCanonicalSource } from "../../catalog";
 import { badRequest } from "../../diagnostics/http-errors";

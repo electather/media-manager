@@ -28,8 +28,7 @@ async function bootstrap(): Promise<void> {
   await initDb();
   // Run pending migrations before accepting traffic. Self-hosters deploying
   // via `docker compose pull && docker compose up -d` get the schema applied
-  // automatically; the Cloudflare workflow runs migrations as a pre-deploy
-  // step instead and uses a separate Workers entry point.
+  // automatically.
   await runMigrations();
   registerSink(new DatabaseSink());
 
@@ -88,7 +87,7 @@ app.get("*", async (c) => {
 // Re-uses the unified response shape so every surface looks the same.
 app.onError(errorHandler);
 
-consola.success(`ent-mcp server starting on http://${env.HOST}:${env.PORT}`);
+consola.success(`nama server starting on http://${env.HOST}:${env.PORT}`);
 
 export default {
   port: env.PORT,

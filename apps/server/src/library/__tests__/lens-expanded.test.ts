@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { QUALITY_TIERS } from "@ent-mcp/shared/library";
+import { QUALITY_TIERS } from "@nama/shared/library";
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,

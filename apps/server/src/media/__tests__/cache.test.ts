@@ -5,7 +5,7 @@ vi.mock("../../env", () => ({
 }));
 
 const { argsHash, cacheKey, canonicalize, ttlMsFor } = await import("../service/cache");
-const { MetadataV1, WatchHistoryV1 } = await import("@ent-mcp/plugin-sdk");
+const { MetadataV1, WatchHistoryV1 } = await import("@nama/plugin-sdk");
 
 describe("canonicalize", () => {
   it("produces identical output regardless of key order", () => {

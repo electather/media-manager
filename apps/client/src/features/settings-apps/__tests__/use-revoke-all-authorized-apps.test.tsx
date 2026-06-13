@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 const fetchersMock = vi.hoisted(() => ({ revokeAuthorizedApp: vi.fn() }));
 vi.mock("../lib/fetchers", () => fetchersMock);

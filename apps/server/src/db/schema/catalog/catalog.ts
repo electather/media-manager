@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { MEDIA_TYPES } from "@ent-mcp/shared/media";
+import { MEDIA_TYPES } from "@nama/shared/media";
 import {
   DISCOVER_FEED_KINDS,
   DISCOVER_SORTS,
@@ -11,7 +11,7 @@ import {
   type PluginCursors,
   type RatingEvent,
   type RecItem,
-} from "@ent-mcp/shared/catalog";
+} from "@nama/shared/catalog";
 import { user } from "../auth/auth";
 
 // JSON columns store text on disk but carry a richer TS shape.

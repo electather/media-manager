@@ -32,7 +32,7 @@ import {
 } from "@/shared/lib/diagnostics/form-errors";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 import { cn } from "@/shared/lib/utils";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 
 type SharedCredentialEntry = InferResponseType<
   (typeof api.plugins)[":id"]["shared-credentials"]["$get"]

@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 
 /**
  * Builds the shared `runtimeMin` + `releaseDate` facets from canonical

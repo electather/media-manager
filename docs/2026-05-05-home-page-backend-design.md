@@ -88,7 +88,7 @@ Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.ge
 
 `ROW_SOURCES` registry of `MediaSource` (rev 8 — was `RowProvider`) = sole row authority. Orchestrator agnostic re row-specific source; the shared `media.listRows` pipeline owns batch/enrich/classify/filter/sort/paginate.
 
-## Wire contracts (`@ent-mcp/shared/home`)
+## Wire contracts (`@nama/shared/home`)
 
 ### `enums.ts`
 
@@ -1153,7 +1153,7 @@ CHANGED
 
 | PR  | Slug                           | Scope                                                                                                                                                                                                                               | Depends on                                 |
 | --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| 1   | `home-shared-wire`             | reshape `@ent-mcp/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename                                                    | —                                          |
+| 1   | `home-shared-wire`             | reshape `@nama/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename                                                    | —                                          |
 | 2   | `home-catalog-contributors`    | catalog rec list `topContributors` field; `recommendation-build` job amend; Drizzle migration; `RecItem` interface +field                                                                                                           | PR 1 (TopContributor type lives in shared) |
 | 3   | `home-mediaservice-extensions` | add `MediaService.getContinueWatchingFeed`, `MediaService.getMatchingServers` w/ tests                                                                                                                                              | — (independent of PRs 1-2)                 |
 | 4   | `home-row-sources`             | rev 8 — 9 rows as `MediaSource` (`fetchRawSet` only) in `home/sources/` + per-row tests; ⊥ wired to API yet. `MediaSource` iface, `media.cursor` codec, `media.listRows` pipeline, media-owned status-batch memo land in the media consolidation work (`2026-05-26-media-pipeline-consolidation-design.md`, Phase 1+5), depended on here | PRs 1, 2, 3 + media consolidation Phase 1 |
@@ -1305,7 +1305,7 @@ Five stacked PRs. See `plan/feature-home-tv-seasons-1.md` for full breakdown.
 
 | PR  | Slug                          | Scope                                                                                                | Depends on |
 | --- | ----------------------------- | ---------------------------------------------------------------------------------------------------- | ---------- |
-| 1   | `seasons-shared-wire`         | `@ent-mcp/shared/home` types + schemas additions                                                     | —          |
+| 1   | `seasons-shared-wire`         | `@nama/shared/home` types + schemas additions                                                     | —          |
 | 2   | `seasons-plugin-sdk`          | `metadata@v1.getShowSeasons` + `libraryAvailability@v1.listShowEpisodes` SDK methods + tests         | PR 1       |
 | 3   | `seasons-plugin-impls`        | TMDB `getShowSeasons` impl; Plex + Jellyfin `listShowEpisodes` impls; per-plugin tests               | PR 2       |
 | 4   | `seasons-server-orchestrator` | `MediaService.getShowSeasons`, `composeSeasonAvailability`, `composeDetails` extension, route, tests | PRs 1, 3   |

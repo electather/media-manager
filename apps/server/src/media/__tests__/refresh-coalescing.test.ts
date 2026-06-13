@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { PluginError } from "@ent-mcp/plugin-sdk";
+import { PluginError } from "@nama/plugin-sdk";
 
 // Regression for the recurring "Trakt keeps expiring" report. Trakt (and any
 // OAuth provider that rotates refresh tokens) invalidates the previous refresh

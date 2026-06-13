@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { LogLevel } from "@ent-mcp/shared/jobs";
+import type { LogLevel } from "@nama/shared/jobs";
 import { getDb } from "../db/client";
 import { jobConfig } from "../db/schema/infra/jobs";
 import { isNil } from "es-toolkit/predicate";

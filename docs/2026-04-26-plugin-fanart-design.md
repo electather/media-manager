@@ -7,7 +7,7 @@
 
 ## Summary
 
-New built-in plugin `@ent-mcp/plugin-fanart` + new aggregate-shaped capability `artwork@v1`. Pure-global, poolable, single API key per pool entry. Provides HD posters, backdrops, clear logos, thumbs from fanart.tv keyed by tmdb/imdb (movies) | tvdb (tv).
+New built-in plugin `@nama/plugin-fanart` + new aggregate-shaped capability `artwork@v1`. Pure-global, poolable, single API key per pool entry. Provides HD posters, backdrops, clear logos, thumbs from fanart.tv keyed by tmdb/imdb (movies) | tvdb (tv).
 
 TMDB plugin gains second implementation of `artwork@v1` so dispatcher can fall back to TMDB images when fanart not configured | item absent from fanart's catalog. New aggregate strategy `aggregate_per_kind` merges responses per asset kind w/ provider priority — fanart preferred, TMDB fallback per-kind.
 
@@ -16,7 +16,7 @@ New top-level RPC `artwork.get` = sole image source for client. `CompactMediaIte
 ## Goals
 
 - New global aggregate capability `artwork@v1` w/ provider-priority + per-kind first-non-empty merge.
-- New built-in plugin `@ent-mcp/plugin-fanart` implementing `artwork@v1`. Pure-global, poolable, `auth: "none"`.
+- New built-in plugin `@nama/plugin-fanart` implementing `artwork@v1`. Pure-global, poolable, `auth: "none"`.
 - TMDB plugin gains `artwork@v1` impl for fallback. Additive, backward-compatible minor bump.
 - New RPC `artwork.get` = single artwork delivery surface. Authenticated-session only. Batched, max 50 items per call.
 - Drop `poster`/`backdrop`/`clearLogo` from `CompactMediaItem`. Client owns lazy-load of artwork via `artwork.get`.
@@ -51,16 +51,16 @@ ArtworkService  apps/server/src/artwork/index.ts
   ▼
 artwork@v1 capability dispatch  (strategy: aggregate_per_kind)
   │ ┌──────────────────────┐
-  ├─►│ @ent-mcp/plugin-tmdb │── /movie|tv/{id}/images
+  ├─►│ @nama/plugin-tmdb │── /movie|tv/{id}/images
   │ └──────────────────────┘
   │ ┌────────────────────────┐
-  └─►│ @ent-mcp/plugin-fanart │── /v3/movies|tv/{id}
+  └─►│ @nama/plugin-fanart │── /v3/movies|tv/{id}
     └────────────────────────┘
 ```
 
 ### Boundaries
 
-- Plugin = `@ent-mcp/plugin-fanart` workspace package (per `2026-04-25-plugin-monorepo-design.md`). Implements only `artwork@v1`.
+- Plugin = `@nama/plugin-fanart` workspace package (per `2026-04-25-plugin-monorepo-design.md`). Implements only `artwork@v1`.
 - TMDB plugin gains `artwork@v1` alongside existing `metadata@v1` / `idResolve@v1` / `watchProviders@v1` / `trailers@v1`. Minor version bump.
 - `ArtworkService` = thin orchestrator. Stateless, instance per request. Same shape pattern as `HomeFeedService`.
 - Cache + aggregate dispatch live in MediaService layer (existing infra) + new strategy variant.
@@ -73,7 +73,7 @@ artwork@v1 capability dispatch  (strategy: aggregate_per_kind)
 
 ## Plugin Manifests
 
-### `@ent-mcp/plugin-fanart`
+### `@nama/plugin-fanart`
 
 ```
 id:                       "fanart"
@@ -81,7 +81,7 @@ name:                     "Fanart.tv"
 version:                  "0.1.0"
 description:              "High-resolution posters, backdrops, clear logos, and thumbs from fanart.tv."
 logoUrl:                  "https://fanart.tv/favicon.ico"
-author:                   { name: "Media Manager", url: "https://github.com/electather/media-manager" }
+author:                   { name: "Nama", url: "https://github.com/electather/nama" }
 homepage:                 "https://fanart.tv"
 sdkVersion:               "^1.0.0"
 # Asset CDN (assets.fanart.tv) is consumed browser-side via <img>, not via ctx.fetch,
@@ -119,7 +119,7 @@ capabilities:
     providerPriority:     10           # lower = higher priority
 ```
 
-### `@ent-mcp/plugin-tmdb` delta
+### `@nama/plugin-tmdb` delta
 
 Existing manifest adds `artwork@v1` to `capabilities`:
 
@@ -462,7 +462,7 @@ Failed dispatch (all eligible providers throw) ⊥ cached. Next call retries. Pr
 
 ## Plugin Implementations
 
-### `@ent-mcp/plugin-fanart` (pseudocode)
+### `@nama/plugin-fanart` (pseudocode)
 
 ```
 plugin.capabilities.artwork.getArtwork(ctx, { ids, type, languages }):
@@ -532,7 +532,7 @@ byLanguageThenLikes(languages):
     return b.likes - a.likes
 ```
 
-### `@ent-mcp/plugin-tmdb` delta (pseudocode)
+### `@nama/plugin-tmdb` delta (pseudocode)
 
 ```
 plugin.capabilities.artwork.getArtwork(ctx, { ids, type, languages }):
@@ -587,13 +587,13 @@ This doc supersedes:
 - §4 `LayoutHero.item` — same removal (hero is itself `CompactMediaItem`).
 - §5 resolveHero — comment "compact.ts mapper prefers fanart.tv assets..." removed.
 - §10 Open questions — "Add: fanart.tv access" entry resolved → reference this doc.
-- §4 `@ent-mcp/shared/home` — `CompactMediaItem` shrinks; subpath export stays.
+- §4 `@nama/shared/home` — `CompactMediaItem` shrinks; subpath export stays.
 
 `compact.ts` mapper simplifies: drops every TMDB image-URL construction. ⊥ fanart awareness either. Pure text+ids+progress mapping.
 
 `HomeFeedService` integration tests lose every assertion against `poster`/`backdrop`/`clearLogo` fields.
 
-### Shared types: `@ent-mcp/shared/artwork` (new)
+### Shared types: `@nama/shared/artwork` (new)
 
 Per repo shared-package rules. New subpath at `packages/shared/src/artwork/`. Exports:
 
@@ -646,25 +646,25 @@ Each commit independently reviewable, leaves repo in working state. Sequenced so
 
 ### Pre-flight dependency
 
-Plugin monorepo refactor (`2026-04-25-plugin-monorepo-design.md`) must merge first. Plan assumes `apps/`/`packages/plugins/*` layout, `@ent-mcp/plugin-sdk` exists. If monorepo lands later → work shifts to current `packages/server/src/plugins/builtin/` shape. Same logic, different paths.
+Plugin monorepo refactor (`2026-04-25-plugin-monorepo-design.md`) must merge first. Plan assumes `apps/`/`packages/plugins/*` layout, `@nama/plugin-sdk` exists. If monorepo lands later → work shifts to current `packages/server/src/plugins/builtin/` shape. Same logic, different paths.
 
 ### Commits
 
-1. **Add `artwork@v1` capability + shared types + error codes.** New `packages/plugin-sdk/src/capabilities/artwork.ts` w/ schemas + `defineCapability`. Add to barrel `index.ts`. Widen `Strategy` type in SDK from flat enum to tagged-union; add `aggregate_per_kind` variant. Existing strategy callers (server-side dispatcher) migrate to tagged shape in same commit (single small change: `if (strategy === "aggregate")` → `if (strategy.kind === "aggregate")`). Add `ArtworkBundle`, `ArtworkVariant`, `ArtworkIdMap`, `ArtworkRequestItem`, `ArtworkGetResponse`, `ArtworkError` to `packages/shared/src/artwork/` w/ subpath export. Add `artwork.bad_input`, `artwork.unsupported_id_combo`, `artwork.internal` entries to `packages/shared/src/errors/codes.ts` `HOST_ERROR_CODES`. SDK self-tests for schema validation + strategy-tagged-union typing. Changeset: `@ent-mcp/plugin-sdk` minor + `@ent-mcp/shared` patch + `@ent-mcp/server` patch (strategy callsite migration).
+1. **Add `artwork@v1` capability + shared types + error codes.** New `packages/plugin-sdk/src/capabilities/artwork.ts` w/ schemas + `defineCapability`. Add to barrel `index.ts`. Widen `Strategy` type in SDK from flat enum to tagged-union; add `aggregate_per_kind` variant. Existing strategy callers (server-side dispatcher) migrate to tagged shape in same commit (single small change: `if (strategy === "aggregate")` → `if (strategy.kind === "aggregate")`). Add `ArtworkBundle`, `ArtworkVariant`, `ArtworkIdMap`, `ArtworkRequestItem`, `ArtworkGetResponse`, `ArtworkError` to `packages/shared/src/artwork/` w/ subpath export. Add `artwork.bad_input`, `artwork.unsupported_id_combo`, `artwork.internal` entries to `packages/shared/src/errors/codes.ts` `HOST_ERROR_CODES`. SDK self-tests for schema validation + strategy-tagged-union typing. Changeset: `@nama/plugin-sdk` minor + `@nama/shared` patch + `@nama/server` patch (strategy callsite migration).
 
-2. **Implement aggregate dispatcher for `aggregate_per_kind`.** Server-side at `apps/server/src/plugin-runtime/strategies/`. Wire into existing dispatch. Unit tests cover priority ordering, per-kind merge, partial provider failure, all-providers-empty (negative cache), zero eligible providers (`artwork.unsupported_id_combo`). Changeset: `@ent-mcp/server` patch.
+2. **Implement aggregate dispatcher for `aggregate_per_kind`.** Server-side at `apps/server/src/plugin-runtime/strategies/`. Wire into existing dispatch. Unit tests cover priority ordering, per-kind merge, partial provider failure, all-providers-empty (negative cache), zero eligible providers (`artwork.unsupported_id_combo`). Changeset: `@nama/server` patch.
 
-3. **Add `artwork@v1` to TMDB plugin.** New capability impl in `packages/plugins/tmdb/src/`. Manifest gains `artwork` capability + `artworkSizes` config. Contract tests in plugin's `__tests__/`. Changeset: `@ent-mcp/plugin-tmdb` minor.
+3. **Add `artwork@v1` to TMDB plugin.** New capability impl in `packages/plugins/tmdb/src/`. Manifest gains `artwork` capability + `artworkSizes` config. Contract tests in plugin's `__tests__/`. Changeset: `@nama/plugin-tmdb` minor.
 
-4. **Create `@ent-mcp/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `src/`, `__tests__/` (no `vite.config.ts` — current plugin packages compile through the workspace tsconfig). Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@ent-mcp/plugin-fanart` minor (initial release) + `@ent-mcp/server` minor (admin gains a new configurable connection).
+4. **Create `@nama/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `src/`, `__tests__/` (no `vite.config.ts` — current plugin packages compile through the workspace tsconfig). Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@nama/plugin-fanart` minor (initial release) + `@nama/server` minor (admin gains a new configurable connection).
 
-5. **Add `MediaService.getArtwork` + `MediaService.resolveIds` + `ArtworkService` + `artwork.get` RPC route.** New `MediaService` typed methods (cache-and-dispatch wrapper for `artwork@v1`; batched wrapper around existing `idResolver`) at `apps/server/src/media-service/`. New `apps/server/src/artwork/index.ts` for `ArtworkService`. New `apps/server/src/api/routes/artwork.ts` for RPC. Wire into RPC router. Integration tests: per-item dedup, tmdb→tvdb preflight batching, partial errors, cache hits. Changeset: `@ent-mcp/server` minor.
+5. **Add `MediaService.getArtwork` + `MediaService.resolveIds` + `ArtworkService` + `artwork.get` RPC route.** New `MediaService` typed methods (cache-and-dispatch wrapper for `artwork@v1`; batched wrapper around existing `idResolver`) at `apps/server/src/media-service/`. New `apps/server/src/artwork/index.ts` for `ArtworkService`. New `apps/server/src/api/routes/artwork.ts` for RPC. Wire into RPC router. Integration tests: per-item dedup, tmdb→tvdb preflight batching, partial errors, cache hits. Changeset: `@nama/server` minor.
 
-6. **Capability cache flush on plugin enable/disable.** Hook into existing `plugin.enable`/`plugin.disable` admin endpoints — flush `artwork@v1` keyspace from MediaService cache when fanart | tmdb plugin state changes. Tests cover invalidation. Changeset: `@ent-mcp/server` patch.
+6. **Capability cache flush on plugin enable/disable.** Hook into existing `plugin.enable`/`plugin.disable` admin endpoints — flush `artwork@v1` keyspace from MediaService cache when fanart | tmdb plugin state changes. Tests cover invalidation. Changeset: `@nama/server` patch.
 
-7. **Drop image fields from `CompactMediaItem` + minimal client patch.** Edit `packages/shared/src/home/`. `compact.ts` mapper in `apps/server/src/home/` loses image plumbing. Update home-feed integration tests + delete now-irrelevant assertions. Update `2026-04-22-home-feed-design.md` per supersede list. **Client patch in this commit = skeleton-only render**: stop reading the now-removed `poster`/`backdrop`/`clearLogo` fields, replace render path w/ skeleton placeholder. ⊥ `artwork.get` consumption yet — that lands in step 8. Acceptable interim UX: home loads w/ skeleton-only artwork until step 8 deploys (typically same day | next deploy). Changesets: `@ent-mcp/shared` major (breaking) + `@ent-mcp/server` minor + `@ent-mcp/client` patch (skeleton-only).
+7. **Drop image fields from `CompactMediaItem` + minimal client patch.** Edit `packages/shared/src/home/`. `compact.ts` mapper in `apps/server/src/home/` loses image plumbing. Update home-feed integration tests + delete now-irrelevant assertions. Update `2026-04-22-home-feed-design.md` per supersede list. **Client patch in this commit = skeleton-only render**: stop reading the now-removed `poster`/`backdrop`/`clearLogo` fields, replace render path w/ skeleton placeholder. ⊥ `artwork.get` consumption yet — that lands in step 8. Acceptable interim UX: home loads w/ skeleton-only artwork until step 8 deploys (typically same day | next deploy). Changesets: `@nama/shared` major (breaking) + `@nama/server` minor + `@nama/client` patch (skeleton-only).
 
-8. **Frontend wiring — `artwork.get` consumption.** Home page calls `artwork.get`; lazy-load on viewport per Frontend integration boundary. Skeleton transitions to fanart/TMDB image when response lands. Tracked in separate frontend follow-up doc revision (`2026-04-23-home-feed-frontend-design.md` revision); ⊥ part of this server-side spec but called out so plan reader knows it exists. Changeset: `@ent-mcp/client` minor.
+8. **Frontend wiring — `artwork.get` consumption.** Home page calls `artwork.get`; lazy-load on viewport per Frontend integration boundary. Skeleton transitions to fanart/TMDB image when response lands. Tracked in separate frontend follow-up doc revision (`2026-04-23-home-feed-frontend-design.md` revision); ⊥ part of this server-side spec but called out so plan reader knows it exists. Changeset: `@nama/client` minor.
 
 ### PR groupings
 
@@ -754,7 +754,7 @@ One test file per unit. Favor small + fast unit tests over integration; one end-
 ### RPC contract tests (`apps/server/src/api/routes/__tests__/artwork.test.ts`)
 
 - Input schema: rejects empty `items`; rejects >50 items; rejects unknown `type`; rejects malformed id patterns; rejects extra keys (strict).
-- Output shape matches published `@ent-mcp/shared/artwork` types; snapshot test on canonical fixture.
+- Output shape matches published `@nama/shared/artwork` types; snapshot test on canonical fixture.
 - Unauthenticated request → 401; auth pattern matches `home.getLayout`.
 - Per-item `key` echoed back in `results` keys exactly.
 
@@ -790,7 +790,7 @@ After step 7 (CompactMediaItem field drop):
 - **Hero-specific server-side preflight.** Q5a locked client-side resolution for hero. If first-paint UX visibly bad → ~200ms server-side preflight for hero only is clean retrofit. `ArtworkService.getHero(item)` method, called from `home.getLayout` end of pipeline, populates `LayoutHero.artwork` directly. Bounded blast radius — affects single item, ⊥ full feed.
 - **Cross-row dedup.** Capability cache + `ArtworkService` in-request dedup handle duplicate-call case. Item shown in two rows = one artwork dispatch. Already covered.
 - **MCP `ent_artwork` tool.** Agents currently get image URLs via `metadata@v1.getDetails` populated fields. Dedicated tool deferred until MCP agents grow image-rendering surface.
-- **Multi-region admin pools.** Current `poolable: true` rotates on rate-limit signal. Geographic rotation (admin running media-manager in EU vs US wants region-pinned keys) deferred — same pool primitive supports w/ admin-side annotation; ⊥ change in plugin.
+- **Multi-region admin pools.** Current `poolable: true` rotates on rate-limit signal. Geographic rotation (admin running nama in EU vs US wants region-pinned keys) deferred — same pool primitive supports w/ admin-side annotation; ⊥ change in plugin.
 - **Fanart project-key (paid) vs personal-key freshness.** Personal keys serve ~1-week-stale data per fanart docs. Pool-rotation treats both key types identically v1. Future: per-key metadata letting host prefer project-key when admin configured both. Out of scope here.
 - **Image variant moderation.** Fanart payloads include user-uploaded art; some titles have NSFW | low-quality variants. v1 takes top-likes ranking as proxy for quality. Future: admin block-list per item | per-uploader-id. Cache keying agnostic to filter — additive.
 - **TMDB attribution requirement.** TMDB ToS requires attribution when using their images. Frontend follow-up must surface "this product uses the TMDB API" line on pages rendering TMDB-sourced artwork. Out of scope this doc but flagged.
@@ -800,7 +800,7 @@ After step 7 (CompactMediaItem field drop):
 ## References
 
 - `2026-04-19-plugin-architecture-design.md` — runtime, capability model, manifest schema, derived validation rules, idResolve scope behavior. Authoritative for everything this doc ⊥ redefine.
-- `2026-04-25-plugin-monorepo-design.md` — packaging shape, SDK contents, per-plugin extraction template, `@ent-mcp/shared` rules.
+- `2026-04-25-plugin-monorepo-design.md` — packaging shape, SDK contents, per-plugin extraction template, `@nama/shared` rules.
 - `2026-04-22-home-feed-design.md` — supersedes §4 image fields per Knock-on Changes.
 - `2026-04-23-home-feed-frontend-design.md` — frontend integration boundary; revision pending after this lands.
 - `2026-04-19-error-management-design.md` — `HOST_ERROR_CODES` registration pattern, `UserFacingError` shape.

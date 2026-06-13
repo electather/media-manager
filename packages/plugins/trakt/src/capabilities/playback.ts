@@ -1,4 +1,4 @@
-import { handleHttpStatus, pluginError } from "@ent-mcp/plugin-sdk";
+import { handleHttpStatus, pluginError } from "@nama/plugin-sdk";
 import { traktFetch, traktJson } from "../client";
 import { mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow } from "../types";

@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { ActiveRow } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { MediaSource } from "../source";
 import type { PipelineConfig, SourceContext } from "../types";

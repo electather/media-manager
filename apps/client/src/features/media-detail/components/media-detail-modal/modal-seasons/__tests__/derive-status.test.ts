@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { SeasonAvailabilityServer, SeasonInfo } from "@ent-mcp/shared/home";
+import type { SeasonAvailabilityServer, SeasonInfo } from "@nama/shared/home";
 import { deriveSeasonStatus, joinSeasonAvailability } from "../derive-status";
 
 const NOW = Date.parse("2026-05-06T00:00:00Z");

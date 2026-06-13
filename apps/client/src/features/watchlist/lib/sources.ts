@@ -1,5 +1,5 @@
 import { defineMediaSource } from "@/shared/media/source";
-import type { MoodId } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@nama/shared/watchlist";
 import {
   watchlistItemsParams,
   watchlistMoodItemsParams,

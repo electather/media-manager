@@ -1,5 +1,5 @@
 import { hc } from "hono/client";
-import type { AppType } from "@ent-mcp/server/api/router";
+import type { AppType } from "@nama/server/api/router";
 import { REQUEST_ID_HEADER } from "./diagnostics/request-id";
 import { reportError } from "./diagnostics/report";
 

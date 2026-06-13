@@ -1,4 +1,4 @@
-import type { HomeLayoutResponse, MediaDetailsResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse, MediaDetailsResponse } from "@nama/shared/home";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "@/shared/media/error";
 

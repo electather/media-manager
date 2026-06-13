@@ -1,4 +1,4 @@
-import { pluginError, handleHttpStatus } from "@ent-mcp/plugin-sdk";
+import { pluginError, handleHttpStatus } from "@nama/plugin-sdk";
 import type { Ctx, JellyfinUserCfg } from "./types";
 import { CLIENT_NAME, CLIENT_VERSION, DEVICE_NAME, DEVICE_ID } from "./constants";
 

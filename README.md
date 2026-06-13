@@ -1,4 +1,4 @@
-# ent-mcp
+# nama
 
 > **Work in progress.** APIs and schemas may change between releases.
 
@@ -9,7 +9,7 @@ A self-hosted entertainment management platform with a built-in [MCP](https://mo
 - **MCP server** (Streamable HTTP, OAuth 2.1) — expose your media library and request queue to any MCP-compatible AI client
 - **React dashboard** — browse your watchlist, history, ratings, and pending requests
 - **Plugin system** — fan-out to external services; each plugin declares the capabilities it provides
-- **Two deploy targets** — Docker (SQLite, single binary) or Cloudflare Workers (Turso DB)
+- **Self-hosted deploy** — Docker (SQLite, single binary)
 - **Notifications** — inbox, Telegram, Discord, and ntfy delivery channels
 
 ## Built-in Plugins
@@ -42,8 +42,8 @@ Connect any MCP client (Claude Desktop, Cursor, etc.) to the server endpoint and
 ### Docker (recommended)
 
 ```bash
-curl -O https://raw.githubusercontent.com/electather/media-manager/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/electather/media-manager/main/.env.example
+curl -O https://raw.githubusercontent.com/electather/nama/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/electather/nama/main/.env.example
 cp .env.example .env
 # Fill in .env, then:
 docker compose up -d
@@ -56,8 +56,8 @@ The dashboard is available at `http://localhost:3000`.
 **Prerequisites:** [Bun](https://bun.sh) ≥ 1.3 and the `vp` CLI (`bun add -g vite-plus`).
 
 ```bash
-git clone https://github.com/electather/media-manager.git
-cd media-manager
+git clone https://github.com/electather/nama.git
+cd nama
 bun install
 cp .env.example .env
 # Edit .env with your API keys and secrets

@@ -2,8 +2,8 @@ import type {
   ConnectionListItem,
   PluginSummary,
   PrimaryConnectionRow,
-} from "@ent-mcp/shared/connections";
-import type { MediaType } from "@ent-mcp/shared/media";
+} from "@nama/shared/connections";
+import type { MediaType } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { SettingsConnectionsApiError } from "./types";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { validatePluginModule } from "@nama/plugin-sdk";
 import {
   LibraryAvailabilityV1,
   PlaybackV1,
@@ -8,7 +8,7 @@ import {
   WatchHistoryV1,
   LibraryAdminV1,
   IdResolveV1,
-} from "@ent-mcp/plugin-sdk";
+} from "@nama/plugin-sdk";
 import jellyfinPlugin from "../src/plugin";
 import { jfItem, jsonRes, makeCtx, statusRes } from "./helpers";
 

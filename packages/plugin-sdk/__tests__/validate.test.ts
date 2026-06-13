@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import type { PluginManifest } from "@ent-mcp/shared/plugins";
+import type { PluginManifest } from "@nama/shared/plugins";
 import type { PluginModule } from "../src/types";
 
 // Mock isSdkCompatible so we can exercise the assertSdkCompatible gate

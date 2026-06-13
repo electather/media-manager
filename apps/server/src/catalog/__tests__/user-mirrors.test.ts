@@ -17,7 +17,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
-import type { HistoryEvent, RatingEvent } from "@ent-mcp/shared/catalog";
+import type { HistoryEvent, RatingEvent } from "@nama/shared/catalog";
 import { seedUser } from "./helpers";
 
 afterAll(() => cleanupInMemoryDbs());

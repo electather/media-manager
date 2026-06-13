@@ -57,7 +57,7 @@ vi.mock("../../plugin-runtime", () => ({
   },
 }));
 
-vi.mock("@ent-mcp/plugin-sdk", () => ({
+vi.mock("@nama/plugin-sdk", () => ({
   getCapability: () => ({ name: "mediaRequest" }),
 }));
 

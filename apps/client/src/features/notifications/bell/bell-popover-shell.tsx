@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckCheckIcon, RotateCcwIcon, SettingsIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { isNull } from "es-toolkit/predicate";
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";

@@ -3,7 +3,7 @@ import { consola } from "consola";
 import { renderTemplate } from "../templates";
 import * as repo from "../repo";
 import { pluginRuntime, type ConnectionRow } from "../../plugin-runtime";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@nama/shared/notifications";
 import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
 import { UserConfigParseError } from "../errors";
 

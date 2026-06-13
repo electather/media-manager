@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { validatePluginModule } from "@nama/plugin-sdk";
 import tmdbPlugin from "../src/plugin";
 
 describe("tmdb plugin passes loader validation", () => {

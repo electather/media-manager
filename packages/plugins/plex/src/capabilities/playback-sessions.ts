@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import type { Ctx, PlexMediaContainer, PlexSession } from "../types";
 import { readUserConfig, plexServerJson, plexServerFetch, throwIfRateLimited } from "../client";
 import { toLibraryItem, normalizeSessionState, normalizeDecision } from "../mappers";

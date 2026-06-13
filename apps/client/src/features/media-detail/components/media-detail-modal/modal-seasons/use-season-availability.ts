@@ -1,5 +1,5 @@
 import { useSuspenseQuery, type UseSuspenseQueryResult } from "@tanstack/react-query";
-import type { SeasonAvailabilityResponse } from "@ent-mcp/shared/home";
+import type { SeasonAvailabilityResponse } from "@nama/shared/home";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "@/shared/media/error";
 import { mediaKeys } from "@/shared/media/query-keys";

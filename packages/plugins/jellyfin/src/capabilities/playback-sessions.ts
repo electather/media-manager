@@ -1,5 +1,5 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
-import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
+import { handleHttpStatus } from "@nama/plugin-sdk";
 import type { Ctx, JellyfinSession } from "../types";
 import { getUserCfg, getUserId, getExternalBase, jellyfinJson, jellyfinFetch } from "../client";
 import { mapLibraryItem, ticksToMs } from "../mappers";

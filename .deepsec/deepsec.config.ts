@@ -11,7 +11,7 @@ import { pluginSchemaUrlNoAllowedHost } from "./matchers/plugin-schema-url-no-al
 import { mcpHandlerNoOAuth } from "./matchers/mcp-handler-no-oauth.js";
 
 const mediaManagerPlugin: DeepsecPlugin = {
-  name: "media-manager-internal",
+  name: "nama-internal",
   matchers: [
     isSystemAdminSingleCondition,
     connectionStartAuthNoStrip,
@@ -29,7 +29,7 @@ const mediaManagerPlugin: DeepsecPlugin = {
 export default defineConfig({
   projects: [
     {
-      id: "media-manager",
+      id: "nama",
       root: "..",
       promptAppend:
         "Pay extra attention to: (a) any `isSystemAdmin` flag set from a single condition; (b) `runAuth(..., 'startAuth', ...)` / `writeConnection` callsites whose `userConfig` did not flow through `stripRequestFields`; (c) `decryptJson` results used without a null guard; (d) any hardcoded or fallback value supplied for `ENCRYPTION_KEY`; (e) bare `fetch(` calls inside `apps/server/src/plugin-runtime/` that bypass `buildFetch`; (f) MCP tool registrations whose `requiredScopes` is `[]`; (g) plugin `userConfigSchema` URL fields missing `\"x-allowed-host\": true`. Treat OAuth discovery endpoints, `/api/config/public`, and `crypto/vault.ts`'s internal `btoa(String.fromCharCode(...))` as known false-positives.",

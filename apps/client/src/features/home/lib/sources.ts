@@ -1,4 +1,4 @@
-import type { MediaSourceId } from "@ent-mcp/shared/media";
+import type { MediaSourceId } from "@nama/shared/media";
 import { type ClientMediaSource, defineMediaSource } from "@/shared/media/source";
 
 /**

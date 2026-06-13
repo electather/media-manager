@@ -1,5 +1,5 @@
-import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
-import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
+import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
+import { SYSTEM_USER_ID } from "@nama/shared/jobs";
 import { MediaService } from "../../media";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";

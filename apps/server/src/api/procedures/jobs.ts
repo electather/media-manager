@@ -4,7 +4,7 @@ import {
   jobConfigBodySchema as configBodySchema,
   jobRunsQuerySchema as runsQuerySchema,
   triggerBodySchema,
-} from "@ent-mcp/shared/jobs";
+} from "@nama/shared/jobs";
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { currentRequestContext } from "../../diagnostics/request-context";
 import { zValidator } from "../../diagnostics/validator";

@@ -1,4 +1,4 @@
-import { isPluginError, pluginError } from "@ent-mcp/plugin-sdk";
+import { isPluginError, pluginError } from "@nama/plugin-sdk";
 import { seerrGet, seerrPost, seerrDeleteRaw, fetchAllRequests, isHostActionable } from "../client";
 import { mapMediaStatus, mapRequestStatus } from "../mappers";
 import { REQUEST_STATUS_STORE_KEY } from "../constants";

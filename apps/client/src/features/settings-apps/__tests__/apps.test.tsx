@@ -5,7 +5,7 @@ import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { AuthorizedAppRow } from "../components/authorized-app-row";
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),

@@ -1,4 +1,4 @@
-import type { NotificationSeverity } from "@ent-mcp/shared/notifications";
+import type { NotificationSeverity } from "@nama/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { SEVERITY_META } from "./types";
 

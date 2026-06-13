@@ -11,13 +11,13 @@ import {
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
-import type { CompactMediaItem, Page } from "@ent-mcp/shared/media";
+import type { CompactMediaItem, Page } from "@nama/shared/media";
 import {
   keyToId,
   type AddWatchlistRequest,
   type WatchlistKey,
   type WatchlistUserSource,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import { mediaKeys } from "./query-keys";
 import { addToWatchlist, removeFromWatchlist } from "./media-writes";
 import { useWatchlistIdSet, WATCHLIST_ITEMS_SOURCE_ID } from "./use-watchlist-membership";

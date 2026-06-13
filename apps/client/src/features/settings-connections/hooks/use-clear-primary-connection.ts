@@ -1,5 +1,5 @@
-import type { PrimaryConnectionRow } from "@ent-mcp/shared/connections";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { PrimaryConnectionRow } from "@nama/shared/connections";
+import type { MediaType } from "@nama/shared/media";
 import { useOptimisticArrayMutation } from "@/shared/hooks/use-optimistic-array-mutation";
 import { fetchClearPrimaryConnection } from "../lib/fetchers";
 import { settingsConnectionsKeys } from "../lib/query-keys";

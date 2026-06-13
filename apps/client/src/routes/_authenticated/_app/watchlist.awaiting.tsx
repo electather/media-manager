@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { WATCHLIST_SORTS } from "@ent-mcp/shared/watchlist";
+import { WATCHLIST_SORTS } from "@nama/shared/watchlist";
 
 import { WatchlistFlatPage } from "@/features/watchlist/components/watchlist-flat-page";
 import { WatchlistRouteError } from "@/features/watchlist/components/watchlist-route-error";

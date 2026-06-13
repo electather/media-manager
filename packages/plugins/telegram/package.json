@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-telegram",
+  "name": "@nama/plugin-telegram",
   "version": "0.2.3",
   "private": false,
-  "description": "ent-mcp plugin — Telegram notification delivery.",
+  "description": "nama plugin — Telegram notification delivery.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "plugin",
     "telegram"
   ],
@@ -19,8 +19,8 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*",
-    "@ent-mcp/shared": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*",
+    "@nama/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LoaderCircleIcon } from "lucide-react";
-import { PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp/shared/plugins";
+import { PLUGIN_RESERVED_HEADER_NAMES } from "@nama/shared/plugins";
 
 import { m } from "@/paraglide/messages";
 

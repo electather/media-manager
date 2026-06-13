@@ -26,16 +26,6 @@ const INDEX_EXPECTED_ORDER = [
 ];
 
 /**
- * Cloudflare Worker entry point (`worker.ts`) registers the modules whose
- * jobs are Workers-safe (with `scheduled: false`) — currently notifications
- * and preferences. Other `registerJobs()` calls register croner-backed
- * scheduled work that cannot run inside the Workers isolate; those modules
- * stay excluded. The worker test pins this subset so the Workers-safe
- * carve-out does not silently regrow.
- */
-const WORKER_EXPECTED_ORDER = ["notifications", "preferences"];
-
-/**
  * Maps the *namespace identifier* used at the call site to the canonical
  * module name. `plugin-runtime` is imported as `pluginRuntime` because the
  * hyphen is invalid in a JS identifier; every other module uses its directory
@@ -63,8 +53,7 @@ function stripComments(text: string): string {
 function extractRegisterJobsOrder(file: string): string[] {
   const text = stripComments(readFileSync(file, "utf8"));
   // Match `<namespace>.registerJobs(...)` with any (possibly nested-brace)
-  // argument list. The Worker passes `{ scheduled: false }`; the index path
-  // calls with no arg. Both must be picked up.
+  // argument list. The index path calls with no arg.
   const re = /(\w+)\.registerJobs\([^)]*\)/g;
   const order: string[] = [];
   let m: RegExpExecArray | null;
@@ -82,11 +71,6 @@ describe("boot order", () => {
   it("apps/server/src/index.ts invokes every module's registerJobs() in alphabetical order", () => {
     const order = extractRegisterJobsOrder(resolve(SERVER_SRC, "index.ts"));
     expect(order).toEqual(INDEX_EXPECTED_ORDER);
-  });
-
-  it("apps/server/src/worker.ts only invokes notifications.registerJobs() (Workers can't run croner)", () => {
-    const order = extractRegisterJobsOrder(resolve(SERVER_SRC, "worker.ts"));
-    expect(order).toEqual(WORKER_EXPECTED_ORDER);
   });
 });
 

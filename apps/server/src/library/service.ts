@@ -1,10 +1,10 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import type {
   LibraryCollection,
   LibraryCollectionsQueryParsed,
   LibraryCollectionsResponse,
   LibraryFacetCounts,
-} from "@ent-mcp/shared/library";
+} from "@nama/shared/library";
 import { identifyItem, parseItemDate, type RawPluginItem } from "../media";
 import { decodeCollectionsCursor, encodeCollectionsCursor } from "./internal/collections-cursor";
 import { asLibraryContext } from "./internal/context";

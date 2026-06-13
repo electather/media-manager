@@ -1,12 +1,12 @@
 {
-  "name": "@ent-mcp/plugin-discord",
+  "name": "@nama/plugin-discord",
   "version": "0.2.3",
   "private": false,
-  "description": "ent-mcp plugin — Discord notification delivery.",
+  "description": "nama plugin — Discord notification delivery.",
   "keywords": [
     "discord",
-    "ent-mcp",
     "mcp",
+    "nama",
     "plugin"
   ],
   "license": "MIT",
@@ -19,8 +19,8 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*",
-    "@ent-mcp/shared": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*",
+    "@nama/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

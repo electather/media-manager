@@ -3,7 +3,7 @@
  * facade. One instance is created per MediaService (request-scoped), so both
  * memo caches share the facade's lifetime.
  */
-import type { LibraryItemQuality } from "@ent-mcp/shared/plugins";
+import type { LibraryItemQuality } from "@nama/shared/plugins";
 import { orderBy, uniqBy } from "es-toolkit/array";
 import { capabilityRegistry } from "../../plugin-runtime";
 import { requireCapability } from "../internal/capability-lookup";

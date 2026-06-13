@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 export function makeItem(overrides: Partial<CompactMediaItem> = {}): CompactMediaItem {
   return {

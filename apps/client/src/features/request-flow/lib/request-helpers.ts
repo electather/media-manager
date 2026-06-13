@@ -1,4 +1,4 @@
-import type { MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
+import type { MediaRequest, RequestTarget } from "@nama/shared/media";
 import type { RequestDestination, RequestStatus, Season } from "./types";
 
 // Wire / mock status aliases mapped to the widened request-flow set. The

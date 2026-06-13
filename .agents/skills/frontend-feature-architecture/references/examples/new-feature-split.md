@@ -34,7 +34,7 @@ features/alerts/
 ## `shared/types.ts`
 
 ```ts
-import type { AlertDto, AlertSeverity } from "@ent-mcp/shared/alerts";
+import type { AlertDto, AlertSeverity } from "@nama/shared/alerts";
 import { m } from "@/paraglide/messages";
 
 export interface InboxFilters { unreadOnly?: boolean; severity?: AlertSeverity }

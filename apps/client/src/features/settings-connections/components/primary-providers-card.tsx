@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import type { ConnectionListItem, PrimaryConnectionRow } from "@ent-mcp/shared/connections";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { ConnectionListItem, PrimaryConnectionRow } from "@nama/shared/connections";
+import type { MediaType } from "@nama/shared/media";
 
 import { SettingsCard, SettingsCardHeader, SettingsCardRow } from "@/features/settings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
