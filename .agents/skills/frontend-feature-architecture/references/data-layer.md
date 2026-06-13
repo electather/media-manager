@@ -125,7 +125,7 @@ Forbidden:
 
 `types.ts` (split: `shared/types.ts`; flat: `lib/types.ts`) holds:
 
-- Local DTOs that extend the wire types from `@ent-mcp/shared/<domain>`.
+- Local DTOs that extend the wire types from `@nama/shared/<domain>`.
 - The typed error class + body interface.
 - Filter interfaces used by both keys and fetchers.
 - Enum label functions: `categoryLabel(category)` returns the i18n string via `m.*`.

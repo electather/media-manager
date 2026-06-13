@@ -1,5 +1,5 @@
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
-import { notificationEventSchema } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@nama/shared/notifications";
+import { notificationEventSchema } from "@nama/shared/notifications";
 
 /**
  * Safely parses a stored delivery event payload. Returns `null` when the JSON

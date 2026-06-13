@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { ReactNode } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import type { LibraryCollection } from "@ent-mcp/shared/library";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { LibraryCollection } from "@nama/shared/library";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 /**
  * Mock the shared `VirtualGrid` so these tests exercise the lenses' own wiring

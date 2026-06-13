@@ -1,4 +1,4 @@
-import { type ProfileMediaType, type RebuildResult } from "@ent-mcp/shared/preferences";
+import { type ProfileMediaType, type RebuildResult } from "@nama/shared/preferences";
 
 import { getCatalogService, writeRecommendationsForUser } from "../../catalog";
 import { badRequest } from "../../diagnostics/http-errors";

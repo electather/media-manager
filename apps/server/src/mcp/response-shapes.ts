@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { MediaItemShape } from "@ent-mcp/plugin-sdk";
-import { mediaTypeSchema } from "@ent-mcp/shared";
+import type { MediaItemShape } from "@nama/plugin-sdk";
+import { mediaTypeSchema } from "@nama/shared";
 
 const availabilityStatusSchema = z.enum([
   "available",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { jsonRes, makeTestContext } from "@ent-mcp/plugin-sdk/testing";
-import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
+import { jsonRes, makeTestContext } from "@nama/plugin-sdk/testing";
+import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 import discordPlugin from "../src/plugin";
 
 const channelConfig = { webhookUrl: "https://discord.com/api/webhooks/123/abc" };

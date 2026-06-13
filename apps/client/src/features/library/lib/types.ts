@@ -1,5 +1,5 @@
-import type { WatchedState } from "@ent-mcp/shared/library";
-import type { CompactMediaItem, MediaType } from "@ent-mcp/shared/media";
+import type { WatchedState } from "@nama/shared/library";
+import type { CompactMediaItem, MediaType } from "@nama/shared/media";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
 
@@ -7,7 +7,7 @@ import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
  * The library renders the shared wire item directly — quality tiers ride on
  * `tags` and server availability on `availability.servers`, so no feature-local
  * extension is needed. Kept as an alias the card/grid components read; new code
- * should import `CompactMediaItem` from `@ent-mcp/shared/media` directly.
+ * should import `CompactMediaItem` from `@nama/shared/media` directly.
  */
 export type LibraryItem = CompactMediaItem;
 
@@ -15,7 +15,7 @@ export type LibraryItem = CompactMediaItem;
  * The facet axes a user can narrow the catalog by, in addition to free-text
  * search. This is UI-local filter state (the URL search params hydrate it), so
  * it stays in the feature; the lens/quality/watched tuples it draws from live
- * in `@ent-mcp/shared/library` and are imported directly (never re-exported
+ * in `@nama/shared/library` and are imported directly (never re-exported
  * through this module — see the shared-package rules).
  */
 export interface LibraryFilters {

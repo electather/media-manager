@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { uniqBy } from "es-toolkit/array";
 import type { Db } from "../../db/client";
 import { userHistoryMirror, userRatingsMirror } from "../../db/schema/catalog";
-import type { HistoryEvent, PluginCursors, RatingEvent } from "@ent-mcp/shared/catalog";
+import type { HistoryEvent, PluginCursors, RatingEvent } from "@nama/shared/catalog";
 import type { PerUserMutex } from "../internal/mutex";
 
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];

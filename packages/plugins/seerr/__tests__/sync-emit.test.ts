@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
 import {
   createTestNotificationContext,
   jsonRes,
   type TestNotificationContext,
-} from "@ent-mcp/plugin-sdk/testing";
+} from "@nama/plugin-sdk/testing";
 import seerrPlugin from "../src/plugin";
 
 function makeCtx(

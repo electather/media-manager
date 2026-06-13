@@ -30,7 +30,7 @@ import { m } from "@/paraglide/messages";
 
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 import { ConnectionModal, type PluginSummary } from "@/features/connections";
 import { useCategories } from "../hooks/use-categories";
 import { useChannels } from "../hooks/use-channels";

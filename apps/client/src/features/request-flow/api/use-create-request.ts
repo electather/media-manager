@@ -3,7 +3,7 @@ import type {
   CreateMediaRequestBody,
   MediaRequest,
   MediaRequestsResponse,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import { requestsApi } from "./client";
 import { requestFlowKeys } from "./query-keys";
 import { toastFromError } from "./errors";

@@ -193,7 +193,7 @@ Behavior:
 
 Auth: same `/api/*` middleware as home endpoints (better-auth session). Anonymous → 401.
 
-`compactMediaItemSchema` already lives in `@ent-mcp/shared/home`; reused here, not duplicated.
+`compactMediaItemSchema` already lives in `@nama/shared/home`; reused here, not duplicated.
 
 ```ts
 // packages/shared/src/search/schemas.ts
@@ -209,7 +209,7 @@ export const searchResponseSchema = z.object({
 });
 ```
 
-Subpath export `@ent-mcp/shared/search` added to `packages/shared/package.json`.
+Subpath export `@nama/shared/search` added to `packages/shared/package.json`.
 
 ### 7.2 Server impl
 
@@ -507,7 +507,7 @@ Pre-stable → breaking OK. One step per PR. Each PR own changeset.
 
 | # | Step | Touches |
 |---|---|---|
-| 1 | Add `/api/search` + `@ent-mcp/shared/search` schemas | server, shared |
+| 1 | Add `/api/search` + `@nama/shared/search` schemas | server, shared |
 | 2 | Move `app/command-menu/*` → `features/command-menu/*`. Update imports. No behavior change. | client |
 | 3 | Add `types.ts` + nav-stack reducer. Refactor menu to consume stack (single-scope kept as scope frame). | client |
 | 4 | Swap custom keydown for TanStack Hotkeys. Add sequences. Cheatsheet sub-page. | client |

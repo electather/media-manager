@@ -1,4 +1,4 @@
-import { voidParamsSchema, type MediaSourceId } from "@ent-mcp/shared/media";
+import { voidParamsSchema, type MediaSourceId } from "@nama/shared/media";
 import type { AnyMediaSourceRegistration } from "../../media";
 import { ROW_PROVIDERS } from "../rows";
 import type { RowProvider } from "./types";

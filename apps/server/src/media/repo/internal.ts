@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { WatchlistKey } from "@ent-mcp/shared/watchlist";
+import type { WatchlistKey } from "@nama/shared/watchlist";
 import type { Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
 

@@ -1,9 +1,9 @@
-import { definePlugin, pluginError, type PluginContext } from "@ent-mcp/plugin-sdk";
+import { definePlugin, pluginError, type PluginContext } from "@nama/plugin-sdk";
 import type {
   NotificationAction,
   NotificationEvent,
   NotificationMessage,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 interface DiscordUserCfg {
   webhookUrl: string;
@@ -126,7 +126,7 @@ export const discordPlugin = definePlugin({
     description: "Send notifications to a Discord channel via an incoming webhook.",
     version: "0.1.0",
     sdkVersion: "^1.0.0",
-    author: { name: "Media Manager" },
+    author: { name: "Nama" },
     // Webhook traffic only ever hits `discord.com/api/webhooks/...` — keep
     // the allowlist tight so a leaked webhook URL can't be redirected to a
     // sibling Discord-controlled host (cdn, media) by a malicious upstream.

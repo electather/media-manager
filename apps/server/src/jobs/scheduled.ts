@@ -8,7 +8,7 @@ import {
 } from "./schedule-helpers";
 import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
-import type { JobHandle } from "@ent-mcp/shared/jobs";
+import type { JobHandle } from "@nama/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
 
 export interface RegisterScheduledOptions {

@@ -99,7 +99,7 @@ export const compactMediaItemSchema = z
 /**
  * `home.getRowContent` input: client supplies a row id and the opaque cursor
  * from the previous page. Null cursor means first page. Decoding/validating
- * the cursor itself is server-internal and lives outside `@ent-mcp/shared`.
+ * the cursor itself is server-internal and lives outside `@nama/shared`.
  *
  * `rowId` is an opaque registry slug — multiple rows can share the same
  * `RowKind` (e.g. `recommendedForYou-tv` and `recommendedForYou-movies`),

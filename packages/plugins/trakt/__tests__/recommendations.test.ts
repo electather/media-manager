@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { RecommendationsV1 } from "@ent-mcp/plugin-sdk";
+import { RecommendationsV1 } from "@nama/plugin-sdk";
 import { jsonRes, makeCtx, MOVIE, SHOW } from "./helpers";
 import traktPlugin from "../src/plugin";
 

@@ -1,6 +1,6 @@
 # Request flow API wiring
 
-**Status:** shipped. Issue [#216](https://github.com/electather/media-manager/issues/216), PR #240. Commits `0c2e024`, `85ecfa5`, `6d0bb2d`.
+**Status:** shipped. Issue [#216](https://github.com/electather/nama/issues/216), PR #240. Commits `0c2e024`, `85ecfa5`, `6d0bb2d`.
 
 Caveman ultra. Pseudocode = source-of-truth shape, not literal.
 

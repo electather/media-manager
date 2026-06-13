@@ -3,8 +3,8 @@ import type {
   LibraryCollectionsResponse,
   LibraryFacetCounts,
   LibraryLens,
-} from "@ent-mcp/shared/library";
-import type { MediaSourceId } from "@ent-mcp/shared/media";
+} from "@nama/shared/library";
+import type { MediaSourceId } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { defineMediaSource } from "@/shared/media/source";
 import type { LibraryFilters } from "./types";

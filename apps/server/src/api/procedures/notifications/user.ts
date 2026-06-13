@@ -12,7 +12,7 @@ import {
   inboxMarkBodySchema,
   subscriptionUpdateBodySchema,
   subscriptionsBulkBodySchema,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import {
   loadUserRole,
   requirePermission,

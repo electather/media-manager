@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
+import { libraryItemSchema } from "@nama/shared/plugins/library";
 import { defineCapability, method } from "../define";
 
 const sessionTranscodingDecision = z.enum(["direct-play", "copy", "transcode"]);
@@ -15,7 +15,7 @@ const sessionTranscoding = z.object({
   reason: z.string().optional(),
 });
 
-// Server-local user identity. Distinct from the media-manager user running the
+// Server-local user identity. Distinct from the nama user running the
 // query — a Plex home-user or a Jellyfin managed user may be the one actually
 // playing, even though the connection is authed as the owning account. Plugins
 // MUST only return sessions for users the connection is allowed to see and

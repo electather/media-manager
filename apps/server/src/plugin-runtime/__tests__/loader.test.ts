@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { ManifestCapability } from "@ent-mcp/shared/plugins";
+import type { ManifestCapability } from "@nama/shared/plugins";
 import { validatePluginModule } from "../internal/loader";
-import { PluginError } from "@ent-mcp/plugin-sdk";
-import type { PluginModule } from "@ent-mcp/plugin-sdk";
+import { PluginError } from "@nama/plugin-sdk";
+import type { PluginModule } from "@nama/plugin-sdk";
 
 function cap(version = "v1", scope: "global" | "user" = "global"): ManifestCapability {
   return { version, scope };

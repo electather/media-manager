@@ -8,7 +8,7 @@
 
 ## Goal
 
-Port the home page design from the `nama-prototype` demo into the `@ent-mcp/client` app. Initial phase uses mock data only (no backend integration). Implementation is split into five independently mergeable PRs.
+Port the home page design from the `nama-prototype` demo into the `@nama/client` app. Initial phase uses mock data only (no backend integration). Implementation is split into five independently mergeable PRs.
 
 ---
 
@@ -91,10 +91,10 @@ PR 1 adds `client-feat-home` zone and updates two allow lists:
 
 ## Types (`features/home/lib/types.ts`)
 
-`RowKind` is imported from `@ent-mcp/shared/home` — **never redefined locally**. The shared enum is the single source of truth.
+`RowKind` is imported from `@nama/shared/home` — **never redefined locally**. The shared enum is the single source of truth.
 
 ```typescript
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { CompactMediaItem, RowKind } from "@nama/shared/home";
 export type { RowKind };
 
 export const MATCH_REASON_KEYS = [
@@ -127,7 +127,7 @@ The shared `ROW_KINDS` tuple (`continueWatching`, `recommendedForYou`, `trending
 `HomeMediaItem` is a **local UI-layer type** that extends `CompactMediaItem` with display fields absent from the wire format. At backend integration time an adapter `toHomeMediaItem(item: CompactMediaItem): HomeMediaItem` handles the mapping.
 
 ```typescript
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 
 // `CompactMediaItem.clearLogo` is a URL string (artwork image).
 // `clearLogoText` carries the wordmark text used by the prototype's CSS logo treatment.
@@ -205,7 +205,7 @@ export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] };
 Provides three client-side lookup maps — no runtime deps:
 
 ```typescript
-import type { RowKind } from "@ent-mcp/shared/home"
+import type { RowKind } from "@nama/shared/home"
 
 /** Drives card image ratio for each row. Not present in the wire format. */
 export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
@@ -357,11 +357,11 @@ No barrel `index.ts` inside sub-directories (per V57). Only the feature-root `in
 
 | #   | Branch              | Deliverable                                                  | Key files                                                                                                                                                                                                      | Changeset               |
 | --- | ------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 1   | `home/scaffold`     | Feature skeleton; blank home route                           | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home` + allow list updates), route `index.tsx` | `@ent-mcp/client` minor |
-| 2   | `home/nav-chrome`   | `BottomNav` + `TopNav` tabs; stub Library + Watchlist routes | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (add `TopNavLinks`), stub routes for `/library` and `/watchlist`, active state via `useRouterState`                                                              | `@ent-mcp/client` minor |
-| 3   | `home/card-row`     | Browsable feed with all rows                                 | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired                                                                                                                                              | `@ent-mcp/client` minor |
-| 4   | `home/top-zone`     | Hero section complete                                        | `features/home/components/top-zone/*`, wired into `home-feed.tsx`                                                                                                                                              | `@ent-mcp/client` minor |
-| 5   | `home/detail-modal` | Click-through detail modal                                   | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route registers `validateSearch: peekSchema`                                                                                               | `@ent-mcp/client` minor |
+| 1   | `home/scaffold`     | Feature skeleton; blank home route                           | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home` + allow list updates), route `index.tsx` | `@nama/client` minor |
+| 2   | `home/nav-chrome`   | `BottomNav` + `TopNav` tabs; stub Library + Watchlist routes | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (add `TopNavLinks`), stub routes for `/library` and `/watchlist`, active state via `useRouterState`                                                              | `@nama/client` minor |
+| 3   | `home/card-row`     | Browsable feed with all rows                                 | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired                                                                                                                                              | `@nama/client` minor |
+| 4   | `home/top-zone`     | Hero section complete                                        | `features/home/components/top-zone/*`, wired into `home-feed.tsx`                                                                                                                                              | `@nama/client` minor |
+| 5   | `home/detail-modal` | Click-through detail modal                                   | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route registers `validateSearch: peekSchema`                                                                                               | `@nama/client` minor |
 
 **Merge order:** PR 1 first → PRs 2, 3, 4 in any order → PR 5.
 
@@ -468,4 +468,4 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 - **C12:** Routes stay thin; all business logic inside feature.
 - **C11:** Any utility code (array ops, string ops) uses `es-toolkit` submodule imports.
 - **C14 / V61:** All UI copy uses Paraglide `m.<key>()`. No inline string literals.
-- **V12:** `RowKind` imported from `@ent-mcp/shared/home` — never redefined in client code.
+- **V12:** `RowKind` imported from `@nama/shared/home` — never redefined in client code.

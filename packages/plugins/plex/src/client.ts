@@ -1,4 +1,4 @@
-import { pluginError, handleHttpStatus } from "@ent-mcp/plugin-sdk";
+import { pluginError, handleHttpStatus } from "@nama/plugin-sdk";
 import type { Ctx, PlexUserCfg } from "./types";
 import {
   PLEX_PRODUCT,

@@ -14,7 +14,7 @@ import type {
   NotificationSeverity,
   NotificationAction,
   NotificationDeliveryStatus,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { m } from "@/paraglide/messages";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { BaseApiError } from "@/shared/lib/diagnostics/api-error";

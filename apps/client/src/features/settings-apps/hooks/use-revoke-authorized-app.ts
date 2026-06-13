@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 import { useOptimisticArrayMutation } from "@/shared/hooks/use-optimistic-array-mutation";
 import { revokeAuthorizedApp } from "../lib/fetchers";

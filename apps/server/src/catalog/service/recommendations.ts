@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "../../db/client";
 import { recommendationLists } from "../../db/schema/catalog";
-import type { RecItem, RecommendationList, RecommendationListKind } from "@ent-mcp/shared/catalog";
+import type { RecItem, RecommendationList, RecommendationListKind } from "@nama/shared/catalog";
 
 export async function selectRecommendations(
   db: Db,

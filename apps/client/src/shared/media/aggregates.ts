@@ -1,4 +1,4 @@
-import type { WatchlistMoodSummary } from "@ent-mcp/shared/media";
+import type { WatchlistMoodSummary } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "./error";
 

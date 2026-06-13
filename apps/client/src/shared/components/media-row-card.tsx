@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from "react";
 import { clamp } from "es-toolkit";
 import { Film, Tv } from "lucide-react";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 import {
   MediaCardAvailability,
   MediaCardBadge,

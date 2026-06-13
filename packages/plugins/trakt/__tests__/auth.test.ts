@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { isPluginError } from "@ent-mcp/plugin-sdk";
+import { isPluginError } from "@nama/plugin-sdk";
 import { refreshAuth, refreshTokensJob } from "../src/auth";
 import { makeCtx } from "./helpers";
 

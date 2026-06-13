@@ -6,7 +6,7 @@ import {
   type CreateMediaRequestResponse,
   type MediaRequestsResponse,
   type RequestTarget,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";

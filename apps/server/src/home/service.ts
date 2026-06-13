@@ -1,5 +1,5 @@
 import { consola, type ConsolaInstance } from "consola";
-import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse } from "@nama/shared/home";
 import { getCatalogService } from "../catalog";
 import { MediaService, StatusBatchMemo } from "../media";
 import * as layoutCache from "./internal/layout-cache";

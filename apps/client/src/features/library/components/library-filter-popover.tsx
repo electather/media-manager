@@ -1,11 +1,7 @@
 import type { ReactNode } from "react";
 import { SlidersHorizontal } from "lucide-react";
-import {
-  WATCHED_STATES,
-  type LibraryFacetCounts,
-  type WatchedState,
-} from "@ent-mcp/shared/library";
-import type { MediaType } from "@ent-mcp/shared/media";
+import { WATCHED_STATES, type LibraryFacetCounts, type WatchedState } from "@nama/shared/library";
+import type { MediaType } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";

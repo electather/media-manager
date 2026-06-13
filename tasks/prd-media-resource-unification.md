@@ -5,20 +5,20 @@
 >
 > **Extends:** [`docs/2026-05-26-media-pipeline-consolidation-design.md`](../docs/2026-05-26-media-pipeline-consolidation-design.md) — the shipped server read-pipeline consolidation (commit `dacd3825`). That work unified the _internal_ read path; this work unifies the _HTTP surface_ and its _client mirror_.
 >
-> **Epic:** [#491](https://github.com/electather/media-manager/issues/491) — frontend half. Realizes the deferred §I endpoint collapse and folds in #504–#519 (open; #517/#518 already closed).
+> **Epic:** [#491](https://github.com/electather/nama/issues/491) — frontend half. Realizes the deferred §I endpoint collapse and folds in #504–#519 (open; #517/#518 already closed).
 
 ## Introduction
 
 The pipeline consolidation made `media.listRows(source, cfg)` the single server read path, but it stopped one layer too deep: the HTTP **surface** still forks per product (`api/procedures/home.ts` + `api/procedures/watchlist.ts` — two hand-written procedure files doing the same job, serving the same pipeline), there is **no shared `sourceId` contract** (source ids are inline strings scattered across `home/rows/index.ts` and `watchlist/sources/*`), the **cursor codec is server-only** (so the client cannot build the `similarTo` seed cursor — the open gap from consolidation §H), and the **client duplicates the product split badly** (two fetchers, two error classes, two query-key roots, two near-identical infinite-list hooks, two card assemblies over the same primitives).
 
-This project unifies the wire and its client mirror. On the server it adds **one media resource surface** — `GET /api/media/sources/:sourceId` (a generic, registry-dispatched resolver for every paginated read) plus dedicated title / counts / moods / writes endpoints — implemented as a **new `api/` adapter** that composes the _existing_ `home` / `watchlist` / `media` module barrels. On the wire it extends `@ent-mcp/shared/media` with the one source-id set, the relocated cursor codec, the per-source param schemas, and the canonical `Page` shape. On the client it adds one `shared/media/` layer (one list-hook core, one query-key root, one error class, shared card/skeleton primitives) and reduces `home` and `watchlist` to thin shells consuming `api.media.*`.
+This project unifies the wire and its client mirror. On the server it adds **one media resource surface** — `GET /api/media/sources/:sourceId` (a generic, registry-dispatched resolver for every paginated read) plus dedicated title / counts / moods / writes endpoints — implemented as a **new `api/` adapter** that composes the _existing_ `home` / `watchlist` / `media` module barrels. On the wire it extends `@nama/shared/media` with the one source-id set, the relocated cursor codec, the per-source param schemas, and the canonical `Page` shape. On the client it adds one `shared/media/` layer (one list-hook core, one query-key root, one error class, shared card/skeleton primitives) and reduces `home` and `watchlist` to thin shells consuming `api.media.*`.
 
 **This is an adapter + wire-contract + client change. There is no server module re-org** (§A1, invariant V.A1): no composition logic moves between `home`, `watchlist`, and `media`. The URL reflects the _resource_; the owning module reflects the _logic_; the adapter bridges them. Apart from what the adjacent tracks (#511–#519) explicitly specify, there is **no user-visible behavior change** — read parity is the success bar.
 
 ## Goals
 
 - Establish one media wire surface: `/api/media/*` — a generic source resolver for every paginated read plus dedicated title / counts / moods / writes endpoints, served by a single `api/procedures/media.ts` adapter. One `api.media.*` client.
-- Establish one shared wire contract in `@ent-mcp/shared/media`: a `MEDIA_SOURCE_IDS` as-const tuple, the cursor codec (relocated from the server `media` module), per-source param zod schemas, and the canonical `Page` shape. Close the `similarTo` cursor gap by sharing one codec across client and server.
+- Establish one shared wire contract in `@nama/shared/media`: a `MEDIA_SOURCE_IDS` as-const tuple, the cursor codec (relocated from the server `media` module), per-source param zod schemas, and the canonical `Page` shape. Close the `similarTo` cursor gap by sharing one codec across client and server.
 - Establish one client media layer (`apps/client/src/shared/media/`): one list-hook core (suspense + lazy wrappers), one query-key root, one `MediaApiError`, and shared row-card / grid-skeleton / empty-state primitives. `home` and `watchlist` become thin shells.
 - Preserve module ownership exactly: no composition logic moves between `home`, `watchlist`, and `media` (invariant V.A1). `media` never imports concrete sources (invariant V.RG1) — the source registry lives in the `api/` adapter, composed from consumer barrels.
 - Sequence additively: add `/api/media/*` first, migrate the client onto it, then delete the old surface in a final cutover — no compat shim (pre-stable clean break).
@@ -28,29 +28,29 @@ This project unifies the wire and its client mirror. On the server it adds **one
 
 Each story is one phase from design §D and maps to **one PR** that must end with `vp check` and `vp test` green. Stories are ordered. Part A (US-001…US-005) is **additive** — it adds `/api/media/*` without removing the old endpoints — and can land and sit before Part B starts. Part B (US-006…US-012) migrates the client. The old surface is deleted only in the final cutover (US-013). "Parity" criteria assert no behavior change; capture fixtures from the pre-refactor endpoints where noted. Compact context at each phase boundary.
 
-> **Changeset rule (project):** `@ent-mcp/shared` is internal-only and is **never** listed in a changeset — its changes ride the consumer (`@ent-mcp/server` / `@ent-mcp/client`) bump. Additive server phases that add a dormant surface nothing consumes yet are **internal** (empty-frontmatter changeset); the user-facing `minor` bump lands at the phases that actually change observable behavior (US-010, US-012, US-013).
+> **Changeset rule (project):** `@nama/shared` is internal-only and is **never** listed in a changeset — its changes ride the consumer (`@nama/server` / `@nama/client`) bump. Additive server phases that add a dormant surface nothing consumes yet are **internal** (empty-frontmatter changeset); the user-facing `minor` bump lands at the phases that actually change observable behavior (US-010, US-012, US-013).
 
 ---
 
 ### Part A — Media Resource API (server adapter + wire); additive
 
-### US-001: Extend `@ent-mcp/shared/media` with the wire contract
+### US-001: Extend `@nama/shared/media` with the wire contract
 
 **Description:** As a developer, I want one shared media wire contract — source-id set, cursor codec, param schemas, and page shape — so that client and server agree on exactly one definition of each (§A5).
 
 **Acceptance Criteria:**
 
-- [ ] `@ent-mcp/shared/media` (existing subpath at `packages/shared/src/media/`) gains a `MEDIA_SOURCE_IDS` **as-const tuple** plus the derived `MediaSourceId` type. Values lift the existing slugs: `recommendedForYou-tv`, `recommendedForYou-movies`, `continueWatching-active`, `continueWatching-next`, `becauseYouWatched`, `similarTo`, `yourWatchlist`, `upcomingForYou`, `trendingNow`, `newReleases`, `watchlist-items`, `watchlist-mood-items`, `watchlist-tonight`, `watchlist-recently`. Watchlist buckets ride `watchlist-items` via a `bucket` **param**, NOT per-bucket ids.
+- [ ] `@nama/shared/media` (existing subpath at `packages/shared/src/media/`) gains a `MEDIA_SOURCE_IDS` **as-const tuple** plus the derived `MediaSourceId` type. Values lift the existing slugs: `recommendedForYou-tv`, `recommendedForYou-movies`, `continueWatching-active`, `continueWatching-next`, `becauseYouWatched`, `similarTo`, `yourWatchlist`, `upcomingForYou`, `trendingNow`, `newReleases`, `watchlist-items`, `watchlist-mood-items`, `watchlist-tonight`, `watchlist-recently`. Watchlist buckets ride `watchlist-items` via a `bucket` **param**, NOT per-bucket ids.
 - [ ] New exports land **alongside** the existing recommendation-engine `MediaItem` / `ActiveRow` / `RowSort` / `RowFilter` — names do NOT collide and `MediaItem` is NOT touched (consolidation §D: "`MediaItem` is already taken… do not reuse it").
 - [ ] The cursor codec is **moved here**: the `Cursor` type, `encode`, `decode(raw, expectedMode?)`, and the `encodeSeedCursor` helper. `decode` returns `Cursor | null` and never throws (invariant V.CU1).
 - [ ] `decodeSeedToken` and `SeedToken` (home's similar-feed `offset` paging) **stay home-source-private** — they are NOT relocated (they would drag home paging across the boundary).
 - [ ] The server `media` barrel **re-exports** the relocated codec so server-internal consumers that import `encode` / `Cursor` from the `media` barrel today (e.g. `home/sources/similar-paged.ts`) keep their barrel import unchanged (invariant V.RG1 untouched). `media/cursor.ts` becomes a thin re-export of the shared codec.
 - [ ] Per-source param zod schemas exist (discriminated per source): `watchlist-items` (`{ bucket?, sort, mood?, limit, cursor? }`), `watchlist-mood-items` (`{ moodId, limit, cursor? }`), seeded home (`{ seedId, seedType }` for `similarTo`), bounded (`{ limit }`), and void. Reuse the shapes of today's `itemsQuerySchema` / `moodItemsQuerySchema`.
 - [ ] `Page = { items: CompactMediaItem[]; cursor: string | null; partial: boolean }` is exported as the canonical page shape.
-- [ ] `CompactMediaItem` is **re-exported** from `@ent-mcp/shared/media` (its definition stays in `@ent-mcp/shared/home` to avoid a churn cascade); `MediaDetailsResponse`, `SeasonAvailabilityResponse`, `WatchlistCounts`, and `WatchlistMoodSummary` are likewise re-exported via the media subpath for one coherent client import surface.
+- [ ] `CompactMediaItem` is **re-exported** from `@nama/shared/media` (its definition stays in `@nama/shared/home` to avoid a churn cascade); `MediaDetailsResponse`, `SeasonAvailabilityResponse`, `WatchlistCounts`, and `WatchlistMoodSummary` are likewise re-exported via the media subpath for one coherent client import surface.
 - [ ] The shared module stays isomorphic and zod-only (no `drizzle-orm` / `hono` / framework deps — shared-package rule).
 - [ ] Codec unit tests assert `decode → null` on bad / foreign / mode-mismatched input for **both** modes, and that `encodeSeedCursor` / `decodeSeedToken` round-trip.
-- [ ] Changeset: **empty frontmatter** (`@ent-mcp/shared` is internal-only and never listed; no server behavior changes yet).
+- [ ] Changeset: **empty frontmatter** (`@nama/shared` is internal-only and never listed; no server behavior changes yet).
 - [ ] `vp check` passes.
 - [ ] `vp test` passes.
 
@@ -136,7 +136,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - [ ] `apps/client/src/shared/media/use-media-rows.ts` defines one core `mediaRowsQueryOptions(source)` (infinite query options: `getNextPageParam: p => p.cursor ?? undefined`, flatten pages → `items`, OR-reduce `partial`) plus two thin wrappers: `useMediaRows` (`useSuspenseInfiniteQuery`) and `useMediaRowsLazy` (`useInfiniteQuery`). The cursor / flatten / `partial` logic is defined exactly once.
 - [ ] `apps/client/src/shared/media/query-keys.ts` defines a `mediaKeys` root and factory: `mediaKeys.source(sourceId, params)`, `mediaKeys.title(type, tmdbId)`, `mediaKeys.counts()`, `mediaKeys.moods()`.
 - [ ] `apps/client/src/shared/media/error.ts` defines one `MediaApiError` and one `throwOnError`.
-- [ ] `apps/client/src/shared/media/cursor.ts` re-exports the `@ent-mcp/shared/media` codec; `similarTo` builds its initial cursor via `encodeSeedCursor` (closing the consolidation §H client gap).
+- [ ] `apps/client/src/shared/media/cursor.ts` re-exports the `@nama/shared/media` codec; `similarTo` builds its initial cursor via `encodeSeedCursor` (closing the consolidation §H client gap).
 - [ ] Unit tests cover: `mediaRowsQueryOptions` flatten + `getNextPageParam` + `partial` OR-reduce; suspense vs lazy wrappers; the `similarTo` client-built cursor is accepted by the resolver.
 - [ ] Changeset: **empty frontmatter** (new internal client layer; not yet wired into a visible surface).
 - [ ] `vp check` passes.
@@ -199,7 +199,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - [ ] Home is unchanged here — it already loader-prefetches its layout; rows stay in-component lazy.
 - [ ] Tests assert the loader prefetches the first page (cache is warm on mount) and the `errorComponent` renders on a failed loader.
 - [ ] Verify in browser: navigating to a watchlist section route shows content on first paint (no full-section spinner), and a forced fetch error renders the route's `errorComponent`.
-- [ ] Changeset: **minor** `@ent-mcp/client` — user-facing (faster navigation; one short past-tense end-user sentence).
+- [ ] Changeset: **minor** `@nama/client` — user-facing (faster navigation; one short past-tense end-user sentence).
 - [ ] `vp check` passes.
 - [ ] `vp test` passes.
 
@@ -227,7 +227,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - [ ] Only the visible window (plus overscan) is in the DOM for a long list.
 - [ ] Tests assert a page fetch fires when the scroll position nears the window end.
 - [ ] Verify in browser: scrolling a long bucket / mood list keeps the DOM node count bounded and fetches the next page near the end, with no visual jank.
-- [ ] Changeset: **minor** `@ent-mcp/client` — user-facing (smoother long lists; one short past-tense end-user sentence).
+- [ ] Changeset: **minor** `@nama/client` — user-facing (smoother long lists; one short past-tense end-user sentence).
 - [ ] `vp check` passes.
 - [ ] `vp test` passes.
 
@@ -247,7 +247,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - [ ] The `.fallow/dead-code-baseline.json` baseline does **not** grow (Rule 14); any intentional exception carries an inline `// fallow-ignore-*` with a one-line reason.
 - [ ] A grep gate confirms no caller references the deleted endpoints, `WatchlistItem`, `HomeApiError`, or `WatchlistApiError`.
 - [ ] Verify in browser: a full smoke pass — home feed, every watchlist section, the peek/detail view, and add/remove — works end-to-end against `api.media.*` only (network panel shows no `/home/row`, `/watchlist/*`, `/home/details`, or `/home/season-availability` calls).
-- [ ] Changeset: **minor** `@ent-mcp/client` and `@ent-mcp/server` — user-facing (media data now served from one unified API; one short past-tense end-user sentence). Note cursor invalidation on deploy (RISK-206).
+- [ ] Changeset: **minor** `@nama/client` and `@nama/server` — user-facing (media data now served from one unified API; one short past-tense end-user sentence). Note cursor invalidation on deploy (RISK-206).
 - [ ] `vp check` passes.
 - [ ] `vp test` passes.
 
@@ -257,8 +257,8 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - **FR-2:** `GET /api/media/sources/:sourceId` MUST be a single registry-dispatched handler. The resolver MUST be dumb dispatch — it MUST NOT contain enrich / sort / cursor logic; `listRows` owns the pipeline (invariants V.MC1 / V.PG1).
 - **FR-3:** A `MediaSourceRegistration<P>` MUST carry per-source `sourceId`, `rateLimit`, `paramSchema`, `cursorMode`, `cursorOnNull`, optional `requiresInitialCursor`, optional `eligibility`, and `build`. The adapter registry MUST be `{ ...homeMediaSources, ...watchlistMediaSources }`.
 - **FR-4:** `media` MUST NOT import concrete sources. The source registry MUST live in the `api/` adapter, composed from consumer **barrels** (invariant V.RG1). No composition logic MUST move between `home`, `watchlist`, and `media` (invariant V.A1).
-- **FR-5:** `@ent-mcp/shared/media` MUST export a `MEDIA_SOURCE_IDS` as-const tuple and derived `MediaSourceId` as the one source-id set for client and server. It MUST NOT collide with or modify the existing recommendation-engine `MediaItem`.
-- **FR-6:** The cursor codec (`Cursor`, `encode`, `decode`, `encodeSeedCursor`) MUST live in `@ent-mcp/shared/media`; the server `media` barrel MUST re-export it so server-internal callers keep their barrel import. `decodeSeedToken` / `SeedToken` MUST stay home-source-private.
+- **FR-5:** `@nama/shared/media` MUST export a `MEDIA_SOURCE_IDS` as-const tuple and derived `MediaSourceId` as the one source-id set for client and server. It MUST NOT collide with or modify the existing recommendation-engine `MediaItem`.
+- **FR-6:** The cursor codec (`Cursor`, `encode`, `decode`, `encodeSeedCursor`) MUST live in `@nama/shared/media`; the server `media` barrel MUST re-export it so server-internal callers keep their barrel import. `decodeSeedToken` / `SeedToken` MUST stay home-source-private.
 - **FR-7:** `decode` MUST return `Cursor | null` and MUST NOT throw. The resolver MUST map `null` per `reg.cursorOnNull`: home → `400`, watchlist → first-page (invariant V.CU1).
 - **FR-8:** The canonical page shape MUST be `Page = { items: CompactMediaItem[]; cursor: string | null; partial: boolean }`, superseding `RowContentResponse` / `WatchlistResponse` / `WatchlistSectionResponse`. Bounded sources MUST mint `cursor: null`.
 - **FR-9:** The title resource MUST be `GET /api/media/:type/:tmdbId/details` (→ `home.composeDetails`, incl. seasons metadata) and `…/availability` (→ `home.composeSeasonAvailability`). There MUST be no separate `/seasons` endpoint.
@@ -277,7 +277,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 - `search` and `command-menu` (different read model: query → ranked results, not the list pipeline).
 - Compat shims, deprecation chains, or dual-surface translation (pre-stable: delete the old endpoints outright).
 - Any user-visible behavior change beyond what each adjacent track (#511–#519) explicitly specifies. Parity fixtures guard reads.
-- Moving the `CompactMediaItem` **definition** (vs re-export) into `@ent-mcp/shared/media` (deferred; re-export only here).
+- Moving the `CompactMediaItem` **definition** (vs re-export) into `@nama/shared/media` (deferred; re-export only here).
 - Generic write/aggregate collapse beyond the namespace move.
 - Changing seed/sync lifecycle internals, events, plugin-dispatch, or the hero/match-reason heuristics — unchanged.
 
@@ -285,8 +285,8 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 
 - **Toolchain:** Use Vite+ (`vp`) only — `vp check`, `vp test`, `vp install`. Never invoke pnpm/npm/yarn or Vitest/Oxlint/tsdown directly. Use `vp dlx` for one-off binaries.
 - **Adapter principle:** The URL reflects the _resource_, the owning module reflects the _logic_, and the `api/` adapter bridges them (backend-arch Rule 10: adapters call module barrels; modules never call adapters). The title resource lives at a media URL while its composition stays home-owned — document this so navigators don't expect home logic to move (RISK-203).
-- **Shared package:** Extend the existing `@ent-mcp/shared/media`; new exports land alongside `MediaItem` without collision. The module stays isomorphic and zod-only. Per project rule, `@ent-mcp/shared` is **never** listed in a changeset — its changes ride the consumer bump.
-- **Changesets per phase:** Additive server phases (US-001…US-005) and parity client migrations (US-006…US-009, US-011) are **internal** → empty-frontmatter changesets. The user-facing `minor` bumps land at US-010 (`@ent-mcp/client`), US-012 (`@ent-mcp/client`), and US-013 (`@ent-mcp/client` + `@ent-mcp/server`). Descriptions are one short past-tense end-user sentence — no file names, PR numbers, or impl detail.
+- **Shared package:** Extend the existing `@nama/shared/media`; new exports land alongside `MediaItem` without collision. The module stays isomorphic and zod-only. Per project rule, `@nama/shared` is **never** listed in a changeset — its changes ride the consumer bump.
+- **Changesets per phase:** Additive server phases (US-001…US-005) and parity client migrations (US-006…US-009, US-011) are **internal** → empty-frontmatter changesets. The user-facing `minor` bumps land at US-010 (`@nama/client`), US-012 (`@nama/client`), and US-013 (`@nama/client` + `@nama/server`). Descriptions are one short past-tense end-user sentence — no file names, PR numbers, or impl detail.
 - **Frontend skills:** Every Part B story edits `apps/client/` React — invoke the relevant skill before editing (`frontend-feature-architecture`, `vercel-react-best-practices`, `vercel-composition-patterns`, `paraglide-js`, `vercel-react-view-transitions`).
 - **Parity fixtures (RISK-202):** Capture home-row, watchlist-section, mood-items, details, availability, counts, and moods output fixtures from the **live old endpoints before** US-003 / US-004 / US-005, then assert the resolver/endpoints against them. Additive sequencing keeps old and new serving the same data in parallel until cutover, so fixtures can pin agreement before deletion.
 - **Cursor invalidation (RISK-206):** The codec move + endpoint reshape invalidate existing cursors on deploy. Acceptable pre-stable (cursors are ephemeral React-Query cache state); note it in the US-013 changeset.
@@ -297,7 +297,7 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 
 - One media wire surface exists: after cutover, `api.media.*` is the only media client; `api.watchlist.*` and `api.home.{row,details,season-availability}` no longer exist (`AppType` proves it).
 - The client has exactly one of each: one `MediaApiError`, one `mediaRowsQueryOptions` core (two thin wrappers), one `mediaKeys` root. `HomeApiError`, `WatchlistApiError`, both per-feature fetchers, and both bespoke list hooks no longer exist.
-- `MEDIA_SOURCE_IDS` is the single source-id set; client and server import the same `@ent-mcp/shared/media` module; the `similarTo` initial cursor is built client-side via the shared codec.
+- `MEDIA_SOURCE_IDS` is the single source-id set; client and server import the same `@nama/shared/media` module; the `similarTo` initial cursor is built client-side via the shared codec.
 - Read parity holds: every source and the title/counts/moods endpoints produce identical item ids / order / cursor to the pre-refactor endpoints.
 - Paraglide message count on the watchlist + home surface drops by ≥ 30% (#511/#512).
 - The `.fallow/dead-code-baseline.json` count is unchanged or lower at the end of the cutover.
@@ -306,6 +306,6 @@ Each story is one phase from design §D and maps to **one PR** that must end wit
 ## Open Questions
 
 - US-010…US-012 (route loaders / Paraglide variants / virtual scroll) land inside this epic per the chosen full scope, but remain splittable into a follow-up if the PR train stalls (RISK-205). Confirm at the B4 boundary whether to split.
-- Whether to later move the `CompactMediaItem` **definition** (vs re-export) into `@ent-mcp/shared/media` — deferred; revisit once the media subpath is the established import surface.
+- Whether to later move the `CompactMediaItem` **definition** (vs re-export) into `@nama/shared/media` — deferred; revisit once the media subpath is the established import surface.
 - The machine-readable `scripts/ralph/prd.json` mirror is deferred until the stories here are settled; generate it before running the autonomous loop.
 - Confirm no non-test caller outside `home` / `watchlist` references the deleted endpoint clients or `WatchlistItem` / `HomeApiError` / `WatchlistApiError` before deletion in US-013 (grep gate during cutover).

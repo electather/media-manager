@@ -1,5 +1,5 @@
 import type { InferResponseType } from "hono/client";
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 import { api } from "@/shared/lib/api";

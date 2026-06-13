@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { registerSink, resetSinks } from "../capture";
 import { errorHandler, httpPerfMiddleware, requestContextMiddleware } from "../middleware";
 import { internal } from "../http-errors";
-import type { PerfRecord } from "@ent-mcp/shared/diagnostics";
+import type { PerfRecord } from "@nama/shared/diagnostics";
 import type { DiagnosticSink } from "../types";
 
 class PerfCollector implements DiagnosticSink {

@@ -7,7 +7,7 @@ import type {
   CanonicalMetadataWithIds,
   IdMap,
   MetadataKey,
-} from "@ent-mcp/shared/catalog";
+} from "@nama/shared/catalog";
 import { candidateId } from "../features";
 
 export async function selectMetadata(

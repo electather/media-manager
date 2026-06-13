@@ -5,7 +5,7 @@ import { MemoryCache } from "../../cache/memory";
 import { RedisCache } from "../../cache/redis";
 import type { CacheProvider } from "../../cache/types";
 import { env } from "../../env";
-import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
 /**
  * Canonicalizes a value so the cache key is insensitive to object key order.

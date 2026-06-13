@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../../db/client";
 import { canonicalMetadata } from "../../db/schema/catalog";
-import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 
 export async function upsertMetadata(db: Db, rows: CanonicalMetadata[]): Promise<void> {
   if (rows.length === 0) return;

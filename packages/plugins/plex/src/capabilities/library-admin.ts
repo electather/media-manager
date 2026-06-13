@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import type { Ctx, PlexMediaContainer, PlexDirectory } from "../types";
 import { plexServerJson, plexServerFetch, throwIfRateLimited } from "../client";
 

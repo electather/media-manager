@@ -5,7 +5,7 @@
 
 ## Overview
 
-This document describes the deployment strategy for the media-manager monorepo. Two independent deployment targets share the same application code but differ in runtime and infrastructure:
+This document describes the deployment strategy for the nama monorepo. Two independent deployment targets share the same application code but differ in runtime and infrastructure:
 
 - **Cloudflare** — hosted deployment using Cloudflare Workers + Assets
 - **Docker Compose** — self-hosted deployment using a single compiled container
@@ -77,7 +77,7 @@ The Hono app, API router, auth handler, MCP handler, error middleware, and plugi
 
 **`SQLITE_PATH` in each environment:**
 
-- **Docker (self-hosted):** `file:/data/ent-mcp.db` — local SQLite file in the volume
+- **Docker (self-hosted):** `file:/data/nama.db` — local SQLite file in the volume
 - **Cloudflare (all envs):** Turso URL, e.g. `libsql://my-db.turso.io`
 
 ### Cloudflare-Only Variables
@@ -105,7 +105,7 @@ The `LIBSQL_AUTH_TOKEN` variable is added to the server's env schema. `db/client
 
 The existing `docker/Dockerfile` is updated with the following improvements:
 
-- **Fix shared package copy** — `packages/shared` source files and `package.json` are copied in every build stage that depends on `@ent-mcp/shared`. The current Dockerfile omits this, which breaks workspace dependency resolution.
+- **Fix shared package copy** — `packages/shared` source files and `package.json` are copied in every build stage that depends on `@nama/shared`. The current Dockerfile omits this, which breaks workspace dependency resolution.
 - **BuildKit cache mounts** — `--mount=type=cache,target=/root/.bun/install/cache` on `bun install` steps so layer rebuilds reuse the package cache without inflating the image.
 - **Production-only installs** — build stages that do not need dev dependencies run `bun install --frozen-lockfile --production`.
 - **`.dockerignore`** — excludes `node_modules`, `dist`, `.git`, `docs`, `test-results`, and other non-source files to minimise the build context.
@@ -225,7 +225,7 @@ Secrets for named environments are set once via `vp exec wrangler secret put --e
 | `PREVIEW_ENCRYPTION_KEY`       | `deploy-cloudflare.yml` | Shared `ENCRYPTION_KEY` value injected into every preview Worker                   |
 | `GITHUB_TOKEN`                 | `build-docker.yml`      | Auto-provided; used for ghcr.io login                                              |
 
-Each PR gets its own Turso branch (`media-manager-pr-<number>`) forked from `media-manager-nightly` on first deploy. Subsequent pushes to the same PR reuse the branch and let Drizzle migrations apply any schema delta. The branch is torn down by the cleanup job when the PR closes.
+Each PR gets its own Turso branch (`nama-pr-<number>`) forked from `nama-nightly` on first deploy. Subsequent pushes to the same PR reuse the branch and let Drizzle migrations apply any schema delta. The branch is torn down by the cleanup job when the PR closes.
 
 ### Self-Hosted Configuration
 
@@ -234,7 +234,7 @@ Self-hosters copy `.env.example` to `.env`. The Docker Compose file loads it via
 **`.env.example`:**
 
 ```
-SQLITE_PATH=file:/data/ent-mcp.db
+SQLITE_PATH=file:/data/nama.db
 BETTER_AUTH_SECRET=changeme
 BETTER_AUTH_URL=http://localhost:3000
 ENCRYPTION_KEY=changeme

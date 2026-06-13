@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+import type { HostErrorCode } from "@nama/shared/diagnostics";
 import * as m from "@/paraglide/messages";
 import { ModalTVAirInfo } from "../media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "../media-detail-modal";

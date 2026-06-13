@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { ERROR_SEVERITIES, ERROR_SOURCES, PERF_KINDS } from "@ent-mcp/shared/diagnostics";
+import { ERROR_SEVERITIES, ERROR_SOURCES, PERF_KINDS } from "@nama/shared/diagnostics";
 import { user } from "../auth/auth";
 import { plugins } from "../plugin-runtime/plugins";
 import { serviceConnections } from "../plugin-runtime/credentials";

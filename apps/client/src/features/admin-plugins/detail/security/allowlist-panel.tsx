@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LoaderCircleIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
-import { PLUGIN_ADMIN_ALLOWLIST_MAX } from "@ent-mcp/shared/plugins";
+import { PLUGIN_ADMIN_ALLOWLIST_MAX } from "@nama/shared/plugins";
 
 import { m } from "@/paraglide/messages";
 

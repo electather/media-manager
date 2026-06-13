@@ -6,7 +6,7 @@ import type { MediaType } from "./enums";
  * replaces the three forked codecs (home-feed offset, watchlist keyset,
  * watchlist offset-snapshot) with one base64url-JSON, zod-validated format.
  *
- * The codec lives in `@ent-mcp/shared/media` so client and server agree on
+ * The codec lives in `@nama/shared/media` so client and server agree on
  * exactly one definition (invariant V.WIRE1). The server `media` barrel
  * re-exports it (`apps/server/src/media/cursor.ts` is a thin re-export) so
  * server-internal consumers keep their barrel import unchanged (V.RG1). The
@@ -42,7 +42,7 @@ const cursorSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("offset"), n: z.number().int().nonnegative() }),
 ]);
 
-// Exported (not in the package barrel) so the legacy `@ent-mcp/shared/home`
+// Exported (not in the package barrel) so the legacy `@nama/shared/home`
 // cursor encoder consumes this one copy instead of duplicating it — the codec
 // move consolidates the helper rather than forking it.
 export function utf8ToBase64Url(input: string): string {

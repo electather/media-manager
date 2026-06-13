@@ -1,5 +1,5 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
-import type { WatchlistSource } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@nama/shared/media";
+import type { WatchlistSource } from "@nama/shared/watchlist";
 import * as m from "@/paraglide/messages";
 
 /** Localized label for an item's `addedSource` field. */

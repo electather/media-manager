@@ -1,4 +1,4 @@
-import type { NotificationMessage, NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationMessage, NotificationEvent } from "@nama/shared/notifications";
 
 export function renderJobRunFailed(
   event: Extract<NotificationEvent, { type: "job.run.failed" }>,

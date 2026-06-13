@@ -1,4 +1,4 @@
-import type { ActiveRow, RowSource } from "@ent-mcp/shared/media";
+import type { ActiveRow, RowSource } from "@nama/shared/media";
 import { watchlistItems } from "../../db/schema/media";
 
 export function toRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {

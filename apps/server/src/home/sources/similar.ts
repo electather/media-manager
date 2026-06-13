@@ -1,4 +1,4 @@
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import { extractTmdbId, type MediaSource } from "../../media";
 import type { MediaKey } from "../rows/_shared";
 

@@ -12,7 +12,7 @@ import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
 import { isSyncJob, pluginIdFromJobId } from "./sync-classifier";
-import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
+import type { JobKind, JobRunStatus, JobTriggeredBy } from "@nama/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
 import { isNil } from "es-toolkit/predicate";
 

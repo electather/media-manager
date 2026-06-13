@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { PluginError } from "@ent-mcp/plugin-sdk";
+import { PluginError } from "@nama/plugin-sdk";
 
 // vi.mock factory bodies are hoisted above top-level const declarations, so
 // referencing a regular `const` mock from inside the factory races the TDZ.

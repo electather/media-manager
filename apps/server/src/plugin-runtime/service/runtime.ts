@@ -1,26 +1,26 @@
 import { eq } from "drizzle-orm";
 import { consola } from "consola";
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
 import { plugins } from "../../db/schema/plugin-runtime/plugins";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "../internal/allowed-hosts";
 import { loadPluginPolicy, type PluginAdminPolicy } from "../internal/admin-policy";
 import { buildContext } from "../internal/context";
-import { getCapability } from "@ent-mcp/plugin-sdk";
+import { getCapability } from "@nama/plugin-sdk";
 import { getBuiltin, listBuiltins, validatePluginModule } from "../internal/loader";
 import { capabilityRegistry } from "../internal/registry";
-import type { CapabilityScope } from "@ent-mcp/shared/plugins";
-import { isPluginError, PluginError } from "@ent-mcp/plugin-sdk";
+import type { CapabilityScope } from "@nama/shared/plugins";
+import { isPluginError, PluginError } from "@nama/plugin-sdk";
 import type {
   AuthResult,
   CapabilitySpec,
   PluginContext,
   PluginModule,
   PoolSignalingApi,
-} from "@ent-mcp/plugin-sdk";
+} from "@nama/plugin-sdk";
 import { captureError, capturePerf } from "../../diagnostics/capture";
-import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/diagnostics";
+import { pluginCode, type HostErrorCode } from "@nama/shared/diagnostics";
 import {
   requirePluginRow,
   sharedCredentialsService,
@@ -439,7 +439,7 @@ export class PluginRuntime {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Severity is derived from the code via the registry in
-      // @ent-mcp/shared/diagnostics (PluginError.code for plugin throws,
+      // @nama/shared/diagnostics (PluginError.code for plugin throws,
       // plugin-namespaced code otherwise).
       // Genuine `plugin.upstream_error` → error; user-input `plugin.input_invalid`
       // → info. No per-callsite gate required.

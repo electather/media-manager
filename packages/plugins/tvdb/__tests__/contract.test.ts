@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { IdResolveV1, validatePluginModule } from "@ent-mcp/plugin-sdk";
-import { jsonRes, makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { IdResolveV1, validatePluginModule } from "@nama/plugin-sdk";
+import { jsonRes, makeTestContext, type TestContext } from "@nama/plugin-sdk/testing";
 import tvdbPlugin from "../src/plugin";
 
 // Contract tests: drive every declared capability method end-to-end with a

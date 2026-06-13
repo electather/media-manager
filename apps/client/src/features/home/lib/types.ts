@@ -6,8 +6,8 @@ import type {
   HeroReason,
   RowKind,
   SeriesContext,
-} from "@ent-mcp/shared/home";
-import type { MediaSourceId } from "@ent-mcp/shared/media";
+} from "@nama/shared/home";
+import type { MediaSourceId } from "@nama/shared/media";
 
 export type { RowKind };
 
@@ -50,7 +50,7 @@ export type HomeMediaItem = CompactMediaItem & {
   director?: string;
   seriesStatus?: "ongoing" | "finished";
   nextAirDate?: string;
-  seasons?: import("@ent-mcp/shared/home").SeasonInfo[];
+  seasons?: import("@nama/shared/home").SeasonInfo[];
 };
 
 export type { Availability, Facets, SeriesContext };

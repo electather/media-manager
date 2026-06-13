@@ -14,7 +14,7 @@ import { stopAll, list } from "./index";
  * Module-owned jobs (catalog, home, notifications, plugin-runtime,
  * preferences) are NOT registered here — they live behind each module's
  * barrel-exported `registerJobs()` and are wired from
- * `apps/server/src/{index,worker}.ts` in alphabetical order. This file kept
+ * `apps/server/src/index.ts` in alphabetical order. This file kept
  * to infra-only schedules so `server-infra` no longer needs to import any
  * `server-mod-*` barrel.
  *

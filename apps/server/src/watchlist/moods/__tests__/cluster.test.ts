@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { consola } from "consola";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 
 vi.mock("../../../media", () => ({
   listAllActiveRows: vi.fn(),

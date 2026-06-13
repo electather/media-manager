@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { consola } from "consola";
-import type { McpToolAnnotations } from "@ent-mcp/shared";
+import type { McpToolAnnotations } from "@nama/shared";
 import { dispatchForMcpHandler } from "./dispatch";
 import { mcpToolRegistry } from "./registry";
 import { withOAuthAuth } from "./auth";
@@ -18,7 +18,7 @@ interface ToolsListEntry {
 }
 
 const PROTOCOL_VERSION = "2025-03-26";
-const SERVER_INFO = { name: "ent-mcp", version: "0.1.0" };
+const SERVER_INFO = { name: "nama", version: "0.1.0" };
 
 function buildToolsList(): ToolsListEntry[] {
   return mcpToolRegistry.list().map((tool) => ({

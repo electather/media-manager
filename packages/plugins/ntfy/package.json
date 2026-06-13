@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-ntfy",
+  "name": "@nama/plugin-ntfy",
   "version": "0.2.3",
   "private": false,
-  "description": "ent-mcp plugin — ntfy push notification delivery.",
+  "description": "nama plugin — ntfy push notification delivery.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "ntfy",
     "plugin"
   ],
@@ -19,8 +19,8 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*",
-    "@ent-mcp/shared": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*",
+    "@nama/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

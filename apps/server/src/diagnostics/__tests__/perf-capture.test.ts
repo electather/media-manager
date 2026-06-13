@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vite-plus/test";
 import { capturePerf, captureError, registerSink, resetSinks } from "../capture";
 import { runWithRequestContext } from "../request-context";
-import type { ErrorRecord, PerfRecord } from "@ent-mcp/shared/diagnostics";
+import type { ErrorRecord, PerfRecord } from "@nama/shared/diagnostics";
 import type { DiagnosticSink } from "../types";
 
 class ErrorOnlySink implements DiagnosticSink {

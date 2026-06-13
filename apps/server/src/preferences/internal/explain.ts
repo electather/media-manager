@@ -1,9 +1,5 @@
 import { orderBy } from "es-toolkit/array";
-import type {
-  FeatureCategory,
-  FeedbackAction,
-  PreferenceProfile,
-} from "@ent-mcp/shared/preferences";
+import type { FeatureCategory, FeedbackAction, PreferenceProfile } from "@nama/shared/preferences";
 import { SCORERS, isDictScorer } from "./features";
 import { decadeFor } from "./features/decades";
 import { runtimeBucketFor } from "./features/runtime";

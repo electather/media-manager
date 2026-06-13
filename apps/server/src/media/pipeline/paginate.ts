@@ -1,5 +1,5 @@
 import type { ConsolaInstance } from "consola";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import { encode, type Cursor, type CursorMode } from "../cursor";
 import type { RawPageToken } from "../types";
 

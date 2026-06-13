@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { Page } from "@ent-mcp/shared/media";
+import type { Page } from "@nama/shared/media";
 
 const $get = vi.fn();
 

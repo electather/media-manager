@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { ErrorRecord } from "@nama/shared/diagnostics";
+import type { NotificationEvent } from "@nama/shared/notifications";
 import { NotificationErrorSink } from "../internal/error-sink";
 
 type PublishArg = Omit<NotificationEvent, "id" | "occurredAt">;

@@ -1,1 +1,1 @@
-# @ent-mcp/plugin-fanart
+# @nama/plugin-fanart

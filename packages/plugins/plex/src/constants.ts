@@ -1,4 +1,4 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
 
 // Stable client identity used on every Plex API call. Plex ties PIN approval to
 // the clientIdentifier that created it, so the value MUST be deterministic
@@ -6,9 +6,9 @@ import type { LibraryItem } from "@ent-mcp/plugin-sdk";
 // token Plex issues cannot be used by other callers. Versioning the identifier
 // lets us rotate (e.g. on a breaking change to how we format the product name)
 // without stranding existing connections.
-export const PLEX_CLIENT_IDENTIFIER = "media-manager-v1";
-export const PLEX_PRODUCT = "Media Manager";
-export const PLEX_DEVICE = "Media Manager";
+export const PLEX_CLIENT_IDENTIFIER = "nama-v1";
+export const PLEX_PRODUCT = "Nama";
+export const PLEX_DEVICE = "Nama";
 // Single source for both the `X-Plex-Version` request header (Plex admin UIs
 // attribute sessions by this value) and the manifest's `version` field, so
 // bumping the plugin version does not leave the header behind.

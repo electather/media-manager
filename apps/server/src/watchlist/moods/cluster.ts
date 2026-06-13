@@ -6,7 +6,7 @@ import {
   type MoodId,
   type MoodSummaryCluster,
   type WatchlistMoodSummary,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import type { CatalogService } from "../../catalog";
 import { batchLoad, listAllActiveRows, type MediaService } from "../../media";
 import { MemoryCache } from "../../cache/memory";

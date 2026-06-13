@@ -85,7 +85,7 @@ plugin, server module) │   notifications.emit(event)        │
 
 3 new code locations:
 
-1. **`packages/shared/src/notifications/`** — event registry, enums, schemas, `NotificationMessage` contract. Subpath `@ent-mcp/shared/notifications`.
+1. **`packages/shared/src/notifications/`** — event registry, enums, schemas, `NotificationMessage` contract. Subpath `@nama/shared/notifications`.
 2. **`apps/server/src/notifications/`** — `emit()`, recipient resolver, dispatcher, template loader, delivery job, repos, HTTP routes.
 3. **`packages/plugin-sdk/src/capabilities/notification-delivery.ts`** — new capability + `ctx.notify()` plumbing.
 
@@ -270,7 +270,7 @@ import type {
   NotificationMessage,
   NotificationEvent,
   NotificationContentKind,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 export interface NotificationDeliveryCapabilityV1<TConfig = unknown> {
   /**
@@ -399,7 +399,7 @@ Discriminated union enforces at type level: plugins only emit events registry de
 Plugins signal retryability via existing `pluginError` helper:
 
 ```ts
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 
 if (res.status === 429) {
   throw pluginError("plugin.rate_limited", "ntfy 429", { retryable: true, retryAfterMs: 60_000 });
@@ -777,7 +777,7 @@ Permission: `ADMIN_SERVER`.
 
 ### Shared schemas
 
-`packages/shared/src/notifications/schemas.ts` exports request/response Zod schemas ∀ routes above. Subpath: `@ent-mcp/shared/notifications`.
+`packages/shared/src/notifications/schemas.ts` exports request/response Zod schemas ∀ routes above. Subpath: `@nama/shared/notifications`.
 
 ## Testing & observability
 
@@ -815,7 +815,7 @@ notifications.queue_depth{status=pending}                                gauge (
 ### Local dev
 
 - `vp run notifications:emit-test` — emits each event type once with sample payloads against local user.
-- `@ent-mcp/notifier-stub` — internal-only test plugin (`private: true`), `auth.kind: "none"`, logging `deliver()`. Integration tests run without network.
+- `@nama/notifier-stub` — internal-only test plugin (`private: true`), `auth.kind: "none"`, logging `deliver()`. Integration tests run without network.
 
 ### Admin tooling
 
@@ -876,12 +876,12 @@ Effectively cost of building C from day one — deferred until second consumer �
 
 - **PR 1 — Shared types & event registry.** `packages/shared/src/notifications/`, subpath export, exhaustiveness tests, no runtime code. Empty changeset.
 - **PR 2 — DB migrations + repos.** 3 new tables, Drizzle schema, repos. Empty changeset.
-- **PR 3 — Plugin SDK additions.** `notificationDelivery@v1` capability, `ctx.notify()`, `createTestNotificationContext()`. `@ent-mcp/plugin-sdk: minor` — "Plugins can now deliver notifications via the new notification delivery capability."
+- **PR 3 — Plugin SDK additions.** `notificationDelivery@v1` capability, `ctx.notify()`, `createTestNotificationContext()`. `@nama/plugin-sdk: minor` — "Plugins can now deliver notifications via the new notification delivery capability."
 
 ### Phase 2 — Server core (still ⊥ user-visible change)
 
-- **PR 4 — Emit, dispatch, delivery job.** `apps/server/src/notifications/`, `notification.deliver` job with retry, 6 event templates, built-in `inbox` plugin. Backfill creates `inbox` connection for existing users. Behind `notifications.enabled = false`. `@ent-mcp/server: minor` — "Added the in-app notification inbox so users can review activity from one place."
-- **PR 5 — HTTP API surface.** ∀ routes from §HTTP API surface. Schemas in `@ent-mcp/shared/notifications`. Routes → 404 while flag off. Empty changeset.
+- **PR 4 — Emit, dispatch, delivery job.** `apps/server/src/notifications/`, `notification.deliver` job with retry, 6 event templates, built-in `inbox` plugin. Backfill creates `inbox` connection for existing users. Behind `notifications.enabled = false`. `@nama/server: minor` — "Added the in-app notification inbox so users can review activity from one place."
+- **PR 5 — HTTP API surface.** ∀ routes from §HTTP API surface. Schemas in `@nama/shared/notifications`. Routes → 404 while flag off. Empty changeset.
 
 ### Phase 3 — Emitters
 
@@ -889,11 +889,11 @@ Effectively cost of building C from day one — deferred until second consumer �
 
 ### Phase 4 — First-party plugins
 
-- **PR 7 — ntfy + telegram + discord plugins.** `packages/plugins/{ntfy,telegram,discord}/`, each with `userConfigSchema`, `supportsKinds`, full test coverage. One changeset per plugin: `@ent-mcp/plugin-{ntfy,telegram,discord}: minor` — "Added the X notification provider so you can receive alerts on X."
+- **PR 7 — ntfy + telegram + discord plugins.** `packages/plugins/{ntfy,telegram,discord}/`, each with `userConfigSchema`, `supportsKinds`, full test coverage. One changeset per plugin: `@nama/plugin-{ntfy,telegram,discord}: minor` — "Added the X notification provider so you can receive alerts on X."
 
 ### Phase 5 — Client UI + flip flag
 
-- **PR 8 — Client UI + enablement.** `/settings/notifications`, `/notifications` inbox, nav badge, `/admin/notifications/deliveries`, `/admin/settings/notifications`. **Flip `notifications.enabled = true`** & remove flag same PR. `@ent-mcp/client: minor` — "Added a notifications page to receive and manage alerts about your media activity." Detailed client architecture: `docs/2026-05-06-notifications-client-design.md` (TanStack Query + Router loaders, React 19 concurrent posture, `features/notifications/` layout).
+- **PR 8 — Client UI + enablement.** `/settings/notifications`, `/notifications` inbox, nav badge, `/admin/notifications/deliveries`, `/admin/settings/notifications`. **Flip `notifications.enabled = true`** & remove flag same PR. `@nama/client: minor` — "Added a notifications page to receive and manage alerts about your media activity." Detailed client architecture: `docs/2026-05-06-notifications-client-design.md` (TanStack Query + Router loaders, React 19 concurrent posture, `features/notifications/` layout).
 
 ### PR sizing
 

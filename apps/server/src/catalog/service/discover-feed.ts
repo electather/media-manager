@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../../db/client";
 import { discoverSnapshots } from "../../db/schema/catalog";
-import type { DiscoverFeedKind, DiscoverSort, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { DiscoverFeedKind, DiscoverSort, MetadataKey } from "@nama/shared/catalog";
 
 /**
  * Shared WHERE clause for the `(kind, sort, day)` indexed lookup on

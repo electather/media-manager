@@ -1,5 +1,5 @@
-import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import type { AuthResult } from "@ent-mcp/plugin-sdk";
+import { definePlugin, toErrorMessage } from "@nama/plugin-sdk";
+import type { AuthResult } from "@nama/plugin-sdk";
 import { getBaseUrl, getSessionCookie, extractSessionCookie } from "./client";
 import { mediaRequest, syncRequestStatuses } from "./capabilities/media-request";
 import type { Ctx, SeerrCreds, SeerrUserCfg, SeerrGlobalCfg } from "./types";
@@ -11,7 +11,7 @@ export default definePlugin({
     version: "1.3.0",
     description:
       "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     // The baseUrl is admin-configured and marked x-allowed-host so the runtime
     // adds it to the per-request allowlist after passing it through isBlockedHostname.

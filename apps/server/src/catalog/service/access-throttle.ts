@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { groupBy } from "es-toolkit/array";
 import type { Db } from "../../db/client";
 import { canonicalMetadata } from "../../db/schema/catalog";
-import type { MetadataKey } from "@ent-mcp/shared/catalog";
+import type { MetadataKey } from "@nama/shared/catalog";
 import { candidateId } from "../features";
 
 /**
