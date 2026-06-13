@@ -2,16 +2,21 @@ import { identifyItem, parseHistoryBase, parseItemDate, type MediaService } from
 import type { HistoryEvent, RatingEvent } from "@nama/shared/catalog";
 import { isNil } from "es-toolkit/predicate";
 
+type PluginEntryItem = {
+  item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
+};
+
 export async function collectHistoryEvents(
   media: MediaService,
   pluginId: string,
 ): Promise<HistoryEvent[]> {
-  const raw = (await media.getAllHistory(pluginId)) as Array<{
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    watchedAt?: string;
-    progress?: number | null;
-    episodeKey?: string | null;
-  }>;
+  const raw = (await media.getAllHistory(pluginId)) as Array<
+    PluginEntryItem & {
+      watchedAt?: string;
+      progress?: number | null;
+      episodeKey?: string | null;
+    }
+  >;
   return raw.flatMap((entry) => toHistoryEvent(entry, pluginId));
 }
 
@@ -19,17 +24,17 @@ export async function collectRatingEvents(
   media: MediaService,
   pluginId: string,
 ): Promise<RatingEvent[]> {
-  const raw = (await media.getAllRatings(pluginId)) as Array<{
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    rating?: number;
-    ratedAt?: string;
-  }>;
+  const raw = (await media.getAllRatings(pluginId)) as Array<
+    PluginEntryItem & {
+      rating?: number;
+      ratedAt?: string;
+    }
+  >;
   return raw.flatMap((entry) => toRatingEvent(entry, pluginId));
 }
 
 function toHistoryEvent(
-  entry: {
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
+  entry: PluginEntryItem & {
     watchedAt?: string;
     progress?: number | null;
     episodeKey?: string | null;
@@ -49,8 +54,7 @@ function toHistoryEvent(
 }
 
 function toRatingEvent(
-  entry: {
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
+  entry: PluginEntryItem & {
     rating?: number;
     ratedAt?: string;
   },
