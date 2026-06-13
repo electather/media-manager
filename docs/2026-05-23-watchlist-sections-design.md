@@ -614,7 +614,7 @@ types.ts:
                           unavailable: number; upcoming: number; total: number }   // rev 6: +unavailable
 
   // rev 9 — WatchlistItem is DELETED. Sections return the EXISTING (now extended) CompactMediaItem
-  // (@ent-mcp/shared), which gains two nullable fields. ⊥ a new MediaItem type (that name is taken by
+  // (@nama/shared), which gains two nullable fields. ⊥ a new MediaItem type (that name is taken by
   // the recommendation-engine MediaItem in shared/media). See consolidation §D.
   //   CompactMediaItem += addedAt?: number | null         // epoch ms; ⊥ on discovery rows
   //   CompactMediaItem += addedSource?: WatchlistSource | null
@@ -704,11 +704,11 @@ Phased; each phase shippable on its own. Pre-stable.
 - Pre-stable break: clients on old `"unknown"` classifier value break. ⊥ shim.
 
 **Phase 5 — Changeset.**
-Single user-facing changeset under `@ent-mcp/client`:
-- `@ent-mcp/client`: minor — Watchlist page now lists every item in a sortable flat view and shows a paginated per-mood listing when "See all" is selected.
-- `@ent-mcp/client`: minor (rev 6) — Added an "Unavailable" filter for wishlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty.
+Single user-facing changeset under `@nama/client`:
+- `@nama/client`: minor — Watchlist page now lists every item in a sortable flat view and shows a paginated per-mood listing when "See all" is selected.
+- `@nama/client`: minor (rev 6) — Added an "Unavailable" filter for wishlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty.
 
-`@ent-mcp/server` not in released-set externally per CLAUDE.md (private internal); changes covered by empty-frontmatter changeset:
+`@nama/server` not in released-set externally per CLAUDE.md (private internal); changes covered by empty-frontmatter changeset:
 ```
 ---
 ---

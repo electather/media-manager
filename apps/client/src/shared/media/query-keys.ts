@@ -1,4 +1,4 @@
-import type { MediaSourceId, MediaType } from "@ent-mcp/shared/media";
+import type { MediaSourceId, MediaType } from "@nama/shared/media";
 
 /**
  * The one media query-key root + factory (design §B1, invariant V.CL1). Every

@@ -1,12 +1,12 @@
 {
-  "name": "@ent-mcp/plugin-jellyfin",
+  "name": "@nama/plugin-jellyfin",
   "version": "0.3.2",
   "private": false,
-  "description": "ent-mcp plugin — Jellyfin library availability and playback sessions.",
+  "description": "nama plugin — Jellyfin library availability and playback sessions.",
   "keywords": [
-    "ent-mcp",
     "jellyfin",
     "mcp",
+    "nama",
     "plugin"
   ],
   "license": "MIT",
@@ -19,7 +19,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

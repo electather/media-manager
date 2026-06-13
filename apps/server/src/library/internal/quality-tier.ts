@@ -1,4 +1,4 @@
-import type { LibraryItemQuality } from "@ent-mcp/shared/plugins";
+import type { LibraryItemQuality } from "@nama/shared/plugins";
 
 /**
  * Folds a structured plugin `quality` descriptor into the free-form tier label

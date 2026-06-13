@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import type { MediaDetailsResponse } from "@ent-mcp/shared/home";
+import type { MediaDetailsResponse } from "@nama/shared/home";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { fetchHomeDetails } from "../lib/fetchers";
 import { findCachedMediaItem } from "../lib/find-cached-item";

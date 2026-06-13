@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { last } from "es-toolkit/array";
 import { consola } from "consola";
-import { adminDeliveriesQuerySchema, adminSettingsBodySchema } from "@ent-mcp/shared/notifications";
+import { adminDeliveriesQuerySchema, adminSettingsBodySchema } from "@nama/shared/notifications";
 import { requirePermission, requireSession, PERMISSIONS } from "../../../auth";
 import { conflict, notFound } from "../../../diagnostics/http-errors";
 import { zValidator } from "../../../diagnostics/validator";

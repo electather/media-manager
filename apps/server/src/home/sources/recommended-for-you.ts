@@ -1,5 +1,5 @@
-import type { TopContributor } from "@ent-mcp/shared/catalog";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { TopContributor } from "@nama/shared/catalog";
+import type { MediaType } from "@nama/shared/media";
 import type { MediaSource } from "../../media";
 import type { MediaKey } from "../rows/_shared";
 

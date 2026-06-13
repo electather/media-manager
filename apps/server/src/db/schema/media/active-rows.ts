@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { MEDIA_TYPES } from "@ent-mcp/shared/media";
-import { WATCHLIST_SOURCES, WATCHLIST_STATES } from "@ent-mcp/shared/watchlist";
+import { MEDIA_TYPES } from "@nama/shared/media";
+import { WATCHLIST_SOURCES, WATCHLIST_STATES } from "@nama/shared/watchlist";
 import { user } from "../auth/auth";
 
 /**

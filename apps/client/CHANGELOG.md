@@ -1,4 +1,4 @@
-# @ent-mcp/client
+# @nama/client
 
 ## 0.6.0
 
@@ -53,7 +53,7 @@
 - a3e4fc3: Fixed several issues in the settings wiring: failed connection tests now surface as errors instead of success toasts, bulk-revoke of authorized apps no longer leaves the cache in an inconsistent state on partial failure, the edit channel dialog no longer leaks state between channels, and profile saves no longer refetch the entire query tree.
 - a3e4fc3: The current-password error banner on the security settings page now clears as soon as the user re-types in the field, instead of lingering until the next submit attempt.
 - Updated dependencies [ce2b0c5]
-  - @ent-mcp/shared@0.1.2
+  - @nama/shared@0.1.2
 
 ## 0.4.0
 
@@ -131,7 +131,7 @@
 - e9b915f: Reorganise the workspace so plugin authors have a single dedicated SDK to depend on. No user-visible behaviour change.
 - Updated dependencies [db2b076]
 - Updated dependencies [986fb74]
-  - @ent-mcp/shared@0.1.1
+  - @nama/shared@0.1.1
 
 ## 0.1.0
 
@@ -231,4 +231,4 @@
 - Updated dependencies [c336404]
 - Updated dependencies [df3624f]
 - Updated dependencies [09f1101]
-  - @ent-mcp/shared@0.1.0
+  - @nama/shared@0.1.0

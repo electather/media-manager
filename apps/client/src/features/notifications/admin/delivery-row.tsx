@@ -1,4 +1,4 @@
-import type { AdminDeliveryRow } from "@ent-mcp/shared/notifications";
+import type { AdminDeliveryRow } from "@nama/shared/notifications";
 import { DeliveryStatusBadge } from "./delivery-status-badge";
 
 interface Props {

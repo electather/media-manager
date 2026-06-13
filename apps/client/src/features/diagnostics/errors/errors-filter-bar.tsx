@@ -1,5 +1,5 @@
-import type { ErrorSeverity, ErrorSource } from "@ent-mcp/shared/diagnostics";
-import { ERROR_SEVERITIES, ERROR_SOURCES } from "@ent-mcp/shared/diagnostics";
+import type { ErrorSeverity, ErrorSource } from "@nama/shared/diagnostics";
+import { ERROR_SEVERITIES, ERROR_SOURCES } from "@nama/shared/diagnostics";
 import { XIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";

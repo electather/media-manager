@@ -53,7 +53,7 @@ beforeEach(() => {
   buildExportSpy.mockReset();
   buildExportSpy.mockResolvedValue({
     zipBytes: new ArrayBuffer(8),
-    filename: "ent-mcp-export-u1-20260518.zip",
+    filename: "nama-export-u1-20260518.zip",
   });
   exportLimiter.reset();
 });

@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import { ArtworkService } from "../../artwork";
 import { enrichCompactItems } from "../../media";
 import { pickMatchReason } from "./match-reason";

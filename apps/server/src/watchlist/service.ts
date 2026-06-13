@@ -7,7 +7,7 @@ import {
   type WatchlistSectionResponse,
   type WatchlistSort,
   type WatchlistSource,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import {
   addItem as mediaAddItem,
   removeItem as mediaRemoveItem,

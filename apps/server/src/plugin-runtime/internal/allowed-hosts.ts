@@ -1,5 +1,5 @@
-import type { JSONSchema } from "@ent-mcp/shared";
-import { PluginError } from "@ent-mcp/plugin-sdk";
+import type { JSONSchema } from "@nama/shared";
+import { PluginError } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
 
 /**

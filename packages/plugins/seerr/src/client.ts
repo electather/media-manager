@@ -1,4 +1,4 @@
-import { pluginError, handleHttpStatus, isPluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError, handleHttpStatus, isPluginError } from "@nama/plugin-sdk";
 import type { Ctx, SeerrRequestRow } from "./types";
 import { SESSION_COOKIE_NAME } from "./constants";
 

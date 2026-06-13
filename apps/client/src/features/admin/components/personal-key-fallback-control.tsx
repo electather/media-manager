@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { LoaderCircleIcon } from "lucide-react";
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 
 import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";

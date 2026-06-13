@@ -1,5 +1,5 @@
-import type { ErrorRecord, PerfRecord } from "@ent-mcp/shared/diagnostics";
-import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
+import type { ErrorRecord, PerfRecord } from "@nama/shared/diagnostics";
+import { SYSTEM_USER_ID } from "@nama/shared/jobs";
 import { getDb } from "../db/client";
 import { errorRecords, perfRecords } from "../db/schema/infra/diagnostics";
 import type { DiagnosticSink } from "./types";

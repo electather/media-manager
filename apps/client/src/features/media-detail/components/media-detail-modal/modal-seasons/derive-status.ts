@@ -1,4 +1,4 @@
-import type { SeasonAvailabilityServer, SeasonInfo as WireSeasonInfo } from "@ent-mcp/shared/home";
+import type { SeasonAvailabilityServer, SeasonInfo as WireSeasonInfo } from "@nama/shared/home";
 import type { Episode, EpisodeStatus, Season } from "@/features/request-flow/lib/types";
 
 export type DerivedSeasonStatus = "available" | "partial" | "unavailable" | "upcoming";

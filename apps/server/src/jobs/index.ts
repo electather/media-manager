@@ -1,4 +1,4 @@
-import type { JobHandle } from "@ent-mcp/shared/jobs";
+import type { JobHandle } from "@nama/shared/jobs";
 import { assertValidSchedule, nextFireTime, unscheduleAll } from "./croner-adapter";
 import { effectiveSchedule, getConfig, updateConfig, type UpdateInput } from "./config";
 import { latestRun } from "./history";

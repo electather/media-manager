@@ -1,5 +1,5 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/home";
+import type { ActiveRow, MediaRowBucket } from "@nama/shared/media";
 import { classifyBucket } from "../classify";
 import { enrich, type MediaEnrichContext } from "../enrich";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";

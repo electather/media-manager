@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
 import {
   isPluginError,
   LibraryAvailabilityV1,
@@ -9,8 +9,8 @@ import {
   PlaybackV1,
   WatchHistoryV1,
   IdResolveV1,
-} from "@ent-mcp/plugin-sdk";
-import { jsonRes, makeTestContext, statusRes, type TestContext } from "@ent-mcp/plugin-sdk/testing";
+} from "@nama/plugin-sdk";
+import { jsonRes, makeTestContext, statusRes, type TestContext } from "@nama/plugin-sdk/testing";
 import plexPlugin from "../src/plugin";
 
 function makeCtx(

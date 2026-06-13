@@ -1,5 +1,5 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import type { JellyfinItem, JellyfinProviderIds, MediaItemShape } from "./types";
 import { TICKS_PER_SECOND } from "./constants";
 

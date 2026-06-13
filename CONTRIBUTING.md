@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to ent-mcp. This project is a personal entertainment management platform — an MCP server with a companion React dashboard. It is in active development and breaking changes are expected.
+Thanks for your interest in contributing to nama. This project is a personal entertainment management platform — an MCP server with a companion React dashboard. It is in active development and breaking changes are expected.
 
 ## Before You Start
 
@@ -14,8 +14,8 @@ Thanks for your interest in contributing to ent-mcp. This project is a personal 
 
 ```bash
 # Clone and install
-git clone https://github.com/electather/media-manager.git
-cd media-manager
+git clone https://github.com/electather/nama.git
+cd nama
 bun install
 
 # Copy and fill in environment variables
@@ -63,11 +63,11 @@ Always run both before submitting a pull request.
 
 ## Writing Plugins
 
-Plugins implement capabilities from `@ent-mcp/plugin-sdk`. See the [Plugin Architecture Design](docs/2026-04-19-plugin-architecture-design.md) for a full walkthrough and the existing plugins under `packages/plugins/` as reference implementations.
+Plugins implement capabilities from `@nama/plugin-sdk`. See the [Plugin Architecture Design](docs/2026-04-19-plugin-architecture-design.md) for a full walkthrough and the existing plugins under `packages/plugins/` as reference implementations.
 
 Key rules:
 
-- Plugins depend only on `@ent-mcp/plugin-sdk`. No cross-plugin imports.
+- Plugins depend only on `@nama/plugin-sdk`. No cross-plugin imports.
 - Use `ctx.fetch` for all network requests — it is gated by the manifest allowlist.
 - Credentials are never logged or stored in plaintext.
 

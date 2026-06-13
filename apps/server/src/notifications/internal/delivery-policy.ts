@@ -1,4 +1,4 @@
-import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 
 /**
  * Backoff schedule used when a retryable delivery attempt fails. The Nth fail

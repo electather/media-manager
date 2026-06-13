@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 function movieRuntimeLabel(min: number): string {
   const h = Math.floor(min / 60);

@@ -1,4 +1,4 @@
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 
 import { Button } from "@/shared/ui/button";
 import {

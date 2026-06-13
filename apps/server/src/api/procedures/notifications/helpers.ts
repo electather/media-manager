@@ -4,7 +4,7 @@ import {
   NOTIFICATION_CATEGORY_PERMISSION,
   type NotificationCategory,
   type NotificationContentKind,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { loadUserRole, roleHasPermission } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";

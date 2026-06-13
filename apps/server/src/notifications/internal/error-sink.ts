@@ -1,6 +1,6 @@
 import { consola } from "consola";
-import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { ErrorRecord } from "@nama/shared/diagnostics";
+import type { NotificationEvent } from "@nama/shared/notifications";
 import type { DiagnosticSink } from "../../diagnostics/types";
 
 /**

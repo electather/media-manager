@@ -6,7 +6,7 @@
  *  carries code-specific structured payloads (`{ errors: [...] }` for
  *  `media.providers_failed`, `{ candidates: [...] }` for
  *  `mcp.ambiguous_target`) — matches `UserFacingError.details` from
- *  `@ent-mcp/shared/diagnostics`. */
+ *  `@nama/shared/diagnostics`. */
 export class HttpError extends Error {
   readonly status: number;
   readonly code: string;

@@ -1,4 +1,4 @@
-import type { NotificationCategory, AdminSettingsBody } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory, AdminSettingsBody } from "@nama/shared/notifications";
 import { api } from "@/shared/lib/api";
 import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } from "./types";

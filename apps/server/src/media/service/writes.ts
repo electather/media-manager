@@ -1,12 +1,12 @@
 import type { ConsolaInstance } from "consola";
 import { z } from "zod";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import {
   keyToId,
   WATCHLIST_SOURCES,
   type WatchlistKey,
   type WatchlistSource,
-} from "@ent-mcp/shared/watchlist";
+} from "@nama/shared/watchlist";
 import { emit, type EventName } from "../../jobs/events";
 import { enrich, type MediaEnrichContext } from "../enrich";
 import { extractTmdbId } from "../progress";

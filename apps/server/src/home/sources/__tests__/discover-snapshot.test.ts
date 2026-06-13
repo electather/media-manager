@@ -1,6 +1,6 @@
 import { consola } from "consola";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { DiscoverFeedKind } from "@ent-mcp/shared/catalog";
+import type { DiscoverFeedKind } from "@nama/shared/catalog";
 import type { SourceContext } from "../../../media";
 import fixture from "../../__tests__/fixtures/home-layout-parity.json";
 import {

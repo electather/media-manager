@@ -1,4 +1,4 @@
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 import type { PluginSummary } from "@/features/connections";
 
 /**

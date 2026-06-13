@@ -248,7 +248,7 @@ GET /api/library/facets   # unfiltered totals (matches mock look)
 
 ---
 
-## Shared pkg `@ent-mcp/shared/library` — mirror watchlist
+## Shared pkg `@nama/shared/library` — mirror watchlist
 
 ```
 packages/shared/src/library/
@@ -331,7 +331,7 @@ Run `frontend-feature-architecture` skill @ impl. infinite scroll = new vs curre
 
 **Reused**: `media.listRows`/enrich/classify/batchLoad · cursor + `Page` · `MediaSourceRegistration` + unified REGISTRY + `/api/media/sources` route · sync-job pattern (seed/sync + cron + eager-seed) · repo keyset mechanics · catalog metadata pipeline · virtualized grid · shared-subpath + feature-arch conventions.
 
-**New (justified)**: `library_items` denorm tbl + repo · 1 sync/hydrate job · 4 lens sources + codecs · facets agg · collections endpoint · `@ent-mcp/shared/library` · franchise threading · FE data-layer swap.
+**New (justified)**: `library_items` denorm tbl + repo · 1 sync/hydrate job · 4 lens sources + codecs · facets agg · collections endpoint · `@nama/shared/library` · franchise threading · FE data-layer swap.
 
 ---
 
@@ -347,10 +347,10 @@ Run `frontend-feature-architecture` skill @ impl. infinite scroll = new vs curre
 ### Changesets (per CLAUDE.md)
 
 ```
-@ent-mcp/client     minor   # library page now backed by real data
-@ent-mcp/server     minor   # added a media library browser
-@ent-mcp/plugin-sdk minor   # metadata items can carry collection membership
-@ent-mcp/plugin-tmdb minor  # tmdb reports movie franchise/collection
+@nama/client     minor   # library page now backed by real data
+@nama/server     minor   # added a media library browser
+@nama/plugin-sdk minor   # metadata items can carry collection membership
+@nama/plugin-tmdb minor  # tmdb reports movie franchise/collection
 # shared = internal, never listed
 ```
 
@@ -371,7 +371,7 @@ Run `frontend-feature-architecture` skill @ impl. infinite scroll = new vs curre
 
 ### Phase 1 — done (✓ shippable)
 
-Shipped: `@ent-mcp/shared/library` subpath (`LIBRARY_LENSES`/`WATCHED_STATES`/`QUALITY_TIERS` + types + zod schemas), `library_items` + `user_library_seed` tables (migration `0004_ordinary_whizzer.sql`), fallow zones (`server-mod-library` / `-internal` / `server-schema-library`), franchise threading (tmdb `belongs_to_collection` → `mapMovie` → mediaItem zod → `CanonicalMetadata.collectionId/Name` → `canonical_metadata` 2 cols → `toCanonicalRow`), `MediaService.getCollectionFeed()`, membership sync job (`library.sync`, cron `0 */6 * * *`). Tests: sync idempotent/no-resurrect/no-wipe, tmdb mapping, catalog persist. Changesets: server, plugin-tmdb, plugin-sdk.
+Shipped: `@nama/shared/library` subpath (`LIBRARY_LENSES`/`WATCHED_STATES`/`QUALITY_TIERS` + types + zod schemas), `library_items` + `user_library_seed` tables (migration `0004_ordinary_whizzer.sql`), fallow zones (`server-mod-library` / `-internal` / `server-schema-library`), franchise threading (tmdb `belongs_to_collection` → `mapMovie` → mediaItem zod → `CanonicalMetadata.collectionId/Name` → `canonical_metadata` 2 cols → `toCanonicalRow`), `MediaService.getCollectionFeed()`, membership sync job (`library.sync`, cron `0 */6 * * *`). Tests: sync idempotent/no-resurrect/no-wipe, tmdb mapping, catalog persist. Changesets: server, plugin-tmdb, plugin-sdk.
 
 Deviations from the sketch above (all deliberate):
 - **Drizzle lives in `repo.ts`, not `internal/{facets,collections,hydrate}.ts`.** The `backend-feature-architecture` skill (Rule 2) is authoritative over the doc's pseudo-layout: the "SQL in internal/" lines are shorthand; real queries are in `repo.ts` (→ `repo/` dir once it grows). `internal/`/`sources/` orchestrate and call repo.
@@ -415,7 +415,7 @@ Deviations / fixes (adversarial verify caught a keyset blocker, a tenancy gap, a
 
 ### Phase 4 — done (✓ shippable)
 
-Shipped: the library FE rewired from mock to real data, look preserved. The four item lenses go through the existing shared `useMediaRows` infinite-query hook against `GET /api/media/sources/library-<lens>` (no new client fetch path — same as home/watchlist); collections via `api.library.collections`, facets via `api.library.facets` (non-blocking `useQuery`). `lib/fetchers.ts` (Hono `api.*` + `LibraryApiError`), per-lens+filter query keys, and a pure `section-groups` helper that inserts headers on group-key change over the flat sorted stream (az letter / timeline decade / server-quality `item.section`), keying server/quality rows by `id + section`. Infinite scroll via the shared `VirtualGrid` (`onEndReached` guarded by `shouldFetchNext`). Quality chips render from `CompactMediaItem.tags`; collections render the `preview: CompactMediaItem[]` poster fan with the server `count` badge. A-Z letter rail and timeline decade rail both driven by `/facets` (`letters` / `decades`, present-only). Filters round-trip URL → query params. `LIBRARY_LENSES`/`WATCHED_STATES`/`QUALITY_TIERS` now imported from `@ent-mcp/shared/library`; the mock fixtures, `fetchLibrary` stub, and client-side grouping/filtering deleted. Added `.fallowrc.json` allows for `client-feat-library` → `client-shared-virtualized` + `client-shared-media` (the mandated reuse). Changeset: `@ent-mcp/client` minor.
+Shipped: the library FE rewired from mock to real data, look preserved. The four item lenses go through the existing shared `useMediaRows` infinite-query hook against `GET /api/media/sources/library-<lens>` (no new client fetch path — same as home/watchlist); collections via `api.library.collections`, facets via `api.library.facets` (non-blocking `useQuery`). `lib/fetchers.ts` (Hono `api.*` + `LibraryApiError`), per-lens+filter query keys, and a pure `section-groups` helper that inserts headers on group-key change over the flat sorted stream (az letter / timeline decade / server-quality `item.section`), keying server/quality rows by `id + section`. Infinite scroll via the shared `VirtualGrid` (`onEndReached` guarded by `shouldFetchNext`). Quality chips render from `CompactMediaItem.tags`; collections render the `preview: CompactMediaItem[]` poster fan with the server `count` badge. A-Z letter rail and timeline decade rail both driven by `/facets` (`letters` / `decades`, present-only). Filters round-trip URL → query params. `LIBRARY_LENSES`/`WATCHED_STATES`/`QUALITY_TIERS` now imported from `@nama/shared/library`; the mock fixtures, `fetchLibrary` stub, and client-side grouping/filtering deleted. Added `.fallowrc.json` allows for `client-feat-library` → `client-shared-virtualized` + `client-shared-media` (the mandated reuse). Changeset: `@nama/client` minor.
 
 Deviations / fixes (adversarial verify + tests caught a functional filter bug + an i18n regression):
 - **Servers filter alignment.** The `servers` facet keys on the human `label`, but the lens + collections filter predicates matched on the connection `id` — so any server filter matched nothing. Fixed: the filter predicates now match on `value ->> 'label'` (facet key == popover value == filter value); the server lens still *sections* by `id`. Regression-tested.

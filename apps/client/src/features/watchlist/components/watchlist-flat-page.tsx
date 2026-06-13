@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { useSearch } from "@tanstack/react-router";
-import type { WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket, WatchlistSort } from "@nama/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { GridSkeleton } from "@/shared/components/grid-skeleton";
 import { watchlistKeys } from "../lib/query-keys";

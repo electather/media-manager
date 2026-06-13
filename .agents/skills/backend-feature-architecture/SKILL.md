@@ -47,7 +47,7 @@ no helpers.ts | utils.ts | misc.ts
 2. **No raw drizzle outside `repo.ts`.** `service`/`jobs` call `repo.fn()`. Only `repo.ts` imports `drizzle-orm` + schema.
 3. **Own tables only.** Each module's tables live under `db/schema/<module>/`. Others → read/write via owner barrel. `server-schema-<module>` fallow zone blocks cross-module reads.
 4. **Sync via `service.ts`, async via `events.ts`+`jobs/`.** No cross-mod fire-and-forget. No cross-mod DB writes via shared schema.
-5. **`events.ts` = published async contract.** Payload change → changeset + semver bump `@ent-mcp/server`.
+5. **`events.ts` = published async contract.** Payload change → changeset + semver bump `@nama/server`.
 6. **Tests in `__tests__/`.** Unit → mock `repo.ts`. Integration → mock other modules' barrels, not internals.
 7. **One handler per file in `jobs/`.** Filename = event handled (`on-catalog-media-added.ts`). Exports `register<X>(): void`. No top-level `on(...)`.
 8. **`internal/` = private.** Never imported outside. `server-mod-<x>-internal` zone enforces.

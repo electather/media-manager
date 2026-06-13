@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
-import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
+import { assignRoleSchema, createUserSchema, updateUserSchema } from "@nama/shared/users";
 import {
   requireSession,
   requirePermission,

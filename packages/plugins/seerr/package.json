@@ -1,11 +1,11 @@
 {
-  "name": "@ent-mcp/plugin-seerr",
+  "name": "@nama/plugin-seerr",
   "version": "0.3.1",
   "private": false,
-  "description": "ent-mcp plugin — media request integration for Overseerr and Jellyseerr.",
+  "description": "nama plugin — media request integration for Overseerr and Jellyseerr.",
   "keywords": [
-    "ent-mcp",
     "mcp",
+    "nama",
     "plugin",
     "seerr"
   ],
@@ -19,7 +19,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

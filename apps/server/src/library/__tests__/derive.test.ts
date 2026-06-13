@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { QUALITY_TIERS, WATCHED_STATES } from "@ent-mcp/shared/library";
-import type { LibraryItemQuality } from "@ent-mcp/shared/plugins";
+import { QUALITY_TIERS, WATCHED_STATES } from "@nama/shared/library";
+import type { LibraryItemQuality } from "@nama/shared/plugins";
 import type { ProgressEntry } from "../../media";
 import { normalizeSortTitle } from "../internal/normalize-title";
 import { deriveQualityTiers, qualityToTier } from "../internal/quality-tier";

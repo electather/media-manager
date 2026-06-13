@@ -1,8 +1,8 @@
-import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
-import type { MediaType, RowSource } from "@ent-mcp/shared/media";
-import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistBucket } from "@ent-mcp/shared/watchlist";
+import type { Availability, CompactMediaItem, Facets, MatchReason } from "@nama/shared/home";
+import type { MediaType, RowSource } from "@nama/shared/media";
+import type { ArtworkBundle, ArtworkRequestItem } from "@nama/shared/artwork";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import { keyToId, type WatchlistBucket } from "@nama/shared/watchlist";
 import type { CatalogService } from "../catalog";
 import type {
   GetArtworkFn,

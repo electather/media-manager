@@ -18,7 +18,7 @@
   "settings_group_admin": "Admin",
 
   "settings_nav_profile": "Profile",
-  "settings_nav_profile_intro": "How you appear in Media Manager and how we reach you.",
+  "settings_nav_profile_intro": "How you appear in Nama and how we reach you.",
   "settings_nav_security": "Security",
   "settings_nav_security_intro": "Password and active sessions.",
   "settings_nav_connections": "Connections",
@@ -57,7 +57,7 @@
   "settings_error_request_id": "Ref:",
 
   "settings_profile_title": "Profile",
-  "settings_profile_description": "How you appear in Media Manager and how we reach you.",
+  "settings_profile_description": "How you appear in Nama and how we reach you.",
   "settings_profile_avatar_label": "Avatar",
   "settings_profile_avatar_hint": "Generated from your name. No upload needed.",
   "settings_profile_name_label": "Name",

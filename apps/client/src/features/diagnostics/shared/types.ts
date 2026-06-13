@@ -4,7 +4,7 @@ import type {
   ErrorSource,
   PerfKind,
   PerfRecord,
-} from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/diagnostics";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 /** Filter state owned by the diagnostics route — encoded in search params. */
@@ -30,7 +30,7 @@ export interface PerfFilters {
  *  the detail sheet refetches the full {@link ErrorDetail} when opened. */
 export type ErrorListRow = Omit<ErrorRecord, "stack" | "context" | "connectionId">;
 
-/** Detail view re-uses the canonical record shape from `@ent-mcp/shared`. */
+/** Detail view re-uses the canonical record shape from `@nama/shared`. */
 export type ErrorDetail = ErrorRecord;
 
 export interface ErrorsSummary {

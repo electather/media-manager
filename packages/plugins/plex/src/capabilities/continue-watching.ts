@@ -1,4 +1,4 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
 import type { Ctx, PlexMediaContainer, PlexMetadata } from "../types";
 import { readUserConfig, plexServerJson } from "../client";
 import { toLibraryItem } from "../mappers";

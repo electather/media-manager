@@ -1,4 +1,4 @@
-import type { WatchlistSectionResponse } from "@ent-mcp/shared/watchlist";
+import type { WatchlistSectionResponse } from "@nama/shared/watchlist";
 import { listRows } from "../../media";
 import { MemoryCache } from "../../cache/memory";
 import { toSourceContext, type WatchlistSourceCtx } from "../sources/context";

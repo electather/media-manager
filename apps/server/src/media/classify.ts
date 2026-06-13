@@ -1,5 +1,5 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/home";
+import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@nama/shared/media";
 import type { MatchingServer } from "./types";
 import { buildFacets } from "./internal/facets";
 import type { ProgressEntry, ProgressMap } from "./progress";

@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import {
   discoverFilterQuerySchema as discoverSchema,
   discoverSearchQuerySchema as searchSchema,
   discoverTrendingQuerySchema as trendingSchema,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 
 import { requireSession, sessionUserId } from "../../auth";
 import { MediaService, compactFromRaw, type PluginMediaRaw } from "../../media";

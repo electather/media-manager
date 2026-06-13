@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { Page } from "@ent-mcp/shared/media";
+import type { Page } from "@nama/shared/media";
 
 // Mock the Hono client (rule 11: mock the fetchers' transport, never React
 // Query). Both library transports are covered: the unified media-source

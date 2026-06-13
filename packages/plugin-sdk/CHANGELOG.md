@@ -1,11 +1,11 @@
-# @ent-mcp/plugin-sdk
+# @nama/plugin-sdk
 
 ## 0.4.1
 
 ### Patch Changes
 
 - Updated dependencies [ce2b0c5]
-  - @ent-mcp/shared@0.1.2
+  - @nama/shared@0.1.2
 
 ## 0.4.0
 
@@ -36,4 +36,4 @@
 - b55a04b: Split capabilities into per-capability files with dedicated tests for each.
 - Updated dependencies [db2b076]
 - Updated dependencies [986fb74]
-  - @ent-mcp/shared@0.1.1
+  - @nama/shared@0.1.1

@@ -4,7 +4,7 @@ import {
   infiniteQueryOptions,
   useSuspenseInfiniteQuery,
 } from "@tanstack/react-query";
-import type { LibraryCollection, LibraryCollectionsResponse } from "@ent-mcp/shared/library";
+import type { LibraryCollection, LibraryCollectionsResponse } from "@nama/shared/library";
 import { fetchCollectionsPage } from "../lib/fetchers";
 import { libraryKeys } from "../lib/query-keys";
 import type { LibraryFilters } from "../lib/types";

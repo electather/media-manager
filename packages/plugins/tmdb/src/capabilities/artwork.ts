@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import type { Ctx, TmdbImage } from "../types";
 import { tmdbGet } from "../client";
 import { artworkBase, artworkSize, mapTmdbImages, buildIncludeImageLanguage } from "../images";

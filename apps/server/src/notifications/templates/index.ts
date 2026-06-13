@@ -1,4 +1,4 @@
-import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 import { renderJobRunFailed } from "./job-run-failed";
 
 // fallow-ignore-next-line complexity

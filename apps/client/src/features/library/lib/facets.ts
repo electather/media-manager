@@ -1,4 +1,4 @@
-import type { LibraryFacetCounts } from "@ent-mcp/shared/library";
+import type { LibraryFacetCounts } from "@nama/shared/library";
 
 /** The value lists the filter popover offers per multi-valued axis. */
 export interface LibraryFacetValues {

@@ -21,7 +21,7 @@ describe("configPublicApp", () => {
       },
     }));
     const { configPublicApp } = await import("../config");
-    const { MCP_SCOPES } = await import("@ent-mcp/shared/users");
+    const { MCP_SCOPES } = await import("@nama/shared/users");
 
     const res = await configPublicApp.request("/");
     expect(res.status).toBe(200);

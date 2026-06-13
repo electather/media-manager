@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 import { pickTonight } from "../tonight-pick";
 
 const NOW = 1_700_000_000_000;

@@ -1,4 +1,4 @@
-import { zodToItemSchema } from "@ent-mcp/shared/common";
+import { zodToItemSchema } from "@nama/shared/common";
 import { dispatchAggregate, dispatchPrimary } from "../../media";
 import { capabilityRegistry } from "../../plugin-runtime";
 import {
@@ -11,7 +11,7 @@ import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 import { formatMediaId } from "../media-id";
 import { getPreferencesService } from "../../preferences";
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { MediaItem } from "@nama/shared/media";
 import { buildAvailabilityMap } from "./_shared";
 
 type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";

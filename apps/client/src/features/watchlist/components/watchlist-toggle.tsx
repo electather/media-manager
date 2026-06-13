@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 import { Heart } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
-import type { WatchlistUserSource } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@nama/shared/media";
+import type { WatchlistUserSource } from "@nama/shared/watchlist";
 import { Button } from "@/shared/ui/button";
 import { useAddToWatchlist, useIsInWatchlist, useRemoveFromWatchlist } from "../hooks";
 

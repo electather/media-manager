@@ -1,32 +1,38 @@
-import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
-import { groupBy, uniqBy } from "es-toolkit/array";
 import { getDb, type Db } from "../../db/client";
-import {
-  canonicalMetadata,
-  discoverSnapshots,
-  idMap,
-  recommendationLists,
-  userHistoryMirror,
-  userRatingsMirror,
-} from "../../db/schema/catalog";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
   DiscoverFeedKind,
   DiscoverSort,
   HistoryEvent,
-  IdMap,
   MetadataKey,
   PluginCursors,
   RatingEvent,
   RecItem,
   RecommendationList,
   RecommendationListKind,
-} from "@ent-mcp/shared/catalog";
-import { candidateId } from "../features";
+} from "@nama/shared/catalog";
 import { PerUserMutex } from "../internal/mutex";
-
-type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
+import { recordMetadataAccess } from "./access-throttle";
+import { discoverFeedExists, selectDiscoverFeed, upsertDiscoverSnapshot } from "./discover-feed";
+import {
+  selectMetadata,
+  selectMetadataBatch,
+  selectMetadataWithIds,
+  selectStaleMetadataKeys,
+} from "./metadata-reads";
+import { patchArtworkUrls, upsertMetadata } from "./metadata-writes";
+import { deleteOldDiscoverSnapshots, pruneUnusedMetadataRows } from "./prune";
+import { selectRecommendations, upsertRecommendationList } from "./recommendations";
+import {
+  appendHistoryEvents,
+  appendRatingEvents,
+  type MirrorStore,
+  selectHistoryCursors,
+  selectRatingsCursors,
+  selectUserHistory,
+  selectUserRatings,
+} from "./user-mirrors";
 
 export const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
@@ -39,6 +45,10 @@ export interface CatalogServiceOptions {
  * discover_snapshots, recommendation_lists, user_history_mirror and
  * user_ratings_mirror tables (V37). Reads serve sub-ms PK lookups; writes
  * are jobs-only except bounded cold-fill from the preference engine (V38).
+ *
+ * The class is a thin facade over the sibling responsibility modules
+ * (metadata reads/writes, discover feed, recommendations, user mirrors,
+ * access throttle, prune); it owns the per-process state they share.
  */
 export class CatalogService {
   readonly recordAccessThrottleMs: number;
@@ -56,44 +66,15 @@ export class CatalogService {
   }
 
   async getMetadata(tmdbId: string, type: "movie" | "tv"): Promise<CanonicalMetadata | null> {
-    const row = await this.db
-      .select()
-      .from(canonicalMetadata)
-      .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
-      .get();
+    const row = await selectMetadata(this.db, tmdbId, type);
     if (row) this.recordAccess([{ tmdbId, type }]);
-    return row ?? null;
+    return row;
   }
 
   // fallow-ignore-next-line
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
-    // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
-    // `mediaType` and union the results. Two queries max in practice;
-    // the composite PK serves both lookups via index.
-    const buckets = groupBy(items, (item) => item.type);
-    const out: Record<string, CanonicalMetadata> = {};
-    const accessed: MetadataKey[] = [];
-    for (const [type, typeItems] of Object.entries(buckets) as Array<
-      ["movie" | "tv", MetadataKey[]]
-    >) {
-      const rows = await this.db
-        .select()
-        .from(canonicalMetadata)
-        .where(
-          and(
-            eq(canonicalMetadata.mediaType, type),
-            inArray(
-              canonicalMetadata.tmdbId,
-              typeItems.map((i) => i.tmdbId),
-            ),
-          ),
-        );
-      for (const row of rows) {
-        out[candidateId({ tmdbId: row.tmdbId, type: row.mediaType })] = row;
-        accessed.push({ tmdbId: row.tmdbId, type: row.mediaType });
-      }
-    }
+    const { out, accessed } = await selectMetadataBatch(this.db, items);
     if (accessed.length > 0) this.recordAccess(accessed);
     return out;
   }
@@ -103,78 +84,16 @@ export class CatalogService {
     tmdbId: string,
     type: "movie" | "tv",
   ): Promise<CanonicalMetadataWithIds | null> {
-    const row = await this.db
-      .select({
-        canonical: canonicalMetadata,
-        ids: idMap,
-      })
-      .from(canonicalMetadata)
-      .leftJoin(
-        idMap,
-        and(
-          eq(idMap.tmdbId, canonicalMetadata.tmdbId),
-          eq(idMap.mediaType, canonicalMetadata.mediaType),
-        ),
-      )
-      .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
-      .get();
-    if (!row) return null;
-    this.recordAccess([{ tmdbId, type }]);
-    return { ...row.canonical, ids: toIdMap(row.ids) };
+    const row = await selectMetadataWithIds(this.db, tmdbId, type);
+    if (row) this.recordAccess([{ tmdbId, type }]);
+    return row;
   }
 
   async writeMetadata(rows: CanonicalMetadata[]): Promise<void> {
-    if (rows.length === 0) return;
-    // INSERT-OR-REPLACE. `created_at` is preserved on update via SQL
-    // `COALESCE(existing, incoming)`; `last_refreshed_at` always advances
-    // to the incoming value so `listStaleMetadata` stays accurate.
-    // The `COALESCE` on `created_at` blocks a single multi-row upsert
-    // (the SET clause references the existing column), so we still issue
-    // one statement per row but bundle them inside a single transaction
-    // — collapses 25 individual WAL commits to one and amortizes the
-    // round-trip cost of the metadata-refresh batch.
-    await this.db.transaction(async (tx) => {
-      for (const row of rows) {
-        await tx
-          .insert(canonicalMetadata)
-          .values(row)
-          .onConflictDoUpdate({
-            target: [canonicalMetadata.tmdbId, canonicalMetadata.mediaType],
-            set: {
-              title: row.title,
-              year: row.year,
-              runtimeMinutes: row.runtimeMinutes,
-              posterUrl: row.posterUrl,
-              backdropUrl: row.backdropUrl,
-              // Plain assignment, not COALESCE: TMDB metadata never returns
-              // clearLogo, so a 30-day nightly refresh resets the value to
-              // null and the next render re-runs `/artwork.get` to refill
-              // it. Accepted per design failure-semantics; `patchArtwork`
-              // owns the COALESCE-preserving write path.
-              clearLogoUrl: row.clearLogoUrl,
-              overview: row.overview,
-              originalLanguage: row.originalLanguage,
-              genres: row.genres,
-              features: row.features,
-              collectionId: row.collectionId,
-              collectionName: row.collectionName,
-              lastRefreshedAt: row.lastRefreshedAt,
-              lastAccessedAt: row.lastAccessedAt,
-              createdAt: sql`COALESCE(${canonicalMetadata.createdAt}, ${row.createdAt})`,
-            },
-          });
-      }
-    });
+    await upsertMetadata(this.db, rows);
   }
 
-  /**
-   * COALESCE-only artwork patch (V47/V48). Each non-null arg fills the
-   * matching column when it is currently null; filled columns are never
-   * overwritten. Row absent → 0 rows affected, no throw — `/artwork.get`
-   * may resolve before the cold-fill metadata write lands. Always bumps
-   * `last_refreshed_at` so a patched row counts as fresh against the
-   * nightly refresh cutoff.
-   */
+  /** COALESCE-only artwork patch (V47/V48); see `patchArtworkUrls`. */
   async patchArtwork(
     key: MetadataKey,
     urls: {
@@ -183,58 +102,12 @@ export class CatalogService {
       clearLogoUrl?: string | null;
     },
   ): Promise<void> {
-    const now = Date.now();
-    await this.db
-      .update(canonicalMetadata)
-      .set({
-        posterUrl: sql`COALESCE(${canonicalMetadata.posterUrl}, ${urls.posterUrl ?? null})`,
-        backdropUrl: sql`COALESCE(${canonicalMetadata.backdropUrl}, ${urls.backdropUrl ?? null})`,
-        clearLogoUrl: sql`COALESCE(${canonicalMetadata.clearLogoUrl}, ${urls.clearLogoUrl ?? null})`,
-        lastRefreshedAt: now,
-      })
-      .where(
-        and(eq(canonicalMetadata.tmdbId, key.tmdbId), eq(canonicalMetadata.mediaType, key.type)),
-      );
+    await patchArtworkUrls(this.db, key, urls);
   }
 
   // fallow-ignore-next-line unused-class-member
   async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {
-    const cutoff = Date.now() - staleAfterMs;
-    const rows = await this.db
-      .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
-      .from(canonicalMetadata)
-      .where(
-        or(
-          lt(canonicalMetadata.lastRefreshedAt, cutoff),
-          // `features` is NULL when a row was warm-written by the discover
-          // snapshot side-effect but never enriched; treat that as stale
-          // so the next refresh picks it up.
-          sql`${canonicalMetadata.features} IS NULL`,
-        ),
-      )
-      .orderBy(
-        // NULL-feature rows come from a side-effect warm and have a fresh
-        // `last_refreshed_at`; they would otherwise sort last and miss
-        // refresh cycles when 500+ time-stale rows are queued ahead.
-        asc(sql`CASE WHEN ${canonicalMetadata.features} IS NULL THEN 0 ELSE 1 END`),
-        asc(canonicalMetadata.lastRefreshedAt),
-      )
-      .limit(limit);
-    return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
-  }
-
-  /**
-   * Shared WHERE clause for the `(kind, sort, day)` indexed lookup on
-   * `discover_snapshots`. Used by both `getDiscoverFeed` (full read) and
-   * `hasDiscoverFeed` (cheap existence probe) so the two stay in lockstep
-   * and the where-clause isn't duplicated across the methods.
-   */
-  private discoverSnapshotWhere(kind: DiscoverFeedKind, sort: DiscoverSort, day: number) {
-    return and(
-      eq(discoverSnapshots.feedKind, kind),
-      eq(discoverSnapshots.sort, sort),
-      eq(discoverSnapshots.day, day),
-    );
+    return selectStaleMetadataKeys(this.db, staleAfterMs, limit);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -243,91 +116,37 @@ export class CatalogService {
     sort: DiscoverSort,
     day: number,
   ): Promise<MetadataKey[] | null> {
-    const row = await this.db
-      .select({ items: discoverSnapshots.items })
-      .from(discoverSnapshots)
-      .where(this.discoverSnapshotWhere(kind, sort, day))
-      .get();
-    return row?.items ?? null;
+    return selectDiscoverFeed(this.db, kind, sort, day);
   }
 
-  /**
-   * Cheap eligibility probe — `true` when a `discover_snapshots` row exists
-   * for `(kind, sort, day)` without deserializing the snapshot's items array.
-   * Lets the home discover-snapshot row's `eligibility` decide visibility
-   * without paying the same full-snapshot read `load` will pay through
-   * `fetchRawSet`.
-   */
+  /** Cheap existence probe for a `(kind, sort, day)` discover snapshot. */
   async hasDiscoverFeed(kind: DiscoverFeedKind, sort: DiscoverSort, day: number): Promise<boolean> {
-    const row = await this.db
-      .select({ one: sql<number>`1` })
-      .from(discoverSnapshots)
-      .where(this.discoverSnapshotWhere(kind, sort, day))
-      .get();
-    return row != null;
+    return discoverFeedExists(this.db, kind, sort, day);
   }
 
   async getRecommendations(
     userId: string,
     kind: RecommendationListKind = "default",
   ): Promise<RecommendationList | null> {
-    const row = await this.db
-      .select()
-      .from(recommendationLists)
-      .where(and(eq(recommendationLists.userId, userId), eq(recommendationLists.listKind, kind)))
-      .get();
-    if (!row) return null;
-    // `topContributors` was added in the home-feed backend phase. Rows
-    // persisted before that ship without the field; default to `[]` so
-    // callers don't have to handle `undefined`. The next nightly rec-build
-    // run fills the snapshot for real.
-    const items: RecItem[] = row.items.map((item) => ({
-      ...item,
-      topContributors: item.topContributors ?? [],
-    }));
-    return {
-      items,
-      profileVersion: row.profileVersion,
-      generatedAt: row.generatedAt,
-    };
+    return selectRecommendations(this.db, userId, kind);
   }
 
   async getUserHistory(userId: string): Promise<HistoryEvent[]> {
-    const row = await this.db
-      .select({ events: userHistoryMirror.events })
-      .from(userHistoryMirror)
-      .where(eq(userHistoryMirror.userId, userId))
-      .get();
-    return row?.events ?? [];
+    return selectUserHistory(this.db, userId);
   }
 
   async getUserRatings(userId: string): Promise<RatingEvent[]> {
-    const row = await this.db
-      .select({ events: userRatingsMirror.events })
-      .from(userRatingsMirror)
-      .where(eq(userRatingsMirror.userId, userId))
-      .get();
-    return row?.events ?? [];
+    return selectUserRatings(this.db, userId);
   }
 
   // fallow-ignore-next-line unused-class-member
   async getHistoryCursors(userId: string): Promise<PluginCursors> {
-    const row = await this.db
-      .select({ pluginCursors: userHistoryMirror.pluginCursors })
-      .from(userHistoryMirror)
-      .where(eq(userHistoryMirror.userId, userId))
-      .get();
-    return row?.pluginCursors ?? {};
+    return selectHistoryCursors(this.db, userId);
   }
 
   // fallow-ignore-next-line unused-class-member
   async getRatingsCursors(userId: string): Promise<PluginCursors> {
-    const row = await this.db
-      .select({ pluginCursors: userRatingsMirror.pluginCursors })
-      .from(userRatingsMirror)
-      .where(eq(userRatingsMirror.userId, userId))
-      .get();
-    return row?.pluginCursors ?? {};
+    return selectRatingsCursors(this.db, userId);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -337,14 +156,7 @@ export class CatalogService {
     day: number,
     items: MetadataKey[],
   ): Promise<void> {
-    const generatedAt = Date.now();
-    await this.db
-      .insert(discoverSnapshots)
-      .values({ feedKind: kind, sort, day, items, generatedAt })
-      .onConflictDoUpdate({
-        target: [discoverSnapshots.feedKind, discoverSnapshots.sort, discoverSnapshots.day],
-        set: { items, generatedAt },
-      });
+    await upsertDiscoverSnapshot(this.db, kind, sort, day, items);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -354,14 +166,7 @@ export class CatalogService {
     items: RecItem[],
     profileVersion: number,
   ): Promise<void> {
-    const generatedAt = Date.now();
-    await this.db
-      .insert(recommendationLists)
-      .values({ userId, listKind: kind, items, profileVersion, generatedAt })
-      .onConflictDoUpdate({
-        target: [recommendationLists.userId, recommendationLists.listKind],
-        set: { items, profileVersion, generatedAt },
-      });
+    await upsertRecommendationList(this.db, userId, kind, items, profileVersion);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -371,25 +176,7 @@ export class CatalogService {
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
-    await this.appendMirrorRows(
-      userId,
-      events,
-      pluginId,
-      cursorTs,
-      {
-        select: (tx) =>
-          tx.select().from(userHistoryMirror).where(eq(userHistoryMirror.userId, userId)).get(),
-        upsert: (tx, merged, cursors, lastSyncedAt) =>
-          tx
-            .insert(userHistoryMirror)
-            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-            .onConflictDoUpdate({
-              target: [userHistoryMirror.userId],
-              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-            }),
-      },
-      mergeHistory,
-    );
+    await appendHistoryEvents(this.mirrorStore(), userId, events, pluginId, cursorTs);
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -399,115 +186,14 @@ export class CatalogService {
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
-    await this.appendMirrorRows(
-      userId,
-      events,
-      pluginId,
-      cursorTs,
-      {
-        select: (tx) =>
-          tx.select().from(userRatingsMirror).where(eq(userRatingsMirror.userId, userId)).get(),
-        upsert: (tx, merged, cursors, lastSyncedAt) =>
-          tx
-            .insert(userRatingsMirror)
-            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-            .onConflictDoUpdate({
-              target: [userRatingsMirror.userId],
-              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-            }),
-      },
-      mergeRatings,
-    );
+    await appendRatingEvents(this.mirrorStore(), userId, events, pluginId, cursorTs);
   }
 
-  private async appendMirrorRows<E>(
-    userId: string,
-    events: E[],
-    pluginId: string,
-    cursorTs: number,
-    tableOps: {
-      select: (
-        tx: DbTransaction,
-      ) => Promise<{ events: E[]; pluginCursors: PluginCursors } | undefined>;
-      upsert: (
-        tx: DbTransaction,
-        events: E[],
-        cursors: PluginCursors,
-        lastSyncedAt: number,
-      ) => PromiseLike<unknown>;
-    },
-    mergeEvents: (prior: E[], next: E[]) => E[],
-  ): Promise<void> {
-    if (events.length === 0) return;
-    await this.mirrorMutex.run(userId, () =>
-      // fallow-ignore-next-line complexity
-      this.db.transaction(async (tx) => {
-        const existing = await tableOps.select(tx);
-        const merged = mergeEvents(existing?.events ?? [], events);
-        const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
-        await tableOps.upsert(tx, merged, cursors, Date.now());
-      }),
-    );
-  }
-
-  // fallow-ignore-next-line complexity
   recordAccess(items: MetadataKey[]): void {
-    if (items.length === 0) return;
-    const now = Date.now();
-    const dueItems = items.filter((item) => {
-      const key = candidateId(item);
-      const prior = this.accessThrottle.get(key);
-      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) return false;
-      this.accessThrottle.set(key, now);
-      return true;
-    });
-    if (dueItems.length === 0) return;
-    // Detached batch update — reads must not block on the write. Failures
-    // log and drop; the next access cycle picks the row back up.
-    void this.flushAccessUpdates(
-      groupBy(dueItems, (item) => item.type),
-      now,
+    recordMetadataAccess(
+      { db: this.db, throttle: this.accessThrottle, throttleMs: this.recordAccessThrottleMs },
+      items,
     );
-    this.evictStaleThrottleEntries(now);
-  }
-
-  private async flushAccessUpdates(
-    dueByType: Record<string, MetadataKey[]>,
-    now: number,
-  ): Promise<void> {
-    for (const [type, typeItems] of Object.entries(dueByType) as Array<
-      ["movie" | "tv", MetadataKey[]]
-    >) {
-      try {
-        await this.db
-          .update(canonicalMetadata)
-          .set({ lastAccessedAt: now })
-          .where(
-            and(
-              eq(canonicalMetadata.mediaType, type),
-              inArray(
-                canonicalMetadata.tmdbId,
-                typeItems.map((i) => i.tmdbId),
-              ),
-            ),
-          );
-      } catch (err) {
-        // Per V37, the catalog tolerates a dropped access bump; the next
-        // read for the same row will re-enqueue it.
-        // eslint-disable-next-line no-console
-        console.warn("[catalog:recordAccess] update failed:", err);
-      }
-    }
-  }
-
-  private evictStaleThrottleEntries(now: number): void {
-    // Cap memory by dropping entries that have aged past 2× the throttle
-    // window — long enough to absorb back-to-back access bursts but
-    // bounded so the map cannot grow without limit on long-lived processes.
-    const cutoff = now - this.recordAccessThrottleMs * 2;
-    for (const [key, ts] of this.accessThrottle) {
-      if (ts < cutoff) this.accessThrottle.delete(key);
-    }
   }
 
   // fallow-ignore-next-line unused-class-member
@@ -516,75 +202,16 @@ export class CatalogService {
     refSet?: Set<string>,
     snapshotRetentionDays = 7,
   ): Promise<{ deleted: number }> {
-    const cutoff = Date.now() - unusedAfterMs;
-    const refs = refSet ?? (await this.buildPruneRefSet(snapshotRetentionDays));
-    const candidates = await this.db
-      .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
-      .from(canonicalMetadata)
-      .where(lt(canonicalMetadata.lastAccessedAt, cutoff));
-    // Bucket non-referenced ids by media type so each type drops in a
-    // single statement. Per-row DELETEs would hold the SQLite WAL for
-    // the entire sweep; bucketed DELETEs collapse to one commit per type.
-    const toDelete = groupBy(
-      candidates.filter((r) => !refs.has(candidateId({ tmdbId: r.tmdbId, type: r.mediaType }))),
-      (r) => r.mediaType,
-    );
-    let deleted = 0;
-    for (const [type, rows] of Object.entries(toDelete) as Array<
-      ["movie" | "tv", typeof candidates]
-    >) {
-      await this.db.delete(canonicalMetadata).where(
-        and(
-          eq(canonicalMetadata.mediaType, type),
-          inArray(
-            canonicalMetadata.tmdbId,
-            rows.map((r) => r.tmdbId),
-          ),
-        ),
-      );
-      deleted += rows.length;
-    }
-    return { deleted };
-  }
-
-  /**
-   * Builds the in-memory reference set used by `pruneUnusedMetadata`. Pulls
-   * every id from `recommendation_lists.items` plus discover snapshots
-   * within the configured retention window so a row can be cold-by-access
-   * yet still pinned by an active rec list or recent snapshot.
-   */
-  // fallow-ignore-next-line complexity
-  private async buildPruneRefSet(snapshotRetentionDays: number): Promise<Set<string>> {
-    const refs = new Set<string>();
-    const lists = await this.db
-      .select({ items: recommendationLists.items })
-      .from(recommendationLists);
-    for (const row of lists) {
-      for (const item of row.items) {
-        refs.add(candidateId({ tmdbId: item.tmdbId, type: item.mediaType }));
-      }
-    }
-    const cutoff = Date.now() - snapshotRetentionDays * 24 * 60 * 60 * 1000;
-    const snapshots = await this.db
-      .select({ items: discoverSnapshots.items })
-      .from(discoverSnapshots)
-      .where(gte(discoverSnapshots.day, cutoff));
-    for (const snapshot of snapshots) {
-      for (const ref of snapshot.items) {
-        refs.add(candidateId(ref));
-      }
-    }
-    return refs;
+    return pruneUnusedMetadataRows(this.db, unusedAfterMs, refSet, snapshotRetentionDays);
   }
 
   // fallow-ignore-next-line unused-class-member
   async pruneOldDiscoverSnapshots(olderThanDays: number): Promise<{ deleted: number }> {
-    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
-    const deleted = await this.db
-      .delete(discoverSnapshots)
-      .where(lt(discoverSnapshots.day, cutoff))
-      .returning({ day: discoverSnapshots.day });
-    return { deleted: deleted.length };
+    return deleteOldDiscoverSnapshots(this.db, olderThanDays);
+  }
+
+  private mirrorStore(): MirrorStore {
+    return { db: this.db, mutex: this.mirrorMutex };
   }
 }
 
@@ -609,50 +236,4 @@ export function resetCatalogServiceForTest(): void {
 /** Test helper: install an arbitrary catalog instance (e.g. with an in-memory DB). */
 export function setCatalogServiceForTest(svc: CatalogService): void {
   instance = svc;
-}
-
-// fallow-ignore-next-line complexity
-function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
-  if (!row) return null;
-  return {
-    tmdbId: row.tmdbId,
-    mediaType: row.mediaType,
-    imdbId: row.imdbId ?? null,
-    tvdbId: row.tvdbId ?? null,
-    traktId: row.traktId ?? null,
-    traktSlug: row.traktSlug ?? null,
-  };
-}
-
-/**
- * Append-only merge for the history mirror. Dedupe key is
- * `(tmdbId, mediaType, sourceConnectionId, watchedAt, episodeKey ?? '')`
- * so re-syncing the same plugin window is idempotent. Existing events keep
- * their original ordering; new events append in arrival order.
- */
-function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
-  return uniqBy([...prior, ...next], historyKey);
-}
-
-function mergeRatings(prior: RatingEvent[], next: RatingEvent[]): RatingEvent[] {
-  return uniqBy([...prior, ...next], ratingKey);
-}
-
-function historyKey(event: HistoryEvent): string {
-  return `${event.tmdbId}|${event.mediaType}|${event.sourceConnectionId}|${event.watchedAt}|${event.episodeKey ?? ""}`;
-}
-
-function ratingKey(event: RatingEvent): string {
-  return `${event.tmdbId}|${event.mediaType}|${event.sourceConnectionId}|${event.ratedAt}`;
-}
-
-/**
- * Cursor merge: per V39 the cursor advances monotonically per connection.
- * `max(prior, incoming)` so a sync that lands an older window cannot
- * rewind a connection's progress, even if events themselves are
- * out-of-order.
- */
-function mergeCursor(prior: PluginCursors, pluginId: string, cursorTs: number): PluginCursors {
-  const previous = prior[pluginId] ?? 0;
-  return { ...prior, [pluginId]: Math.max(previous, cursorTs) };
 }

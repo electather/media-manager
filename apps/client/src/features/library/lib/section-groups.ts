@@ -1,5 +1,5 @@
-import type { LibraryLens } from "@ent-mcp/shared/library";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { LibraryLens } from "@nama/shared/library";
+import type { CompactMediaItem } from "@nama/shared/media";
 
 /**
  * One entry in the flat render list a lens walks: either a section header

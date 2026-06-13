@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { consola } from "consola";
 import { isNil } from "es-toolkit/predicate";
-import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
+import type { FeedbackAction, FeedbackRecord } from "@nama/shared/preferences";
 import * as repo from "../repo";
 import type { UserItemFeedback } from "../types";
 import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";

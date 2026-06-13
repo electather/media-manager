@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
-import type { WatchlistBucket } from "@ent-mcp/shared/watchlist";
-import { WATCHLIST_BUCKETS } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket } from "@nama/shared/watchlist";
+import { WATCHLIST_BUCKETS } from "@nama/shared/watchlist";
 import { RouteTab, RouteTabs } from "@/shared/components/route-tabs";
 
 /**

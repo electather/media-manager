@@ -5,8 +5,8 @@ import type {
   ErrorSource,
   PerfKind,
   PerfRecord,
-} from "@ent-mcp/shared/diagnostics";
-import { severityFor } from "@ent-mcp/shared/diagnostics";
+} from "@nama/shared/diagnostics";
+import { severityFor } from "@nama/shared/diagnostics";
 import { currentRequestContext, newRequestId } from "./request-context";
 import { scrubText, serializeContext } from "./scrubber";
 import type { DiagnosticSink } from "./types";

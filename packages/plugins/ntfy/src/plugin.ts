@@ -1,9 +1,9 @@
-import { definePlugin, pluginError, type PluginContext } from "@ent-mcp/plugin-sdk";
+import { definePlugin, pluginError, type PluginContext } from "@nama/plugin-sdk";
 import type {
   NotificationAction,
   NotificationEvent,
   NotificationMessage,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 
 interface NtfyUserCfg {
   serverUrl: string;
@@ -102,7 +102,7 @@ export const ntfyPlugin = definePlugin({
     description: "Self-hosted push notifications via ntfy.",
     version: "0.1.0",
     sdkVersion: "^1.0.0",
-    author: { name: "Media Manager" },
+    author: { name: "Nama" },
     allowedHosts: [],
     auth: { kind: "none" },
     capabilities: {

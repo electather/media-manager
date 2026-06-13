@@ -1,5 +1,5 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { CompactMediaItem } from "@nama/shared/home";
 import { loadProgressMap, type EnrichRowsFn, type ProgressMap } from "../../media";
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import type { ResolvedLibraryReadContext } from "./context";
