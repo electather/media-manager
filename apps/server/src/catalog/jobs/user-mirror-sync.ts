@@ -1,15 +1,9 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { capabilityRegistry } from "../../plugin-runtime";
-import { getDb } from "../../db/client";
-// TASK-045: catalog reads serviceConnections via plugin-runtime/preferences barrel (deferred).
-// fallow-ignore-next-line boundary-violation
-import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
-import { MediaService, identifyItem, parseHistoryBase, parseItemDate } from "../../media";
+import { MediaService } from "../../media";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
-import type { HistoryEvent, RatingEvent } from "@nama/shared/catalog";
-import { isNil } from "es-toolkit/predicate";
+import { collectHistoryEvents, collectRatingEvents } from "../internal/mirror-event-collection";
+import { listSyncRows, type SyncRow } from "../internal/mirror-sync-rows";
 
 const PER_ROW_TIMEOUT_SEC = 60;
 const RUN_TIMEOUT_SEC = 30 * 60;
@@ -18,11 +12,6 @@ export const CATALOG_USER_MIRROR_SYNC_JOB_ID = "host.catalog.user_mirror_sync";
 
 export interface CatalogUserMirrorSyncDeps {
   catalog: CatalogService;
-}
-
-interface SyncRow {
-  userId: string;
-  pluginId: string;
 }
 
 /**
@@ -107,101 +96,6 @@ function isAbortError(err: unknown, ctx: JobRunContext): boolean {
   return false;
 }
 
-async function collectHistoryEvents(
-  media: MediaService,
-  pluginId: string,
-): Promise<HistoryEvent[]> {
-  const raw = (await media.getAllHistory(pluginId)) as Array<{
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    watchedAt?: string;
-    progress?: number | null;
-    episodeKey?: string | null;
-  }>;
-  return raw.flatMap((entry) => toHistoryEvent(entry, pluginId));
-}
-
-async function collectRatingEvents(media: MediaService, pluginId: string): Promise<RatingEvent[]> {
-  const raw = (await media.getAllRatings(pluginId)) as Array<{
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    rating?: number;
-    ratedAt?: string;
-  }>;
-  return raw.flatMap((entry) => toRatingEvent(entry, pluginId));
-}
-
-function toHistoryEvent(
-  entry: {
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    watchedAt?: string;
-    progress?: number | null;
-    episodeKey?: string | null;
-  },
-  pluginId: string,
-): HistoryEvent[] {
-  const base = parseHistoryBase(entry);
-  if (!base) return [];
-  return [
-    {
-      ...base,
-      sourceConnectionId: pluginId,
-      episodeKey: entry.episodeKey ?? null,
-      progress: typeof entry.progress === "number" ? entry.progress : null,
-    },
-  ];
-}
-
-function toRatingEvent(
-  entry: {
-    item?: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" };
-    rating?: number;
-    ratedAt?: string;
-  },
-  pluginId: string,
-): RatingEvent[] {
-  const identity = identifyItem(entry.item);
-  if (!identity || typeof entry.rating !== "number") return [];
-  // The dedupe key includes `ratedAt`; falling back to `Date.now()` would
-  // mint a fresh key every sync run and let the same plugin entry land
-  // repeatedly. Drop malformed events instead, mirroring the history path.
-  const ratedAt = parseItemDate(entry.ratedAt);
-  if (isNil(ratedAt)) return [];
-  return [
-    {
-      tmdbId: identity.tmdbId,
-      mediaType: identity.type,
-      rating: entry.rating,
-      ratedAt,
-      sourceConnectionId: pluginId,
-    },
-  ];
-}
-
 function formatError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-/**
- * Row source: every active service connection whose plugin contributes
- * either `watchHistory@v1` or `ratings@v1`. Disabled or pending-auth
- * connections are skipped — the sync only runs against credentials that
- * the dispatcher would itself accept.
- */
-async function listSyncRows(): Promise<SyncRow[]> {
-  const historyProviders = capabilityRegistry.listProviders("watchHistory", "v1", "user");
-  const ratingsProviders = capabilityRegistry.listProviders("ratings", "v1", "user");
-  const wantedPluginIds = Array.from(new Set([...historyProviders, ...ratingsProviders]));
-  if (wantedPluginIds.length === 0) return [];
-
-  const db = getDb();
-  const rows = await db
-    .selectDistinct({ userId: serviceConnections.userId, pluginId: serviceConnections.pluginId })
-    .from(serviceConnections)
-    .where(
-      and(
-        eq(serviceConnections.enabled, 1),
-        eq(serviceConnections.status, "connected"),
-        inArray(serviceConnections.pluginId, wantedPluginIds),
-      ),
-    );
-  return rows.map((row) => ({ userId: row.userId, pluginId: row.pluginId }));
 }
