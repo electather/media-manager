@@ -9,9 +9,9 @@ import {
   vi,
 } from "vite-plus/test";
 import { consola, type ConsolaInstance } from "consola";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { MediaType } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { MediaType } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,

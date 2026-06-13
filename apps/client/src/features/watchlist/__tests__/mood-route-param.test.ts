@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { notFound } from "@tanstack/react-router";
-import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import { MOOD_IDS } from "@nama/shared/watchlist";
 
 // Mirrors the membership guard in
 // apps/client/src/routes/_authenticated/_app/watchlist.moods.$moodId.tsx.

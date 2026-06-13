@@ -521,9 +521,9 @@ Rollout invariants:
 
 Changesets per PR (per CLAUDE.md):
 
-- `@ent-mcp/server` → `minor` (PR 2–5: new persistence model affects user-visible warm-cache behavior). PR 1 = empty frontmatter (schema migration + scaffold = internal-only). PR 6 = `patch` (prune + recordAccess = visible perf). PR 7 = empty frontmatter (cleanup, no behavior change).
-- `@ent-mcp/shared` → ⊥ touched unless new shared types added.
-- `@ent-mcp/client` → ⊥ touched.
+- `@nama/server` → `minor` (PR 2–5: new persistence model affects user-visible warm-cache behavior). PR 1 = empty frontmatter (schema migration + scaffold = internal-only). PR 6 = `patch` (prune + recordAccess = visible perf). PR 7 = empty frontmatter (cleanup, no behavior change).
+- `@nama/shared` → ⊥ touched unless new shared types added.
+- `@nama/client` → ⊥ touched.
 
 ## Testing
 

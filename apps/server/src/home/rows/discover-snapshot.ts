@@ -1,4 +1,4 @@
-import type { DiscoverFeedKind, DiscoverSort } from "@ent-mcp/shared/catalog";
+import type { DiscoverFeedKind, DiscoverSort } from "@nama/shared/catalog";
 import type { MediaSource } from "../../media";
 import { makePipelineRow } from "../internal/pipeline";
 import type { RowProvider } from "../internal/types";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { mediaTypeSchema } from "@ent-mcp/shared";
+import { mediaTypeSchema } from "@nama/shared";
 import type { Cursor, MediaSource } from "../../media";
 import { resolveSimilarCandidates, ROW_PAGE_SIZE, type MediaKey } from "../rows/_shared";
 

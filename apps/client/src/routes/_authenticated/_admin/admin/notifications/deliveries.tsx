@@ -4,7 +4,7 @@ import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_DELIVERY_STATUSES,
   NOTIFICATION_SEVERITIES,
-} from "@ent-mcp/shared/notifications";
+} from "@nama/shared/notifications";
 import { fetchAdminDeliveriesPage } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
 import {

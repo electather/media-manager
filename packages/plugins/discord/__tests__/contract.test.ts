@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
-import { isPluginError, validatePluginModule } from "@ent-mcp/plugin-sdk";
-import { jsonRes, makeTestContext, statusRes } from "@ent-mcp/plugin-sdk/testing";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import { isPluginError, validatePluginModule } from "@nama/plugin-sdk";
+import { jsonRes, makeTestContext, statusRes } from "@nama/plugin-sdk/testing";
+import type { NotificationEvent } from "@nama/shared/notifications";
 import discordPlugin from "../src/plugin";
 
 const channelConfig = {

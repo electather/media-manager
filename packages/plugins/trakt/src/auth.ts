@@ -1,5 +1,5 @@
-import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import type { AuthResult } from "@ent-mcp/plugin-sdk";
+import { pluginError, toErrorMessage } from "@nama/plugin-sdk";
+import type { AuthResult } from "@nama/plugin-sdk";
 import { traktFetch } from "./client";
 import { BASE } from "./constants";
 import type { Ctx, TraktCreds, TraktSharedCreds } from "./types";

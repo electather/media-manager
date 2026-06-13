@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 import { countActiveFilters, watchedStateOf } from "../lib/filtering";
 import { type LibrarySectionEntry, toSectionEntries, toSections } from "../lib/section-groups";
 import { EMPTY_FILTERS, type LibraryFilters } from "../lib/types";

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { WATCHED_STATES } from "@ent-mcp/shared/library";
-import { MEDIA_TYPES } from "@ent-mcp/shared/media";
+import { WATCHED_STATES } from "@nama/shared/library";
+import { MEDIA_TYPES } from "@nama/shared/media";
 import type { LibraryFilters } from "./types";
 
 /**

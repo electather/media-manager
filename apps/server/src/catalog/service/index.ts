@@ -22,7 +22,7 @@ import type {
   RecItem,
   RecommendationList,
   RecommendationListKind,
-} from "@ent-mcp/shared/catalog";
+} from "@nama/shared/catalog";
 import { candidateId } from "../features";
 import { PerUserMutex } from "../internal/mutex";
 

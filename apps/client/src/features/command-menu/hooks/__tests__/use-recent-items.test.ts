@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import type { MediaItem } from "../../types";
 import { useRecentItems } from "../use-recent-items";
 
-const LEGACY_STORAGE_KEY = "media-manager:command-menu:recents";
-const STORAGE_KEY = "media-manager:command-menu:recents:v1";
+const LEGACY_STORAGE_KEY = "nama:command-menu:recents";
+const STORAGE_KEY = "nama:command-menu:recents:v1";
 
 function makeItem(id: string, mediaType: "tv" | "movie" = "movie"): MediaItem {
   return { id, tmdbId: id.split(":")[1] ?? id, mediaType, title: `Title ${id}` };

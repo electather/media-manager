@@ -9,7 +9,7 @@ import {
   pluginTestEphemeralSharedCredentialSchema as testEphemeralSharedCredentialSchema,
   pluginAdminAllowlistSchema as adminAllowlistSchema,
   pluginAdminHeadersSchema as adminHeadersSchema,
-} from "@ent-mcp/shared/plugins";
+} from "@nama/shared/plugins";
 import { getDb } from "../../db/client";
 import { plugins } from "../../db/schema";
 import { requireSession, requirePermission, PERMISSIONS } from "../../auth";
@@ -22,10 +22,10 @@ import {
   updateAdminHeaders,
   classifyScopes,
 } from "../../plugin-runtime";
-import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
+import type { ValidatedManifest } from "@nama/shared/plugins";
 import { zValidator } from "../../diagnostics/validator";
 import { badRequest } from "../../diagnostics/http-errors";
-import { PluginError } from "@ent-mcp/plugin-sdk";
+import { PluginError } from "@nama/plugin-sdk";
 
 function parseManifest(raw: string): ValidatedManifest {
   return JSON.parse(raw) as ValidatedManifest;

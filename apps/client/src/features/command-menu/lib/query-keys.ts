@@ -1,4 +1,4 @@
-import type { SearchKind } from "@ent-mcp/shared/search";
+import type { SearchKind } from "@nama/shared/search";
 
 import type { TrendingScope } from "./fetchers";
 

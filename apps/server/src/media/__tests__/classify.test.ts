@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/home";
+import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "@nama/shared/media";
 import { classifyBucket } from "../classify";
 
 const VALID = new Set<MediaRowBucket>(MEDIA_ROW_BUCKETS);

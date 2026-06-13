@@ -1,5 +1,5 @@
-import type { Confidence, FeatureCategory } from "@ent-mcp/shared/preferences";
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { Confidence, FeatureCategory } from "@nama/shared/preferences";
+import type { MediaItem } from "@nama/shared/media";
 
 // ─── Public domain types ──────────────────────────────────────────────────
 

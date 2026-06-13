@@ -1,5 +1,5 @@
 import { Suspense, useState } from "react";
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp } from "@nama/shared/users";
 import { toast } from "sonner";
 
 import { SettingsPageHeader } from "@/shared/components/settings-page-header";

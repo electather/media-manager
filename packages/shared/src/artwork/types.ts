@@ -1,5 +1,5 @@
 import type { ArtworkErrorCode } from "./enums";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 
 /**
  * One ranked artwork variant. Providers return up to five per kind sorted by

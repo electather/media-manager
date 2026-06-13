@@ -38,7 +38,7 @@ describe("buildUserExport", () => {
     const { zipBytes, filename } = await buildUserExport(db, USER);
     const zip = await JSZip.loadAsync(zipBytes);
 
-    expect(filename).toMatch(/^ent-mcp-export-u-export-\d{8}\.zip$/);
+    expect(filename).toMatch(/^nama-export-u-export-\d{8}\.zip$/);
 
     const expected = [
       "identity.json",

@@ -1,4 +1,4 @@
-import type { ActiveRow } from "@ent-mcp/shared/media";
+import type { ActiveRow } from "@nama/shared/media";
 import type { Cursor, RawPageToken } from "../../media";
 
 /**

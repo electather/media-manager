@@ -1,6 +1,6 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { MediaType } from "@ent-mcp/shared/media";
-import { keyToId, type MoodId, type WatchlistKey } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { MediaType } from "@nama/shared/media";
+import { keyToId, type MoodId, type WatchlistKey } from "@nama/shared/watchlist";
 
 /**
  * Deterministic watchlist scenario captured BEFORE the US-014..US-017

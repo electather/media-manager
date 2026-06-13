@@ -1,5 +1,5 @@
-import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import { definePlugin, toErrorMessage } from "@nama/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
 import { resolveKey, applyAuth } from "./client";
 import { metadata } from "./capabilities/metadata";
 import { idResolve } from "./capabilities/id-resolve";
@@ -16,7 +16,7 @@ export default definePlugin({
     version: "2.1.0",
     description:
       "Metadata and id-resolution provider powered by TMDB (themoviedb.org). Admin configures one or more API keys; the host rotates across them on rate-limit.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api.themoviedb.org", "image.tmdb.org"],
     globalConfigSchema: {

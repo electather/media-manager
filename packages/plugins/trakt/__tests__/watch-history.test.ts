@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { WatchHistoryV1 } from "@ent-mcp/plugin-sdk";
+import { WatchHistoryV1 } from "@nama/plugin-sdk";
 import { jsonRes, makeCtx, paginatedPage, MOVIE } from "./helpers";
 import traktPlugin from "../src/plugin";
 

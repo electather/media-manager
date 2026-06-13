@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ADMIN_PERMISSIONS } from "@ent-mcp/shared/auth";
+import { ADMIN_PERMISSIONS } from "@nama/shared/auth";
 import type { RouterContext } from "@/routes/__root";
 import { AdminLayout } from "@/app/admin-layout";
 

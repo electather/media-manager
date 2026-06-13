@@ -1,4 +1,4 @@
-import type { JobKind } from "@ent-mcp/shared/jobs";
+import type { JobKind } from "@nama/shared/jobs";
 import type { AdminOrFeaturePermission, TriggerSource } from "./types";
 
 /**

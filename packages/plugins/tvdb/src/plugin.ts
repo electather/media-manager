@@ -1,7 +1,7 @@
-import { definePlugin } from "@ent-mcp/plugin-sdk";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
+import { definePlugin } from "@nama/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { pluginError, toErrorMessage } from "@nama/plugin-sdk";
+import { handleHttpStatus } from "@nama/plugin-sdk";
 
 interface TvdbSharedCreds {
   apiKey?: string;
@@ -75,7 +75,7 @@ export default definePlugin({
     name: "TheTVDB",
     version: "2.0.0",
     description: "Cross-service id resolution via TheTVDB. Admin-configured API key pool.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Nama", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api4.thetvdb.com"],
     sharedCredentialsSchema: {

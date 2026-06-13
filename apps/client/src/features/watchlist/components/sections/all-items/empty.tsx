@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import * as m from "@/paraglide/messages";
-import type { MoodId, WatchlistBucket } from "@ent-mcp/shared/watchlist";
+import type { MoodId, WatchlistBucket } from "@nama/shared/watchlist";
 import { EmptyState } from "@/shared/components/empty-state";
 import { MOOD_REGISTRY } from "../../../lib/mood-registry";
 

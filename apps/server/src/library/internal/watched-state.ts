@@ -1,4 +1,4 @@
-import type { WatchedState } from "@ent-mcp/shared/library";
+import type { WatchedState } from "@nama/shared/library";
 import type { ProgressEntry } from "../../media";
 
 /**

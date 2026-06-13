@@ -1,8 +1,8 @@
-import type { AuthResult, PluginContext } from "@ent-mcp/plugin-sdk";
+import type { AuthResult, PluginContext } from "@nama/plugin-sdk";
 import type { Ctx } from "./types";
 import { PLEX_TV_BASE } from "./constants";
 import { plexTvHeaders, plexServerFetch } from "./client";
-import { toErrorMessage } from "@ent-mcp/plugin-sdk";
+import { toErrorMessage } from "@nama/plugin-sdk";
 
 export async function startAuth(ctx: PluginContext, _input: unknown): Promise<AuthResult> {
   // Plex PIN flow: request a short-lived PIN and direct the user at

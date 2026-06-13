@@ -5,7 +5,7 @@
 **Author:** Omid Astaraki
 **Supersedes:** `2026-04-19-frontend-connections-design.md`
 **Companion:** `2026-04-19-plugin-architecture-design.md` (backend)
-**Tracking issue:** [#36](https://github.com/electather/media-manager/issues/36)
+**Tracking issue:** [#36](https://github.com/electather/nama/issues/36)
 
 > **Route relocated (2026-04-24).** The user-facing connections page described here now lives at `/settings/connections` under the nested settings layout. The top-level `/connections` URL was removed and returns 404. The component body, queries, mutations, capability badges, and modal dependencies documented below are unchanged — only the route file location and the app sidebar entry changed. See `docs/2026-04-24-user-settings-design.md` for the relocation rationale and the surrounding settings work.
 
@@ -578,7 +578,7 @@ This is a single PR. The client and server move together — field renames are b
      - Add `displayFields: Array<{label, value, mono?}>` per connection. Extraction rules are spelled out in the _`displayFields` extraction (server-side rules)_ subsection earlier in this doc.
      - Widen the embedded `plugin` object from its current 9-field shape (`{id, name, version, description, auth, enabled, logoUrl, capabilities: string[], userConfigSchema}`) to match `PluginSummary`. Concrete field additions: `authKind` (rename of the current `auth`), `poolable`, `userScopedCapabilities` + `globalScopedCapabilities` (replacing `capabilities: string[]` — the legacy string array is removed), `adminSharedAvailable`, `credentialsSchema`. Drop the current `enabled` field on the embedded plugin since `/connections/` already filters to enabled plugins.
    - `GET /api/connections/available` (`listAvailablePlugins`):
-     - Rename the field `auth` to `authKind` (same payload, new name) so the endpoint and `/connections/`'s embedded plugin converge on the `PluginSummary` shape. No behaviour change. Pure-global filter already in place (`userScopedCapabilities.length === 0`). Notification-only plugins are excluded via the shared `isNotificationOnlyPlugin` helper from `@ent-mcp/shared/plugins`; the Notifications settings page owns them through `GET /api/notifications/plugins`, which now serves the same `PluginSummary` shape plus `supportsKinds`.
+     - Rename the field `auth` to `authKind` (same payload, new name) so the endpoint and `/connections/`'s embedded plugin converge on the `PluginSummary` shape. No behaviour change. Pure-global filter already in place (`userScopedCapabilities.length === 0`). Notification-only plugins are excluded via the shared `isNotificationOnlyPlugin` helper from `@nama/shared/plugins`; the Notifications settings page owns them through `GET /api/notifications/plugins`, which now serves the same `PluginSummary` shape plus `supportsKinds`.
    - `GET /api/plugins/` (`packages/server/src/api/procedures/plugins.ts`):
      - Flip `sharedCredentialsCount` from `countEnabled` to `countAll` (add the `countAll` helper on `sharedCredentialsService`).
      - Add `sharedCredentialsEnabledCount` sourced from the existing `countEnabled`.

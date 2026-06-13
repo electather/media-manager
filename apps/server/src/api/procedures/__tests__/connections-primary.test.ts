@@ -40,7 +40,7 @@ vi.mock("../../../auth", async () => {
   const { unauthorized, forbidden } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../db/schema/auth/roles");
-  const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
+  const { PERMISSIONS } = await import("@nama/shared/auth");
   async function loadUserRole(userId: string) {
     const row = await db
       .select({ roleId: userRoles.roleId, systemSlug: roles.systemSlug })

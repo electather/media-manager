@@ -145,7 +145,7 @@ watchlist.registerJobs()
 
 ```md
 ---
-"@ent-mcp/server": minor
+"@nama/server": minor
 ---
 
 Added watchlist module.

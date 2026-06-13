@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import type { WatchlistKey, WatchlistSource } from "@ent-mcp/shared/watchlist";
-import type { ActiveRow } from "@ent-mcp/shared/media";
+import type { WatchlistKey, WatchlistSource } from "@nama/shared/watchlist";
+import type { ActiveRow } from "@nama/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
 import { selectRowByKey } from "./internal";

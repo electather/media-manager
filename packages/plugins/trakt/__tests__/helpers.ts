@@ -1,11 +1,11 @@
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import type { PluginContext } from "@nama/plugin-sdk";
 import {
   jsonRes,
   makeTestContext,
   paginatedPage as sdkPaginatedPage,
   statusRes,
   type TestContext,
-} from "@ent-mcp/plugin-sdk/testing";
+} from "@nama/plugin-sdk/testing";
 
 export { jsonRes, statusRes };
 

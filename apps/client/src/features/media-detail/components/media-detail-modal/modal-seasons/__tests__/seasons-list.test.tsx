@@ -3,8 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense, type ReactNode } from "react";
-import type { SeasonAvailabilityResponse, SeasonInfo } from "@ent-mcp/shared/home";
-import type { RequestTarget } from "@ent-mcp/shared/media";
+import type { SeasonAvailabilityResponse, SeasonInfo } from "@nama/shared/home";
+import type { RequestTarget } from "@nama/shared/media";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { SeasonsList } from "../seasons-list";
 

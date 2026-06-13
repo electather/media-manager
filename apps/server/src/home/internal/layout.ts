@@ -1,4 +1,4 @@
-import type { HomeLayoutResponse, HomeRowStub, LayoutHero } from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse, HomeRowStub, LayoutHero } from "@nama/shared/home";
 import { AllPluginsFailedError, decode, PluginCallError } from "../../media";
 import { ROW_ORDER, ROW_PROVIDERS } from "../rows";
 import { pickHero } from "./hero";

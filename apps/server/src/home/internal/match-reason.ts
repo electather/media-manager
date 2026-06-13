@@ -1,5 +1,5 @@
-import type { MatchReason } from "@ent-mcp/shared/home";
-import type { TopContributor } from "@ent-mcp/shared/catalog";
+import type { MatchReason } from "@nama/shared/home";
+import type { TopContributor } from "@nama/shared/catalog";
 import { isFinishing } from "../../media";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 

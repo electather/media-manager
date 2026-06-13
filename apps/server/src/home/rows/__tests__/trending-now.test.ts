@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../trending-now";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decode } from "../../../media";
-import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 
 vi.mock("../../../env", () => ({
   env: {

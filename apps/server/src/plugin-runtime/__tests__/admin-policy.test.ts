@@ -278,12 +278,12 @@ describe("updateAdminHeaders", () => {
 
 describe("shared schema: pluginAdminAllowlistSchema", () => {
   it("accepts null", async () => {
-    const { pluginAdminAllowlistSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminAllowlistSchema } = await import("@nama/shared/plugins");
     expect(pluginAdminAllowlistSchema.safeParse({ allowlist: null }).success).toBe(true);
   });
 
   it("accepts wildcards, exact hostnames, and subdomain patterns", async () => {
-    const { pluginAdminAllowlistSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminAllowlistSchema } = await import("@nama/shared/plugins");
     const result = pluginAdminAllowlistSchema.safeParse({
       allowlist: ["*", "api.trakt.tv", "*.tmdb.org"],
     });
@@ -291,13 +291,13 @@ describe("shared schema: pluginAdminAllowlistSchema", () => {
   });
 
   it("rejects uppercase entries", async () => {
-    const { pluginAdminAllowlistSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminAllowlistSchema } = await import("@nama/shared/plugins");
     const result = pluginAdminAllowlistSchema.safeParse({ allowlist: ["API.Trakt.TV"] });
     expect(result.success).toBe(false);
   });
 
   it("rejects duplicates", async () => {
-    const { pluginAdminAllowlistSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminAllowlistSchema } = await import("@nama/shared/plugins");
     const result = pluginAdminAllowlistSchema.safeParse({
       allowlist: ["api.trakt.tv", "api.trakt.tv"],
     });
@@ -305,7 +305,7 @@ describe("shared schema: pluginAdminAllowlistSchema", () => {
   });
 
   it("rejects malformed hostnames", async () => {
-    const { pluginAdminAllowlistSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminAllowlistSchema } = await import("@nama/shared/plugins");
     expect(pluginAdminAllowlistSchema.safeParse({ allowlist: ["has spaces"] }).success).toBe(false);
     expect(pluginAdminAllowlistSchema.safeParse({ allowlist: ["http://foo"] }).success).toBe(false);
   });
@@ -313,7 +313,7 @@ describe("shared schema: pluginAdminAllowlistSchema", () => {
 
 describe("shared schema: pluginAdminHeadersSchema", () => {
   it("accepts non-empty string values and nulls to delete", async () => {
-    const { pluginAdminHeadersSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminHeadersSchema } = await import("@nama/shared/plugins");
     const result = pluginAdminHeadersSchema.safeParse({
       headers: { "X-Corp-Key": "abc", "X-Delete-Me": null },
     });
@@ -321,14 +321,14 @@ describe("shared schema: pluginAdminHeadersSchema", () => {
   });
 
   it("rejects values containing CR or LF (header-injection)", async () => {
-    const { pluginAdminHeadersSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminHeadersSchema } = await import("@nama/shared/plugins");
     expect(
       pluginAdminHeadersSchema.safeParse({ headers: { "X-Foo": "a\r\nX-Smuggle: evil" } }).success,
     ).toBe(false);
   });
 
   it("rejects reserved header names", async () => {
-    const { pluginAdminHeadersSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminHeadersSchema } = await import("@nama/shared/plugins");
     expect(pluginAdminHeadersSchema.safeParse({ headers: { Host: "x" } }).success).toBe(false);
     expect(
       pluginAdminHeadersSchema.safeParse({ headers: { connection: "keep-alive" } }).success,
@@ -336,12 +336,12 @@ describe("shared schema: pluginAdminHeadersSchema", () => {
   });
 
   it("rejects empty-string values — admin must pass null to delete", async () => {
-    const { pluginAdminHeadersSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminHeadersSchema } = await import("@nama/shared/plugins");
     expect(pluginAdminHeadersSchema.safeParse({ headers: { "X-Foo": "" } }).success).toBe(false);
   });
 
   it("rejects header names with disallowed characters", async () => {
-    const { pluginAdminHeadersSchema } = await import("@ent-mcp/shared/plugins");
+    const { pluginAdminHeadersSchema } = await import("@nama/shared/plugins");
     expect(pluginAdminHeadersSchema.safeParse({ headers: { "X Foo": "bar" } }).success).toBe(false);
     expect(pluginAdminHeadersSchema.safeParse({ headers: { "X:Foo": "bar" } }).success).toBe(false);
   });

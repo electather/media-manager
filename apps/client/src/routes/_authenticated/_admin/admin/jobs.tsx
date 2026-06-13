@@ -43,7 +43,7 @@ import { CronSchedule } from "@/shared/components/cron-schedule";
 import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
 
-import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
+import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@nama/shared/jobs";
 import { formatDuration, relativeTime } from "@/shared/lib/time-format";
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/jobs")({

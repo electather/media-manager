@@ -1,6 +1,6 @@
 import { consola } from "consola";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { ActiveRow } from "@ent-mcp/shared/media";
+import type { ActiveRow } from "@nama/shared/media";
 import type { SourceContext } from "../../../media";
 
 // The source pulls `listActiveRowsKeyset` from the media barrel; mock just that

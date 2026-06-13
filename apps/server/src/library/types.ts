@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
-import type { MediaType } from "@ent-mcp/shared/media";
-import type { WatchedState } from "@ent-mcp/shared/library";
+import type { MediaType } from "@nama/shared/media";
+import type { WatchedState } from "@nama/shared/library";
 import type { CatalogService } from "../catalog";
 import type { MediaService } from "../media";
 

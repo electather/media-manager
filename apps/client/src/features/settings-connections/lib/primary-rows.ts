@@ -1,4 +1,4 @@
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import { m } from "@/paraglide/messages";
 
 // Append here to add a new `primary_with_enrichment` capability picker row — server endpoints are generic.

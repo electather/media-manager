@@ -1,6 +1,6 @@
 import { head } from "es-toolkit/array";
-import { getCapability } from "@ent-mcp/plugin-sdk";
-import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import { getCapability } from "@nama/plugin-sdk";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
 import { PluginCallError } from "../errors";
 

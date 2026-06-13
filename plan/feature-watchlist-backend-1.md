@@ -115,7 +115,7 @@ Design spec: [docs/2026-05-19-watchlist-backend-design.md](../docs/2026-05-19-wa
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
 | TASK-034 | Delete `apps/client/src/features/watchlist/lib/mock-data.ts`. | | |
-| TASK-035 | Update `apps/client/src/features/watchlist/lib/types.ts`: drop local `WatchlistItem` redefinition (use shared `@ent-mcp/shared/watchlist`); add `WatchlistApiError extends BaseApiError` (reuse existing client convention); add `sourceLabel(source: WatchlistSource) → string` mapping to paraglide `m.watchlist_source_*`. | | |
+| TASK-035 | Update `apps/client/src/features/watchlist/lib/types.ts`: drop local `WatchlistItem` redefinition (use shared `@nama/shared/watchlist`); add `WatchlistApiError extends BaseApiError` (reuse existing client convention); add `sourceLabel(source: WatchlistSource) → string` mapping to paraglide `m.watchlist_source_*`. | | |
 | TASK-036 | Drop `"friend"` from any local `RecentSourceKey` union if present (not in shared `WATCHLIST_SOURCES`). | | |
 | TASK-037 | Create `apps/client/src/features/watchlist/lib/fetchers.ts` exporting `list()`, `add(input)`, `remove(tmdbId, mediaType)` using `api.watchlist.*`. Reuse existing `throwOnError` pattern from other features (e.g. `apps/client/src/features/home/lib/fetchers.ts`). | | |
 | TASK-038 | Create `apps/client/src/features/watchlist/lib/query-keys.ts` exporting `watchlistKeys = { all: ["watchlist"] as const, list: () => [...watchlistKeys.all, "list"] as const }`. | | |
@@ -160,7 +160,7 @@ Design spec: [docs/2026-05-19-watchlist-backend-design.md](../docs/2026-05-19-wa
 | TASK-063 | Run `vp check` (format + lint + typecheck) and fix any failures. | | |
 | TASK-064 | Run `vp test` (full suite). All new and existing tests must pass. | | |
 | TASK-065 | Manually verify in dev (`vp dev`): open `/watchlist` with a seeded user — items render; toggle add/remove on a search result — optimistic flip + persisted across reload; open `/home` — `Your Watchlist` row shows items added in-app and hides items removed in-app. | | |
-| TASK-066 | Create `.changeset/feat-watchlist-backend.md` with frontmatter `"@ent-mcp/client": minor` and `"@ent-mcp/server": minor` and a one-sentence end-user description (Keep a Changelog style, past tense). | | |
+| TASK-066 | Create `.changeset/feat-watchlist-backend.md` with frontmatter `"@nama/client": minor` and `"@nama/server": minor` and a one-sentence end-user description (Keep a Changelog style, past tense). | | |
 | TASK-067 | Open PR using template at `.github/PULL_REQUEST_TEMPLATE/pull_request_template.md`. Include summary, test plan, and link to the design spec. | | |
 
 ## 3. Alternatives

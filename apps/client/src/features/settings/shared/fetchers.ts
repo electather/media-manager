@@ -1,5 +1,5 @@
-import type { PublicConfig, RoleSummary } from "@ent-mcp/shared/users";
-import type { DeleteAccountBody } from "@ent-mcp/shared/users";
+import type { PublicConfig, RoleSummary } from "@nama/shared/users";
+import type { DeleteAccountBody } from "@nama/shared/users";
 import { api } from "@/shared/lib/api";
 import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { SettingsApiError } from "./types";

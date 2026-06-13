@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { decode } from "@ent-mcp/shared/media";
+import { decode } from "@nama/shared/media";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { buildRelatedRow } from "../lib/related-items";
 

@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { pluginError } from "@nama/plugin-sdk";
 import { traktJson } from "../client";
 import { parseTraktId, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";

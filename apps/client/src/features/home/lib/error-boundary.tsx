@@ -26,7 +26,7 @@ import { homeKeys } from "./query-keys";
 
 const TELEMETRY_CODE = "client.home.boundary";
 const RELOGIN_HREF = "/login";
-const SUPPORT_HREF = "https://github.com/electather/media-manager/issues/new";
+const SUPPORT_HREF = "https://github.com/electather/nama/issues/new";
 
 interface VariantMeta {
   tone: "info" | "warn" | "danger";

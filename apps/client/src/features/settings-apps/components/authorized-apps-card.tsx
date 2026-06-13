@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { AuthorizedApp, AuthorizedAppStatus } from "@ent-mcp/shared/users";
+import type { AuthorizedApp, AuthorizedAppStatus } from "@nama/shared/users";
 
 import { Button } from "@/shared/ui/button";
 import { m } from "@/paraglide/messages";

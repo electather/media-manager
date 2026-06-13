@@ -49,7 +49,7 @@ vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../db/schema/auth/roles");
-  const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
+  const { PERMISSIONS } = await import("@nama/shared/auth");
   type RoleInfo = { roleId: string; isSystemAdmin: boolean };
   async function loadUserRole(userId: string): Promise<RoleInfo | null> {
     const row = await db

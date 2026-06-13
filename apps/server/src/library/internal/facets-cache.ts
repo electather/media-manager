@@ -1,4 +1,4 @@
-import type { LibraryFacetCounts } from "@ent-mcp/shared/library";
+import type { LibraryFacetCounts } from "@nama/shared/library";
 import { MemoryCache } from "../../cache/memory";
 
 /**
