@@ -74,7 +74,7 @@ The diagram above is the **plugin-dispatch** surface of `media/`. The same modul
 - **Unified wire shape** — the existing `CompactMediaItem` (`@nama/shared`, already carries `progress?`/`availability?`) extended with nullable `addedAt: number | null` (epoch ms) + `addedSource: WatchlistSource | null`. `WatchlistItem` is **deleted**; callers use `CompactMediaItem`. Do NOT reuse the recommendation-engine `MediaItem` in `packages/shared/src/media/types.ts` — different shape (§D of consolidation doc).
 - **Boundary** — consumers import the `media` barrel ONLY; `media` ⊥ import home/watchlist (no cycle; `circular-deps: error` holds).
 
-> **Size note.** `media/service/index.ts` is already 1073 LOC — over the 500 hard cap. New pipeline work lands as **NEW files** in `service/` (`list-rows.ts`, `writes.ts`, `count.ts`) plus the new `pipeline/` dir — NOT appended to `index.ts`. See the consolidation doc §A / §M.
+> **Size note.** `media/service/index.ts` is now ~347 LOC after the TASK-047 split — under the 500 hard cap. The `MediaService` facade stays thin: per-responsibility logic lives in sibling modules (`metadata.ts`, `aggregate-reads.ts`, `requests.ts`, `home-feeds.ts`, `library-availability.ts`). New pipeline work lands as **NEW files** in `service/` (`list-rows.ts`, `writes.ts`, `count.ts`) plus the new `pipeline/` dir — NOT appended to `index.ts`. See the consolidation doc §A / §M.
 
 ## `MediaService` Surface
 
