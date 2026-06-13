@@ -1,4 +1,4 @@
-import { handleHttpStatus, pluginError } from "@ent-mcp/plugin-sdk";
+import { handleHttpStatus, pluginError } from "@nama/plugin-sdk";
 import type { Ctx, JellyfinItem, MediaItemShape } from "../types";
 import { getUserId, jellyfinJson, jellyfinFetch } from "../client";
 import { mapMediaShape, requireJellyfinItemIds } from "../mappers";

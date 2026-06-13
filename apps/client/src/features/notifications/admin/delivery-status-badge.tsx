@@ -1,4 +1,4 @@
-import type { NotificationDeliveryStatus } from "@ent-mcp/shared/notifications";
+import type { NotificationDeliveryStatus } from "@nama/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 

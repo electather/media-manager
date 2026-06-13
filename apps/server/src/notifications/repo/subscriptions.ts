@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { notificationSubscriptions } from "../../db/schema/notifications";
-import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import type { NotificationCategory } from "@nama/shared/notifications";
 
 export async function getSubscriptions(connectionId: string): Promise<
   Array<{

@@ -1,4 +1,4 @@
-# @ent-mcp/shared
+# @nama/shared
 
 ## 0.1.2
 
@@ -21,11 +21,11 @@
 
   Adds a third `info` severity level for expected user-input failures — bad URLs, wrong credentials, stale 404s, permission denied. `info` records are stored alongside `error` and `warning` so admins can filter them in when debugging a specific user flow, but the admin viewer's default filter keeps them hidden so the "something is wrong right now" signal is not drowned out. Removes the per-callsite `isUserInputError` gate in `plugin-runtime/runtime.ts` — the registry is now the single source of truth for the error-design-doc rule ("expected user-input failures don't enter the default error view").
 
-- ec33991: Add `libraryAvailability@v1` and `continueWatching@v1` capability contracts for self-hosted media-server plugins (Plex, Jellyfin). Introduce a shared `LibraryItem` zod schema (`@ent-mcp/shared/plugins/library`) reused by both capabilities and earmarked for the upcoming `playbackSessions@v1` / `libraryAdmin@v1` contracts.
+- ec33991: Add `libraryAvailability@v1` and `continueWatching@v1` capability contracts for self-hosted media-server plugins (Plex, Jellyfin). Introduce a shared `LibraryItem` zod schema (`@nama/shared/plugins/library`) reused by both capabilities and earmarked for the upcoming `playbackSessions@v1` / `libraryAdmin@v1` contracts.
 - c336404: Add admin-only advanced policy for installed plugins: per-plugin host allowlist
   override (intersection with `manifest.allowedHosts`) and encrypted custom headers
   injected into every `ctx.fetch` call. Blocked-host attempts are logged under a
   new `plugin.host_blocked_by_admin` error code. Plugins continue to see the
   existing `plugin.upstream_error` so no plugin changes are required.
 - df3624f: Server bundle for the plugin-connections UI revamp (#39 #40 #41 #42 #43): widen the embedded plugin shape on `/api/connections/` to a full `PluginSummary` (renames `auth` → `authKind`, replaces flat `capabilities` with scoped arrays, drops `enabled`, adds `poolable` / `adminSharedAvailable` / `credentialsSchema`); compute `displayFields` server-side from `userConfigSchema` (excludes `x-secret`, redacts `x-private` to `••••`, marks URI / `x-mono` / `x-allowed-host` fields as `mono`); add `sharedCredentialsEnabledCount` and widen `sharedCredentialsCount` to total entries on `/api/plugins/`; rename `auth` → `authKind` on `/api/connections/available`; add `POST /api/plugins/:id/shared-credentials/test-ephemeral` for unsaved-credential probes; and add typed error codes `plugin.credentials_empty`, `plugin.duplicate_label`, `plugin.invalid_base_url` (the latter replacing `plugin.input_invalid` for `x-allowed-host` validation failures) so the frontend can route inline field errors. `listForUser` now hides connections to disabled plugins (matching the design doc's claim) and de-duplicates per-plugin work across rows; `/api/plugins/` derives both shared-credential counts from a single `list()` call.
-- 09f1101: Add AuthorizedApp, RoleSummary, DeleteAccountBody, and PublicConfig to @ent-mcp/shared/users for the settings surface.
+- 09f1101: Add AuthorizedApp, RoleSummary, DeleteAccountBody, and PublicConfig to @nama/shared/users for the settings surface.

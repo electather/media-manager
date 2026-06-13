@@ -1,4 +1,4 @@
-import { LIBRARY_LENSES, type LibraryLens } from "@ent-mcp/shared/library";
+import { LIBRARY_LENSES, type LibraryLens } from "@nama/shared/library";
 import * as m from "@/paraglide/messages";
 import { RouteTab, RouteTabs } from "@/shared/components/route-tabs";
 import { lensLabel, lensNote } from "../lib/labels";

@@ -4,8 +4,8 @@ import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
 import { emit } from "../../jobs/events";
 import { PLUGIN_RUNTIME_EVENTS, notifyRequestedPayload } from "../events";
-import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { PluginContext, PoolSignalingApi } from "@nama/plugin-sdk";
+import type { NotificationEvent } from "@nama/shared/notifications";
 
 export interface BuildContextArgs {
   pluginId: string;

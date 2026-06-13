@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 
 import { m } from "@/paraglide/messages";
 

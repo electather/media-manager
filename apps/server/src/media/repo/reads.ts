@@ -1,6 +1,6 @@
 import { and, desc, eq, lt, or } from "drizzle-orm";
-import { keyToId, type WatchlistKey } from "@ent-mcp/shared/watchlist";
-import type { ActiveRow, RowFilter, RowSort } from "@ent-mcp/shared/media";
+import { keyToId, type WatchlistKey } from "@nama/shared/watchlist";
+import type { ActiveRow, RowFilter, RowSort } from "@nama/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
 import type { PageCursor } from "./cursor";

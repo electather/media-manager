@@ -3,7 +3,7 @@ import { uniq } from "es-toolkit/array";
 import { getDb } from "../../db/client";
 import { plugins, primaryConnections, serviceConnections } from "../../db/schema";
 import { capabilityRegistry } from "../../plugin-runtime";
-import { CAPABILITY_CATALOG, type CapabilityKey } from "@ent-mcp/plugin-sdk";
+import { CAPABILITY_CATALOG, type CapabilityKey } from "@nama/plugin-sdk";
 import type { ToolHandler, ToolRegistration } from "../registry";
 
 interface ConnectionView {

@@ -3,7 +3,7 @@
 **Status:** design (rev 1)
 **Date:** 2026-05-26
 **Author:** Omid Astaraki
-**Epic:** [#491](https://github.com/electather/media-manager/issues/491). Folds in #496 (split watchlist service), #502 (isInfoOnly→unavailable). #500/#501 already shipped.
+**Epic:** [#491](https://github.com/electather/nama/issues/491). Folds in #496 (split watchlist service), #502 (isInfoOnly→unavailable). #500/#501 already shipped.
 **Supersedes (partial):**
 - [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md) — §RowProvider contract + per-row pagination. Hero / match-reason / layout-cache / detail composition unchanged.
 - [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md) — §S read path (items / mood-items / tonight / recently). Counts / moods-summary semantics, seed, sync, events, all client (§C) unchanged.
@@ -109,7 +109,7 @@ interface MediaSource<P = void> {
 - Eligibility: keep `eligibility(ctx)` **as a consumer-side concern**, NOT on the source — it's product-gating (home: has-capability / has-history), invoked by the consumer envelope before calling `listRows`. Source contract stays minimal (V.MC1).
 
 **Type glossary** (✚ = new in Phase 1; ◆ = existing, reused):
-- `ActiveRow` ◆ — `@ent-mcp/shared/media`, the persisted/raw row.
+- `ActiveRow` ◆ — `@nama/shared/media`, the persisted/raw row.
 - `RowSort` ◆ / `FilterKind` ✚ — sort enum (exists as `RowSort`) / filter selector (`"bucket"|"mood"|⊥`, new).
 - `Cursor` ✚ — the discriminated union in §E. `RawPageToken` ✚ — opaque keyset hop token a table source threads back (e.g. last `addedAt:id`); ⊥ for offset sources.
 - `SourceContext` ✚ — `RowContext ∪ WatchlistContext` (§B), media-owned.
@@ -140,10 +140,10 @@ listRows(source, cfg):
 
 ## §D — Unified item shape (extend `CompactMediaItem`, ⊥ new name)
 
-**Name caution:** `MediaItem` is already taken — `packages/shared/src/media/types.ts` defines a *recommendation-engine* `MediaItem` (different shape; consumed by `preferences/*` + `mcp` adapter). Do **not** reuse it. Unify into the **existing** home wire type `CompactMediaItem` (`@ent-mcp/shared`), which already carries `progress`/`availability`. Only `addedAt`/`addedSource` are genuinely new.
+**Name caution:** `MediaItem` is already taken — `packages/shared/src/media/types.ts` defines a *recommendation-engine* `MediaItem` (different shape; consumed by `preferences/*` + `mcp` adapter). Do **not** reuse it. Unify into the **existing** home wire type `CompactMediaItem` (`@nama/shared`), which already carries `progress`/`availability`. Only `addedAt`/`addedSource` are genuinely new.
 
 ```
-CompactMediaItem (extend existing; @ent-mcp/shared)
+CompactMediaItem (extend existing; @nama/shared)
   ... existing fields (incl. progress?, availability? — already present today)
   + addedAt?: number | null            // epoch ms (matches today's WatchlistItem.addedAt: number); ⊥ on discovery rows
   + addedSource?: WatchlistSource | null
@@ -215,7 +215,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 - `MediaSource` interface + `listRows` + `batchLoad` + `countBuckets` + cursor codec → `media/index.ts` barrel (public). `repo/`, `pipeline/` internals stay behind barrel.
 - home/watchlist import `media` barrel only. media ⊥ import home/watchlist (no `home→media→home` cycle; `circular-deps: error` holds). Concrete sources owned by the consumer that registers them (V.RG1).
 - Size: media grows (pipeline + source.ts). Use subdir promotion per backend budgets — `service/` (>500 LOC), `repo/` (>300), new `pipeline/` dir. Cohesive, ⊥ god-module.
-- `events.ts` contract: ⊥ change → no semver bump beyond the internal-only changeset. Writes moving into media service = internal reorg, but deleting `WatchlistItem` + extending `CompactMediaItem` is a public type change on `@ent-mcp/shared` + `@ent-mcp/server` → **minor** changeset.
+- `events.ts` contract: ⊥ change → no semver bump beyond the internal-only changeset. Writes moving into media service = internal reorg, but deleting `WatchlistItem` + extending `CompactMediaItem` is a public type change on `@nama/shared` + `@nama/server` → **minor** changeset.
 
 ## §K — #502 fix
 
@@ -235,7 +235,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 
 Each phase: own PR, `vp check` + `vp test` green, regression tests where noted. Compact between phases.
 
-1. **Pipeline core in media.** Add `media/source.ts` (`MediaSource`), `media/cursor.ts` (unified), `media/pipeline/` (`batchLoad`, `listRows`, paginate w/ both modes); `listRows`/writes/count land as **new files in `service/`**, ⊥ appended to the 1073-LOC `service/index.ts`. Move `extractTmdbId`/`FINISHING_THRESHOLD` to single defs. Extend `CompactMediaItem` in shared (the **existing** type — NOT the recommendation-engine `MediaItem`, §D). No consumer change yet; media unit-tested in isolation. Changeset: minor (`@ent-mcp/shared`, `@ent-mcp/server` — new public surface + `CompactMediaItem` fields).
+1. **Pipeline core in media.** Add `media/source.ts` (`MediaSource`), `media/cursor.ts` (unified), `media/pipeline/` (`batchLoad`, `listRows`, paginate w/ both modes); `listRows`/writes/count land as **new files in `service/`**, ⊥ appended to the 1073-LOC `service/index.ts`. Move `extractTmdbId`/`FINISHING_THRESHOLD` to single defs. Extend `CompactMediaItem` in shared (the **existing** type — NOT the recommendation-engine `MediaItem`, §D). No consumer change yet; media unit-tested in isolation. Changeset: minor (`@nama/shared`, `@nama/server` — new public surface + `CompactMediaItem` fields).
 2. **Writes → media.** `addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins` move to `media/service`, exported via barrel. watchlist calls media barrel. Delete from watchlist. Regression: existing watchlist mutation tests repoint, stay green.
 3. **#502 + count-mode.** classify fix; `countBuckets` in media; `getCounts` + `moodSummary` route through it. Kill the 3× classify loop + 4× fan-out dup; remove `fallow-ignore code-duplication`. Regression: #502 routing test; counts parity test.
 4. **watchlist sources (#496).** Reimplement items / mood-items / tonight / recently as `MediaSource` in `watchlist/sources/`. Split `service.ts` → `sources/` + thin `service.ts` (envelope + aggregates) + `internal/`. ≥40% byte drop on `service.ts`. tonight envelope hero/alternate split. Regression: section parity tests (items, mood-items, tonight, recently produce same items as pre-refactor).

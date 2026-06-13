@@ -1,5 +1,5 @@
-import type { MoodId } from "@ent-mcp/shared/watchlist";
-import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@nama/shared/watchlist";
+import { MOOD_IDS } from "@nama/shared/watchlist";
 import * as m from "@/paraglide/messages";
 
 type MessageFn = () => string;

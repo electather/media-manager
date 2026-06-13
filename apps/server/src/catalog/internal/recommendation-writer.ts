@@ -1,8 +1,8 @@
-import type { FeatureCategory } from "@ent-mcp/shared/preferences";
+import type { FeatureCategory } from "@nama/shared/preferences";
 import { getPreferencesService, type FeatureContribution } from "../../preferences";
 import { MediaService, identifyItem, splitCombinedId } from "../../media";
 import type { CatalogService } from "../../catalog";
-import type { RecItem, TopContributor, TopContributorCategory } from "@ent-mcp/shared/catalog";
+import type { RecItem, TopContributor, TopContributorCategory } from "@nama/shared/catalog";
 
 const TOP_N = 60;
 const CANDIDATE_LIMIT = 180;

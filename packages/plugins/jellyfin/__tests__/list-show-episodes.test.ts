@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { LibraryAvailabilityV1 } from "@ent-mcp/plugin-sdk";
+import { LibraryAvailabilityV1 } from "@nama/plugin-sdk";
 import { jsonRes, makeCtx, statusRes } from "./helpers";
 import jellyfinPlugin from "../src/plugin";
 

@@ -10,7 +10,7 @@ import {
 import { setCurrentRow } from "./run-logger";
 import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
-import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
+import type { JobHandle, JobRunStatus } from "@nama/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
 import { isNil, isNotNil, isPrimitive, isString } from "es-toolkit/predicate";
 

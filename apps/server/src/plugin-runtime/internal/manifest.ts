@@ -1,4 +1,4 @@
-import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
+import type { ValidatedManifest } from "@nama/shared/plugins";
 
 /** Host SDK version. Plugins declare a semver range they support. */
 export const HOST_SDK_VERSION = "1.0.0";

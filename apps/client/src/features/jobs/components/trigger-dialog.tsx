@@ -16,7 +16,7 @@ import { FieldGroup, Field, FieldLabel, FieldContent, FieldError } from "@/share
 import { Input } from "@/shared/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
-import type { JobHandle } from "@ent-mcp/shared/jobs";
+import type { JobHandle } from "@nama/shared/jobs";
 
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (

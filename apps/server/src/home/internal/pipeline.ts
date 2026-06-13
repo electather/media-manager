@@ -1,4 +1,4 @@
-import type { RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@nama/shared/home";
 import {
   listRows,
   type BuiltMediaSource,

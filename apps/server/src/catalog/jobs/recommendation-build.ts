@@ -1,4 +1,4 @@
-import type { ProfileMediaType } from "@ent-mcp/shared/preferences";
+import type { ProfileMediaType } from "@nama/shared/preferences";
 import { getPreferencesService, type RebuildRow } from "../../preferences";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";

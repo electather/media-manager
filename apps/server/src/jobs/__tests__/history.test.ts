@@ -6,7 +6,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { jobRuns } from "../../db/schema/infra/jobs";
-import type { JobRunStatus } from "@ent-mcp/shared/jobs";
+import type { JobRunStatus } from "@nama/shared/jobs";
 
 let db: Db;
 vi.mock("../../db/client", () => ({

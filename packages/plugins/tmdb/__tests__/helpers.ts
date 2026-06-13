@@ -1,5 +1,5 @@
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { jsonRes, makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
+import type { PluginContext } from "@nama/plugin-sdk";
+import { jsonRes, makeTestContext, type TestContext } from "@nama/plugin-sdk/testing";
 
 export { jsonRes };
 

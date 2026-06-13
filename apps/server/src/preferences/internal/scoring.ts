@@ -1,11 +1,11 @@
 import { orderBy } from "es-toolkit/array";
-import type { MediaItem } from "@ent-mcp/shared/media";
+import type { MediaItem } from "@nama/shared/media";
 import type {
   Confidence,
   FeatureCategory,
   PreferenceProfile,
   ProfileFeatures,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
 import { CATEGORY_WEIGHTS, CONFIDENCE_THRESHOLDS } from "./constants";
 import type { CandidateFeatures, FeatureContribution, RankedCandidate } from "../types";

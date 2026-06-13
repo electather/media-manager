@@ -4,9 +4,9 @@ import {
   artworkIdMapSchema,
   ARTWORK_KINDS,
   ARTWORK_ID_TYPES,
-} from "@ent-mcp/shared/artwork";
+} from "@nama/shared/artwork";
 import { defineCapability, method } from "../define";
-import { mediaTypeSchema } from "@ent-mcp/shared";
+import { mediaTypeSchema } from "@nama/shared";
 
 /**
  * artwork@v1 — HD posters, backdrops, clear logos, and thumbs per item.

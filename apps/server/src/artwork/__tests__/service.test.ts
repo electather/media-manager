@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
+import type { ArtworkBundle } from "@nama/shared/artwork";
 import type { CatalogService } from "../../catalog";
 
 vi.mock("../../env", () => ({

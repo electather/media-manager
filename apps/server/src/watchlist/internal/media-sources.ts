@@ -7,7 +7,7 @@ import {
   type VoidParams,
   type WatchlistItemsParams,
   type WatchlistMoodItemsParams,
-} from "@ent-mcp/shared/media";
+} from "@nama/shared/media";
 import type { AnyMediaSourceRegistration, MediaSourceRegistration } from "../../media";
 import { itemsCfg, itemsSource, toItemsParams, type ItemsParams } from "../sources/items";
 import { moodItemsCfg, moodItemsSource, type MoodParams } from "../sources/mood-items";

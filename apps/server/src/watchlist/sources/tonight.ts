@@ -1,4 +1,4 @@
-import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
+import type { ActiveRow, MediaRowBucket } from "@nama/shared/media";
 import {
   classifyRows,
   listAllActiveRows,

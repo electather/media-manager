@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import type { ConnectionListItem, PrimaryConnectionRow } from "@ent-mcp/shared/connections";
+import type { ConnectionListItem, PrimaryConnectionRow } from "@nama/shared/connections";
 
 const fetchersMock = vi.hoisted(() => ({
   fetchConnections: vi.fn(),

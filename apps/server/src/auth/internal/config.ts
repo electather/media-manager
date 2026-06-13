@@ -6,7 +6,7 @@ import { loadUserPermissions } from "../repo";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { MCP_SCOPES } from "@ent-mcp/shared/users";
+import { MCP_SCOPES } from "@nama/shared/users";
 import * as schema from "../../db/schema/index";
 import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
@@ -112,7 +112,7 @@ export const auth = betterAuth({
       // write endpoint; honest MCP clients only register once per install.
       // Accepted trade-off: users sharing a single egress IP (corporate NAT,
       // home router during simultaneous onboarding) can hit the cap. For a
-      // single-tenant personal media manager the abuse-prevention value
+      // single-tenant personal nama the abuse-prevention value
       // outweighs the rare onboarding-storm cost; revisit if/when a multi-
       // tenant deployment surfaces.
       rateLimit: {

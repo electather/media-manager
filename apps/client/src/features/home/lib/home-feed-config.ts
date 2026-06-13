@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import type { RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@nama/shared/home";
 import { MATCH_REASON_KEYS } from "./types";
 import type { MatchReasonKey, RowData } from "./types";
 

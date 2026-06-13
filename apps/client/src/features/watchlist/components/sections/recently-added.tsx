@@ -9,7 +9,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { CompactMediaItem } from "@nama/shared/media";
 import { sourceLabel } from "../../lib/types";
 import { cn } from "@/shared/lib/utils";
 import { useRecentlyAdded } from "../../hooks/use-recently-added";

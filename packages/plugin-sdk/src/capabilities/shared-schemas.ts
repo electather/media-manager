@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
-import { mediaTypeSchema } from "@ent-mcp/shared/media";
+import { LIBRARY_ITEM_QUERY_TYPES } from "@nama/shared/plugins/library";
+import { mediaTypeSchema } from "@nama/shared/media";
 
 export const MIN = 60;
 export const HOUR = 60 * MIN;

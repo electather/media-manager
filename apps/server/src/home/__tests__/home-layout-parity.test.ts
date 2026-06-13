@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { consola } from "consola";
-import type { DiscoverFeedKind, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { DiscoverFeedKind, MetadataKey } from "@nama/shared/catalog";
 import type { RowContext } from "../internal/types";
 import fixture from "./fixtures/home-layout-parity.json";
 import {

@@ -3,7 +3,7 @@ import {
   type ArtworkBundle,
   type ArtworkKind,
   type ArtworkVariant,
-} from "@ent-mcp/plugin-sdk";
+} from "@nama/plugin-sdk";
 import { DEFAULT_ASSET_CDN_PREFIX } from "./constants";
 import type { FanartImage, FanartResponse } from "./types";
 

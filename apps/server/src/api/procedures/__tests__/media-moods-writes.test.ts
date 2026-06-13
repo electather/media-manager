@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import type { WatchlistMoodSummary } from "@ent-mcp/shared/watchlist";
+import type { WatchlistMoodSummary } from "@nama/shared/watchlist";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { HttpError } from "../../../diagnostics/http-errors";
 
@@ -40,7 +40,7 @@ vi.mock("../../../artwork", () => ({
 // `removeItem` so the bridge + status codes are asserted without the db. The
 // other media exports only need to exist for module load.
 vi.mock("../../../media", async () => {
-  const shared = await import("@ent-mcp/shared/media");
+  const shared = await import("@nama/shared/media");
   return {
     addItem: vi.fn(),
     removeItem: vi.fn(),

@@ -1,4 +1,4 @@
-import { QUALITY_TIERS } from "@ent-mcp/shared/library";
+import { QUALITY_TIERS } from "@nama/shared/library";
 
 /**
  * The deterministic rank for an unknown quality label: every label not in

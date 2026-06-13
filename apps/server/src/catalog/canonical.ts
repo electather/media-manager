@@ -1,5 +1,5 @@
-import type { MediaType } from "@ent-mcp/shared/media";
-import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { MediaType } from "@nama/shared/media";
+import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 import type { RawMediaItem } from "../preferences";
 import { extractFeatures } from "./features";
 import { dedupeStrings, nullableString } from "./internal/strings";

@@ -1,5 +1,5 @@
 import type { ConsolaInstance } from "consola";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { decode } from "../cursor";
 import { OFFSET_FULL_LOAD_WARN_ROWS, paginate, type PaginateInput } from "../pipeline/paginate";

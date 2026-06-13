@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";

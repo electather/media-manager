@@ -1,4 +1,4 @@
-import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
+import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 
 import { m } from "@/paraglide/messages";
 

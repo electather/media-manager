@@ -3,7 +3,7 @@ import type {
   PreferenceProfile,
   ProfileFeatures,
   ProfileMediaType,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { getDb } from "../../db/client";
 import { preferenceProfiles } from "../../db/schema";
 import { deriveConfidence, emptyFeatures } from "../internal/constants";
@@ -12,7 +12,7 @@ import { deriveConfidence, emptyFeatures } from "../internal/constants";
  * Server-internal extension of `PreferenceProfile` carrying the monotonic
  * `version` column. The version coordinates rec-list freshness (V43) and is
  * intentionally absent from the shared `PreferenceProfile` type to keep
- * `@ent-mcp/shared` server-internal-state-free per V12.
+ * `@nama/shared` server-internal-state-free per V12.
  */
 export interface StoredPreferenceProfile extends PreferenceProfile {
   version: number;

@@ -126,7 +126,7 @@ export {
   type ProgressEntry,
   type ProgressMap,
 } from "./progress";
-export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
+export type { ActiveRow, RowSort, RowFilter } from "@nama/shared/media";
 export {
   listActiveRows,
   listActiveRowsKeyset,

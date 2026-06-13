@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, Server } from "lucide-react";
-import type { RequestProfile, RequestTarget } from "@ent-mcp/shared/media";
+import type { RequestProfile, RequestTarget } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";

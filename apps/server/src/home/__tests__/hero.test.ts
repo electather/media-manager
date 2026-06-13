@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
+import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { MEDIA_SOURCE_IDS, type MediaSourceId } from "@ent-mcp/shared/media";
-import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import { MEDIA_SOURCE_IDS, type MediaSourceId } from "@nama/shared/media";
+import { MOOD_IDS } from "@nama/shared/watchlist";
 
 vi.mock("../../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { HOST_ERROR_CODES, severityFor } from "@ent-mcp/shared/diagnostics";
+import { HOST_ERROR_CODES, severityFor } from "@nama/shared/diagnostics";
 
 describe("severityFor", () => {
   it("returns the registered severity for known codes", () => {

@@ -35,7 +35,7 @@ vi.mock("../../../artwork", () => ({
   }),
 }));
 vi.mock("../../../media", async () => {
-  const shared = await import("@ent-mcp/shared/media");
+  const shared = await import("@nama/shared/media");
   return {
     decode: shared.decode,
     listRows: vi.fn(),

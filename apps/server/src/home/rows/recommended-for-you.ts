@@ -1,4 +1,4 @@
-import type { MediaType } from "@ent-mcp/shared/media";
+import type { MediaType } from "@nama/shared/media";
 import { makePipelineRow } from "../internal/pipeline";
 import type { RowProvider } from "../internal/types";
 import { recommendedForYouSource } from "../sources/recommended-for-you";

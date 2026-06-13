@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PlusIcon, XIcon } from "lucide-react";
-import { PLUGIN_ADMIN_HEADERS_MAX } from "@ent-mcp/shared/plugins";
+import { PLUGIN_ADMIN_HEADERS_MAX } from "@nama/shared/plugins";
 
 import { m } from "@/paraglide/messages";
 

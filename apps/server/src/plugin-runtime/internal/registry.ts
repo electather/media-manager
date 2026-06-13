@@ -1,6 +1,6 @@
-import type { CapabilityScope } from "@ent-mcp/shared/plugins";
-import { capabilityKey } from "@ent-mcp/plugin-sdk";
-import type { PluginModule } from "@ent-mcp/plugin-sdk";
+import type { CapabilityScope } from "@nama/shared/plugins";
+import { capabilityKey } from "@nama/plugin-sdk";
+import type { PluginModule } from "@nama/plugin-sdk";
 
 export interface RegistryEntry {
   pluginId: string;

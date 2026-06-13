@@ -1,5 +1,5 @@
-import type { MediaType } from "@ent-mcp/shared/media";
-import type { AddWatchlistRequest, AddWatchlistResponse } from "@ent-mcp/shared/watchlist";
+import type { MediaType } from "@nama/shared/media";
+import type { AddWatchlistRequest, AddWatchlistResponse } from "@nama/shared/watchlist";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "./error";
 

@@ -1,5 +1,5 @@
-import { definePlugin } from "@ent-mcp/plugin-sdk";
-import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
+import { definePlugin } from "@nama/plugin-sdk";
+import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 
 /**
  * Host-privileged inbox capability injected onto the plugin context by the

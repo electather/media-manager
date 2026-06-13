@@ -1,8 +1,8 @@
 import { consola } from "consola";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import { encode } from "@ent-mcp/shared/media";
-import { itemsQuerySchema, MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import { encode } from "@nama/shared/media";
+import { itemsQuerySchema, MOOD_IDS } from "@nama/shared/watchlist";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { HttpError } from "../../../diagnostics/http-errors";
 

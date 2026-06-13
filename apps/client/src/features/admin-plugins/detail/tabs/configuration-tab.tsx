@@ -15,7 +15,7 @@ import {
   stripEmptySecrets,
   validateSchema,
 } from "@/shared/components/schema-form";
-import type { JSONSchema } from "@ent-mcp/shared";
+import type { JSONSchema } from "@nama/shared";
 
 import { fetchGlobalConfig } from "../../shared/fetchers";
 import { adminPluginsKeys } from "../../shared/query-keys";

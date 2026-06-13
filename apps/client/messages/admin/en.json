@@ -268,7 +268,7 @@
   ],
   "admin_users_detail_joined": "Joined",
   "admin_users_detail_role_title": "Role",
-  "admin_users_detail_role_subtitle": "Determines which areas of Media Manager this user can access.",
+  "admin_users_detail_role_subtitle": "Determines which areas of Nama this user can access.",
   "admin_users_detail_role_self_lock": "You can't demote yourself from admin while you are the only admin. Promote another user first.",
   "admin_users_detail_sessions_title": "Sessions",
   "admin_users_detail_sessions_subtitle": [

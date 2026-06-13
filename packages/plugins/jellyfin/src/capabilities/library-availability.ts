@@ -1,4 +1,4 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
+import type { LibraryItem } from "@nama/plugin-sdk";
 import type { Ctx, JellyfinItem } from "../types";
 import { getUserCfg, getUserId, getExternalBase, jellyfinJson, isNotFound } from "../client";
 import { mapLibraryItem, toJfProvider } from "../mappers";

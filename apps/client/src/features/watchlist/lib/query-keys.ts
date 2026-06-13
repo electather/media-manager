@@ -1,4 +1,4 @@
-import type { MoodId, WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
+import type { MoodId, WatchlistBucket, WatchlistSort } from "@nama/shared/watchlist";
 import { mediaKeys } from "@/shared/media/query-keys";
 
 export interface WatchlistItemsKeyOpts {

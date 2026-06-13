@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vite-plus/test";
-import type { CapabilityScope, ManifestCapability } from "@ent-mcp/shared/plugins";
+import type { CapabilityScope, ManifestCapability } from "@nama/shared/plugins";
 import { CapabilityRegistry } from "../internal/registry";
-import type { PluginModule } from "@ent-mcp/plugin-sdk";
+import type { PluginModule } from "@nama/plugin-sdk";
 
 function cap(version: string, scope: CapabilityScope = "user"): ManifestCapability {
   return { version, scope };

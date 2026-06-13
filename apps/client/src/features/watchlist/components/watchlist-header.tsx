@@ -16,8 +16,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/shared/ui/breadcrumb";
-import type { MoodId, WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
-import { MOOD_IDS, WATCHLIST_BUCKETS } from "@ent-mcp/shared/watchlist";
+import type { MoodId, WatchlistBucket, WatchlistSort } from "@nama/shared/watchlist";
+import { MOOD_IDS, WATCHLIST_BUCKETS } from "@nama/shared/watchlist";
 import { MOOD_REGISTRY } from "../lib/mood-registry";
 import { useMoods } from "../hooks/use-moods";
 import { BucketTabs } from "./sections/all-items/bucket-tabs";

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { LibraryLens } from "@ent-mcp/shared/library";
+import type { LibraryLens } from "@nama/shared/library";
 import { prefetchMediaRows, useMediaRows } from "@/shared/media/use-media-rows";
 import { defineLensSource } from "../lib/fetchers";
 import type { LibraryFilters } from "../lib/types";

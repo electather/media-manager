@@ -1,4 +1,4 @@
-import type { FeatureCategory, PreferenceProfile, WeightMap } from "@ent-mcp/shared/preferences";
+import type { FeatureCategory, PreferenceProfile, WeightMap } from "@nama/shared/preferences";
 import type { CandidateFeatures } from "../../types";
 import { genresScorer } from "./genres";
 import { keywordsScorer } from "./keywords";

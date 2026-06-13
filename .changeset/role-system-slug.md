@@ -1,5 +1,5 @@
 ---
-"@ent-mcp/server": minor
+"@nama/server": minor
 ---
 
 Added a stable identifier to the built-in Admin role so renaming it no longer breaks admin permissions.

@@ -4,7 +4,7 @@ import type {
   PreferenceProfile,
   ProfileMediaType,
   UpdateResult,
-} from "@ent-mcp/shared/preferences";
+} from "@nama/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
 import { rebuildProfile, SIGNAL_WEIGHTS, NOTE_KEYWORD_BOOST } from "./rebuild";

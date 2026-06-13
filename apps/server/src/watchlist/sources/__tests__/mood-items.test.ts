@@ -1,7 +1,7 @@
 import { consola } from "consola";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow } from "@nama/shared/media";
+import { keyToId } from "@nama/shared/watchlist";
 import type { SourceContext } from "../../../media";
 import type { MoodParams } from "../mood-items";
 

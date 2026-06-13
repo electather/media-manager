@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
-import type { TopContributor } from "@ent-mcp/shared/catalog";
+import type { CompactMediaItem, RowKind } from "@nama/shared/home";
+import type { TopContributor } from "@nama/shared/catalog";
 import type { CatalogService } from "../../catalog";
 import type {
   BuiltMediaSource,

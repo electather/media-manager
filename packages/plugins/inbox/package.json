@@ -1,12 +1,12 @@
 {
-  "name": "@ent-mcp/plugin-inbox",
+  "name": "@nama/plugin-inbox",
   "version": "0.2.3",
   "private": false,
-  "description": "ent-mcp plugin — built-in inbox notification channel.",
+  "description": "nama plugin — built-in inbox notification channel.",
   "keywords": [
-    "ent-mcp",
     "inbox",
     "mcp",
+    "nama",
     "plugin"
   ],
   "license": "MIT",
@@ -19,8 +19,8 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@ent-mcp/plugin-sdk": "workspace:*",
-    "@ent-mcp/shared": "workspace:*"
+    "@nama/plugin-sdk": "workspace:*",
+    "@nama/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@nama/shared/home";
 import { score, WEIGHTS } from "./score";
 
 const MAX_ALTERNATES = 4;

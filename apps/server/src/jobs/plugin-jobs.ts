@@ -11,9 +11,9 @@ import { captureError } from "../diagnostics/capture";
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 // fallow-ignore-next-line boundary-violation
 import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
-import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
-import { manifestJobEntrySchema } from "@ent-mcp/shared/plugins";
-import type { ConnectionStatus } from "@ent-mcp/shared/connections";
+import { isPluginError, type PluginJobHandler } from "@nama/plugin-sdk";
+import { manifestJobEntrySchema } from "@nama/shared/plugins";
+import type { ConnectionStatus } from "@nama/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 import type { JobRunContext } from "./types";

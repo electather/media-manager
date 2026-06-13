@@ -1,5 +1,5 @@
 import type { ConsolaInstance } from "consola";
-import type { JobHandle, JobTriggeredBy } from "@ent-mcp/shared/jobs";
+import type { JobHandle, JobTriggeredBy } from "@nama/shared/jobs";
 
 // ─── Server-only execution types ──────────────────────────────────────────────
 
