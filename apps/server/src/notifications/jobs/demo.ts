@@ -1,7 +1,4 @@
-import {
-  NOTIFICATION_EVENT_TYPES,
-  type NotificationEventType,
-} from "@nama/shared/notifications";
+import { NOTIFICATION_EVENT_TYPES, type NotificationEventType } from "@nama/shared/notifications";
 import { registerTriggerable } from "../../jobs/triggerable";
 import { ensureInboxConnection } from "../../plugin-runtime";
 import * as repo from "../repo";

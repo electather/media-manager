@@ -31,16 +31,20 @@ export interface ActiveUserRow {
 export async function listActiveUsers(now: number = Date.now()): Promise<ActiveUserRow[]> {
   const db = getDb();
   const cutoff = now - ACTIVE_WINDOW_MS;
-  const recentFeedback = await db
-    .selectDistinct({ userId: feedback.userId })
-    .from(feedback)
-    .where(sql`${feedback.createdAt} >= ${cutoff}`)
-    .all();
-  const recentHistory = await db
-    .selectDistinct({ userId: userHistoryMirror.userId })
-    .from(userHistoryMirror)
-    .where(sql`${userHistoryMirror.lastSyncedAt} >= ${cutoff}`)
-    .all();
+  // The two reads hit independent tables with no data dependency, so run them
+  // concurrently to halve the warm-job latency per tick.
+  const [recentFeedback, recentHistory] = await Promise.all([
+    db
+      .selectDistinct({ userId: feedback.userId })
+      .from(feedback)
+      .where(sql`${feedback.createdAt} >= ${cutoff}`)
+      .all(),
+    db
+      .selectDistinct({ userId: userHistoryMirror.userId })
+      .from(userHistoryMirror)
+      .where(sql`${userHistoryMirror.lastSyncedAt} >= ${cutoff}`)
+      .all(),
+  ]);
   const ids = new Set<string>();
   for (const row of [...recentFeedback, ...recentHistory]) ids.add(row.userId);
   return [...ids].map((userId) => ({ userId }));
