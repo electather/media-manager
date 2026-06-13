@@ -40,6 +40,7 @@ export async function getAllRatings(userId: string, pluginId?: string): Promise<
   return result.data ?? [];
 }
 
+/** Aggregate `watchHistory@v1.getHistory` for feed display. Optional `limit` caps result count; unlike `getAllHistory` there is no per-plugin filter. */
 export async function getHistory(userId: string, limit?: number) {
   const result = await dispatchAggregate<unknown[]>({
     userId,
