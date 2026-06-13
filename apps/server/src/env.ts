@@ -42,8 +42,8 @@ export const env = createEnv({
      * via `GET /api/config/public` so the client can gate email-dependent
      * UI before sign-in.
      */
-    EMAIL_PROVIDER_CONFIGURED: z.coerce.boolean().default(false),
-    NOTIFICATIONS_ENABLED: z.coerce.boolean().default(true),
+    EMAIL_PROVIDER_CONFIGURED: z.stringbool().default(false),
+    NOTIFICATIONS_ENABLED: z.stringbool().default(true),
     /**
      * Maximum consola verbosity printed to stdout inside job runs. Anything
      * more verbose than this threshold is dropped on stdout — buffered

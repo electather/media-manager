@@ -217,7 +217,7 @@ export function resetNotificationsServiceForTest(): void {
 
 /**
  * Registers the diagnostics sink that converts critical errors into
- * `system.error` notifications. Called from `apps/server/src/{index,worker}.ts`
+ * `system.error` notifications. Called from `apps/server/src/index.ts`
  * after `registerJobs()` so the delivery job is already in the registry by the
  * time the first error fires.
  */
