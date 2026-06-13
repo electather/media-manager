@@ -6,14 +6,14 @@
 import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { dispatchAggregate, dispatchPrimary } from "./dispatch";
 import { interpretAggregate, type HomeAggregate } from "./interpret-aggregate";
+import type { DiscoverFilters } from "./metadata";
 
-/** Filter set accepted by the `newReleases` discover feed. */
-export interface DiscoverFeedFilters {
-  genres?: string[];
-  yearMin?: number;
-  yearMax?: number;
-  ratingMin?: number;
-  limit?: number;
+/**
+ * Filter set accepted by the `newReleases` discover feed. Extends the base
+ * `DiscoverFilters` so shared fields stay in sync and any future addition to
+ * the metadata discover filters propagates here automatically.
+ */
+export interface DiscoverFeedFilters extends DiscoverFilters {
   releaseDateGte?: number;
   releaseDateLte?: number;
   sort?: "popularity_desc" | "popularity_asc" | "release_date_desc" | "release_date_asc";
