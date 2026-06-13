@@ -46,6 +46,7 @@ export async function listActiveUsers(now: number = Date.now()): Promise<ActiveU
       .all(),
   ]);
   const ids = new Set<string>();
-  for (const row of [...recentFeedback, ...recentHistory]) ids.add(row.userId);
+  for (const row of recentFeedback) ids.add(row.userId);
+  for (const row of recentHistory) ids.add(row.userId);
   return [...ids].map((userId) => ({ userId }));
 }
