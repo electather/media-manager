@@ -15,7 +15,7 @@ vi.mock("../../../env", () => ({
 let db: Db;
 vi.mock("../../../db/client", () => ({ getDb: () => db }));
 
-const { listActiveUsers } = await import("../layout-warm");
+const { listActiveUsers } = await import("../../internal/active-users");
 
 const NOW = 2_000_000_000_000;
 

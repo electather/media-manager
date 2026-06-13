@@ -1,14 +1,9 @@
-import {
-  NOTIFICATION_EVENT_TYPES,
-  type NotificationCategory,
-  type NotificationEvent,
-  type NotificationEventType,
-  type NotificationSeverity,
-} from "@nama/shared/notifications";
+import { NOTIFICATION_EVENT_TYPES, type NotificationEventType } from "@nama/shared/notifications";
 import { registerTriggerable } from "../../jobs/triggerable";
 import { ensureInboxConnection } from "../../plugin-runtime";
 import * as repo from "../repo";
 import { getNotificationsService } from "../service";
+import { buildEvent, EVENT_TYPE_META } from "../internal/build-demo-event";
 
 interface DemoInput {
   userId: string;
@@ -22,18 +17,6 @@ const EVENT_TYPE_LABELS: Record<NotificationEventType, string> = {
   "connection.sync.succeeded": "Connection sync succeeded",
   "job.run.failed": "Job run failed",
   "system.error": "System error",
-};
-
-const EVENT_TYPE_META: Record<
-  NotificationEventType,
-  { category: NotificationCategory; severity: NotificationSeverity }
-> = {
-  "media.request.available": { category: "media", severity: "info" },
-  "media.request.denied": { category: "media", severity: "warn" },
-  "connection.auth.expired": { category: "auth", severity: "warn" },
-  "connection.sync.succeeded": { category: "sync", severity: "info" },
-  "job.run.failed": { category: "system", severity: "error" },
-  "system.error": { category: "system", severity: "error" },
 };
 
 const inputJsonSchema = {
@@ -53,70 +36,6 @@ const inputJsonSchema = {
   },
   required: ["userId"],
 } as const;
-
-// fallow-ignore-next-line complexity
-function buildEvent(
-  eventType: NotificationEventType,
-  userId: string,
-): Omit<NotificationEvent, "id" | "occurredAt"> {
-  const meta = EVENT_TYPE_META[eventType];
-  const audience = { kind: "user" as const, userId };
-  switch (eventType) {
-    case "media.request.available":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: { requestId: `demo-${Date.now()}`, mediaId: "demo", title: "Demo media" },
-      };
-    case "media.request.denied":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: {
-          requestId: `demo-${Date.now()}`,
-          mediaId: "demo",
-          title: "Demo media",
-          reason: "demo denial",
-        },
-      };
-    case "connection.auth.expired":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: { connectionId: "demo-connection", pluginId: "demo-plugin" },
-      };
-    case "connection.sync.succeeded":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: { connectionId: "demo-connection", pluginId: "demo-plugin", itemCount: 42 },
-      };
-    case "job.run.failed":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: { jobId: "demo.job", runId: "demo-run", error: "demo error" },
-      };
-    case "system.error":
-      return {
-        type: eventType,
-        category: meta.category,
-        severity: meta.severity,
-        audience,
-        payload: { errorSource: "demo", message: "Demo notification triggered by admin" },
-      };
-  }
-}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
