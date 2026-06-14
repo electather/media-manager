@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "../auth";
 
 /** Body for `POST /api/bootstrap/claim`. */
 export const bootstrapClaimSchema = z.object({
@@ -7,7 +8,7 @@ export const bootstrapClaimSchema = z.object({
   // truncated copies, or pasted URLs before the round-trip.
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   email: z.email(),
-  password: z.string().min(8),
+  password: passwordSchema,
   name: z.string().min(1),
 });
 export type BootstrapClaimBody = z.infer<typeof bootstrapClaimSchema>;

@@ -109,7 +109,7 @@ describe("BootstrapForm — shared-schema validation", () => {
     // validation is async, so each message is awaited rather than read
     // synchronously.
     expect(await screen.findByText(/enter a valid email/i)).toBeTruthy();
-    expect(await screen.findByText(/at least 8 characters/i)).toBeTruthy();
+    expect(await screen.findByText(/at least 12 characters/i)).toBeTruthy();
     expect(await screen.findByText(/name is required/i)).toBeTruthy();
     expect(await screen.findByText(/full setup token/i)).toBeTruthy();
 

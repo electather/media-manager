@@ -29,12 +29,13 @@ export function validateLoginPassword(value: string): string | undefined {
 }
 
 export function validateNewPassword(value: string): string | undefined {
-  return validateSchemaField(
-    value,
-    createUserSchema.shape.password,
-    m.auth_password_required(),
-    m.auth_password_too_short(),
-  );
+  if (!value) return m.auth_password_required();
+  // Validate against the shared schema (single source of truth), then branch on
+  // which bound failed so the message points the right direction.
+  const result = createUserSchema.shape.password.safeParse(value);
+  if (result.success) return undefined;
+  const tooLong = result.error.issues.some((issue) => issue.code === "too_big");
+  return tooLong ? m.auth_password_too_long() : m.auth_password_too_short();
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {

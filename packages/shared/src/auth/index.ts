@@ -1,3 +1,5 @@
+export * from "./password";
+
 export const PERMISSIONS = {
   // Media permissions.
   MEDIA_DISCOVER: "media:discover",

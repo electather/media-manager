@@ -186,7 +186,7 @@ describe("claimBootstrap", () => {
     const { userId } = await claimBootstrap({
       token,
       email: "admin@example.com",
-      password: "password123",
+      password: "password-12345",
       name: "Admin",
     });
 
@@ -202,7 +202,7 @@ describe("claimBootstrap", () => {
     expect(accountRow?.providerId).toBe("credential");
     expect(accountRow?.password).toBeTruthy();
     // The stored password must be a hash, never the plaintext.
-    expect(accountRow?.password).not.toBe("password123");
+    expect(accountRow?.password).not.toBe("password-12345");
 
     const roleRow = await db.select().from(userRoles).where(eq(userRoles.userId, userId)).get();
     expect(roleRow?.roleId).toBe("role_admin");
@@ -228,7 +228,12 @@ describe("claimBootstrap", () => {
     await db.insert(user).values({ id: "pre", name: "Pre", email: "pre@example.com" });
 
     await expect(
-      claimBootstrap({ token, email: "admin@example.com", password: "password123", name: "Admin" }),
+      claimBootstrap({
+        token,
+        email: "admin@example.com",
+        password: "password-12345",
+        name: "Admin",
+      }),
     ).rejects.toMatchObject({ code: "bootstrap.already_completed" });
 
     // Only the pre-existing user remains; no admin user, account, or role added.
@@ -247,7 +252,7 @@ describe("claimBootstrap", () => {
       claimBootstrap({
         token: "not-the-real-token",
         email: "admin@example.com",
-        password: "password123",
+        password: "password-12345",
         name: "Admin",
       }),
     ).rejects.toMatchObject({ code: "bootstrap.invalid_token" });
@@ -281,7 +286,12 @@ describe("claimBootstrap", () => {
     });
 
     await expect(
-      claimBootstrap({ token, email: "admin@example.com", password: "password123", name: "Admin" }),
+      claimBootstrap({
+        token,
+        email: "admin@example.com",
+        password: "password-12345",
+        name: "Admin",
+      }),
     ).rejects.toMatchObject({ code: "bootstrap.invalid_token" });
 
     expect(await db.select().from(user).all()).toHaveLength(0);
@@ -298,7 +308,7 @@ describe("claimBootstrap", () => {
       claimBootstrap({
         token: "anything",
         email: "a@example.com",
-        password: "password123",
+        password: "password-12345",
         name: "A",
       }),
     ).rejects.toBeInstanceOf(AuthError);
