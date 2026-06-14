@@ -59,6 +59,16 @@ describe("public/trending API", () => {
     expect(res.status).toBe(200);
   });
 
+  it("sets a public Cache-Control header so repeat login-page loads are cacheable", async () => {
+    // The endpoint is unauthenticated; a cacheable response lets a CDN/proxy
+    // absorb repeat login-page traffic instead of hitting the DB each load.
+    getTrendingMetadata.mockResolvedValueOnce([makeMeta({ tmdbId: "550" })]);
+    const res = await buildApp().request("/public/trending");
+    expect(res.headers.get("cache-control")).toBe(
+      "public, max-age=300, stale-while-revalidate=3600",
+    );
+  });
+
   it("projects only { id, title, poster } and leaks no user/session fields", async () => {
     getTrendingMetadata.mockResolvedValueOnce([
       makeMeta({ tmdbId: "550", title: "Fight Club", posterUrl: "/fc.jpg" }),
@@ -93,6 +103,12 @@ describe("public/trending API", () => {
     getTrendingMetadata.mockResolvedValueOnce([]);
     await buildApp().request("/public/trending?limit=12");
     expect(getTrendingMetadata).toHaveBeenCalledWith(12);
+  });
+
+  it("forwards the minimum in-range limit of 1", async () => {
+    getTrendingMetadata.mockResolvedValueOnce([]);
+    await buildApp().request("/public/trending?limit=1");
+    expect(getTrendingMetadata).toHaveBeenCalledWith(1);
   });
 
   it("clamps limit above the max to 96", async () => {
