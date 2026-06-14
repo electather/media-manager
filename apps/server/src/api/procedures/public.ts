@@ -45,7 +45,9 @@ export const publicTrendingApp = new Hono().get(
         id: `${m.mediaType}:${m.tmdbId}`,
         title: m.title,
         poster: m.posterUrl as string,
-      }));
+    return c.json({ posters }, 200, {
+      "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+    });
     return c.json({ posters });
   },
 );
