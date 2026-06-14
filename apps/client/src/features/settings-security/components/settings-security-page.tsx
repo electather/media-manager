@@ -2,6 +2,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { CheckIcon, EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -80,7 +81,8 @@ function SessionsSection() {
 
 // ─── Change password ────────────────────────────────────────────────────────
 
-const MIN_PASSWORD_LENGTH = 12;
+// Single source of truth: the new-password minimum lives in @nama/shared/auth.
+const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
 
 function PasswordChangeForm({
   current,

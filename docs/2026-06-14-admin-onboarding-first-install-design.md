@@ -199,7 +199,11 @@ status endpoint, since no other consumer needs one.
 A new **public** Hono sub-app `bootstrapApp` mounted at `/api/bootstrap` (no
 `requireSession`):
 
-- `POST /api/bootstrap/claim` with body `{ token, email, password, name }`:
+- `POST /api/bootstrap/claim` with body `{ token, email, password, name }`
+  (`password` must be 12–256 characters, enforced by the shared `passwordSchema`
+  in `@nama/shared/auth` and reused by the admin user-create endpoint; per NIST
+  SP 800-63B, favour length over composition rules and cap the input so an
+  over-long value cannot inflate the scrypt hashing cost):
   1. Inside a single transaction, assert the `user` table is empty. If not, throw
      `409 bootstrap.already_completed` ("This server is already set up").
   2. Look up the `app_bootstrap` row; constant-time compare `sha256(token)` to the

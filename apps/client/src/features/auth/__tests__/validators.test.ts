@@ -8,6 +8,7 @@ vi.mock("@/paraglide/messages", () => ({
     auth_email_invalid: () => "Enter a valid email address.",
     auth_password_required: () => "Password is required.",
     auth_password_too_short: () => "Password must be at least 12 characters.",
+    auth_password_too_long: () => "Password must be at most 256 characters.",
     auth_confirm_password_required: () => "Please confirm your password.",
     auth_passwords_do_not_match: () => "Passwords do not match.",
     auth_name_required: () => "Name is required.",
@@ -57,6 +58,14 @@ describe("validateNewPassword", () => {
 
   it("accepts passwords of 12 characters or more", () => {
     expect(validateNewPassword("longenough12")).toBeUndefined();
+  });
+
+  it("rejects passwords longer than 256 characters with the too-long message", () => {
+    expect(validateNewPassword("a".repeat(257))).toBe("Password must be at most 256 characters.");
+  });
+
+  it("accepts a password at the 256-character maximum", () => {
+    expect(validateNewPassword("a".repeat(256))).toBeUndefined();
   });
 });
 

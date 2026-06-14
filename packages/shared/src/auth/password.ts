@@ -17,4 +17,7 @@ import { z } from "zod";
  * HIBP k-anonymity is a service-layer concern tracked separately (optional in
  * the issue) and deliberately not enforced here.
  */
-export const passwordSchema = z.string().min(12).max(256);
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_MAX_LENGTH = 256;
+
+export const passwordSchema = z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH);

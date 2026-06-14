@@ -30,6 +30,7 @@
   "auth_email_invalid": "یک ایمیل معتبر وارد کنید.",
   "auth_password_required": "رمز عبور الزامی است.",
   "auth_password_too_short": "رمز عبور باید حداقل ۱۲ کاراکتر باشد.",
+  "auth_password_too_long": "رمز عبور باید حداکثر ۲۵۶ کاراکتر باشد.",
   "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
   "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
   "auth_name_required": "نام الزامی است.",
