@@ -287,7 +287,7 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       body: JSON.stringify({
         name: "New User",
         email: "new@example.com",
-        password: "password123",
+        password: "password-1234",
         roleId: ADMIN_ROLE_ID,
       }),
     });
@@ -311,7 +311,7 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       body: JSON.stringify({
         name: "New User",
         email: "new@example.com",
-        password: "password123",
+        password: "password-1234",
         roleId: MEMBER_ROLE_ID,
       }),
     });
@@ -335,7 +335,7 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       body: JSON.stringify({
         name: "New User",
         email: "new@example.com",
-        password: "password123",
+        password: "password-1234",
         roleId: CUSTOM_ADMIN_ROLE_ID,
       }),
     });
@@ -359,7 +359,7 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       body: JSON.stringify({
         name: "New User",
         email: "viewer@example.com",
-        password: "password123",
+        password: "password-1234",
         roleId: CUSTOM_VIEWER_ROLE_ID,
       }),
     });
