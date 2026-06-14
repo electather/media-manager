@@ -1,7 +1,7 @@
 # First-Install Admin Onboarding — Design
 
 - **Date:** 2026-06-14
-- **Status:** Draft (awaiting review)
+- **Status:** Implemented (see [Implementation notes](#implementation-notes-as-built))
 - **Related:**
   - `docs/2026-05-20-client-authorization-design.md` (route guards, permissions)
   - `docs/2026-04-22-frontend-plugin-connections-design.md` (connections UI)
@@ -516,3 +516,52 @@ extension points for these.
 - This spec.
 - Changeset: `@nama/server` minor + `@nama/client` minor (new end-user feature).
 - Follow-up issue for deferred work.
+
+## Implementation notes (as built)
+
+Refinements made during implementation, all consistent with the design's intent:
+
+- **Two creation helpers.** `auth/internal/create-user.ts` exports both
+  `createUserWithRole({ email, password, name, roleId })` and a sibling
+  `createUser({ email, password, name })` (no role). The admin user-creation
+  endpoint (`POST /api/admin/users`) uses the role variant when a `roleId` is
+  supplied and the no-role variant when it is omitted, preserving its prior
+  semantics under `disableSignUp`.
+- **Bootstrap service surface.** Token issuance/verification/consumption lives in
+  `auth/internal/bootstrap.ts` (`needsBootstrap`, `ensureBootstrapToken`,
+  `claimBootstrap`) and is exposed through `auth/service.ts` → the `auth` barrel
+  (the adapter never imports `internal/`). `claimBootstrap` inlines the
+  user+account+role inserts inside the single zero-users-asserting transaction.
+- **Token re-issue on restart.** Because only the SHA-256 hash is stored, the
+  plaintext is unrecoverable after a process restart. So on a restart with a
+  stale non-consumed row, `ensureBootstrapToken` mints a **fresh** token and
+  overwrites the stored hash (the previously printed token stops working). This
+  satisfies the "recover the token from the boot log" goal against hash-only
+  storage rather than literally re-printing the same token.
+- **`hasOnboarded` read.** `GET /api/onboarding/state` reads the flag via a small
+  `auth` barrel accessor `isUserOnboarded(userId)` rather than the Hono context
+  session, because the context session is not typed with the additional field.
+  The flag is still flipped only by the server-authoritative `markUserOnboarded`.
+- **`customSession` inference.** The Better Auth config was restructured to the
+  options-extraction pattern (`const options = {...} satisfies BetterAuthOptions`;
+  `customSession(fn, options)`) so `session.user.hasOnboarded` is typed.
+- **Guards fail open.** The `__root` and `/bootstrap` guards swallow a
+  public-config fetch error (treating it as "do not funnel") so a transient
+  backend outage degrades gracefully, matching the existing `/auth` and
+  `/_authenticated` guards instead of blanking every route.
+- **Shared validation.** The `/bootstrap` form validates with the shared
+  `bootstrapClaimSchema` (via its per-field `.shape`) through TanStack Form's
+  Standard Schema support — the same schema the server validates with, no
+  hand-written validators.
+- **Auth shell reuse.** The bootstrap page reuses the existing auth visual shell
+  via a new `AuthShell` component extracted from `AuthLayout` (a pure refactor),
+  so `/bootstrap` is a visual sibling of `/auth/login`.
+- **Cleanup.** `.github/workflows/create-user.yml` did not exist; the only
+  `create-user` script reference (`db:create-user`) lived in the root
+  `package.json` and was removed alongside deleting `db/create-user.ts`.
+
+Verified end-to-end in a browser against a fresh zero-user install: boot token
+banner → `/bootstrap` funnel → token claim (admin + `role_admin` created, token
+consumed) → session → `/setup` wizard → welcome + connect-services steps with
+Finish disabled until TMDB is configured. Plus `vp check` clean and `vp test`
+green (2805 tests).
