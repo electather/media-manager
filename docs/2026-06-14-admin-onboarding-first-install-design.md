@@ -556,6 +556,11 @@ Refinements made during implementation, all consistent with the design's intent:
 - **Auth shell reuse.** The bootstrap page reuses the existing auth visual shell
   via a new `AuthShell` component extracted from `AuthLayout` (a pure refactor),
   so `/bootstrap` is a visual sibling of `/auth/login`.
+- **Warm the home feed on completion.** Completing onboarding now
+  fire-and-forget triggers the `host.catalog.discover_snapshot` job so trending
+  and new-release content lands within seconds instead of waiting for the next
+  scheduled run. The warm never fails completion. The client renders a brief
+  warming empty state and polls until the home feed has content.
 - **Cleanup.** `.github/workflows/create-user.yml` did not exist; the only
   `create-user` script reference (`db:create-user`) lived in the root
   `package.json` and was removed alongside deleting `db/create-user.ts`.

@@ -1,3 +1,4 @@
+import { consola } from "consola";
 import { Hono } from "hono";
 import type { OnboardingState, OnboardingStepState } from "@nama/shared/onboarding";
 import {
@@ -8,8 +9,11 @@ import {
   sessionUserId,
   type UserRoleInfo,
 } from "../../auth";
+import { CATALOG_DISCOVER_SNAPSHOT_JOB_ID } from "../../catalog";
+import { currentRequestContext } from "../../diagnostics/request-context";
 import { sharedCredentialsService } from "../../plugin-runtime";
 import { badRequest } from "../../diagnostics/http-errors";
+import * as jobs from "../../jobs";
 
 /** Server-side context every step descriptor is evaluated against. The role
  *  drives which steps apply; `tmdbConfigured` drives completion of the
@@ -66,6 +70,20 @@ export function resolveOnboardingSteps(ctx: OnboardingStepContext): OnboardingSt
   }));
 }
 
+/** Kicks the daily discover-snapshot build right after first-install
+ *  onboarding so the home feed has trending and new-release content within
+ *  seconds, instead of waiting for the next scheduled (06:00 UTC) run. Fire
+ *  and forget: a warm failure must never fail onboarding completion — the
+ *  scheduled run still covers it. Exported as a seam so the suite can assert
+ *  the trigger without an HTTP round-trip. */
+export function warmDiscoverCatalog(userId: string, requestId?: string): void {
+  const entry = jobs.find(CATALOG_DISCOVER_SNAPSHOT_JOB_ID);
+  if (!entry?.triggerFromApi) return;
+  void entry
+    .triggerFromApi(null, { triggeredBy: "user", triggeredByUserId: userId, requestId })
+    .catch((err) => consola.warn("[onboarding] discover-snapshot warm failed to start", err));
+}
+
 /** Builds the server-authoritative context for `userId`: the role decides which
  *  steps apply, and the enabled-TMDB count decides whether the required
  *  services step is satisfied. */
@@ -109,5 +127,8 @@ export const onboardingApp = new Hono()
       throw badRequest("onboarding.requirements_unmet", "Complete the required steps first");
     }
     await markUserOnboarded(userId);
+    // Warm the discover catalog so the home feed populates without waiting
+    // for the next scheduled snapshot run.
+    warmDiscoverCatalog(userId, currentRequestContext()?.requestId);
     return c.json({ ok: true });
   });

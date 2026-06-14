@@ -16,4 +16,8 @@ export {
   extractFeatures,
   candidateId,
 } from "./types";
-export { registerCatalogJobs as registerJobs, writeRecommendationsForUser } from "./jobs";
+export {
+  CATALOG_DISCOVER_SNAPSHOT_JOB_ID,
+  registerCatalogJobs as registerJobs,
+  writeRecommendationsForUser,
+} from "./jobs";

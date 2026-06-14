@@ -687,6 +687,16 @@ home/layout-cache.ts:
       })
 ```
 
+**Empty layout = cold (note, 2026-06-14).** A fully-empty layout (hero null + zero
+rows) is the fresh-install / cold-catalog state, not a stable result. The `read`
+path is the universal backstop: it ignores a cached empty blob and returns null, so
+an empty layout is never *served*. The `composeLayout` cold-fill write-back also
+skips empty blobs so the cold path does not persist one. The hourly `host.home.layout_warm`
+job still upserts whatever it composes (an empty blob included) because its write
+doubles as the run's success signal and SQLite-failure surface — but the read
+backstop then ignores it, so the feed still self-heals the moment a discover snapshot
+or user activity produces content, instead of pinning the empty blob for the full TTL.
+
 ## Orchestrator
 
 ```

@@ -46,10 +46,13 @@ import {
 import { user } from "../../../db/schema/auth";
 import { roles, userRoles } from "../../../db/schema/auth/roles";
 import { isUserOnboarded } from "../../../auth";
+import { CATALOG_DISCOVER_SNAPSHOT_JOB_ID } from "../../../catalog";
+import { register, unregisterEntry } from "../../../jobs/registry";
 import {
   buildOnboardingContext,
   requiredStepsSatisfied,
   resolveOnboardingSteps,
+  warmDiscoverCatalog,
 } from "../onboarding";
 
 const ADMIN_ROLE: UserRoleInfo = { roleId: "role_admin", isSystemAdmin: true };
@@ -211,5 +214,38 @@ describe("markUserOnboarded flip path", () => {
     expect(await isUserOnboarded("u_admin")).toBe(false);
     await markUserOnboarded("u_admin");
     expect(await isUserOnboarded("u_admin")).toBe(true);
+  });
+});
+
+// Completion must trigger the discover-catalog warm so the home feed populates
+// without waiting for the next scheduled (06:00 UTC) run. The warm is fire and
+// forget, so a missing or un-triggerable job must never throw out of completion.
+describe("warmDiscoverCatalog", () => {
+  it("triggers the discover-snapshot job once with a user source", () => {
+    const triggerFromApi = vi.fn().mockResolvedValue({ runId: "r", result: undefined });
+    register({
+      id: CATALOG_DISCOVER_SNAPSHOT_JOB_ID,
+      name: "fake",
+      kind: "scheduled",
+      dispose() {},
+      triggerFromApi,
+    });
+    try {
+      warmDiscoverCatalog("u_admin", "req-1");
+      expect(triggerFromApi).toHaveBeenCalledOnce();
+      expect(triggerFromApi).toHaveBeenCalledWith(null, {
+        triggeredBy: "user",
+        triggeredByUserId: "u_admin",
+        requestId: "req-1",
+      });
+    } finally {
+      unregisterEntry(CATALOG_DISCOVER_SNAPSHOT_JOB_ID);
+    }
+  });
+
+  // A missing job (or one we cannot trigger) must never throw out of completion;
+  // the scheduled run still covers the warm.
+  it("is a no-op when no discover-snapshot job is registered", () => {
+    expect(() => warmDiscoverCatalog("u_admin", "req-1")).not.toThrow();
   });
 });
