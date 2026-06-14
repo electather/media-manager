@@ -19,6 +19,7 @@ export {
   loadUserRole,
   roleHasPermission,
   userHasPermission,
+  roleHasAdminTierPermission,
   sessionUserId,
   requireSession,
   requirePermission,
