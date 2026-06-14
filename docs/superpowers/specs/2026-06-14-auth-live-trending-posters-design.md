@@ -1,7 +1,7 @@
 # Auth Page Live Trending Posters — Design
 
 **Date:** 2026-06-14
-**Status:** Approved (pending spec review)
+**Status:** Draft — pending review
 
 ## Summary
 
@@ -50,30 +50,46 @@ GET /api/public/trending?limit=<n>
   procedure.
 - Internally reuses the existing trending catalog feed — the same source that
   backs `discover/trending` and the `trendingNow` home row (movies + tv, mixed,
-  popularity order).
-- Returns a **minimal projection only** — no user-specific or sensitive fields:
+  popularity order). Served from that feed's existing daily cache; the endpoint
+  does **no per-request catalog work**, which also bounds the cost of opening it
+  to unauthenticated traffic.
+- Returns a **minimal projection only** — no user-specific fields:
 
   ```ts
   // response
   { posters: { id: string; title: string; poster: string }[] }
   ```
 
+  - `id` is the public catalog/media id (e.g. `"movie:550"`) — non-sensitive,
+    identical for every user. It is included only as a stable React key. The
+    response carries no facets, availability, overview, watch state, or any field
+    derived from a user/session.
 - Items without a `poster` URL are dropped.
-- `limit` defaults to 48, clamped to a sane max (e.g. 48). The grid needs ~48 cards
-  (6 rows × ~8); fetching ~48 means every card is a unique poster.
-- Response is small and contains no facets, availability, overview, or IDs that
-  leak user state.
+- `limit` defaults to **48** (the grid needs ~48 cards = 6 rows × ~8), clamped to
+  `[1, 96]`. Non-numeric, missing, zero, or negative input falls back to the
+  default. The max sits above the default so the param is meaningfully testable.
+- The feed may return **fewer** than `limit` posterable items (after the
+  no-`poster` filter). The endpoint returns whatever it has — it does not pad,
+  repeat, or invent items. Filling the grid to a full card count is the client's
+  responsibility (see below).
 
 ### 2. Client — fetch + render
 
 - Add a public query in the auth feature (`apps/client/src/features/auth/`) that
   calls `GET /api/public/trending` **without a session**. Follow the existing
   feature-architecture conventions (query-keys factory, typed client call).
-- `PosterGridBackground` maps `posters[]` onto its existing grid cards and renders
-  a real `<img>` per card:
+- The grid always renders a **fixed full card count** (~48). Cards are filled in
+  order from the live `posters[]`; any remaining slots (when the feed returns fewer
+  than the full count, including the empty case) are filled with bundled branded
+  art, cycled. So a grid may legitimately be a **mix** of live posters and fallback
+  art — that is acceptable and intended; the grid is never left short or blank.
+  Live posters are unique among themselves (the feed is de-duplicated upstream);
+  the uniqueness guarantee does not extend to the cycled fallback fillers.
+- `PosterGridBackground` renders a real `<img>` per card:
   - `object-cover`, lazy loading.
   - **No title/tag/brand text overlay** — the poster art carries the title.
-  - Per-card `onError` swaps the image to a bundled fallback art asset.
+  - Per-card `onError` swaps that single image to a bundled fallback art asset,
+    without affecting sibling cards.
 - Grid layout, row composition, and scroll animation are untouched.
 
 ### 3. Fallback — generic branded art
@@ -94,10 +110,13 @@ GET /api/public/trending?limit=<n>
 ```
 login mount
   └─ GET /api/public/trending  (no session)
-       ├─ success, posters non-empty → render <img> grid (unique live posters)
-       └─ error OR empty           → render bundled branded-art grid
-per-card <img> onError             → swap that card to bundled art
+       ├─ success → fill grid cards in order from posters[];
+       │            remaining slots → cycled bundled branded art
+       └─ error OR empty → all slots → cycled bundled branded art
+per-card <img> onError → swap that single card to bundled art
 ```
+
+The grid always shows a full set of cards; live and fallback art may coexist.
 
 The grid is a decorative background. The login form renders immediately and is
 never gated on this request.
@@ -105,9 +124,10 @@ never gated on this request.
 ## Affected Code (indicative)
 
 **Server**
-- `apps/server/src/api/procedures/` — new `public.ts` (or similar) procedure for
-  `/public/trending`.
-- `apps/server/src/api/router.ts` — register the public sub-app.
+- `apps/server/src/api/procedures/` — new `public.ts` (or similar) defining the
+  public sub-app that hosts `/public/trending` (no `requireSession`).
+- `apps/server/src/api/router.ts` — mount that public sub-app as a sibling of the
+  auth-gated routers.
 - Reuse existing catalog trending feed + the `CompactMediaItem` → minimal mapping.
 
 **Client**
@@ -135,15 +155,21 @@ never gated on this request.
 **Server**
 - `/api/public/trending` returns the minimal shape and **does not require auth**
   (200 for a logged-out request).
-- Respects `limit` and clamps it.
+- Respects `limit`; clamps to `[1, 96]`; non-numeric/zero/negative/missing → 48.
 - Filters out items lacking a `poster` URL.
-- Response contains no user-specific / sensitive fields.
+- Response contains only `{ id, title, poster }` — no facets, availability,
+  overview, or any user/session-derived field.
+- The public sub-app exposes **only** `/public/trending`; sibling/auth-gated
+  procedures are not reachable through it.
 
 **Client**
-- Maps the response onto the grid (unique posters, no text overlay).
-- Falls back to bundled branded art on endpoint error and on empty response.
+- Maps the response onto the grid (no text overlay) and fills remaining slots with
+  cycled bundled art.
+- Falls back to a full bundled-art grid on endpoint error and on empty response.
 - Per-card `onError` swaps a single broken image to fallback without affecting
   siblings.
+- The login form renders immediately and is **not gated** on the trending request
+  (the grid is decorative; pending/failed fetch does not block the form).
 
 ## Open Questions
 
