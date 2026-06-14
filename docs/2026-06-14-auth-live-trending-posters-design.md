@@ -65,9 +65,10 @@ GET /api/public/trending?limit=<n>
     response carries no facets, availability, overview, watch state, or any field
     derived from a user/session.
 - Items without a `poster` URL are dropped.
-- `limit` defaults to **48** (the grid needs ~48 cards = 6 rows × ~8), clamped to
-  `[1, 96]`. Non-numeric, missing, zero, or negative input falls back to the
-  default. The max sits above the default so the param is meaningfully testable.
+- `limit` defaults to **48**, clamped to `[1, 96]`. Non-numeric, missing, zero, or
+  negative input falls back to the default. The auth grid requests a full
+  6 rows × 14 = **84** cards, so the `[1, 96]` ceiling sits above what the grid asks
+  for while keeping the param meaningfully testable.
 - The feed may return **fewer** than `limit` posterable items (after the
   no-`poster` filter). The endpoint returns whatever it has — it does not pad,
   repeat, or invent items. Filling the grid to a full card count is the client's
@@ -78,13 +79,13 @@ GET /api/public/trending?limit=<n>
 - Add a public query in the auth feature (`apps/client/src/features/auth/`) that
   calls `GET /api/public/trending` **without a session**. Follow the existing
   feature-architecture conventions (query-keys factory, typed client call).
-- The grid always renders a **fixed full card count** (~48). Cards are filled in
-  order from the live `posters[]`; any remaining slots (when the feed returns fewer
-  than the full count, including the empty case) are filled with bundled branded
-  art, cycled. So a grid may legitimately be a **mix** of live posters and fallback
-  art — that is acceptable and intended; the grid is never left short or blank.
-  Live posters are unique among themselves (the feed is de-duplicated upstream);
-  the uniqueness guarantee does not extend to the cycled fallback fillers.
+- The grid always renders a **fixed full card count** (6 rows × 14 = 84). Cards are
+  filled in order from the live `posters[]`; any remaining slots (when the feed
+  returns fewer than the full count, including the empty case) fall through to a
+  programmatic branded placeholder. So a grid may legitimately be a **mix** of live
+  posters and placeholders — that is acceptable and intended; the grid is never left
+  short or blank. Live posters are unique among themselves (the feed is de-duplicated
+  upstream); the placeholder fillers carry no titles or imagery.
 - `PosterGridBackground` renders a real `<img>` per card:
   - `object-cover`, lazy loading.
   - **No title/tag/brand text overlay** — the poster art carries the title.
@@ -92,18 +93,20 @@ GET /api/public/trending?limit=<n>
     without affecting sibling cards.
 - Grid layout, row composition, and scroll animation are untouched.
 
-### 3. Fallback — generic branded art
+### 3. Fallback — programmatic branded placeholder
 
-- Bundle a small set (~8–12) of abstract/branded placeholder poster images in the
-  client assets. No real titles, no TMDB imagery.
+- Render a shared `PosterPlaceholder` component (no bundled image files, no TMDB
+  imagery): a brand-tinted radial gradient with the app logo pressed into the
+  surface as an emboss. The tint is varied per slot from a `seed` so a grid of
+  placeholders reads as varied art rather than one repeated tile.
 - Used when:
   - the endpoint errors,
   - the endpoint returns an empty list, or
   - an individual live image fails to load (`onError`).
-- Cycled across the grid slots to fill all cards.
-- This **replaces** the procedural-gradient mock; the mock poster-data module
-  (`apps/client/src/features/auth/lib/poster-data.ts`) and gradient styling are
-  removed.
+- Fills every non-live slot, so the grid is always a full card count.
+- This **replaces** the procedural-gradient mock imagery; the mock poster-data
+  module (`apps/client/src/features/auth/lib/poster-data.ts`) is trimmed to the row
+  geometry it still provides, and the old gradient/text styling is removed.
 
 ## Data Flow
 
@@ -111,12 +114,12 @@ GET /api/public/trending?limit=<n>
 login mount
   └─ GET /api/public/trending  (no session)
        ├─ success → fill grid cards in order from posters[];
-       │            remaining slots → cycled bundled branded art
-       └─ error OR empty → all slots → cycled bundled branded art
-per-card <img> onError → swap that single card to bundled art
+       │            remaining slots → branded placeholder
+       └─ error OR empty → all slots → branded placeholder
+per-card <img> onError → drop that single image, revealing its placeholder
 ```
 
-The grid always shows a full set of cards; live and fallback art may coexist.
+The grid always shows a full set of cards; live posters and placeholders may coexist.
 
 The grid is a decorative background. The login form renders immediately and is
 never gated on this request.
@@ -132,10 +135,12 @@ never gated on this request.
 
 **Client**
 - `apps/client/src/features/auth/components/poster-grid-background.tsx` — render
-  `<img>`, drop text overlay, add `onError` fallback.
+  `<img>` over a `PosterPlaceholder` base layer, drop text overlay, add `onError`
+  fallback.
 - `apps/client/src/features/auth/` — new public query + query-key, wired to the
-  grid. Remove `lib/poster-data.ts` mock.
-- Client assets — add bundled branded fallback art.
+  grid. Trim `lib/poster-data.ts` to row geometry (mock imagery removed).
+- `apps/client/src/shared/components/poster-placeholder.tsx` — shared programmatic
+  placeholder (also usable as a poster loading skeleton).
 
 **Shared**
 - If a shared type is warranted for the minimal poster shape, add it under
