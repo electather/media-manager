@@ -8,13 +8,6 @@ const fetchersMock = vi.hoisted(() => ({
 }));
 vi.mock("../lib/fetchers", () => fetchersMock);
 
-// Stub the bundled SVG asset imports so jsdom/happy-dom resolves them to
-// predictable string URLs; the real Vite import returns hashed URLs.
-vi.mock("../assets/fallback-posters", () => ({
-  FALLBACK_POSTERS: Array.from({ length: 10 }, (_, i) => `/fallback-${i}.svg`),
-  fallbackPosterFor: (i: number) => `/fallback-${i % 10}.svg`,
-}));
-
 import { PosterGridBackground } from "../components/poster-grid-background";
 
 function makeClient() {
@@ -40,7 +33,19 @@ function makePoster(n: number) {
 }
 
 // 6 rows x 14 cards, each duplicated x2 for the seamless loop.
-const TOTAL_IMAGES = 6 * 14 * 2;
+const TOTAL_SLOTS = 6 * 14 * 2;
+
+// The embossed placeholder is the base layer of every slot, so the count is
+// fixed regardless of how many live posters resolve.
+function placeholders(container: HTMLElement) {
+  return container.querySelectorAll('[data-slot="poster-placeholder"]');
+}
+
+// Live poster <img>s carry an empty alt, so they expose the presentation role;
+// placeholders are divs and do not.
+function liveImages() {
+  return screen.queryAllByRole("presentation", { hidden: true });
+}
 
 beforeEach(() => {
   fetchersMock.fetchTrendingPosters.mockReset();
@@ -52,98 +57,79 @@ afterEach(() => {
 });
 
 describe("PosterGridBackground", () => {
-  it("renders the full fallback grid immediately while the query is pending without suspending", () => {
+  it("renders the full placeholder grid immediately while the query is pending without suspending", () => {
     // Never-resolving promise: if the component suspended this would throw with
     // no Suspense boundary, so reaching the assertions proves it does not gate.
     fetchersMock.fetchTrendingPosters.mockReturnValue(new Promise(() => {}));
-    renderGrid();
+    const { container } = renderGrid();
 
-    const imgs = screen.getAllByRole("presentation", { hidden: true });
-    expect(imgs).toHaveLength(TOTAL_IMAGES);
-    // Every slot is fallback art while pending.
-    for (const img of imgs) {
-      expect(img.getAttribute("src")).toMatch(/^\/fallback-\d+\.svg$/);
-    }
+    expect(placeholders(container)).toHaveLength(TOTAL_SLOTS);
+    // No live images while pending; every slot shows the embossed placeholder.
+    expect(liveImages()).toHaveLength(0);
     // No title/tag/brand text overlay anywhere.
     expect(screen.queryByText(/Title/)).toBeNull();
   });
 
-  it("maps live posters onto the grid as images with no text overlay and fills the rest with fallback", async () => {
+  it("overlays live posters as images over placeholders with no text overlay", async () => {
     const posters = Array.from({ length: 10 }, (_, i) => makePoster(i));
     fetchersMock.fetchTrendingPosters.mockResolvedValue(posters);
-    renderGrid();
+    const { container } = renderGrid();
 
     await waitFor(() => {
-      const imgs = screen.getAllByRole("presentation", { hidden: true });
-      // The 10 live posters appear (once per loop copy = 20 occurrences).
-      const liveSrcs = imgs
-        .map((img) => img.getAttribute("src"))
-        .filter((src) => src?.startsWith("https://img.example/"));
-      expect(liveSrcs.length).toBe(20);
+      // The 10 live posters appear once per loop copy = 20 occurrences.
+      expect(liveImages()).toHaveLength(20);
     });
 
-    const imgs = screen.getAllByRole("presentation", { hidden: true });
-    const fallbackCount = imgs.filter((img) =>
-      img.getAttribute("src")?.startsWith("/fallback-"),
-    ).length;
-    // Remaining slots are filled with fallback art so the grid is never short.
-    expect(fallbackCount).toBeGreaterThan(0);
-    expect(imgs).toHaveLength(TOTAL_IMAGES);
+    for (const img of liveImages()) {
+      expect(img.getAttribute("src")).toMatch(/^https:\/\/img\.example\//);
+    }
+    // The placeholder base remains under every slot, so the grid is never short.
+    expect(placeholders(container)).toHaveLength(TOTAL_SLOTS);
     // No title text rendered for live posters.
     expect(screen.queryByText("Title 0")).toBeNull();
   });
 
-  it("renders a full fallback grid on empty response", async () => {
+  it("renders a full placeholder grid and no live images on empty response", async () => {
     fetchersMock.fetchTrendingPosters.mockResolvedValue([]);
-    renderGrid();
+    const { container } = renderGrid();
 
     await waitFor(() => {
       expect(fetchersMock.fetchTrendingPosters).toHaveBeenCalled();
     });
-    const imgs = screen.getAllByRole("presentation", { hidden: true });
-    expect(imgs).toHaveLength(TOTAL_IMAGES);
-    for (const img of imgs) {
-      expect(img.getAttribute("src")).toMatch(/^\/fallback-\d+\.svg$/);
-    }
+    expect(placeholders(container)).toHaveLength(TOTAL_SLOTS);
+    expect(liveImages()).toHaveLength(0);
   });
 
-  it("renders a full fallback grid on query error", async () => {
+  it("renders a full placeholder grid and no live images on query error", async () => {
     fetchersMock.fetchTrendingPosters.mockRejectedValue(new Error("boom"));
-    renderGrid();
+    const { container } = renderGrid();
 
     await waitFor(() => {
       expect(fetchersMock.fetchTrendingPosters).toHaveBeenCalled();
     });
-    const imgs = screen.getAllByRole("presentation", { hidden: true });
-    expect(imgs).toHaveLength(TOTAL_IMAGES);
-    for (const img of imgs) {
-      expect(img.getAttribute("src")).toMatch(/^\/fallback-\d+\.svg$/);
-    }
+    expect(placeholders(container)).toHaveLength(TOTAL_SLOTS);
+    expect(liveImages()).toHaveLength(0);
   });
 
-  it("swaps a single broken live image to fallback without affecting siblings", async () => {
+  it("drops a single broken live image to its placeholder without affecting siblings", async () => {
     const posters = Array.from({ length: 10 }, (_, i) => makePoster(i));
     fetchersMock.fetchTrendingPosters.mockResolvedValue(posters);
     renderGrid();
 
     await waitFor(() => {
-      const live = screen
-        .getAllByRole("presentation", { hidden: true })
-        .filter((img) => img.getAttribute("src")?.startsWith("https://img.example/"));
-      expect(live.length).toBeGreaterThan(0);
+      expect(liveImages()).toHaveLength(20);
     });
 
-    const liveImgs = screen
-      .getAllByRole("presentation", { hidden: true })
-      .filter((img) => img.getAttribute("src")?.startsWith("https://img.example/"));
-    const target = liveImgs[0]!;
-    const siblingSrc = liveImgs[1]!.getAttribute("src");
+    const before = liveImages();
+    const target = before[0]!;
+    const targetSrc = target.getAttribute("src");
 
     fireEvent.error(target);
 
-    // The broken card swapped to fallback art.
-    expect(target.getAttribute("src")).toMatch(/^\/fallback-\d+\.svg$/);
-    // A sibling live image is untouched.
-    expect(liveImgs[1]!.getAttribute("src")).toBe(siblingSrc);
+    const after = liveImages();
+    // Exactly one card fell back to its placeholder; siblings are untouched.
+    expect(after).toHaveLength(19);
+    // Other live posters (different srcs) still render.
+    expect(after.some((img) => img.getAttribute("src") !== targetSrc)).toBe(true);
   });
 });

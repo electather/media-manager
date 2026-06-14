@@ -1,9 +1,9 @@
 import * as React from "react";
-import { fallbackPosterFor } from "../assets/fallback-posters";
 import { useTrendingPosters } from "../hooks/use-trending-posters";
 import type { TrendingPoster } from "../lib/types";
 import { ROW_CONFIG, ROW_POSTER_COUNT, ROW_SPEED_SCALE } from "../lib/poster-data";
 import styles from "./poster-grid-background.module.css";
+import { PosterPlaceholder } from "@/shared/components/poster-placeholder";
 import { cn } from "@/shared/lib/utils";
 
 // One unique card per grid slot, before the seamless x2 duplication per row.
@@ -12,43 +12,48 @@ const TOTAL_CARDS = ROW_CONFIG.length * ROW_POSTER_COUNT;
 interface PosterCard {
   // Stable React key: the live poster id when present, otherwise the slot index.
   key: string;
-  src: string;
+  // Live poster URL; absent slots fall through to the embossed placeholder.
+  src?: string;
+  // Tints the placeholder so empty/broken slots vary across the grid.
+  seed: number;
 }
 
 interface PosterProps {
-  src: string;
-  fallbackSrc: string;
+  src: string | undefined;
+  seed: number;
 }
 
-const Poster = React.memo(function Poster({ src, fallbackSrc }: PosterProps) {
-  // Per-card fallback swap: a broken live image becomes a bundled fallback for
-  // this card only, never touching siblings.
-  const [resolvedSrc, setResolvedSrc] = React.useState(src);
+const Poster = React.memo(function Poster({ src, seed }: PosterProps) {
+  // The embossed placeholder is always the base layer. A live image overlays
+  // it; on load error the image is dropped so this single card falls back to
+  // the placeholder without touching its siblings.
+  const [failed, setFailed] = React.useState(false);
 
-  // Keep the rendered image in sync when the live pool resolves after mount.
+  // Reset the failure state when the live pool resolves a new src after mount.
   React.useEffect(() => {
-    setResolvedSrc(src);
+    setFailed(false);
   }, [src]);
 
-  const handleError = React.useCallback(() => {
-    setResolvedSrc((current) => (current === fallbackSrc ? current : fallbackSrc));
-  }, [fallbackSrc]);
+  const showImage = src !== undefined && !failed;
 
   return (
     <div
       className={cn(
-        "relative isolate aspect-2/3 w-40 shrink-0 overflow-hidden rounded-md bg-muted max-sm:w-24 max-sm:rounded-sm",
+        "relative isolate aspect-2/3 w-40 shrink-0 overflow-hidden rounded-md max-sm:w-24 max-sm:rounded-sm",
         styles.poster,
       )}
     >
-      <img
-        src={resolvedSrc}
-        alt=""
-        aria-hidden="true"
-        loading="lazy"
-        onError={handleError}
-        className="size-full object-cover"
-      />
+      <PosterPlaceholder seed={seed} className="absolute inset-0" />
+      {showImage ? (
+        <img
+          src={src}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 size-full object-cover"
+        />
+      ) : null}
     </div>
   );
 });
@@ -76,12 +81,8 @@ const PosterRow = React.memo(function PosterRow({
       >
         {[0, 1].map((copy) => (
           <div className="flex shrink-0 gap-3" key={copy}>
-            {cards.map((card, i) => (
-              <Poster
-                key={`${copy}-${card.key}`}
-                src={card.src}
-                fallbackSrc={fallbackPosterFor(i)}
-              />
+            {cards.map((card) => (
+              <Poster key={`${copy}-${card.key}`} src={card.src} seed={card.seed} />
             ))}
           </div>
         ))}
@@ -91,25 +92,21 @@ const PosterRow = React.memo(function PosterRow({
 });
 
 // Builds the full fixed-size card pool: live posters fill slots in order, any
-// remaining slots (including the all-empty pending/error case) are cycled
-// bundled fallback art so the grid is never short or blank.
+// remaining slots (including the all-empty pending/error case) fall through to
+// the embossed placeholder so the grid is never short or blank.
 function buildCardPool(posters: readonly TrendingPoster[]): PosterCard[] {
   const cards: PosterCard[] = [];
   for (let i = 0; i < TOTAL_CARDS; i++) {
     const live = posters[i];
-    cards.push(
-      live
-        ? { key: live.id, src: live.poster }
-        : { key: `fallback-${i}`, src: fallbackPosterFor(i) },
-    );
+    cards.push(live ? { key: live.id, src: live.poster, seed: i } : { key: `empty-${i}`, seed: i });
   }
   return cards;
 }
 
 export const PosterGridBackground = React.memo(function PosterGridBackground() {
   // Non-suspense read: the grid never blocks the login form. While pending, on
-  // error, or on an empty response `data` is undefined/empty and the pool is
-  // filled entirely with fallback art.
+  // error, or on an empty response `data` is undefined/empty and every slot
+  // falls through to the embossed placeholder.
   const { data } = useTrendingPosters(TOTAL_CARDS);
 
   const cardPool = React.useMemo(() => buildCardPool(data ?? []), [data]);
