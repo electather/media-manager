@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import type { CanonicalMetadata } from "@nama/shared/catalog";
 import { getCatalogService } from "../../catalog";
 import { zValidator } from "../../diagnostics/validator";
 
@@ -40,14 +41,14 @@ export const publicTrendingApp = new Hono().get(
     const catalog = getCatalogService();
     const metas = await catalog.getTrendingMetadata(limit);
     const posters = metas
-      .filter((m) => m.posterUrl)
+      .filter((m): m is CanonicalMetadata & { posterUrl: string } => Boolean(m.posterUrl))
       .map((m) => ({
         id: `${m.mediaType}:${m.tmdbId}`,
         title: m.title,
-        poster: m.posterUrl as string,
+        poster: m.posterUrl,
+      }));
     return c.json({ posters }, 200, {
       "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
     });
-    return c.json({ posters });
   },
 );
