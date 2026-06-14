@@ -10,5 +10,7 @@ export function useInbox(filters: InboxFilters) {
     initialPageParam: null as string | null,
     getNextPageParam: (last) =>
       "nextCursor" in last && typeof last.nextCursor === "string" ? last.nextCursor : null,
+    // Live inbox; polling does not invalidate on receive, so refetch on mount.
+    staleTime: 0,
   });
 }

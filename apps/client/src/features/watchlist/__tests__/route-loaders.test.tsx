@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { type InfiniteData, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Page } from "@nama/shared/media";
+import { DEFAULT_STALE_TIME_MS } from "@/lib/query-client";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { prefetchMediaRows, useMediaRows } from "@/shared/media/use-media-rows";
 import { watchlistItemsSource } from "../lib/sources";
@@ -17,8 +18,6 @@ const { fetchPageMock } = vi.hoisted(() => ({ fetchPageMock: vi.fn() }));
 vi.mock("@/shared/media/source", () => ({
   defineMediaSource: (spec: Record<string, unknown>) => ({ ...spec, fetchPage: fetchPageMock }),
 }));
-
-const STALE_TIME_MS = 60_000;
 
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -59,12 +58,16 @@ describe("watchlist route loader prefetch (#513)", () => {
 
     await prefetchMediaRows(client, source);
 
-    // The section hooks inherit the app-wide 60s `staleTime` default; this test's
-    // QueryClient sets no default, so it pins the same 60s here. The freshly-warmed
-    // cache is therefore still fresh and the suspense read never refetches.
-    const { result } = renderHook(() => useMediaRows(source, { staleTime: STALE_TIME_MS }), {
-      wrapper: wrap(client),
-    });
+    // The section hooks inherit the app-wide `staleTime` default; this test's
+    // QueryClient sets no default, so it pins the same production constant here.
+    // The freshly-warmed cache is therefore still fresh and the suspense read
+    // never refetches.
+    const { result } = renderHook(
+      () => useMediaRows(source, { staleTime: DEFAULT_STALE_TIME_MS }),
+      {
+        wrapper: wrap(client),
+      },
+    );
 
     await waitFor(() => expect(result.current.items).toHaveLength(1));
     expect(result.current.items[0]?.id).toBe("movie:2");

@@ -12,6 +12,7 @@ import { installGlobalErrorHandlers } from "./shared/lib/diagnostics/global-hand
 import { useHtmlDir } from "./shared/hooks/use-html-dir";
 import { DirectionProvider } from "./shared/ui/direction";
 import { ThemeProvider } from "./shared/lib/theme";
+import { DEFAULT_STALE_TIME_MS } from "./lib/query-client";
 
 installGlobalErrorHandlers();
 
@@ -23,9 +24,10 @@ function I18nRoot({ children }: { children: ReactNode }) {
 // 60s is the app-wide baseline staleTime; it matches the largest existing
 // cluster of explicit overrides. Individual queries override it only when they
 // need fresher (e.g. polling diagnostics/notifications) or longer (e.g. 5-min
-// trending, immortal public config) caching.
+// trending, immortal public config) caching. The constant is shared so tests
+// verify the same default as production.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 60_000 } },
+  defaultOptions: { queries: { staleTime: DEFAULT_STALE_TIME_MS } },
 });
 
 const router = createRouter({ routeTree, context: { queryClient, session: null } });
