@@ -2,7 +2,7 @@
 import { Suspense, useMemo, useState } from "react";
 import { CheckIcon, EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -89,6 +89,7 @@ function PasswordChangeForm({
   setNext,
   setConfirm,
   tooShort,
+  tooLong,
   mismatch,
   canSubmit,
   submitting,
@@ -103,6 +104,7 @@ function PasswordChangeForm({
   setNext: (v: string) => void;
   setConfirm: (v: string) => void;
   tooShort: boolean;
+  tooLong: boolean;
   mismatch: boolean;
   canSubmit: boolean;
   submitting: boolean;
@@ -124,18 +126,22 @@ function PasswordChangeForm({
         />
         {serverError ? <FieldError>{serverError}</FieldError> : null}
       </Field>
-      <Field data-invalid={tooShort ? true : undefined}>
+      <Field data-invalid={tooShort || tooLong ? true : undefined}>
         <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
         <PasswordInput
           value={next}
           onChange={setNext}
           autoComplete="new-password"
           placeholder={m.settings_security_password_new_placeholder()}
-          ariaInvalid={tooShort}
+          ariaInvalid={tooShort || tooLong}
           data-testid="new-password"
         />
         <PasswordMeter value={next} />
-        {tooShort ? <FieldError>{m.settings_security_password_too_short()}</FieldError> : null}
+        {tooShort ? (
+          <FieldError>{m.settings_security_password_too_short()}</FieldError>
+        ) : tooLong ? (
+          <FieldError>{m.settings_security_password_too_long()}</FieldError>
+        ) : null}
       </Field>
       <Field data-invalid={mismatch ? true : undefined}>
         <FieldTitle>{m.settings_security_password_confirm()}</FieldTitle>
@@ -177,9 +183,14 @@ export function ChangePasswordCard({
   const [serverError, setServerError] = useState<string | null>(null);
 
   const tooShort = next.length > 0 && next.length < PASSWORD_MIN_LENGTH;
+  const tooLong = next.length > PASSWORD_MAX_LENGTH;
   const mismatch = confirm.length > 0 && confirm !== next;
   const canSubmit =
-    current.length > 0 && next.length >= PASSWORD_MIN_LENGTH && confirm === next && !submitting;
+    current.length > 0 &&
+    next.length >= PASSWORD_MIN_LENGTH &&
+    next.length <= PASSWORD_MAX_LENGTH &&
+    confirm === next &&
+    !submitting;
 
   const reset = () => {
     setCurrent("");
@@ -253,6 +264,7 @@ export function ChangePasswordCard({
           setNext={setNext}
           setConfirm={setConfirm}
           tooShort={tooShort}
+          tooLong={tooLong}
           mismatch={mismatch}
           canSubmit={canSubmit}
           submitting={submitting}

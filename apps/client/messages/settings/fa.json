@@ -105,6 +105,7 @@
   "settings_security_password_new_placeholder": "حداقل ۱۲ کاراکتر",
   "settings_security_password_confirm_placeholder": "تکرار گذرواژه جدید",
   "settings_security_password_too_short": "باید حداقل ۱۲ کاراکتر باشد.",
+  "settings_security_password_too_long": "باید حداکثر ۲۵۶ کاراکتر باشد.",
   "settings_security_password_mismatch": "گذرواژه‌ها مطابقت ندارند.",
   "settings_security_password_submit": "به‌روزرسانی گذرواژه",
   "settings_security_password_submitting": "در حال به‌روزرسانی…",
