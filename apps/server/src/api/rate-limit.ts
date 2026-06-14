@@ -59,8 +59,9 @@ const UNKNOWN_CLIENT_IP = "unknown";
  * runner. Returns the socket peer address, or undefined when unavailable.
  */
 function peerAddress(c: Context): string | undefined {
-  const env = c.env as { server?: unknown } | undefined;
-  const server = (env && "server" in env ? env.server : env) as
+  // Named honoEnv to avoid shadowing the module-level `env` (app config) import.
+  const honoEnv = c.env as { server?: unknown } | undefined;
+  const server = (honoEnv && "server" in honoEnv ? honoEnv.server : honoEnv) as
     | { requestIP?: (raw: Request) => { address?: string } | null }
     | undefined;
   if (typeof server?.requestIP !== "function") return undefined;

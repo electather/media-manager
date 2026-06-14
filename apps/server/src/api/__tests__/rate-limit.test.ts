@@ -170,6 +170,25 @@ describe("public per-IP rate limit", () => {
     ).toBe(200);
   });
 
+  it("the /config/public/* mount also covers the bare /config/public path", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 1 });
+    // Mirror router.ts exactly: the limiter is mounted on the prefix glob while
+    // the config app serves GET "/", so the real request path is the bare
+    // /config/public (no trailing segment). The 429 on the second hit proves the
+    // glob middleware fires on the bare path, not just on sub-paths.
+    const app = new Hono()
+      .use("*", requestContextMiddleware())
+      .use("/config/public/*", makeRateLimitMiddleware({ limiter, key: clientIp }))
+      .route(
+        "/config/public",
+        new Hono().get("/", (c) => c.json({ ok: true })),
+      )
+      .onError(errorHandler);
+    const fromIp = { headers: { "x-forwarded-for": "203.0.113.9" } };
+    expect((await app.request("/config/public", fromIp)).status).toBe(200);
+    expect((await app.request("/config/public", fromIp)).status).toBe(429);
+  });
+
   // Builds a fake context with an X-Forwarded-For header and a mocked socket
   // peer address (via the Bun-style c.env.server.requestIP).
   const ctx = (xff: string | undefined, peer = "10.9.8.7") =>
