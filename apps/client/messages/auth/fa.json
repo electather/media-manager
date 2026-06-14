@@ -33,6 +33,9 @@
   "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
   "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
   "auth_name_required": "نام الزامی است.",
+  "auth_register_invite_only_title": "فقط با دعوت",
+  "auth_register_invite_only_body": "حساب‌های جدید توسط مدیر ایجاد می‌شوند. از مدیر خود درخواست دعوت کنید، سپس وارد شوید.",
+  "auth_register_go_to_login": "رفتن به صفحه ورود",
   "auth_login_submit": [
     {
       "selectors": ["status"],

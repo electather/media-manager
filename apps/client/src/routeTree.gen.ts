@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as BootstrapRouteImport } from './routes/bootstrap'
 import { Route as OauthRouteRouteImport } from './routes/oauth/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -16,6 +17,7 @@ import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/_settings/route'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/_admin/route'
@@ -23,7 +25,6 @@ import { Route as AuthForgotPasswordIndexRouteImport } from './routes/auth/forgo
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/_app/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
 import { Route as AuthForgotPasswordSentRouteImport } from './routes/auth/forgot-password.sent'
-import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
 import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authenticated/_app/watchlist'
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app/notifications'
@@ -59,6 +60,11 @@ import { Route as AuthenticatedAdminAdminPluginsPluginIdRouteImport } from './ro
 import { Route as AuthenticatedAdminAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_admin/admin/notifications/settings'
 import { Route as AuthenticatedAdminAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_admin/admin/notifications/deliveries'
 
+const BootstrapRoute = BootstrapRouteImport.update({
+  id: '/bootstrap',
+  path: '/bootstrap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
   path: '/oauth',
@@ -93,6 +99,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/_settings',
@@ -126,12 +137,6 @@ const AuthForgotPasswordSentRoute = AuthForgotPasswordSentRouteImport.update({
   path: '/sent',
   getParentRoute: () => AuthForgotPasswordRoute,
 } as any)
-const AuthenticatedSettingsSetupRoute =
-  AuthenticatedSettingsSetupRouteImport.update({
-    id: '/setup',
-    path: '/setup',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
 const AuthenticatedSettingsOauthCallbackRoute =
   AuthenticatedSettingsOauthCallbackRouteImport.update({
     id: '/oauth-callback',
@@ -340,6 +345,8 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
+  '/bootstrap': typeof BootstrapRoute
+  '/setup': typeof AuthenticatedSetupRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -348,7 +355,6 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
-  '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
@@ -387,12 +393,13 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
+  '/bootstrap': typeof BootstrapRoute
+  '/setup': typeof AuthenticatedSetupRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
-  '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/auth/forgot-password': typeof AuthForgotPasswordIndexRoute
@@ -432,9 +439,11 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
+  '/bootstrap': typeof BootstrapRoute
   '/_authenticated/_admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/_settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -443,7 +452,6 @@ export interface FileRoutesById {
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
-  '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
@@ -485,6 +493,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/oauth'
+    | '/bootstrap'
+    | '/setup'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -493,7 +503,6 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/watchlist'
     | '/oauth-callback'
-    | '/setup'
     | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
     | '/auth/forgot-password/'
@@ -532,12 +541,13 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/oauth'
+    | '/bootstrap'
+    | '/setup'
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
     | '/notifications'
     | '/oauth-callback'
-    | '/setup'
     | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
     | '/auth/forgot-password'
@@ -576,9 +586,11 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/oauth'
+    | '/bootstrap'
     | '/_authenticated/_admin'
     | '/_authenticated/_app'
     | '/_authenticated/_settings'
+    | '/_authenticated/setup'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -587,7 +599,6 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/notifications'
     | '/_authenticated/_app/watchlist'
     | '/_authenticated/_settings/oauth-callback'
-    | '/_authenticated/_settings/setup'
     | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
@@ -628,10 +639,18 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   OauthRouteRoute: typeof OauthRouteRouteWithChildren
+  BootstrapRoute: typeof BootstrapRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/bootstrap': {
+      id: '/bootstrap'
+      path: '/bootstrap'
+      fullPath: '/bootstrap'
+      preLoaderRoute: typeof BootstrapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oauth': {
       id: '/oauth'
       path: '/oauth'
@@ -681,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_authenticated/setup': {
+      id: '/_authenticated/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof AuthenticatedSetupRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/_settings': {
       id: '/_authenticated/_settings'
       path: ''
@@ -729,13 +755,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/forgot-password/sent'
       preLoaderRoute: typeof AuthForgotPasswordSentRouteImport
       parentRoute: typeof AuthForgotPasswordRoute
-    }
-    '/_authenticated/_settings/setup': {
-      id: '/_authenticated/_settings/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof AuthenticatedSettingsSetupRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/_settings/oauth-callback': {
       id: '/_authenticated/_settings/oauth-callback'
@@ -1093,7 +1112,6 @@ const AuthenticatedAppRouteRouteWithChildren =
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsOauthCallbackRoute: typeof AuthenticatedSettingsOauthCallbackRoute
-  AuthenticatedSettingsSetupRoute: typeof AuthenticatedSettingsSetupRoute
   AuthenticatedSettingsSettingsAppsRoute: typeof AuthenticatedSettingsSettingsAppsRoute
   AuthenticatedSettingsSettingsConnectionsRoute: typeof AuthenticatedSettingsSettingsConnectionsRoute
   AuthenticatedSettingsSettingsDangerRoute: typeof AuthenticatedSettingsSettingsDangerRoute
@@ -1107,7 +1125,6 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
   {
     AuthenticatedSettingsOauthCallbackRoute:
       AuthenticatedSettingsOauthCallbackRoute,
-    AuthenticatedSettingsSetupRoute: AuthenticatedSettingsSetupRoute,
     AuthenticatedSettingsSettingsAppsRoute:
       AuthenticatedSettingsSettingsAppsRoute,
     AuthenticatedSettingsSettingsConnectionsRoute:
@@ -1133,12 +1150,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
   AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
   AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedSetupRoute: AuthenticatedSetupRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -1191,6 +1210,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   OauthRouteRoute: OauthRouteRouteWithChildren,
+  BootstrapRoute: BootstrapRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -7,7 +7,8 @@ import {
   sessionUserId,
   PERMISSIONS,
   SYSTEM_ADMIN_ROLE_SLUG,
-  auth,
+  createUser,
+  createUserWithRole,
 } from "../../auth";
 import { getDb } from "../../db/client";
 import {
@@ -141,10 +142,9 @@ export const adminUsersApp = new Hono()
     });
   })
 
-  /** Create a new user via Better Auth's sign-up flow. */
+  /** Create a new user with the direct-insert helper (sign-up is disabled). */
   .post("/", zValidator("json", createUserSchema), async (c) => {
     const { name, email, password, roleId } = c.req.valid("json");
-    const db = getDb();
 
     await requireUniqueEmail(email);
     if (roleId) {
@@ -154,14 +154,9 @@ export const adminUsersApp = new Hono()
       }
     }
 
-    const result = await auth.api.signUpEmail({
-      body: { name, email, password },
-    });
-    const newUserId = result.user.id;
-
-    if (roleId) {
-      await db.insert(userRoles).values({ userId: newUserId, roleId, assignedAt: Date.now() });
-    }
+    const { userId: newUserId } = roleId
+      ? await createUserWithRole({ name, email, password, roleId })
+      : await createUser({ name, email, password });
 
     return c.json({ userId: newUserId }, 201);
   })

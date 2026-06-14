@@ -10,6 +10,7 @@ import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
 import { ROW_ASPECT, estimateHomeRowHeight } from "../lib/home-feed-config";
 import type { HeroSlideUI, RowData } from "../lib/types";
+import { HomeEmpty } from "./home-empty";
 import { HomeFeedSkeleton } from "./home-feed-skeleton";
 import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
@@ -85,6 +86,12 @@ function HomeFeedReady() {
     [layout.hero],
   );
   const rows = useMemo<RowData[]>(() => layout.rows.map(toRowData), [layout.rows]);
+
+  // Fresh install: nothing to show until the catalog warms. Render the
+  // warming state; the layout query polls while empty (see homeLayoutQueryOptions).
+  if (heroSlides.length === 0 && rows.length === 0) {
+    return <HomeEmpty />;
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">

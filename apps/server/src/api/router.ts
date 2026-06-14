@@ -6,6 +6,8 @@ import { settingsApp } from "./procedures/settings";
 import { pluginsApp } from "./procedures/plugins";
 import { connectionsApp } from "./procedures/connections";
 import { configPublicApp } from "./procedures/config";
+import { bootstrapApp } from "./procedures/bootstrap";
+import { onboardingApp } from "./procedures/onboarding";
 import { publicTrendingApp } from "./procedures/public";
 import { diagnosticsApp, adminDiagnosticsApp } from "./procedures/diagnostics";
 import { adminJobsApp, userJobsApp } from "./procedures/jobs";
@@ -41,6 +43,7 @@ export const appRouter = new Hono()
   .route("/plugins", pluginsApp)
   .route("/connections", connectionsApp)
   .route("/config/public", configPublicApp)
+  .route("/bootstrap", bootstrapApp)
   .route("/public", publicTrendingApp)
   .route("/diagnostics", diagnosticsApp)
   .route("/admin/diagnostics", adminDiagnosticsApp)
@@ -48,6 +51,7 @@ export const appRouter = new Hono()
   .route("/admin/jobs", adminJobsApp)
   .route("/admin/users", adminUsersApp)
   .route("/me", meApp)
+  .route("/onboarding", onboardingApp)
   .route("/preferences", preferencesApp)
   .route("/notifications", notificationsApp)
   .route("/admin/notifications", adminNotificationsApp)

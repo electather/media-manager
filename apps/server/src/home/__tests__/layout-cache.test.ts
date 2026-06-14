@@ -12,7 +12,8 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-const { CURRENT_SCHEMA_VERSION, isFresh, read, write } = await import("../internal/layout-cache");
+const { CURRENT_SCHEMA_VERSION, isEmptyLayout, isFresh, read, write } =
+  await import("../internal/layout-cache");
 
 let db: Db;
 
@@ -40,7 +41,11 @@ describe("layout-cache", () => {
   });
 
   it("write upserts and read echoes the blob back", async () => {
-    const blob = layout(1_700_000_000_000);
+    const blob: HomeLayoutResponse = {
+      hero: { slides: [] },
+      rows: [],
+      generatedAt: 1_700_000_000_000,
+    };
     await write("u1", blob, db);
     const got = await read("u1", db);
     expect(got).not.toBeNull();
@@ -71,6 +76,25 @@ describe("layout-cache", () => {
           generatedAt: Date.now(),
         },
       });
+    expect(await read("u1", db)).toBeNull();
+  });
+
+  it("isEmptyLayout is true for a hero-less, row-less layout and false otherwise", () => {
+    expect(isEmptyLayout({ hero: null, rows: [], generatedAt: Date.now() })).toBe(true);
+    expect(isEmptyLayout({ hero: { slides: [] }, rows: [], generatedAt: Date.now() })).toBe(false);
+    expect(
+      isEmptyLayout({
+        hero: null,
+        rows: [{ id: "r1" } as unknown as HomeLayoutResponse["rows"][number]],
+        generatedAt: Date.now(),
+      }),
+    ).toBe(false);
+  });
+
+  // An empty cached layout is the cold-catalog state, not a stable result; it
+  // must never be served back so the feed self-heals once content exists.
+  it("read returns null when the stored blob is a fully-empty layout", async () => {
+    await write("u1", layout(1_700_000_000_001), db);
     expect(await read("u1", db)).toBeNull();
   });
 

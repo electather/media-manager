@@ -16,10 +16,30 @@ import {
 } from "./repo";
 import { currentRequestContext } from "../diagnostics/request-context";
 import { forbidden, unauthorized } from "../diagnostics/http-errors";
+import { createUser, createUserWithRole } from "./internal/create-user";
+import { claimBootstrap, ensureBootstrapToken, needsBootstrap } from "./internal/bootstrap";
+import { findUserOnboarded, setUserOnboarded } from "./repo";
 
 export { auth, type Auth };
 export { authRouteHandler };
 export { oauthAuthorizationServerHandler, oauthProtectedResourceHandler };
+
+// ─── First-install / onboarding surface ──────────────────────────────────────
+//
+// Re-exported through the service boundary; callers reach these via the auth
+// barrel. The user-table write for onboarding stays inside this module.
+export { createUser, createUserWithRole };
+export { claimBootstrap, ensureBootstrapToken, needsBootstrap };
+
+/** Marks `userId` as having completed onboarding. */
+export function markUserOnboarded(userId: string): Promise<void> {
+  return setUserOnboarded(userId);
+}
+
+/** Reads whether `userId` has completed onboarding. */
+export function isUserOnboarded(userId: string): Promise<boolean> {
+  return findUserOnboarded(userId);
+}
 
 function rowToRoleInfo(row: UserRoleRow): UserRoleInfo {
   return {

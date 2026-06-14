@@ -39,12 +39,14 @@ export interface RoleSummary {
 /**
  * Subset of server configuration safe to expose to unauthenticated clients.
  *
- * Returned by `GET /api/public-config`; the settings UI reads it to decide
+ * Returned by `GET /api/config/public`; the settings UI reads it to decide
  * whether email-dependent flows (password reset, email change verification)
  * should be shown.
  */
 export interface PublicConfig {
   emailEnabled: boolean;
+  /** True on a fresh install with zero users; the client funnels to /bootstrap. */
+  needsBootstrap: boolean;
   /**
    * Public-facing MCP endpoint URL (single mount; OAuth handles authn).
    * Built from `env.APP_EXTERNAL_URL` plus `/mcp`, falling back to the

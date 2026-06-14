@@ -30,6 +30,9 @@ async function bootstrap(): Promise<void> {
   // via `docker compose pull && docker compose up -d` get the schema applied
   // automatically.
   await runMigrations();
+  // On a fresh install (zero users) this issues a one-time setup token and
+  // prints the plaintext to the boot log; it is a no-op once any user exists.
+  await auth.ensureBootstrapToken();
   registerSink(new DatabaseSink());
 
   // Phase 2 boundaries: every domain module exposes registerJobs() via its

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "onboarding_bootstrap_heading": "سرور خود را راه‌اندازی کنید",
+  "onboarding_bootstrap_intro": "نخستین حساب مدیر را با استفاده از توکن راه‌اندازی که در کنسول سرور چاپ شده است بسازید.",
+  "onboarding_bootstrap_name_label": "نام",
+  "onboarding_bootstrap_email_label": "ایمیل",
+  "onboarding_bootstrap_password_label": "گذرواژه",
+  "onboarding_bootstrap_token_label": "توکن راه‌اندازی",
+  "onboarding_bootstrap_token_placeholder": "توکن را از کنسول سرور بچسبانید",
+  "onboarding_bootstrap_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ساخت مدیر…",
+        "status=*": "ساخت مدیر"
+      }
+    }
+  ],
+  "onboarding_bootstrap_name_required": "نام الزامی است.",
+  "onboarding_bootstrap_email_invalid": "یک ایمیل معتبر وارد کنید.",
+  "onboarding_bootstrap_password_too_short": "گذرواژه باید حداقل ۸ نویسه باشد.",
+  "onboarding_bootstrap_token_required": "توکن کامل راه‌اندازی را از کنسول سرور وارد کنید.",
+  "onboarding_bootstrap_invalid_token": "این توکن راه‌اندازی نامعتبر است. کنسول سرور را بررسی کنید و دوباره تلاش کنید.",
+  "onboarding_bootstrap_failed": "ساخت حساب مدیر ممکن نشد. لطفاً دوباره تلاش کنید.",
+  "onboarding_bootstrap_already_done_title": "پیش‌تر راه‌اندازی شده",
+  "onboarding_bootstrap_already_done_body": "این سرور هم‌اکنون یک حساب مدیر دارد.",
+  "onboarding_bootstrap_go_to_login": "رفتن به ورود",
+  "onboarding_wizard_title": "به nama خوش آمدید",
+  "onboarding_wizard_subtitle": "چند گام تا آماده‌شدن سرور شما.",
+  "onboarding_wizard_finish": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال اتمام…",
+        "status=*": "پایان راه‌اندازی"
+      }
+    }
+  ],
+  "onboarding_wizard_back": "بازگشت",
+  "onboarding_wizard_next": "بعدی",
+  "onboarding_wizard_finish_blocked": "پیش از پایان، گام‌های الزامی را کامل کنید.",
+  "onboarding_wizard_complete_failed": "اتمام راه‌اندازی ممکن نشد. لطفاً دوباره تلاش کنید.",
+  "onboarding_step_welcome_title": "خوش‌آمدگویی",
+  "onboarding_step_connect_services_title": "اتصال سرویس‌ها",
+  "onboarding_welcome_heading": "به nama خوش آمدید",
+  "onboarding_welcome_intro": "nama خانهٔ خودمیزبانِ شما برای کشف، پیگیری و درخواست فیلم و سریال است.",
+  "onboarding_welcome_mcp_heading": "ساخته‌شده برای کلاینت‌های هوش مصنوعی",
+  "onboarding_welcome_mcp_body": "nama یک نقطهٔ پایانی پروتکل زمینهٔ مدل (MCP) ارائه می‌دهد تا دستیارهایی مانند Claude و Cursor بتوانند از طرف شما کتابخانه‌تان را مرور و مدیریت کنند.",
+  "onboarding_connect_required_title": "تأمین‌کنندهٔ فراداده",
+  "onboarding_connect_required_description": "TMDB هر عنوان، پوستر و جزئیات را در nama تأمین می‌کند. برای ادامه یک کلید API اضافه کنید.",
+  "onboarding_connect_optional_title": "اتصال‌های شخصی",
+  "onboarding_connect_optional_description": "سرورهای رسانه و سرویس‌های پیگیری خود را پیوند دهید. همیشه می‌توانید بعداً این کار را از تنظیمات انجام دهید.",
+  "onboarding_connect_optional_connect": "اتصال",
+  "onboarding_connect_optional_empty": "سرویسی برای اتصال در دسترس نیست.",
+  "onboarding_tmdb_label": "کلید API مربوط به TMDB",
+  "onboarding_tmdb_placeholder": "کلید API مربوط به TMDB شما",
+  "onboarding_tmdb_why": "الزامی: nama برای همهٔ تصاویر و فراداده از TMDB استفاده می‌کند.",
+  "onboarding_tmdb_get_key": "دریافت کلید API مربوط به TMDB",
+  "onboarding_tmdb_test": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال آزمایش…",
+        "status=*": "آزمایش کلید"
+      }
+    }
+  ],
+  "onboarding_tmdb_save": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ذخیره…",
+        "status=*": "ذخیرهٔ کلید"
+      }
+    }
+  ],
+  "onboarding_tmdb_test_ok": "کلید کار می‌کند.",
+  "onboarding_tmdb_test_failed": "این کلید کار نکرد. آن را بررسی کنید و دوباره تلاش کنید.",
+  "onboarding_tmdb_save_failed": "ذخیرهٔ کلید ممکن نشد. لطفاً دوباره تلاش کنید.",
+  "onboarding_tmdb_saved": "کلید TMDB ذخیره شد."
+}

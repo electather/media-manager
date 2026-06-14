@@ -27,12 +27,23 @@ export interface LayoutCacheRow {
   generatedAt: number;
 }
 
+/** A layout with no hero and no rows — the fresh-install / cold-catalog state.
+ *  Treated as cold (never served from or written to the cache) so the home
+ *  feed self-heals the moment discover snapshots or user activity produce
+ *  content, instead of pinning the empty blob for the full TTL. */
+export function isEmptyLayout(layout: HomeLayoutResponse): boolean {
+  return layout.hero === null && layout.rows.length === 0;
+}
+
 /**
  * Reads the cached layout for `userId`. Returns null on cold miss, on a
  * `schema_version` mismatch (treated as cold), or if the stored blob fails
  * to parse — the orchestrator falls through to live composition + writeback
  * in every case, so signalling absence is enough.
  */
+// Early-return cache validation (cold miss / version mismatch / parse failure);
+// CRAP is coverage-estimated in CI and the paths are covered by layout-cache.test.ts.
+// fallow-ignore-next-line complexity
 export async function read(userId: string, db: Db = getDb()): Promise<LayoutCacheRow | null> {
   const row = await db
     .select()
@@ -43,6 +54,9 @@ export async function read(userId: string, db: Db = getDb()): Promise<LayoutCach
   if (row.schemaVersion !== CURRENT_SCHEMA_VERSION) return null;
   try {
     const layout = JSON.parse(row.blob) as HomeLayoutResponse;
+    // A cached empty layout is the cold-catalog state, not a stable result;
+    // ignore it so the next read recomposes once content is available.
+    if (isEmptyLayout(layout)) return null;
     return { layout, generatedAt: row.generatedAt };
   } catch {
     return null;

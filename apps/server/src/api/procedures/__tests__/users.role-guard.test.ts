@@ -15,7 +15,6 @@ vi.mock("../../../env", () => ({
 
 let db: Db;
 let mockUserId: string | null = "acting-admin";
-const mockSignUpEmail = vi.fn();
 
 vi.mock("../../../db/client", () => ({
   getDb: () => db,
@@ -24,6 +23,11 @@ vi.mock("../../../db/client", () => ({
 vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { PERMISSIONS } = await import("@nama/shared/auth");
+  // The handler now creates users via the direct-insert helpers (sign-up is
+  // disabled). Delegate to the REAL helpers — they need only getDb() (mocked to
+  // the in-memory db above) and the schema, not the betterAuth instance — so the
+  // test exercises the actual user + account + user_roles writes.
+  const { createUser, createUserWithRole } = await import("../../../auth/internal/create-user");
   return {
     requireSession: async (c: any, next: any) => {
       if (!mockUserId) throw unauthorized();
@@ -40,11 +44,8 @@ vi.mock("../../../auth", async () => {
     },
     PERMISSIONS,
     SYSTEM_ADMIN_ROLE_SLUG: "admin",
-    auth: {
-      api: {
-        signUpEmail: (...args: any[]) => mockSignUpEmail(...args),
-      },
-    },
+    createUser,
+    createUserWithRole,
   };
 });
 
@@ -92,15 +93,6 @@ async function seedBaseData() {
 beforeEach(async () => {
   db = await createInMemoryDb();
   mockUserId = ACTING_ADMIN_ID;
-  // Simulate better-auth's sign-up by inserting the user into the DB so the
-  // subsequent userRoles FK insert doesn't fail.
-  mockSignUpEmail.mockImplementation(
-    async ({ body }: { body: { name: string; email: string } }) => {
-      const newId = "newly-created-id";
-      await db.insert(user).values({ id: newId, name: body.name, email: body.email });
-      return { user: { id: newId } };
-    },
-  );
 });
 
 afterAll(() => cleanupInMemoryDbs());
@@ -187,7 +179,13 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
     expect(res.status).toBe(403);
     const body = (await res.json()) as { code: string };
     expect(body.code).toBe("users.system_role");
-    expect(mockSignUpEmail).not.toHaveBeenCalled();
+    // The guard rejects before any insert, so no user row is created.
+    const created = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, "new@example.com"))
+      .get();
+    expect(created).toBeUndefined();
   });
 
   it("returns 201 and assigns the role when creating a user with a non-Admin role", async () => {
@@ -203,12 +201,13 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
     });
 
     expect(res.status).toBe(201);
-    expect(mockSignUpEmail).toHaveBeenCalledOnce();
+    const { userId: newUserId } = (await res.json()) as { userId: string };
 
+    // The direct-insert helper created the user and assigned the member role.
     const assigned = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, "newly-created-id"))
+      .where(eq(userRoles.userId, newUserId))
       .get();
     expect(assigned?.roleId).toBe(MEMBER_ROLE_ID);
   });

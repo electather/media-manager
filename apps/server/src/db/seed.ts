@@ -2,10 +2,10 @@ import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "./client";
 import { user } from "./schema/auth";
-import { roles, rolePermissions, userRoles } from "./schema/auth/roles";
+import { roles, rolePermissions } from "./schema/auth/roles";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
-import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ADMIN_ROLE_SLUG, auth } from "../auth";
+import { ALL_PERMISSIONS, PERMISSIONS, SYSTEM_ADMIN_ROLE_SLUG, createUserWithRole } from "../auth";
 
 /** Built-in roles seeded on first run. Permissions for Admin are enforced in code, not DB. */
 const SYSTEM_ROLES = [
@@ -88,21 +88,15 @@ export async function seedDevUser(): Promise<void> {
     .where(eq(user.email, "admin@me.com"))
     .get();
 
-  let userId: string;
+  if (existing) return;
 
-  if (existing) {
-    userId = existing.id;
-  } else {
-    const result = await auth.api.signUpEmail({
-      body: { email: "admin@me.com", password: "password123", name: "Admin" },
-    });
-    userId = result.user.id;
-    consola.success("Dev admin user created: admin@me.com / password123");
-  }
-
-  // Assign admin role, no-op if already assigned.
-  await db
-    .insert(userRoles)
-    .values({ userId, roleId: "role_admin", assignedAt: Date.now() })
-    .onConflictDoNothing();
+  // createUserWithRole assigns role_admin inside the same transaction, so no
+  // separate role upsert is needed.
+  await createUserWithRole({
+    email: "admin@me.com",
+    password: "password123",
+    name: "Admin",
+    roleId: "role_admin",
+  });
+  consola.success("Dev admin user created: admin@me.com / password123");
 }

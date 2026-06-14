@@ -1,7 +1,7 @@
 # First-Install Admin Onboarding — Design
 
 - **Date:** 2026-06-14
-- **Status:** Draft (awaiting review)
+- **Status:** Implemented (see [Implementation notes](#implementation-notes-as-built))
 - **Related:**
   - `docs/2026-05-20-client-authorization-design.md` (route guards, permissions)
   - `docs/2026-04-22-frontend-plugin-connections-design.md` (connections UI)
@@ -516,3 +516,80 @@ extension points for these.
 - This spec.
 - Changeset: `@nama/server` minor + `@nama/client` minor (new end-user feature).
 - Follow-up issue for deferred work.
+
+## Implementation notes (as built)
+
+Refinements made during implementation, all consistent with the design's intent:
+
+- **One creation primitive, three callers.** `auth/internal/create-user.ts`
+  exports a transaction-aware `insertCredentialUserTx(tx, { email, password,
+  name, roleId?, emailVerified? })` that writes the `user` + credential `account`
+  (+ optional `user_roles`) rows. `createUserWithRole`/`createUser` wrap it in
+  their own transaction, and `claimBootstrap` calls it inside its
+  zero-users-asserting transaction — so the better-auth credential account shape
+  lives in exactly one place (resolves review note on the inlined third copy).
+  The admin user-creation endpoint (`POST /api/admin/users`) still uses the role
+  path when a `roleId` is supplied and the no-role path when omitted, preserving
+  its prior semantics under `disableSignUp`.
+- **Bootstrap service surface.** Token issuance/verification/consumption lives in
+  `auth/internal/bootstrap.ts` (`needsBootstrap`, `ensureBootstrapToken`,
+  `claimBootstrap`) and is exposed through `auth/service.ts` → the `auth` barrel
+  (the adapter never imports `internal/`). `claimBootstrap` asserts zero users,
+  verifies the token (cheap hash check **before** the expensive scrypt password
+  hash, so a bad token never pays the scrypt cost), creates the admin via
+  `insertCredentialUserTx`, and consumes the token — all in one transaction.
+- **Bootstrap hardening (review-driven).** Token verification additionally
+  requires `consumedAt === null`, so a spent token from the boot log can never be
+  replayed even if every user row were later deleted (defense-in-depth behind the
+  zero-users gate). The bootstrap admin is created `emailVerified: true` — reading
+  the console token proves control of the server. After a successful claim the
+  client invalidates the cached `public-config` query so the now-`false`
+  `needsBootstrap` is refetched, otherwise the immortal `staleTime` would bounce
+  the new admin back to `/bootstrap` until a full reload.
+- **Token re-issue on restart.** Because only the SHA-256 hash is stored, the
+  plaintext is unrecoverable after a process restart. So on a restart with a
+  stale non-consumed row, `ensureBootstrapToken` mints a **fresh** token and
+  overwrites the stored hash (the previously printed token stops working). This
+  satisfies the "recover the token from the boot log" goal against hash-only
+  storage rather than literally re-printing the same token.
+- **`hasOnboarded` read.** `GET /api/onboarding/state` reads the flag via a small
+  `auth` barrel accessor `isUserOnboarded(userId)` rather than the Hono context
+  session, because the context session is not typed with the additional field.
+  The flag is still flipped only by the server-authoritative `markUserOnboarded`.
+- **`customSession` inference.** The Better Auth config was restructured to the
+  options-extraction pattern (`const options = {...} satisfies BetterAuthOptions`;
+  `customSession(fn, options)`) so `session.user.hasOnboarded` is typed.
+- **Guards fail open.** The `__root` and `/bootstrap` guards swallow a
+  public-config fetch error (treating it as "do not funnel") so a transient
+  backend outage degrades gracefully, matching the existing `/auth` and
+  `/_authenticated` guards instead of blanking every route.
+- **Shared validation.** The `/bootstrap` form validates with the shared
+  `bootstrapClaimSchema` (via its per-field `.shape`) through TanStack Form's
+  Standard Schema support — the same schema the server validates with, no
+  hand-written validators. The `token` field enforces the exact issued shape
+  (43 base64url chars) so typos and truncated copies are rejected client-side
+  before the round-trip.
+- **Auth shell reuse.** The bootstrap page reuses the existing auth visual shell
+  via a new `AuthShell` component extracted from `AuthLayout` (a pure refactor),
+  so `/bootstrap` is a visual sibling of `/auth/login`.
+- **Warm the home feed on completion.** Completing onboarding now
+  fire-and-forget triggers the `host.catalog.discover_snapshot` job so trending
+  and new-release content lands within seconds instead of waiting for the next
+  scheduled run. The warm never fails completion. The client renders a brief
+  warming empty state and polls until the home feed has content, backing off
+  5s → 10s → 20s → cap 30s so a cold TMDB cache does not get hammered.
+- **Architecture boundaries.** The new `features/onboarding/` client feature and
+  `db/schema/app/` server schema namespace are registered as their own fallow
+  zones (`client-feat-onboarding`, `server-schema-app`) with allow-rules matching
+  the deps they actually use (auth/connections/settings-connections + shared on
+  the client; auth-internal → schema-app on the server), so the boundary gate
+  passes the same way every other feature/schema does.
+- **Cleanup.** `.github/workflows/create-user.yml` did not exist; the only
+  `create-user` script reference (`db:create-user`) lived in the root
+  `package.json` and was removed alongside deleting `db/create-user.ts`.
+
+Verified end-to-end in a browser against a fresh zero-user install: boot token
+banner → `/bootstrap` funnel → token claim (admin + `role_admin` created, token
+consumed) → session → `/setup` wizard → welcome + connect-services steps with
+Finish disabled until TMDB is configured. Plus `vp check` clean, the fallow
+boundary/quality gate green, and `vp test` green (2814 tests).

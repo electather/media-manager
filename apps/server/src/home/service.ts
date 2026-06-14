@@ -58,7 +58,10 @@ export async function composeLayout(
   }
 
   const blob = await composeLayoutLive(ctx);
-  if (!opts.skipWriteback) {
+  // Empty layouts are the cold-catalog state, not a stable result; skipping the
+  // writeback lets the feed self-heal once content exists instead of pinning the
+  // empty blob for the full TTL.
+  if (!opts.skipWriteback && !layoutCache.isEmptyLayout(blob)) {
     void layoutCache
       .write(ctx.userId, blob)
       .catch((err) => ctx.logger.warn("[home:layout-cache] write failed", err));

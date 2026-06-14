@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db/client";
+import { user } from "../db/schema/auth";
 import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import { SYSTEM_ADMIN_ROLE_SLUG, type Permission } from "./types";
 import { ALL_PERMISSIONS } from "@nama/shared/auth";
@@ -8,6 +9,26 @@ export interface UserRoleRow {
   roleId: string;
   /** Stable identifier for built-in roles; `null` for user-created roles. */
   systemSlug: string | null;
+}
+
+/** Marks `userId` as having completed onboarding. */
+export async function setUserOnboarded(userId: string): Promise<void> {
+  const db = getDb();
+  await db.update(user).set({ hasOnboarded: true }).where(eq(user.id, userId));
+}
+
+/** Returns whether `userId` has completed onboarding; `false` if not found. */
+// A trivial select-one-column-by-id; it coincidentally matches other repos' read
+// shape, but extracting a shared helper would couple unrelated tables.
+// fallow-ignore-next-line code-duplication
+export async function findUserOnboarded(userId: string): Promise<boolean> {
+  const db = getDb();
+  const row = await db
+    .select({ hasOnboarded: user.hasOnboarded })
+    .from(user)
+    .where(eq(user.id, userId))
+    .get();
+  return row?.hasOnboarded ?? false;
 }
 
 /** Returns the role row for `userId`, or `null` when no role is assigned. */
