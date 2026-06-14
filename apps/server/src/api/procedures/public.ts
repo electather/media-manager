@@ -38,15 +38,23 @@ export const publicTrendingApp = new Hono().get(
   zValidator("query", trendingQuerySchema),
   async (c) => {
     const { limit } = c.req.valid("query");
-    const catalog = getCatalogService();
-    const metas = await catalog.getTrendingMetadata(limit);
-    const posters = metas
-      .filter((m): m is CanonicalMetadata & { posterUrl: string } => Boolean(m.posterUrl))
-      .map((m) => ({
-        id: `${m.mediaType}:${m.tmdbId}`,
-        title: m.title,
-        poster: m.posterUrl,
-      }));
+    // The grid is decorative, so honor the design contract: on any catalog
+    // failure — including a DB error, not just an empty snapshot — return an
+    // empty list with 200 rather than a 500, and let the client fall back to
+    // placeholders. The login form never gates on this request either way.
+    let posters: { id: string; title: string; poster: string }[] = [];
+    try {
+      const metas = await getCatalogService().getTrendingMetadata(limit);
+      posters = metas
+        .filter((m): m is CanonicalMetadata & { posterUrl: string } => Boolean(m.posterUrl))
+        .map((m) => ({
+          id: `${m.mediaType}:${m.tmdbId}`,
+          title: m.title,
+          poster: m.posterUrl,
+        }));
+    } catch {
+      // A decorative public endpoint degrades to placeholders rather than 500ing.
+    }
     return c.json({ posters }, 200, {
       "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
     });

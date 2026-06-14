@@ -133,6 +133,15 @@ describe("public/trending API", () => {
     expect(await res.json()).toEqual({ posters: [] });
   });
 
+  it("returns 200 with an empty list when the catalog read throws", async () => {
+    // Design contract: a decorative public endpoint degrades gracefully rather
+    // than 500ing if the catalog/DB is unavailable.
+    getTrendingMetadata.mockRejectedValueOnce(new Error("db down"));
+    const res = await buildApp().request("/public/trending");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ posters: [] });
+  });
+
   it("exposes only /trending — sibling/auth paths are not reachable", async () => {
     const res = await buildApp().request("/public/discover");
     expect(res.status).toBe(404);
