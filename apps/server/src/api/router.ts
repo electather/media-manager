@@ -25,6 +25,7 @@ import {
   errorHandler,
   httpPerfMiddleware,
 } from "../diagnostics/middleware";
+import { publicIpRateLimit } from "./rate-limit";
 
 /** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client.
  *  `requestContextMiddleware` sets up the per-request correlation id and ALS
@@ -36,6 +37,13 @@ export type { Auth } from "../auth";
 export const appRouter = new Hono()
   .use("*", requestContextMiddleware())
   .use("*", httpPerfMiddleware())
+  // Public (session-less) groups get a per-IP limiter; every other group is
+  // session-authed and carries its own per-user limits where needed. This runs
+  // after the global request-context/perf middleware and is keyed by client IP,
+  // not the session (which throws on these routes).
+  .use("/config/public/*", publicIpRateLimit)
+  .use("/bootstrap/*", publicIpRateLimit)
+  .use("/public/*", publicIpRateLimit)
   .route("/discover", discoverApp)
   .route("/activity", activityApp)
   .route("/requests", requestsApp)

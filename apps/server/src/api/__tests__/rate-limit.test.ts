@@ -12,6 +12,10 @@ vi.mock("../../env", () => ({
     BETTER_AUTH_SECRET: "x".repeat(32),
     BETTER_AUTH_URL: "http://localhost",
     APP_EXTERNAL_URL: "http://localhost",
+    // Treat the test as running behind a trusted proxy so the X-Forwarded-For
+    // keying paths below are exercised; the no-trust path is covered explicitly
+    // via resolveClientIp(c, false).
+    TRUST_PROXY: true,
   },
 }));
 
@@ -31,7 +35,7 @@ vi.mock("../../auth", () => ({
   },
 }));
 
-const { makeRateLimitMiddleware } = await import("../rate-limit");
+const { makeRateLimitMiddleware, clientIp, resolveClientIp } = await import("../rate-limit");
 const { TokenBucketLimiter } = await import("../../mcp/rate-limit");
 const { requireSession } = await import("../../auth");
 
@@ -112,5 +116,103 @@ describe("makeRateLimitMiddleware", () => {
     expect((await app.request("/thing")).status).toBe(200);
     mockUserId = "b";
     expect((await app.request("/thing")).status).toBe(429);
+  });
+});
+
+/** Mirrors how the public groups are mounted in `router.ts`: no `requireSession`,
+ *  the IP-keyed limiter guards a session-less handler. Each test builds its own
+ *  limiter so buckets never bleed across cases. */
+function buildPublicApp(middleware: ReturnType<typeof makeRateLimitMiddleware>) {
+  return new Hono()
+    .use("*", requestContextMiddleware())
+    .use("*", middleware)
+    .get("/trending", (c) => {
+      handler();
+      return c.json({ posters: [] });
+    })
+    .onError(errorHandler);
+}
+
+describe("public per-IP rate limit", () => {
+  it("returns 429 once the bucket is exhausted for a given IP", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 2, refillPerSec: 0 });
+    const app = buildPublicApp(makeRateLimitMiddleware({ limiter, key: clientIp }));
+    const fromIp = { headers: { "x-forwarded-for": "203.0.113.7" } };
+
+    // The capacity-2 bucket clears the first two reads, then rejects the third
+    // before it reaches the handler.
+    expect((await app.request("/trending", fromIp)).status).toBe(200);
+    expect((await app.request("/trending", fromIp)).status).toBe(200);
+
+    const limited = await app.request("/trending", fromIp);
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
+    expect(((await limited.json()) as { code: string }).code).toBe("mcp.rate_limited");
+    // Only the two allowed reads reached the handler; the throttled one did not.
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it("buckets each client IP independently", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 0 });
+    const app = buildPublicApp(makeRateLimitMiddleware({ limiter, key: clientIp }));
+
+    // One IP drains its own single-token bucket...
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.1" } })).status,
+    ).toBe(200);
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.1" } })).status,
+    ).toBe(429);
+
+    // ...while a different IP is unaffected.
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.2" } })).status,
+    ).toBe(200);
+  });
+
+  it("the /config/public/* mount also covers the bare /config/public path", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 1 });
+    // Mirror router.ts exactly: the limiter is mounted on the prefix glob while
+    // the config app serves GET "/", so the real request path is the bare
+    // /config/public (no trailing segment). The 429 on the second hit proves the
+    // glob middleware fires on the bare path, not just on sub-paths.
+    const app = new Hono()
+      .use("*", requestContextMiddleware())
+      .use("/config/public/*", makeRateLimitMiddleware({ limiter, key: clientIp }))
+      .route(
+        "/config/public",
+        new Hono().get("/", (c) => c.json({ ok: true })),
+      )
+      .onError(errorHandler);
+    const fromIp = { headers: { "x-forwarded-for": "203.0.113.9" } };
+    expect((await app.request("/config/public", fromIp)).status).toBe(200);
+    expect((await app.request("/config/public", fromIp)).status).toBe(429);
+  });
+
+  // Builds a fake context with an X-Forwarded-For header and a mocked socket
+  // peer address (via the Bun-style c.env.server.requestIP).
+  const ctx = (xff: string | undefined, peer = "10.9.8.7") =>
+    ({
+      req: {
+        header: (name: string) => (name === "x-forwarded-for" ? xff : undefined),
+        raw: {},
+      },
+      env: { server: { requestIP: () => ({ address: peer }) } },
+    }) as unknown as Parameters<typeof resolveClientIp>[0];
+
+  it("keys on the first x-forwarded-for hop when the proxy is trusted", () => {
+    // A proxy appends downstream hops; the leftmost entry is the original client.
+    expect(resolveClientIp(ctx("1.2.3.4, 10.0.0.1"), true)).toBe("1.2.3.4");
+    // clientIp() reads env.TRUST_PROXY, which the mock sets true.
+    expect(clientIp(ctx("1.2.3.4, 10.0.0.1"))).toBe("1.2.3.4");
+  });
+
+  it("ignores a forged x-forwarded-for when the proxy is not trusted", () => {
+    // Direct exposure: the header is attacker-controlled, so key on the peer.
+    expect(resolveClientIp(ctx("1.2.3.4"), false)).toBe("10.9.8.7");
+  });
+
+  it("falls back to the socket peer address when there is no x-forwarded-for", () => {
+    expect(resolveClientIp(ctx(undefined), true)).toBe("10.9.8.7");
   });
 });

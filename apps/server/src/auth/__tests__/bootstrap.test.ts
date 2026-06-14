@@ -20,6 +20,20 @@ vi.mock("../../db/client", () => ({
   getDb: () => db,
 }));
 
+// Spy on the scrypt password hasher while keeping the real implementation, so
+// `claimBootstrap` still writes a genuine hash on the happy path AND we can
+// assert it is never reached on the cheap reject paths. #577's ordering — verify
+// the token (and zero-users) BEFORE hashing — is the load-bearing property: a
+// bad token or an already-set-up server must never pay the scrypt cost, so this
+// spy is the regression guard against a future reorder.
+vi.mock("better-auth/crypto", async () => {
+  const actual = await vi.importActual<typeof import("better-auth/crypto")>("better-auth/crypto");
+  return { ...actual, hashPassword: vi.fn(actual.hashPassword) };
+});
+
+import { hashPassword } from "better-auth/crypto";
+const hashPasswordSpy = vi.mocked(hashPassword);
+
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,
@@ -75,6 +89,9 @@ beforeEach(async () => {
   // The in-memory token survives between tests in the same process; reset it so
   // each `ensureBootstrapToken` test starts from a clean issue state.
   resetBootstrapTokenForTest();
+  // Clear call history (keeps the real-delegating implementation) so each test
+  // asserts hashing calls made by that test alone.
+  hashPasswordSpy.mockClear();
 });
 
 afterAll(() => cleanupInMemoryDbs());
@@ -216,6 +233,11 @@ describe("claimBootstrap", () => {
 
     const perms = await loadUserPermissions(userId);
     expect(perms.sort()).toEqual([...ALL_PERMISSIONS].sort());
+
+    // The happy path is the ONLY path that pays the scrypt cost — and exactly
+    // once. The reject-path tests below assert it is never reached, so together
+    // they pin #577's "verify before hash" ordering.
+    expect(hashPasswordSpy).toHaveBeenCalledTimes(1);
   });
 
   // The in-transaction zero-users assertion is the core safety property: setup
@@ -240,6 +262,9 @@ describe("claimBootstrap", () => {
     expect(await db.select().from(user).all()).toHaveLength(1);
     expect(await db.select().from(account).all()).toHaveLength(0);
     expect(await db.select().from(userRoles).all()).toHaveLength(0);
+    // #577: the zero-users assertion runs before any hashing, so an
+    // already-set-up server never pays the scrypt cost on a re-run attempt.
+    expect(hashPasswordSpy).not.toHaveBeenCalled();
   });
 
   // The token must actually gate admin creation: a wrong token creates nothing,
@@ -260,6 +285,9 @@ describe("claimBootstrap", () => {
     expect(await db.select().from(user).all()).toHaveLength(0);
     expect(await db.select().from(account).all()).toHaveLength(0);
     expect(await db.select().from(userRoles).all()).toHaveLength(0);
+    // #577: the token hash is verified (cheap, timing-safe) before any password
+    // hashing, so a wrong token never pays the scrypt cost.
+    expect(hashPasswordSpy).not.toHaveBeenCalled();
     // The token row stays unconsumed so the operator can retry with the real one.
     const row = await db
       .select({ consumedAt: appBootstrap.consumedAt })
