@@ -39,6 +39,8 @@ export const Route = createFileRoute("/_authenticated/_app/notifications")({
       initialPageParam: null as string | null,
       getNextPageParam: (last: { nextCursor?: string }) =>
         typeof last.nextCursor === "string" ? last.nextCursor : null,
+      // Live inbox; polling does not invalidate on receive, so re-warm on navigation.
+      staleTime: 0,
     });
   },
   pendingComponent: InboxSkeleton,

@@ -29,6 +29,8 @@ function AdminDiagnosticsPage() {
     queryKey: diagnosticsKeys.errors.summary(),
     queryFn: fetchErrorSummary,
     refetchInterval: 60_000,
+    // Shorter than the 60s default to match the live errors header (shares the
+    // same summary cache key) — a monitoring view, so it stays under the poll.
     staleTime: 30_000,
   });
   const errorCount = summary.data?.hourlyBuckets.reduce((acc, b) => acc + b.error, 0) ?? 0;

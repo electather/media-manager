@@ -73,6 +73,23 @@ export async function checkRolePermission(
   return !!row;
 }
 
+/** Returns `true` when `roleId` holds at least one of `permissions`. */
+export async function roleHasAnyPermission(
+  roleId: string,
+  permissions: readonly Permission[],
+): Promise<boolean> {
+  if (permissions.length === 0) return false;
+  const db = getDb();
+  const row = await db
+    .select({ permission: rolePermissions.permission })
+    .from(rolePermissions)
+    .where(
+      and(eq(rolePermissions.roleId, roleId), inArray(rolePermissions.permission, permissions)),
+    )
+    .get();
+  return !!row;
+}
+
 // Shared query: rolePermissions ⟶ userRoles, filtered by permission + optional user-set condition.
 // Avoids duplicating the join across listUsersWithPermission and filterUsersWithPermission.
 async function selectUsersByPermission(

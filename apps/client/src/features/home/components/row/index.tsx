@@ -26,6 +26,9 @@ import { RowError, RowErrorInlineCard } from "./row-error";
 
 const SKELETON_COUNT = 5;
 const PREFETCH_OFFSET = 4;
+// Longer than the 60s default: home rows are server-warmed feeds that shift
+// slowly, so a 5-min window matches the layout cache and avoids refetching
+// every row when the feed is briefly remounted.
 const ROW_STALE_MS = 5 * 60 * 1000;
 
 interface RowProps {

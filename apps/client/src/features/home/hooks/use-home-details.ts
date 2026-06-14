@@ -4,6 +4,8 @@ import { mediaKeys } from "@/shared/media/query-keys";
 import { fetchHomeDetails } from "../lib/fetchers";
 import { findCachedMediaItem } from "../lib/find-cached-item";
 
+// Longer than the 60s default: title metadata extras barely change within a
+// session, so a 10-min window keeps reopening the same detail modal instant.
 const DETAILS_STALE_MS = 10 * 60 * 1000;
 
 /**

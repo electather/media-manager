@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { requestsApi } from "./client";
 import { requestFlowKeys } from "./query-keys";
 
+// Shorter than the 60s default: this enriches list rows with the caller's live
+// request status, so it should reflect a just-placed request promptly.
 const HISTORY_STALE_MS = 30_000;
 
 /**
