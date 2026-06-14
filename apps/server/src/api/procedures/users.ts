@@ -7,6 +7,7 @@ import {
   sessionUserId,
   PERMISSIONS,
   SYSTEM_ADMIN_ROLE_SLUG,
+  roleHasAdminTierPermission,
   createUser,
   createUserWithRole,
 } from "../../auth";
@@ -58,6 +59,31 @@ async function requireRole(roleId: string): Promise<{ id: string; systemSlug: st
     throw badRequest("users.role_not_found", `role ${roleId} does not exist`, { roleId });
   }
   return roleExists;
+}
+
+/**
+ * Resolves `roleId` and rejects when it is admin-equivalent — either the system
+ * Admin slug or any role holding an admin-tier permission (any `admin:*`
+ * permission in `ADMIN_PERMISSIONS`: users, roles, server, requests, plugins,
+ * jobs). Guards on capability, not slug, so a custom role that grants admin
+ * power cannot be handed out through these endpoints (issue #576).
+ *
+ * Capability is resolved through the auth service barrel; the role's permission
+ * set stays behind the auth/repo boundary.
+ */
+async function requireAssignableRole(roleId: string): Promise<void> {
+  const role = await requireRole(roleId);
+  // The slug case keeps its own code so the long-standing "system role" message
+  // and its test stay intact; the capability case is reported distinctly.
+  if (role.systemSlug === SYSTEM_ADMIN_ROLE_SLUG) {
+    throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
+  }
+  if (await roleHasAdminTierPermission(role.id, role.systemSlug)) {
+    throw forbidden(
+      "users.admin_role",
+      "Roles granting admin-tier permissions cannot be assigned via this endpoint",
+    );
+  }
 }
 
 async function requireUniqueEmail(email: string, excludeUserId?: string) {
@@ -148,10 +174,7 @@ export const adminUsersApp = new Hono()
 
     await requireUniqueEmail(email);
     if (roleId) {
-      const role = await requireRole(roleId);
-      if (role.systemSlug === SYSTEM_ADMIN_ROLE_SLUG) {
-        throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
-      }
+      await requireAssignableRole(roleId);
     }
 
     const { userId: newUserId } = roleId
@@ -196,11 +219,7 @@ export const adminUsersApp = new Hono()
     const db = getDb();
 
     await requireUser(id);
-    const role = await requireRole(roleId);
-
-    if (role.systemSlug === SYSTEM_ADMIN_ROLE_SLUG) {
-      throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
-    }
+    await requireAssignableRole(roleId);
 
     await db
       .insert(userRoles)
