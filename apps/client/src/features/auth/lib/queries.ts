@@ -14,4 +14,7 @@ export const trendingPostersQueryOptions = (limit: number) =>
     queryKey: authKeys.trendingPosters(limit),
     queryFn: () => fetchTrendingPosters(limit),
     staleTime: TRENDING_STALE_MS,
+    // Decorative background art with a placeholder fallback, so a slow or failing
+    // feed never matters — one retry is plenty, rather than ~30s of default retries.
+    retry: 1,
   });
