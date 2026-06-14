@@ -6,12 +6,18 @@ import {
   oauthAuthorizationServerHandler,
   oauthProtectedResourceHandler,
 } from "./internal/oauth-metadata";
-import { SYSTEM_ADMIN_ROLE_SLUG, type Permission, type UserRoleInfo } from "./types";
+import {
+  ADMIN_TIER_PERMISSIONS,
+  SYSTEM_ADMIN_ROLE_SLUG,
+  type Permission,
+  type UserRoleInfo,
+} from "./types";
 import {
   checkRolePermission,
   filterUsersWithPermission,
   findUserRole,
   listUsersWithPermission,
+  roleHasAnyPermission,
   type UserRoleRow,
 } from "./repo";
 import { currentRequestContext } from "../diagnostics/request-context";
@@ -76,6 +82,22 @@ export class AuthService {
     const role = await this.loadUserRole(userId);
     if (!role) return false;
     return this.roleHasPermission(role, permission);
+  }
+
+  /**
+   * Returns `true` when `roleId` confers admin-equivalent power — i.e. it is the
+   * system Admin role (which implies `ALL_PERMISSIONS`) or it holds an
+   * admin-tier permission row (`admin:users` / `admin:roles`). Used by the
+   * user-management endpoints to block assigning admin-capable roles, closing
+   * the slug-only escalation gap.
+   *
+   * `systemSlug` is passed in by the caller (which has already loaded the role)
+   * so the system-admin case is decided without an extra permission query —
+   * that role carries no rows in `role_permissions`.
+   */
+  async roleHasAdminTierPermission(roleId: string, systemSlug: string | null): Promise<boolean> {
+    if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;
+    return roleHasAnyPermission(roleId, ADMIN_TIER_PERMISSIONS);
   }
 
   // ─── Session helpers ─────────────────────────────────────────────────────
@@ -179,6 +201,14 @@ export function roleHasPermission(role: UserRoleInfo, permission: Permission): P
 /** @see {@link AuthService.userHasPermission} */
 export function userHasPermission(userId: string, permission: Permission): Promise<boolean> {
   return getAuthService().userHasPermission(userId, permission);
+}
+
+/** @see {@link AuthService.roleHasAdminTierPermission} */
+export function roleHasAdminTierPermission(
+  roleId: string,
+  systemSlug: string | null,
+): Promise<boolean> {
+  return getAuthService().roleHasAdminTierPermission(roleId, systemSlug);
 }
 
 /** @see {@link AuthService.sessionUserId} */

@@ -22,12 +22,16 @@ vi.mock("../../../db/client", () => ({
 
 vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
-  const { PERMISSIONS } = await import("@nama/shared/auth");
+  const { PERMISSIONS, ADMIN_PERMISSIONS } = await import("@nama/shared/auth");
   // The handler now creates users via the direct-insert helpers (sign-up is
   // disabled). Delegate to the REAL helpers — they need only getDb() (mocked to
   // the in-memory db above) and the schema, not the betterAuth instance — so the
   // test exercises the actual user + account + user_roles writes.
   const { createUser, createUserWithRole } = await import("../../../auth/internal/create-user");
+  // Delegate the capability check to the REAL repo query against the in-memory
+  // db so the guard exercises actual permission-row resolution, not a stub.
+  const { roleHasAnyPermission } = await import("../../../auth/repo");
+  const ADMIN_TIER = [PERMISSIONS.ADMIN_USERS, PERMISSIONS.ADMIN_ROLES];
   return {
     requireSession: async (c: any, next: any) => {
       if (!mockUserId) throw unauthorized();
@@ -42,7 +46,12 @@ vi.mock("../../../auth", async () => {
     requirePermission: () => async (_c: any, next: any) => {
       await next();
     },
+    roleHasAdminTierPermission: async (roleId: string, systemSlug: string | null) => {
+      if (systemSlug === "admin") return true;
+      return roleHasAnyPermission(roleId, ADMIN_TIER);
+    },
     PERMISSIONS,
+    ADMIN_PERMISSIONS,
     SYSTEM_ADMIN_ROLE_SLUG: "admin",
     createUser,
     createUserWithRole,
@@ -55,7 +64,8 @@ import {
   type Db,
 } from "../../../__tests__/helpers/in-memory-db";
 import { user } from "../../../db/schema/auth";
-import { roles, userRoles } from "../../../db/schema/auth/roles";
+import { rolePermissions, roles, userRoles } from "../../../db/schema/auth/roles";
+import { PERMISSIONS } from "@nama/shared/auth";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { adminUsersApp } from "../users";
 
@@ -63,6 +73,11 @@ const ACTING_ADMIN_ID = "acting-admin";
 const TARGET_ID = "target-user";
 const ADMIN_ROLE_ID = "role_admin";
 const MEMBER_ROLE_ID = "role_member";
+// Custom (non-system-slug) role that holds an admin-tier permission row — an
+// admin in capability but not in slug. The guard must reject it.
+const CUSTOM_ADMIN_ROLE_ID = "role_custom_admin";
+// Custom role with a benign, non-admin permission — must stay assignable.
+const CUSTOM_VIEWER_ROLE_ID = "role_custom_viewer";
 
 function buildApp() {
   return new Hono()
@@ -87,6 +102,16 @@ async function seedBaseData() {
       updatedAt: 0,
     },
     { id: MEMBER_ROLE_ID, name: "Member", isSystem: 1, createdAt: 0, updatedAt: 0 },
+    // Custom roles have no systemSlug — they only differ by their permission rows.
+    { id: CUSTOM_ADMIN_ROLE_ID, name: "Custom Admin", isSystem: 0, createdAt: 0, updatedAt: 0 },
+    { id: CUSTOM_VIEWER_ROLE_ID, name: "Custom Viewer", isSystem: 0, createdAt: 0, updatedAt: 0 },
+  ]);
+
+  await db.insert(rolePermissions).values([
+    // Admin-tier capability via a custom role — the escalation path #576 closes.
+    { roleId: CUSTOM_ADMIN_ROLE_ID, permission: PERMISSIONS.ADMIN_USERS },
+    // A benign permission that must NOT trip the guard.
+    { roleId: CUSTOM_VIEWER_ROLE_ID, permission: PERMISSIONS.MEDIA_DISCOVER },
   ]);
 }
 
@@ -161,6 +186,52 @@ describe("PUT /admin/users/:id/role — system Admin guard", () => {
   });
 });
 
+// ─── Capability-based guard (issue #576) ─────────────────────────────────────
+// The slug-only guard let a custom role carrying admin:users / admin:roles
+// through. These assert the guard now blocks on capability while leaving benign
+// custom roles assignable. They FAIL against the old slug-only guard.
+
+describe("PUT /admin/users/:id/role — admin-capability guard", () => {
+  beforeEach(seedBaseData);
+
+  it("returns 403 when assigning a custom role that holds an admin-tier permission", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: CUSTOM_ADMIN_ROLE_ID }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.admin_role");
+
+    // The guard rejects before the upsert — no role assignment is persisted.
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, TARGET_ID))
+      .get();
+    expect(assigned).toBeUndefined();
+  });
+
+  it("returns 200 for a custom role that holds only a non-admin permission (guard not over-broad)", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: CUSTOM_VIEWER_ROLE_ID }),
+    });
+
+    expect(res.status).toBe(200);
+
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, TARGET_ID))
+      .get();
+    expect(assigned?.roleId).toBe(CUSTOM_VIEWER_ROLE_ID);
+  });
+});
+
 describe("POST /admin/users — system Admin guard on new user creation", () => {
   beforeEach(seedBaseData);
 
@@ -210,5 +281,52 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       .where(eq(userRoles.userId, newUserId))
       .get();
     expect(assigned?.roleId).toBe(MEMBER_ROLE_ID);
+  });
+
+  it("returns 403 when creating a user with a custom admin-capability role", async () => {
+    const res = await buildApp().request("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "new@example.com",
+        password: "password123",
+        roleId: CUSTOM_ADMIN_ROLE_ID,
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.admin_role");
+    // The guard rejects before any insert, so no user row is created.
+    const created = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, "new@example.com"))
+      .get();
+    expect(created).toBeUndefined();
+  });
+
+  it("returns 201 when creating a user with a custom non-admin role (guard not over-broad)", async () => {
+    const res = await buildApp().request("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "viewer@example.com",
+        password: "password123",
+        roleId: CUSTOM_VIEWER_ROLE_ID,
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const { userId: newUserId } = (await res.json()) as { userId: string };
+
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, newUserId))
+      .get();
+    expect(assigned?.roleId).toBe(CUSTOM_VIEWER_ROLE_ID);
   });
 });
