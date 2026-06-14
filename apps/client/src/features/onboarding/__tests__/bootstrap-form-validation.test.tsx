@@ -141,3 +141,46 @@ describe("BootstrapForm — shared-schema validation", () => {
     );
   });
 });
+
+// After the claim succeeds the one-time token is spent and the admin account
+// exists, so the post-claim sign-in must never be a dead end: a success routes
+// to the wizard, and a failure routes to login rather than hanging the submit
+// button forever on a token that can no longer be re-claimed. These guard the
+// "stuck at Creating administrator…" report.
+describe("BootstrapForm — post-claim session", () => {
+  beforeEach(() => {
+    fetchers.claimBootstrap.mockResolvedValue({ ok: true });
+  });
+
+  async function submitValidForm(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    await user.type(nameInput(), "Ada Lovelace");
+    await user.type(emailInput(), "ada@example.com");
+    await user.type(passwordInput(), "correct-horse");
+    await user.type(tokenInput(), "the-one-time-token");
+    await user.click(screen.getByRole("button", { name: /create administrator/i }));
+  }
+
+  it("sends the new admin to the wizard once the session is established", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await submitValidForm(user);
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: "/setup" }));
+  });
+
+  it("falls back to the login page when sign-in fails after a successful claim", async () => {
+    // The claim has already consumed the token and created the account, so a
+    // failed sign-in must route to login (where the account can sign in) instead
+    // of leaving the operator stranded on a spent token.
+    auth.signIn.email.mockRejectedValueOnce(new Error("sign-in unavailable"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await submitValidForm(user);
+
+    await waitFor(() => expect(fetchers.claimBootstrap).toHaveBeenCalled());
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: "/auth/login" }));
+    expect(navigateMock).not.toHaveBeenCalledWith({ to: "/setup" });
+  });
+});

@@ -54,10 +54,25 @@ function BootstrapForm() {
     defaultValues: { name: "", email: "", password: "", token: "" },
     onSubmit: async ({ value }) => {
       await claim.mutateAsync(value);
-      // Establish the session for the freshly created admin, then send them to
-      // the onboarding wizard.
-      await authClient.signIn.email({ email: value.email, password: value.password });
-      void navigate({ to: "/setup" });
+      // The admin account now exists and the one-time token is spent. Establish
+      // the session and send the operator to the wizard. A slow or failing
+      // sign-in must never strand them on a consumed token, so cap the wait and
+      // fall back to the login page — the account is already created and can
+      // sign in there.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          authClient.signIn.email({ email: value.email, password: value.password }),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("bootstrap-signin-timeout")), 10_000);
+          }),
+        ]);
+        void navigate({ to: "/setup" });
+      } catch {
+        void navigate({ to: "/auth/login" });
+      } finally {
+        clearTimeout(timer);
+      }
     },
   });
 
