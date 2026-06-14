@@ -31,7 +31,9 @@ vi.mock("../../../auth", async () => {
   // Delegate the capability check to the REAL repo query against the in-memory
   // db so the guard exercises actual permission-row resolution, not a stub.
   const { roleHasAnyPermission } = await import("../../../auth/repo");
-  const ADMIN_TIER = [PERMISSIONS.ADMIN_USERS, PERMISSIONS.ADMIN_ROLES];
+  // Use the real slug constant + the real shared admin-perm set so the mock
+  // tracks production: the guard blocks ANY admin:* permission, not a subset.
+  const { SYSTEM_ADMIN_ROLE_SLUG } = await import("../../../auth/types");
   return {
     requireSession: async (c: any, next: any) => {
       if (!mockUserId) throw unauthorized();
@@ -47,12 +49,11 @@ vi.mock("../../../auth", async () => {
       await next();
     },
     roleHasAdminTierPermission: async (roleId: string, systemSlug: string | null) => {
-      if (systemSlug === "admin") return true;
-      return roleHasAnyPermission(roleId, ADMIN_TIER);
+      if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;
+      return roleHasAnyPermission(roleId, ADMIN_PERMISSIONS);
     },
     PERMISSIONS,
-    ADMIN_PERMISSIONS,
-    SYSTEM_ADMIN_ROLE_SLUG: "admin",
+    SYSTEM_ADMIN_ROLE_SLUG,
     createUser,
     createUserWithRole,
   };
@@ -78,6 +79,12 @@ const MEMBER_ROLE_ID = "role_member";
 const CUSTOM_ADMIN_ROLE_ID = "role_custom_admin";
 // Custom role with a benign, non-admin permission — must stay assignable.
 const CUSTOM_VIEWER_ROLE_ID = "role_custom_viewer";
+// Custom roles carrying other admin:* permissions. These are also escalation
+// vectors — the caller sets the new account's password and could log in as it —
+// so the broadened guard must reject every admin:* permission, not just
+// users/roles.
+const CUSTOM_ROLES_ROLE_ID = "role_custom_roles";
+const CUSTOM_SERVER_ROLE_ID = "role_custom_server";
 
 function buildApp() {
   return new Hono()
@@ -105,6 +112,8 @@ async function seedBaseData() {
     // Custom roles have no systemSlug — they only differ by their permission rows.
     { id: CUSTOM_ADMIN_ROLE_ID, name: "Custom Admin", isSystem: 0, createdAt: 0, updatedAt: 0 },
     { id: CUSTOM_VIEWER_ROLE_ID, name: "Custom Viewer", isSystem: 0, createdAt: 0, updatedAt: 0 },
+    { id: CUSTOM_ROLES_ROLE_ID, name: "Custom Roles", isSystem: 0, createdAt: 0, updatedAt: 0 },
+    { id: CUSTOM_SERVER_ROLE_ID, name: "Custom Server", isSystem: 0, createdAt: 0, updatedAt: 0 },
   ]);
 
   await db.insert(rolePermissions).values([
@@ -112,6 +121,11 @@ async function seedBaseData() {
     { roleId: CUSTOM_ADMIN_ROLE_ID, permission: PERMISSIONS.ADMIN_USERS },
     // A benign permission that must NOT trip the guard.
     { roleId: CUSTOM_VIEWER_ROLE_ID, permission: PERMISSIONS.MEDIA_DISCOVER },
+    // The other arm of the privilege-granting pair.
+    { roleId: CUSTOM_ROLES_ROLE_ID, permission: PERMISSIONS.ADMIN_ROLES },
+    // A non-users/roles admin permission — only blocked once the guard covers
+    // the full admin:* set.
+    { roleId: CUSTOM_SERVER_ROLE_ID, permission: PERMISSIONS.ADMIN_SERVER },
   ]);
 }
 
@@ -230,6 +244,37 @@ describe("PUT /admin/users/:id/role — admin-capability guard", () => {
       .get();
     expect(assigned?.roleId).toBe(CUSTOM_VIEWER_ROLE_ID);
   });
+
+  it("returns 403 when assigning a custom role that holds admin:roles", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: CUSTOM_ROLES_ROLE_ID }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.admin_role");
+  });
+
+  it("returns 403 when assigning a custom role that holds a non-users/roles admin permission (admin:server)", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: CUSTOM_SERVER_ROLE_ID }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.admin_role");
+
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, TARGET_ID))
+      .get();
+    expect(assigned).toBeUndefined();
+  });
 });
 
 describe("POST /admin/users — system Admin guard on new user creation", () => {
@@ -328,5 +373,28 @@ describe("POST /admin/users — system Admin guard on new user creation", () => 
       .where(eq(userRoles.userId, newUserId))
       .get();
     expect(assigned?.roleId).toBe(CUSTOM_VIEWER_ROLE_ID);
+  });
+
+  it("returns 403 when creating a user with a custom admin:server role (password-set escalation)", async () => {
+    const res = await buildApp().request("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "server@example.com",
+        password: "password-1234",
+        roleId: CUSTOM_SERVER_ROLE_ID,
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.admin_role");
+    const created = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, "server@example.com"))
+      .get();
+    expect(created).toBeUndefined();
   });
 });

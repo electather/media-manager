@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import { ADMIN_PERMISSIONS } from "@nama/shared/auth";
 import { auth } from "./internal/config";
 import type { Auth } from "./internal/config";
 import { authRouteHandler } from "./internal/oauth-handler";
@@ -6,12 +7,7 @@ import {
   oauthAuthorizationServerHandler,
   oauthProtectedResourceHandler,
 } from "./internal/oauth-metadata";
-import {
-  ADMIN_TIER_PERMISSIONS,
-  SYSTEM_ADMIN_ROLE_SLUG,
-  type Permission,
-  type UserRoleInfo,
-} from "./types";
+import { SYSTEM_ADMIN_ROLE_SLUG, type Permission, type UserRoleInfo } from "./types";
 import {
   checkRolePermission,
   filterUsersWithPermission,
@@ -87,9 +83,11 @@ export class AuthService {
   /**
    * Returns `true` when `roleId` confers admin-equivalent power — i.e. it is the
    * system Admin role (which implies `ALL_PERMISSIONS`) or it holds an
-   * admin-tier permission row (`admin:users` / `admin:roles`). Used by the
+   * admin-tier permission row (any `admin:*` permission). Used by the
    * user-management endpoints to block assigning admin-capable roles, closing
-   * the slug-only escalation gap.
+   * the slug-only escalation gap — including roles that grant admin:server /
+   * admin:plugins / admin:jobs / admin:requests, since the caller chooses the
+   * new account's password and could otherwise log in as it.
    *
    * `systemSlug` is passed in by the caller (which has already loaded the role)
    * so the system-admin case is decided without an extra permission query —
@@ -97,7 +95,7 @@ export class AuthService {
    */
   async roleHasAdminTierPermission(roleId: string, systemSlug: string | null): Promise<boolean> {
     if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;
-    return roleHasAnyPermission(roleId, ADMIN_TIER_PERMISSIONS);
+    return roleHasAnyPermission(roleId, ADMIN_PERMISSIONS);
   }
 
   // ─── Session helpers ─────────────────────────────────────────────────────
