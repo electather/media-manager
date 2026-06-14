@@ -105,6 +105,7 @@
   "settings_security_password_new_placeholder": "At least 12 characters",
   "settings_security_password_confirm_placeholder": "Repeat new password",
   "settings_security_password_too_short": "Must be at least 12 characters.",
+  "settings_security_password_too_long": "Must be at most 256 characters.",
   "settings_security_password_mismatch": "Passwords don't match.",
   "settings_security_password_submit": "Update password",
   "settings_security_password_submitting": "Updating…",

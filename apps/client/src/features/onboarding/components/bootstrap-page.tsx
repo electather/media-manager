@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { bootstrapClaimSchema } from "@nama/shared/bootstrap";
+import { PASSWORD_MAX_LENGTH } from "@nama/shared/auth";
 import { AuthShell, PasswordField } from "@/features/auth";
 import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
@@ -203,7 +204,9 @@ function BootstrapForm() {
               <FieldError
                 errors={fieldError(
                   field.state.meta.errors.length > 0,
-                  m.onboarding_bootstrap_password_too_short(),
+                  field.state.value.length > PASSWORD_MAX_LENGTH
+                    ? m.onboarding_bootstrap_password_too_long()
+                    : m.onboarding_bootstrap_password_too_short(),
                 )}
               />
             </Field>
