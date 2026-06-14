@@ -31,6 +31,7 @@ import {
   selectHistoryCursors,
   selectRatingsCursors,
   selectUserHistory,
+  selectUserIdsSyncedSince,
   selectUserRatings,
 } from "./user-mirrors";
 
@@ -168,6 +169,15 @@ export class CatalogService {
 
   async getUserRatings(userId: string): Promise<RatingEvent[]> {
     return selectUserRatings(this.db, userId);
+  }
+
+  /**
+   * Distinct ids of users whose history mirror was synced at or after
+   * `cutoff`. Lets the home warm job count "recently active" users without
+   * reaching into the catalog-owned `user_history_mirror` table directly.
+   */
+  async listUserIdsSyncedSince(cutoff: number): Promise<string[]> {
+    return selectUserIdsSyncedSince(this.db, cutoff);
   }
 
   // fallow-ignore-next-line unused-class-member

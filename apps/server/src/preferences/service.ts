@@ -20,6 +20,7 @@ import {
   type StoredPreferenceProfile,
   type WriteProfileOptions,
 } from "./internal/profile-storage";
+import * as repo from "./repo";
 import {
   listUsersNeedingDailyRebuild,
   listUsersNeedingRebuild,
@@ -140,6 +141,15 @@ export class PreferencesService {
 
   listUsersNeedingDailyRebuild(now?: number): Promise<RebuildRow[]> {
     return listUsersNeedingDailyRebuild(now);
+  }
+
+  /**
+   * Distinct ids of users with any feedback event at or after `cutoff`. Lets
+   * the home warm job count "recently active" users without reaching into the
+   * preferences-owned `feedback` table directly.
+   */
+  listUserIdsWithFeedbackSince(cutoff: number): Promise<string[]> {
+    return repo.listUserIdsWithFeedbackSince(cutoff);
   }
 
   // ─── Job-status helpers ──────────────────────────────────────────────────
