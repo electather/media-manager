@@ -31,7 +31,7 @@ vi.mock("../../auth", () => ({
   },
 }));
 
-const { makeRateLimitMiddleware } = await import("../rate-limit");
+const { makeRateLimitMiddleware, clientIp } = await import("../rate-limit");
 const { TokenBucketLimiter } = await import("../../mcp/rate-limit");
 const { requireSession } = await import("../../auth");
 
@@ -112,5 +112,67 @@ describe("makeRateLimitMiddleware", () => {
     expect((await app.request("/thing")).status).toBe(200);
     mockUserId = "b";
     expect((await app.request("/thing")).status).toBe(429);
+  });
+});
+
+/** Mirrors how the public groups are mounted in `router.ts`: no `requireSession`,
+ *  the IP-keyed limiter guards a session-less handler. Each test builds its own
+ *  limiter so buckets never bleed across cases. */
+function buildPublicApp(middleware: ReturnType<typeof makeRateLimitMiddleware>) {
+  return new Hono()
+    .use("*", requestContextMiddleware())
+    .use("*", middleware)
+    .get("/trending", (c) => {
+      handler();
+      return c.json({ posters: [] });
+    })
+    .onError(errorHandler);
+}
+
+describe("public per-IP rate limit", () => {
+  it("returns 429 once the bucket is exhausted for a given IP", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 2, refillPerSec: 0 });
+    const app = buildPublicApp(makeRateLimitMiddleware({ limiter, key: clientIp }));
+    const fromIp = { headers: { "x-forwarded-for": "203.0.113.7" } };
+
+    // The capacity-2 bucket clears the first two reads, then rejects the third
+    // before it reaches the handler.
+    expect((await app.request("/trending", fromIp)).status).toBe(200);
+    expect((await app.request("/trending", fromIp)).status).toBe(200);
+
+    const limited = await app.request("/trending", fromIp);
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
+    expect(((await limited.json()) as { code: string }).code).toBe("mcp.rate_limited");
+    // Only the two allowed reads reached the handler; the throttled one did not.
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it("buckets each client IP independently", async () => {
+    const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 0 });
+    const app = buildPublicApp(makeRateLimitMiddleware({ limiter, key: clientIp }));
+
+    // One IP drains its own single-token bucket...
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.1" } })).status,
+    ).toBe(200);
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.1" } })).status,
+    ).toBe(429);
+
+    // ...while a different IP is unaffected.
+    expect(
+      (await app.request("/trending", { headers: { "x-forwarded-for": "198.51.100.2" } })).status,
+    ).toBe(200);
+  });
+
+  it("keys on the first x-forwarded-for hop", () => {
+    // A proxy appends downstream hops; the leftmost entry is the original client.
+    const c = {
+      req: {
+        header: (name: string) => (name === "x-forwarded-for" ? "1.2.3.4, 10.0.0.1" : undefined),
+      },
+    } as unknown as Parameters<typeof clientIp>[0];
+    expect(clientIp(c)).toBe("1.2.3.4");
   });
 });

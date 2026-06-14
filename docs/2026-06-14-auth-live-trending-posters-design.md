@@ -77,10 +77,13 @@ GET /api/public/trending?limit=<n>
   anonymous traffic never mutates catalog state or keeps trending rows warm
   against pruning. The response carries
   `Cache-Control: public, max-age=300, stale-while-revalidate=3600` so a
-  CDN/reverse proxy absorbs repeat login-page loads. There is intentionally
-  **no per-IP rate limit** — a cached, side-effect-free read plus the cache
-  header bounds repeat cost; an accepted trade-off for a decorative public
-  endpoint, worth revisiting only if login-page traffic makes this path hot.
+  CDN/reverse proxy absorbs repeat login-page loads. The cache header bounds
+  repeat cost for a decorative, side-effect-free read; on top of that a **per-IP
+  rate limiter now guards the public endpoints** (`/config/public`, `/bootstrap`,
+  `/public`) — a generous token bucket (capacity 60, refill 1/sec) keyed on the
+  client IP, so a normal login-page visitor never trips it while a single IP
+  hammering the path is capped. See `apps/server/src/api/rate-limit.ts`
+  (`publicIpRateLimit`).
 
 ### 2. Client — fetch + render
 
