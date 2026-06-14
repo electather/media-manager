@@ -82,7 +82,10 @@ GET /api/public/trending?limit=<n>
   rate limiter now guards the public endpoints** (`/config/public`, `/bootstrap`,
   `/public`) — a generous token bucket (capacity 60, refill 1/sec) keyed on the
   client IP, so a normal login-page visitor never trips it while a single IP
-  hammering the path is capped. See `apps/server/src/api/rate-limit.ts`
+  hammering the path is capped. The client IP comes from `X-Forwarded-For` only
+  when `TRUST_PROXY` is set (deployments behind a trusted proxy/CDN); otherwise
+  it keys on the socket peer address so a directly-exposed server can't be
+  evaded with a forged header. See `apps/server/src/api/rate-limit.ts`
   (`publicIpRateLimit`).
 
 ### 2. Client — fetch + render

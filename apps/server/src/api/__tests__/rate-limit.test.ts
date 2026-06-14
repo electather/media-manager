@@ -12,6 +12,10 @@ vi.mock("../../env", () => ({
     BETTER_AUTH_SECRET: "x".repeat(32),
     BETTER_AUTH_URL: "http://localhost",
     APP_EXTERNAL_URL: "http://localhost",
+    // Treat the test as running behind a trusted proxy so the X-Forwarded-For
+    // keying paths below are exercised; the no-trust path is covered explicitly
+    // via resolveClientIp(c, false).
+    TRUST_PROXY: true,
   },
 }));
 
@@ -31,7 +35,7 @@ vi.mock("../../auth", () => ({
   },
 }));
 
-const { makeRateLimitMiddleware, clientIp } = await import("../rate-limit");
+const { makeRateLimitMiddleware, clientIp, resolveClientIp } = await import("../rate-limit");
 const { TokenBucketLimiter } = await import("../../mcp/rate-limit");
 const { requireSession } = await import("../../auth");
 
@@ -166,13 +170,30 @@ describe("public per-IP rate limit", () => {
     ).toBe(200);
   });
 
-  it("keys on the first x-forwarded-for hop", () => {
-    // A proxy appends downstream hops; the leftmost entry is the original client.
-    const c = {
+  // Builds a fake context with an X-Forwarded-For header and a mocked socket
+  // peer address (via the Bun-style c.env.server.requestIP).
+  const ctx = (xff: string | undefined, peer = "10.9.8.7") =>
+    ({
       req: {
-        header: (name: string) => (name === "x-forwarded-for" ? "1.2.3.4, 10.0.0.1" : undefined),
+        header: (name: string) => (name === "x-forwarded-for" ? xff : undefined),
+        raw: {},
       },
-    } as unknown as Parameters<typeof clientIp>[0];
-    expect(clientIp(c)).toBe("1.2.3.4");
+      env: { server: { requestIP: () => ({ address: peer }) } },
+    }) as unknown as Parameters<typeof resolveClientIp>[0];
+
+  it("keys on the first x-forwarded-for hop when the proxy is trusted", () => {
+    // A proxy appends downstream hops; the leftmost entry is the original client.
+    expect(resolveClientIp(ctx("1.2.3.4, 10.0.0.1"), true)).toBe("1.2.3.4");
+    // clientIp() reads env.TRUST_PROXY, which the mock sets true.
+    expect(clientIp(ctx("1.2.3.4, 10.0.0.1"))).toBe("1.2.3.4");
+  });
+
+  it("ignores a forged x-forwarded-for when the proxy is not trusted", () => {
+    // Direct exposure: the header is attacker-controlled, so key on the peer.
+    expect(resolveClientIp(ctx("1.2.3.4"), false)).toBe("10.9.8.7");
+  });
+
+  it("falls back to the socket peer address when there is no x-forwarded-for", () => {
+    expect(resolveClientIp(ctx(undefined), true)).toBe("10.9.8.7");
   });
 });

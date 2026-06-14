@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { TokenBucketLimiter } from "../mcp/rate-limit";
 import { sessionUserId } from "../auth";
+import { env } from "../env";
 import { currentRequestContext } from "../diagnostics/request-context";
 
 /** Checks `limiter` for `userId`. Returns a 429 Response on throttle, null on pass. */
@@ -67,22 +68,30 @@ function peerAddress(c: Context): string | undefined {
 }
 
 /**
- * Resolves the client IP for keying the public (session-less) limiter. Prefers
- * the first `x-forwarded-for` hop — the original client when nama sits behind the
- * documented reverse proxy / CDN — and falls back to the socket peer address for
- * direct connections, then to a constant so an unresolvable caller is still
- * bucketed rather than skipping the limit. The header is untrusted (a direct
- * client can forge it), but the public endpoints it guards are decorative,
- * side-effect-free reads, so a forged key only lets an attacker split their own
- * traffic across buckets — it never grants extra access.
+ * Resolves the client IP for keying the public (session-less) limiter.
+ *
+ * `X-Forwarded-For` is only honoured when `trustProxy` is set — i.e. Nama is
+ * known to sit behind a reverse proxy / CDN that overwrites the header. On a
+ * directly-exposed server the header is attacker-controlled: trusting it would
+ * let a single client forge a fresh key per request to skip the limit (and pile
+ * arbitrary entries into the bucket map), so we key on the un-forgeable socket
+ * peer address instead, falling back to a constant when even that is
+ * unavailable (so an unresolvable caller is still bucketed, not skipped).
  */
-export function clientIp(c: Context): string {
-  const forwarded = c.req.header("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+export function resolveClientIp(c: Context, trustProxy: boolean): string {
+  if (trustProxy) {
+    const forwarded = c.req.header("x-forwarded-for");
+    if (forwarded) {
+      const first = forwarded.split(",")[0]?.trim();
+      if (first) return first;
+    }
   }
   return peerAddress(c) ?? UNKNOWN_CLIENT_IP;
+}
+
+/** {@link resolveClientIp} bound to the deployment's `TRUST_PROXY` setting. */
+export function clientIp(c: Context): string {
+  return resolveClientIp(c, env.TRUST_PROXY);
 }
 
 /**
@@ -92,6 +101,12 @@ export function clientIp(c: Context): string {
  * normal login-page visitor never trips it while a single IP hammering the path
  * is still capped at ~60 req/min. Sized like the artwork/MCP limiters; tune up if
  * legitimate login traffic ever proves burstier than 60 in a 60s window.
+ *
+ * One shared bucket pool guards all three public route groups on purpose (they
+ * are all low-value decorative reads, so an IP's budget is shared across them).
+ * Like the other TokenBucketLimiters its key→bucket Map is unbounded; keyed by
+ * public client IPs that surface is larger than the per-user limiters, so LRU /
+ * periodic eviction is worth a follow-up (tracked separately).
  */
 export const publicIpLimiter = new TokenBucketLimiter({ capacity: 60, refillPerSec: 1 });
 
