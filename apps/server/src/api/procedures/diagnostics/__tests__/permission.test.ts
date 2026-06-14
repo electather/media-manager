@@ -181,21 +181,21 @@ describe("admin diagnostics — ADMIN_SERVER gate", () => {
   });
 
   // Contrast: the gate is permission-specific, not a blanket deny. A caller
-  // holding `admin:server` passes the gate. We assert the request is NOT
-  // rejected by the gate (status !== 403). The handler may then return 200 or
-  // some other status depending on its own logic, but it must reach past the
-  // permission check.
+  // holding `admin:server` passes the gate and reaches the handler, which
+  // returns a 2xx against the seeded empty DB.
   describe("a caller holding admin:server passes the gate", () => {
     for (const route of ROUTES) {
-      it(`${route.name} → not 403`, async () => {
+      it(`${route.name} → passes the gate`, async () => {
         const userId = `server-admin-${crypto.randomUUID()}`;
         await seedUser(userId, ["admin:server"]);
         mockUserId = userId;
         const res = await buildApp(route.app).request(route.path);
-        // Gate-focused: assert the caller is NOT rejected by the permission
-        // check. We deliberately do not pin a specific success status so the
-        // test stays decoupled from each handler's own response logic.
-        expect(res.status).not.toBe(403);
+        // Assert a successful (2xx) response rather than pinning an exact code:
+        // this proves the caller cleared the gate (not 403) without coupling to
+        // each handler's specific success status, while still failing on an
+        // unexpected 401 (broken mock/seed) or 5xx (handler crash) that a bare
+        // `not.toBe(403)` would silently pass.
+        expect(res.status).toBeLessThan(400);
       });
     }
   });
