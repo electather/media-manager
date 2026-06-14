@@ -73,6 +73,14 @@ GET /api/public/trending?limit=<n>
   no-`poster` filter). The endpoint returns whatever it has — it does not pad,
   repeat, or invent items. Filling the grid to a full card count is the client's
   responsibility (see below).
+- The read is **side-effect-free**: it does not record metadata access, so
+  anonymous traffic never mutates catalog state or keeps trending rows warm
+  against pruning. The response carries
+  `Cache-Control: public, max-age=300, stale-while-revalidate=3600` so a
+  CDN/reverse proxy absorbs repeat login-page loads. There is intentionally
+  **no per-IP rate limit** — a cached, side-effect-free read plus the cache
+  header bounds repeat cost; an accepted trade-off for a decorative public
+  endpoint, worth revisiting only if login-page traffic makes this path hot.
 
 ### 2. Client — fetch + render
 
