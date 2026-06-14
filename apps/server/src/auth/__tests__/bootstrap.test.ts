@@ -192,6 +192,9 @@ describe("claimBootstrap", () => {
 
     const userRow = await db.select().from(user).where(eq(user.id, userId)).get();
     expect(userRow?.email).toBe("admin@example.com");
+    // The operator proved control of the server by reading the console token, so
+    // the bootstrap admin is created already email-verified.
+    expect(userRow?.emailVerified).toBe(true);
 
     const accountRow = await db.select().from(account).where(eq(account.userId, userId)).get();
     // Mirrors what Better Auth's sign-up/email writes, so sign-in/email can later
@@ -259,6 +262,31 @@ describe("claimBootstrap", () => {
       .where(eq(appBootstrap.id, BOOTSTRAP_ROW_ID))
       .get();
     expect(row?.consumedAt).toBeNull();
+  });
+
+  // Defense-in-depth: an already-consumed token must be rejected even if its
+  // hash matches. The zero-users assertion is the primary guard, but if every
+  // user row were ever deleted, replaying a spent token from the boot log must
+  // not mint a second admin. Requiring `consumedAt === null` closes that gap.
+  it("rejects a consumed token with invalid_token even when no user exists", async () => {
+    await seedAdminRole();
+    const token = "known-valid-setup-token";
+    await db.insert(appBootstrap).values({
+      id: BOOTSTRAP_ROW_ID,
+      tokenHash: sha256Hex(token),
+      createdAt: Date.now(),
+      // The token was already spent by a prior claim; the user it created has
+      // since been removed, so the zero-users guard alone would let it through.
+      consumedAt: Date.now(),
+    });
+
+    await expect(
+      claimBootstrap({ token, email: "admin@example.com", password: "password123", name: "Admin" }),
+    ).rejects.toMatchObject({ code: "bootstrap.invalid_token" });
+
+    expect(await db.select().from(user).all()).toHaveLength(0);
+    expect(await db.select().from(account).all()).toHaveLength(0);
+    expect(await db.select().from(userRoles).all()).toHaveLength(0);
   });
 
   // A missing token row (no boot ever issued one) must also be rejected, not

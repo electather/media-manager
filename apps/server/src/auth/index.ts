@@ -4,6 +4,9 @@
  * `./repo/**` and `./internal/**` are deliberately not re-exported —
  * external callers go through the service.
  */
+// A long re-export list inherently matches the sibling module barrels; this is
+// the documented barrel shape, not extractable duplication.
+// fallow-ignore-next-line code-duplication
 export {
   auth,
   type Auth,

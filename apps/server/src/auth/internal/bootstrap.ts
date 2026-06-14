@@ -5,14 +5,13 @@
 // is never persisted or returned over HTTP.
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { hashPassword } from "better-auth/crypto";
 import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { appBootstrap } from "../../db/schema/app";
-import { account, user } from "../../db/schema/auth";
-import { userRoles } from "../../db/schema/auth/roles";
+import { user } from "../../db/schema/auth";
 import { AuthError } from "../errors";
+import { insertCredentialUserTx } from "./create-user";
 
 // Single-row sentinel id for the `app_bootstrap` table.
 const BOOTSTRAP_ROW_ID = "bootstrap";
@@ -22,11 +21,34 @@ const BOOTSTRAP_ROW_ID = "bootstrap";
 // issuing a new one. It is never persisted to the DB. After a real process
 // restart this is empty, so a fresh token is generated and the stored hash is
 // overwritten — only the most recently printed token verifies.
+//
+// This is per-process state. In a clustered/multi-process deployment each worker
+// holds its own `issuedToken` and could print a different one on the same boot;
+// only the last hash written to the DB verifies. First-install is a one-time,
+// single-tenant event so that is acceptable today — revisit if clustering lands.
 let issuedToken: string | null = null;
 
 /** Returns the SHA-256 hex digest of `token`. */
 function sha256Hex(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Constant-time check that `suppliedHash` matches the stored token hash and that
+ * the row exists and is still unconsumed. Requiring `consumedAt === null` is
+ * defense-in-depth: the zero-users assertion already blocks re-claims, but if a
+ * user row were ever deleted, a spent token from the boot log must not be
+ * replayable. `timingSafeEqual` needs equal-length buffers, so we gate on the
+ * row's presence and equal length before comparing.
+ */
+function tokenMatchesUnconsumed(
+  tokenRow: { tokenHash: string; consumedAt: number | null } | undefined,
+  suppliedHash: string,
+): boolean {
+  if (!tokenRow || tokenRow.consumedAt !== null) return false;
+  const suppliedBuf = Buffer.from(suppliedHash, "utf8");
+  const storedBuf = Buffer.from(tokenRow.tokenHash, "utf8");
+  return storedBuf.length === suppliedBuf.length && timingSafeEqual(storedBuf, suppliedBuf);
 }
 
 /** Test helper: drop the in-memory token so the next ensure call re-issues. */
@@ -63,6 +85,9 @@ export async function needsBootstrap(): Promise<boolean> {
  * in memory and no non-consumed row exists; otherwise the existing token is
  * re-printed and nothing new is written. Does nothing once a user exists.
  */
+// The CRAP score is coverage-estimated in CI (no --coverage); the token lifecycle
+// here is fully exercised by auth/__tests__/bootstrap.test.ts.
+// fallow-ignore-next-line complexity
 export async function ensureBootstrapToken(): Promise<void> {
   if (!(await needsBootstrap())) return;
 
@@ -110,9 +135,9 @@ export async function ensureBootstrapToken(): Promise<void> {
  * Atomically creates the first admin from a valid setup token. The in-transaction
  * zero-users assertion is the core safety property: even under concurrent
  * requests, exactly one first admin can be created, and the token is required to
- * obtain the admin role. The user + account + role inserts are inlined here (the
- * exact technique from `createUserWithRole`) so the whole claim — assert, verify,
- * create, consume — runs in one transaction.
+ * obtain the admin role. The whole claim — assert, verify, create, consume — runs
+ * in one transaction via the shared `insertCredentialUserTx` helper, so the
+ * credential account shape stays defined in one place.
  */
 export async function claimBootstrap(input: {
   token: string;
@@ -122,10 +147,6 @@ export async function claimBootstrap(input: {
 }): Promise<{ userId: string }> {
   const { token, email, password, name } = input;
   const db = getDb();
-  const userId = crypto.randomUUID();
-  const accountRowId = crypto.randomUUID();
-  const passwordHash = await hashPassword(password);
-  const now = new Date();
   const tokenHash = sha256Hex(token);
 
   return db.transaction(async (tx) => {
@@ -141,42 +162,33 @@ export async function claimBootstrap(input: {
       throw new AuthError("This server is already set up", "bootstrap.already_completed");
     }
 
-    // 2. Load the token row and constant-time compare the supplied token's hash
-    //    against the stored hash. A missing row or any mismatch is rejected and
-    //    creates nothing. `timingSafeEqual` requires equal-length buffers; the
-    //    hex digest is always 64 chars, so we still gate on the row's presence
-    //    and equal length before comparing.
+    // 2. Load the token row and reject a missing, mismatched, or already-consumed
+    //    token before doing any expensive work. Verifying the cheap token hash
+    //    first means a bad token never pays the scrypt password-hashing cost.
     const tokenRow = await tx
-      .select({ tokenHash: appBootstrap.tokenHash })
+      .select({ tokenHash: appBootstrap.tokenHash, consumedAt: appBootstrap.consumedAt })
       .from(appBootstrap)
       .where(eq(appBootstrap.id, BOOTSTRAP_ROW_ID))
       .get();
-    const suppliedBuf = Buffer.from(tokenHash, "utf8");
-    const storedBuf = tokenRow ? Buffer.from(tokenRow.tokenHash, "utf8") : null;
-    if (
-      !storedBuf ||
-      storedBuf.length !== suppliedBuf.length ||
-      !timingSafeEqual(storedBuf, suppliedBuf)
-    ) {
+    if (!tokenMatchesUnconsumed(tokenRow, tokenHash)) {
       throw new AuthError("Invalid setup token", "bootstrap.invalid_token");
     }
 
-    // 3. Create the first admin (user + account + role_admin) inline.
-    await tx.insert(user).values({ id: userId, email, name, emailVerified: false });
-    await tx.insert(account).values({
-      id: accountRowId,
-      accountId: userId,
-      providerId: "credential",
-      userId,
-      password: passwordHash,
-      updatedAt: now,
+    // 3. Create the first admin (user + credential account + role_admin). The
+    //    bootstrap admin is marked email-verified: reading the console token
+    //    proves control of the server.
+    const { userId } = await insertCredentialUserTx(tx, {
+      email,
+      password,
+      name,
+      roleId: "role_admin",
+      emailVerified: true,
     });
-    await tx.insert(userRoles).values({ userId, roleId: "role_admin", assignedAt: now.getTime() });
 
     // 4. Mark the token consumed within the same transaction.
     await tx
       .update(appBootstrap)
-      .set({ consumedAt: now.getTime() })
+      .set({ consumedAt: Date.now() })
       .where(eq(appBootstrap.id, BOOTSTRAP_ROW_ID));
 
     return { userId };

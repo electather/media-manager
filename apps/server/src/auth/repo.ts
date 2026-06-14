@@ -18,6 +18,9 @@ export async function setUserOnboarded(userId: string): Promise<void> {
 }
 
 /** Returns whether `userId` has completed onboarding; `false` if not found. */
+// A trivial select-one-column-by-id; it coincidentally matches other repos' read
+// shape, but extracting a shared helper would couple unrelated tables.
+// fallow-ignore-next-line code-duplication
 export async function findUserOnboarded(userId: string): Promise<boolean> {
   const db = getDb();
   const row = await db
