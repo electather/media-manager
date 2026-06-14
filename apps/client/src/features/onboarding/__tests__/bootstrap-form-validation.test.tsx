@@ -111,7 +111,7 @@ describe("BootstrapForm — shared-schema validation", () => {
     expect(await screen.findByText(/enter a valid email/i)).toBeTruthy();
     expect(await screen.findByText(/at least 8 characters/i)).toBeTruthy();
     expect(await screen.findByText(/name is required/i)).toBeTruthy();
-    expect(await screen.findByText(/setup token is required/i)).toBeTruthy();
+    expect(await screen.findByText(/full setup token/i)).toBeTruthy();
 
     // Validation must gate the network: an invalid form does not hit the server.
     expect(fetchers.claimBootstrap).not.toHaveBeenCalled();
