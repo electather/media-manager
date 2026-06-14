@@ -71,24 +71,6 @@
     0 14px 28px oklch(0 0 0 / 0.55);
 }
 
-.posterFloor {
-  background: linear-gradient(
-    180deg,
-    oklch(0 0 0 / 0.15) 0%,
-    transparent 30%,
-    transparent 45%,
-    oklch(0 0 0 / 0.75) 100%
-  );
-}
-
-.posterTitle {
-  text-shadow: 0 2px 10px oklch(0 0 0 / 0.7);
-}
-
-.posterBrand {
-  text-shadow: 0 2px 6px oklch(0 0 0 / 0.6);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .track {
     animation: none !important;

@@ -1,24 +1,38 @@
 import * as React from "react";
-import {
-  derivePosterStyle,
-  hash,
-  POSTER_TITLES,
-  ROW_CONFIG,
-  ROW_POSTER_COUNT,
-  ROW_SPEED_SCALE,
-  type PosterTitle,
-} from "../lib/poster-data";
+import { fallbackPosterFor } from "../assets/fallback-posters";
+import { useTrendingPosters } from "../hooks/use-trending-posters";
+import type { TrendingPoster } from "../lib/types";
+import { ROW_CONFIG, ROW_POSTER_COUNT, ROW_SPEED_SCALE } from "../lib/poster-data";
 import styles from "./poster-grid-background.module.css";
 import { cn } from "@/shared/lib/utils";
 
-interface PosterProps {
-  data: PosterTitle;
-  idx: number;
+// One unique card per grid slot, before the seamless x2 duplication per row.
+const TOTAL_CARDS = ROW_CONFIG.length * ROW_POSTER_COUNT;
+
+interface PosterCard {
+  // Stable React key: the live poster id when present, otherwise the slot index.
+  key: string;
+  src: string;
 }
 
-const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
-  const style = derivePosterStyle(data.title, idx);
-  const pos = style.position;
+interface PosterProps {
+  src: string;
+  fallbackSrc: string;
+}
+
+const Poster = React.memo(function Poster({ src, fallbackSrc }: PosterProps) {
+  // Per-card fallback swap: a broken live image becomes a bundled fallback for
+  // this card only, never touching siblings.
+  const [resolvedSrc, setResolvedSrc] = React.useState(src);
+
+  // Keep the rendered image in sync when the live pool resolves after mount.
+  React.useEffect(() => {
+    setResolvedSrc(src);
+  }, [src]);
+
+  const handleError = React.useCallback(() => {
+    setResolvedSrc((current) => (current === fallbackSrc ? current : fallbackSrc));
+  }, [fallbackSrc]);
 
   return (
     <div
@@ -26,73 +40,32 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
         "relative isolate aspect-2/3 w-40 shrink-0 overflow-hidden rounded-md bg-muted max-sm:w-24 max-sm:rounded-sm",
         styles.poster,
       )}
-      style={{ background: style.posterSurface }}
     >
-      <div className={cn("pointer-events-none absolute inset-0 z-1", styles.posterFloor)} />
-      <div
-        className={cn(
-          "absolute z-2 text-sm leading-none font-bold text-foreground/95",
-          styles.posterTitle,
-        )}
-        style={{
-          insetBlockStart: pos.insetBlockStart,
-          insetBlockEnd: pos.insetBlockEnd,
-          insetInlineStart: pos.insetInlineStart,
-          insetInlineEnd: pos.insetInlineEnd,
-          textAlign: pos.textAlign,
-          transform: pos.transform,
-          fontFamily: style.fontFamily,
-          fontWeight: style.fontWeight,
-          letterSpacing: style.letterSpacing,
-          fontStyle: style.fontStyle,
-        }}
-      >
-        {style.displayTitle.split(" ").map((w, i) => (
-          <span key={i} className="block">
-            {w}
-          </span>
-        ))}
-      </div>
-      <div
-        className={cn(
-          "absolute top-2 inset-s-2 z-3 font-serif text-lg leading-none font-black text-primary italic max-sm:top-1.5 max-sm:text-sm",
-          styles.posterBrand,
-        )}
-      >
-        L
-      </div>
-      <div className="absolute top-2.5 inset-e-2 z-3 rounded-xs bg-background/45 px-1.5 py-1 font-mono text-xs tracking-widest text-foreground/80 backdrop-blur-xs max-sm:top-2 max-sm:inset-e-1.5 max-sm:px-1 max-sm:py-0.5">
-        {data.tag}
-      </div>
+      <img
+        src={resolvedSrc}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleError}
+        className="size-full object-cover"
+      />
     </div>
   );
 });
 
 interface PosterRowProps {
-  seed: string;
+  cards: readonly PosterCard[];
   speed: number;
   direction: number;
   scale: number;
-  count: number;
 }
 
 const PosterRow = React.memo(function PosterRow({
-  seed,
+  cards,
   speed,
   direction,
   scale,
-  count,
 }: PosterRowProps) {
-  const items = React.useMemo(() => {
-    const out: (PosterTitle & { _i: number })[] = [];
-    const base = POSTER_TITLES.length;
-    for (let i = 0; i < count; i++) {
-      const item = POSTER_TITLES[hash(seed + i) % base];
-      if (item) out.push({ ...item, _i: i });
-    }
-    return out;
-  }, [seed, count]);
-
   const trackDirClass = direction > 0 ? styles.trackRight : styles.trackLeft;
 
   return (
@@ -103,8 +76,12 @@ const PosterRow = React.memo(function PosterRow({
       >
         {[0, 1].map((copy) => (
           <div className="flex shrink-0 gap-3" key={copy}>
-            {items.map((item, i) => (
-              <Poster key={`${copy}-${i}`} data={item} idx={item._i + copy * 100} />
+            {cards.map((card, i) => (
+              <Poster
+                key={`${copy}-${card.key}`}
+                src={card.src}
+                fallbackSrc={fallbackPosterFor(i)}
+              />
             ))}
           </div>
         ))}
@@ -113,17 +90,40 @@ const PosterRow = React.memo(function PosterRow({
   );
 });
 
+// Builds the full fixed-size card pool: live posters fill slots in order, any
+// remaining slots (including the all-empty pending/error case) are cycled
+// bundled fallback art so the grid is never short or blank.
+function buildCardPool(posters: readonly TrendingPoster[]): PosterCard[] {
+  const cards: PosterCard[] = [];
+  for (let i = 0; i < TOTAL_CARDS; i++) {
+    const live = posters[i];
+    cards.push(
+      live
+        ? { key: live.id, src: live.poster }
+        : { key: `fallback-${i}`, src: fallbackPosterFor(i) },
+    );
+  }
+  return cards;
+}
+
 export const PosterGridBackground = React.memo(function PosterGridBackground() {
+  // Non-suspense read: the grid never blocks the login form. While pending, on
+  // error, or on an empty response `data` is undefined/empty and the pool is
+  // filled entirely with fallback art.
+  const { data } = useTrendingPosters(TOTAL_CARDS);
+
+  const cardPool = React.useMemo(() => buildCardPool(data ?? []), [data]);
+
   const rows = React.useMemo(
     () =>
       ROW_CONFIG.map((cfg, i) => ({
-        seed: `row-${i}-v3`,
+        key: `row-${i}`,
+        cards: cardPool.slice(i * ROW_POSTER_COUNT, (i + 1) * ROW_POSTER_COUNT),
         speed: cfg.baseSpeed * ROW_SPEED_SCALE,
         direction: cfg.direction,
         scale: cfg.scale,
-        count: ROW_POSTER_COUNT,
       })),
-    [],
+    [cardPool],
   );
 
   return (
@@ -139,8 +139,8 @@ export const PosterGridBackground = React.memo(function PosterGridBackground() {
           styles.grid,
         )}
       >
-        {rows.map((r) => (
-          <PosterRow key={r.seed} {...r} />
+        {rows.map(({ key, ...row }) => (
+          <PosterRow key={key} {...row} />
         ))}
       </div>
     </div>
