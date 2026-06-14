@@ -50,6 +50,13 @@
       "when": 1781284583632,
       "tag": "0006_diagnostics_sourcemaps",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781440218846,
+      "tag": "0007_solid_whistler",
+      "breakpoints": true
     }
   ]
 }

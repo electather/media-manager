@@ -21,6 +21,13 @@ export {
   requirePermission,
   listUsersHavingPermission,
   usersHavingPermission,
+  createUser,
+  createUserWithRole,
+  needsBootstrap,
+  ensureBootstrapToken,
+  claimBootstrap,
+  markUserOnboarded,
+  isUserOnboarded,
 } from "./service";
 export { AUTH_EVENTS } from "./events";
 export { AuthError } from "./errors";

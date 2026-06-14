@@ -2,6 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // Mocks must be declared before the imports that pull in service.ts, since
 // vitest hoists vi.mock() calls to the top of the module.
+//
+// service.ts now re-exports the bootstrap/create-user helpers, which transitively
+// import db/client -> env. Mock env so its validation does not throw at load time
+// (this remains a pure unit test of AuthService — the db handle is never called).
+vi.mock("../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 vi.mock("../internal/config", () => ({
   auth: { api: { getSession: vi.fn() } },
 }));

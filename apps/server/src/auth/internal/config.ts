@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { customSession, jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
@@ -25,7 +25,11 @@ const emailChangeHooks = createEmailChangeHooks({
   sendEmail,
 });
 
-export const auth = betterAuth({
+// All Better Auth options EXCEPT the customSession plugin. Extracted so the
+// same object can be passed as the second argument to `customSession(fn,
+// options)`, which is what lets it infer `user.additionalFields` (e.g.
+// `hasOnboarded`) onto the resolved session type.
+const options = {
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: env.BETTER_AUTH_TRUSTED_ORIGINS
@@ -50,6 +54,11 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    // Close the public sign-up route. Sign-in stays enabled; the only path to
+    // the first user is the token-gated POST /api/bootstrap/claim. Without this
+    // an attacker could POST to sign-up on a fresh install and flip
+    // needsBootstrap to false, locking the operator out of /bootstrap.
+    disableSignUp: true,
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
@@ -61,6 +70,13 @@ export const auth = betterAuth({
     },
   },
   user: {
+    additionalFields: {
+      // `input: false` so `hasOnboarded` can never be set through Better Auth's
+      // create/update input — it flips only via the server-authoritative
+      // markUserOnboarded path. This is load-bearing: a client-supplied flag
+      // would trivially bypass the TMDB-required onboarding gate.
+      hasOnboarded: { type: "boolean", input: false, defaultValue: false },
+    },
     changeEmail: {
       enabled: true,
       // When the deployment has email wired up, the verification link goes
@@ -90,10 +106,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    customSession(async ({ user, session }) => {
-      const permissions = await loadUserPermissions(user.id);
-      return { session, user, permissions };
-    }),
     jwt(),
     oauthProvider({
       loginPage: "/auth/login",
@@ -130,6 +142,19 @@ export const auth = betterAuth({
   experimental: {
     joins: true,
   },
+} satisfies BetterAuthOptions;
+
+export const auth = betterAuth({
+  ...options,
+  plugins: [
+    ...options.plugins,
+    // Pass `options` as the second argument so customSession infers the
+    // additionalFields (hasOnboarded) onto session.user.
+    customSession(async ({ user, session }) => {
+      const permissions = await loadUserPermissions(user.id);
+      return { session, user, permissions };
+    }, options),
+  ],
 });
 
 export type Auth = typeof auth;

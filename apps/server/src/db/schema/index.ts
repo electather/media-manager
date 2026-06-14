@@ -11,3 +11,4 @@ export * from "./notifications";
 export * from "./plugin-runtime";
 export * from "./preferences";
 export * from "./media";
+export * from "./app";
