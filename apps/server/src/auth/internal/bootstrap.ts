@@ -38,17 +38,19 @@ function sha256Hex(token: string): string {
  * the row exists and is still unconsumed. Requiring `consumedAt === null` is
  * defense-in-depth: the zero-users assertion already blocks re-claims, but if a
  * user row were ever deleted, a spent token from the boot log must not be
- * replayable. `timingSafeEqual` needs equal-length buffers, so we gate on the
- * row's presence and equal length before comparing.
+ * replayable.
  */
 function tokenMatchesUnconsumed(
   tokenRow: { tokenHash: string; consumedAt: number | null } | undefined,
   suppliedHash: string,
 ): boolean {
   if (!tokenRow || tokenRow.consumedAt !== null) return false;
-  const suppliedBuf = Buffer.from(suppliedHash, "utf8");
-  const storedBuf = Buffer.from(tokenRow.tokenHash, "utf8");
-  return storedBuf.length === suppliedBuf.length && timingSafeEqual(storedBuf, suppliedBuf);
+  // Compare the raw 32-byte digests (hex-decoded). Both sides are SHA-256 hex, so
+  // the buffers are always equal length and `timingSafeEqual` is safe without a
+  // separate length guard.
+  const suppliedBuf = Buffer.from(suppliedHash, "hex");
+  const storedBuf = Buffer.from(tokenRow.tokenHash, "hex");
+  return timingSafeEqual(storedBuf, suppliedBuf);
 }
 
 /** Test helper: drop the in-memory token so the next ensure call re-issues. */
