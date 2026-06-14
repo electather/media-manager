@@ -94,7 +94,10 @@ shared-credential region (TMDB) and an **optional** user-connection region
 The system derives two pieces of state:
 
 - **`needsBootstrap`** — server-computed, `true` when the `user` table is empty.
-  Exposed by extending the existing public config payload.
+  Exposed by extending the existing public config payload. Because the flag only
+  ever transitions true→false (when the first user is created) and never back,
+  the server caches `false` once it observes a user via a module-level latch and
+  short-circuits the per-request `SELECT id FROM user` on subsequent calls.
 - **`hasOnboarded`** — per-user boolean column on the Better Auth `user` table,
   surfaced on the session user object.
 
@@ -300,6 +303,14 @@ component keyed by its `id` — no shell changes, no client role logic.
 
 v1 registry: `welcome`, `connect-services` (both `appliesTo: admin`; the
 framework is role-aware but only the admin path is wired in v1).
+
+Because the `_authenticated` guard funnels **every** `hasOnboarded === false`
+user to `/setup`, a non-admin member (detectable as holding no `admin:*`
+permission) lands on the wizard with zero applicable steps in v1. The wizard
+handles this by rendering a brief "you're all set — nothing to configure" state
+with a single Finish button (reusing the complete mutation) instead of an empty,
+step-less shell. No role is threaded through the session for this; the client
+simply branches on the server-resolved applicable-step count being zero.
 
 ### Welcome step
 

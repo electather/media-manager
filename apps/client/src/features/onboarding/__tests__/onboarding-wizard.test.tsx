@@ -103,4 +103,30 @@ describe("OnboardingWizard — Finish gate", () => {
     // With the only required step complete, Finish is allowed.
     expect(finishButton().disabled).toBe(false);
   });
+
+  // A non-admin member is funneled to /setup by the route guard but the server
+  // resolves zero applicable steps for them in v1. Rather than show an empty,
+  // step-less wizard the user can't make sense of, the shell must render a brief
+  // "all set" state whose single enabled Finish button completes onboarding.
+  it("renders an all-set state with an enabled Finish when no step applies", async () => {
+    renderWizard({
+      hasOnboarded: false,
+      steps: [
+        // The only step does not apply (e.g. an admin-only step for a member),
+        // so the wizard filters it out and has nothing to render.
+        {
+          id: "connect-services",
+          title: "Connect services",
+          applies: false,
+          required: true,
+          complete: false,
+        },
+      ],
+    });
+
+    // The wizard never reaches the stepper, so no Next button is shown — only
+    // the Finish action, and it is enabled (nothing required is unmet).
+    expect(screen.queryByRole("button", { name: /next/i })).toBeNull();
+    expect(finishButton().disabled).toBe(false);
+  });
 });

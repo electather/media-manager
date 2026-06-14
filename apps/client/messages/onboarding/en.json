@@ -41,6 +41,8 @@
   "onboarding_wizard_next": "Next",
   "onboarding_wizard_finish_blocked": "Complete the required steps before finishing.",
   "onboarding_wizard_complete_failed": "Could not finish setup. Please try again.",
+  "onboarding_wizard_nothing_title": "You're all set",
+  "onboarding_wizard_nothing_body": "There's nothing to configure for your account. Finish to start using nama.",
   "onboarding_step_welcome_title": "Welcome",
   "onboarding_step_connect_services_title": "Connect services",
   "onboarding_welcome_heading": "Welcome to nama",

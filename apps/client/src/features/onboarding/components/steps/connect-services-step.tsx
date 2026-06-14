@@ -1,7 +1,7 @@
 import { Suspense, useState } from "react";
 import { PlusIcon } from "lucide-react";
 import type { PluginSummary } from "@nama/shared/connections";
-import { ConnectionModal, type PluginSummary as ModalPluginSummary } from "@/features/connections";
+import { ConnectionModal } from "@/features/connections";
 import { useAvailablePlugins } from "@/features/settings-connections";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
@@ -96,7 +96,7 @@ function OptionalConnections() {
 
       <ConnectionModal
         open={!!target}
-        plugin={(target as ModalPluginSummary) ?? null}
+        plugin={target}
         onOpenChange={(open) => {
           if (!open) setTarget(null);
         }}
