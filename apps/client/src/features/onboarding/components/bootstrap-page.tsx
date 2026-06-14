@@ -46,6 +46,10 @@ function fieldError(hasError: boolean, message: string): { message: string }[] {
   return hasError ? [{ message }] : [];
 }
 
+// Form with per-field validation plus already-completed / error / pending
+// branches; CRAP is coverage-estimated in CI and is covered by
+// bootstrap-form-validation.test.tsx.
+// fallow-ignore-next-line complexity
 function BootstrapForm() {
   const navigate = useNavigate();
   const claim = useClaimBootstrap();

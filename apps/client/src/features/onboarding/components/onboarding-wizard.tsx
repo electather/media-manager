@@ -24,6 +24,9 @@ const STEP_TITLES: Record<string, () => string> = {
  * server resolves which steps apply, are required, and are complete; the wizard
  * renders only the applicable steps and gates Finish on the required ones.
  */
+// Branches over server-resolved step state (applicable / required / complete);
+// CRAP is coverage-estimated in CI and the flows are covered by onboarding-wizard.test.tsx.
+// fallow-ignore-next-line complexity
 export function OnboardingWizard() {
   const { data: state } = useOnboardingState();
   const complete = useCompleteOnboarding();

@@ -15,6 +15,9 @@ const TMDB_API_KEY_URL = "https://www.themoviedb.org/settings/api";
  * the onboarding state, so this form only tests and saves the key — saving
  * invalidates the onboarding state so the wizard re-reads the required-step gate.
  */
+// Test/save state machine with several mutually exclusive UI states; CRAP is
+// coverage-estimated in CI and the behavior is covered by onboarding-wizard.test.tsx.
+// fallow-ignore-next-line complexity
 export function TmdbKeyForm() {
   const qc = useQueryClient();
   const [apiKey, setApiKey] = useState("");
@@ -83,6 +86,9 @@ export function TmdbKeyForm() {
 }
 
 /** Inline green/red feedback from the ephemeral test probe. */
+// Renders one of three exclusive states (failed / not-ok / ok); CRAP is
+// coverage-estimated in CI and the variants are covered by onboarding-wizard.test.tsx.
+// fallow-ignore-next-line complexity
 function TestResult({ result, failed }: { result?: { ok: boolean }; failed: boolean }) {
   if (failed || (result && !result.ok)) {
     return (

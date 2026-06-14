@@ -58,7 +58,12 @@ const emailInput = () => input("bootstrap-email");
 const passwordInput = () => input("bootstrap-password");
 const tokenInput = () => input("bootstrap-token");
 
-function renderPage() {
+// A well-formed setup token: exactly 43 base64url characters, the shape the
+// server emits from `randomBytes(32).toString("base64url")` and the only shape
+// `bootstrapClaimSchema` now accepts.
+const VALID_TOKEN = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
+
+function renderPage(): QueryClient {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -67,6 +72,7 @@ function renderPage() {
       <BootstrapPage />
     </QueryClientProvider>,
   );
+  return client;
 }
 
 afterEach(() => {
@@ -119,7 +125,7 @@ describe("BootstrapForm — shared-schema validation", () => {
     await user.type(nameInput(), "Ada Lovelace");
     await user.type(emailInput(), "ada@example.com");
     await user.type(passwordInput(), "correct-horse");
-    await user.type(tokenInput(), "the-one-time-token");
+    await user.type(tokenInput(), VALID_TOKEN);
     await user.click(screen.getByRole("button", { name: /create administrator/i }));
 
     // Valid input clears the schema gate and reaches the claim fetcher with the
@@ -131,7 +137,7 @@ describe("BootstrapForm — shared-schema validation", () => {
       name: "Ada Lovelace",
       email: "ada@example.com",
       password: "correct-horse",
-      token: "the-one-time-token",
+      token: VALID_TOKEN,
     });
     await waitFor(() =>
       expect(auth.signIn.email).toHaveBeenCalledWith({
@@ -156,7 +162,7 @@ describe("BootstrapForm — post-claim session", () => {
     await user.type(nameInput(), "Ada Lovelace");
     await user.type(emailInput(), "ada@example.com");
     await user.type(passwordInput(), "correct-horse");
-    await user.type(tokenInput(), "the-one-time-token");
+    await user.type(tokenInput(), VALID_TOKEN);
     await user.click(screen.getByRole("button", { name: /create administrator/i }));
   }
 
@@ -167,6 +173,24 @@ describe("BootstrapForm — post-claim session", () => {
     await submitValidForm(user);
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({ to: "/setup" }));
+  });
+
+  it("invalidates the cached public config on success so the new admin is not looped back to /bootstrap", async () => {
+    // The root and /bootstrap guards cache `needsBootstrap` with an immortal
+    // staleTime; seed the pre-claim `true` so this proves the post-claim
+    // invalidation forces a refetch. Without it the guard keeps reading the
+    // stale `true` and bounces the new admin back to /bootstrap until a reload.
+    const user = userEvent.setup();
+    const client = renderPage();
+    client.setQueryData(["public-config"], { needsBootstrap: true });
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+
+    await submitValidForm(user);
+
+    await waitFor(() => expect(fetchers.claimBootstrap).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["public-config"] }),
+    );
   });
 
   it("falls back to the login page when sign-in fails after a successful claim", async () => {
