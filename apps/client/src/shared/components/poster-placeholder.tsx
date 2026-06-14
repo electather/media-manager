@@ -38,7 +38,7 @@ export function PosterPlaceholder({
       aria-hidden="true"
       data-slot="poster-placeholder"
       className={cn(
-        "relative isolate size-full overflow-hidden bg-muted",
+        "relative isolate size-full overflow-hidden",
         animate && "animate-pulse",
         className,
       )}
