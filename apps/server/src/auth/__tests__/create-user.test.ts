@@ -55,7 +55,7 @@ describe("createUserWithRole", () => {
 
     const { userId } = await createUserWithRole({
       email: "member@example.com",
-      password: "password123",
+      password: "password-12345",
       name: "Member",
       roleId: "role_member",
     });
@@ -67,7 +67,7 @@ describe("createUserWithRole", () => {
     expect(accountRow?.providerId).toBe("credential");
     // A hash is stored so sign-in/email can verify it; never the plaintext.
     expect(accountRow?.password).toBeTruthy();
-    expect(accountRow?.password).not.toBe("password123");
+    expect(accountRow?.password).not.toBe("password-12345");
 
     const roleRows = await db.select().from(userRoles).where(eq(userRoles.userId, userId)).all();
     expect(roleRows).toHaveLength(1);
@@ -83,7 +83,7 @@ describe("createUser", () => {
   it("creates user + account and NO user_roles row", async () => {
     const { userId } = await createUser({
       email: "norole@example.com",
-      password: "password123",
+      password: "password-12345",
       name: "No Role",
     });
 

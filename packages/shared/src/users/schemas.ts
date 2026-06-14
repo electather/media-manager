@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { passwordSchema } from "../auth";
 
 /** Body for `POST /admin/users`. */
 export const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
-  password: z.string().min(8),
+  password: passwordSchema,
   roleId: z.string().optional(),
 });
 export type CreateUserBody = z.infer<typeof createUserSchema>;
