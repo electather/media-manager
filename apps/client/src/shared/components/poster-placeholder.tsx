@@ -47,9 +47,9 @@ export function PosterPlaceholder({
       }}
     >
       <div
-        className="absolute top-1/2 left-1/2 aspect-square w-[46%] -translate-x-1/2 -translate-y-1/2"
+        className="absolute top-1/2 left-1/2 aspect-square w-[52%] -translate-x-1/2 -translate-y-1/2"
         style={{
-          backgroundColor: `oklch(0.27 0.07 ${h})`,
+          backgroundColor: `oklch(0.42 0.105 ${h})`,
           maskImage: "url(/logo-dark.svg)",
           WebkitMaskImage: "url(/logo-dark.svg)",
           maskRepeat: "no-repeat",
@@ -59,7 +59,7 @@ export function PosterPlaceholder({
           maskSize: "contain",
           WebkitMaskSize: "contain",
           filter:
-            "drop-shadow(0 -1px 0.5px oklch(1 0 0 / 0.22)) drop-shadow(0 2px 1.5px oklch(0 0 0 / 0.6))",
+            "drop-shadow(0 -1.5px 0.5px oklch(1 0 0 / 0.38)) drop-shadow(0 2.5px 2px oklch(0 0 0 / 0.72))",
         }}
       />
     </div>
