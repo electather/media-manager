@@ -36,6 +36,17 @@ import {
 
 export const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
+/**
+ * UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table.
+ * Replicated here (it also lives in the home discover source) so the catalog
+ * stays a lower-level module and does not import from `home`, which would
+ * invert the dependency direction.
+ */
+function utcDayBucket(): number {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 export interface CatalogServiceOptions {
   recordAccessThrottleMs?: number;
 }
@@ -71,7 +82,6 @@ export class CatalogService {
     return row;
   }
 
-  // fallow-ignore-next-line
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     const { out, accessed } = await selectMetadataBatch(this.db, items);
@@ -110,7 +120,6 @@ export class CatalogService {
     return selectStaleMetadataKeys(this.db, staleAfterMs, limit);
   }
 
-  // fallow-ignore-next-line unused-class-member
   async getDiscoverFeed(
     kind: DiscoverFeedKind,
     sort: DiscoverSort,
@@ -122,6 +131,28 @@ export class CatalogService {
   /** Cheap existence probe for a `(kind, sort, day)` discover snapshot. */
   async hasDiscoverFeed(kind: DiscoverFeedKind, sort: DiscoverSort, day: number): Promise<boolean> {
     return discoverFeedExists(this.db, kind, sort, day);
+  }
+
+  /**
+   * Pure, session-less read of today's cached trending feed projected to
+   * canonical metadata, in feed order. Backs the public pre-auth poster grid:
+   * it reuses the same daily snapshot as `discover/trending` and the
+   * `trendingNow` home row, doing only cached DB reads and no per-request
+   * catalog or plugin work. In particular it does **not** record metadata
+   * access, so anonymous login-page traffic never mutates catalog state nor
+   * keeps trending rows artificially warm against pruning. Returns `[]` when
+   * the day's snapshot is absent, and drops feed keys with no metadata row
+   * while preserving order.
+   */
+  async getTrendingMetadata(limit: number): Promise<CanonicalMetadata[]> {
+    const keys = await this.getDiscoverFeed("trending", "popularity_desc", utcDayBucket());
+    if (!keys || keys.length === 0) return [];
+    const sliced = keys.slice(0, limit);
+    // Side-effect-free read: go straight to the batch select, skipping the
+    // access recording getMetadataBatch performs, so anonymous traffic never
+    // mutates catalog state (see the contract above).
+    const { out } = await selectMetadataBatch(this.db, sliced);
+    return sliced.map((k) => out[`${k.type}:${k.tmdbId}`]).filter(Boolean) as CanonicalMetadata[];
   }
 
   async getRecommendations(
