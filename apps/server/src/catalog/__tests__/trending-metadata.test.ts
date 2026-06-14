@@ -12,7 +12,10 @@ vi.mock("../../env", () => ({
 }));
 
 import { CatalogService } from "../service";
+import { selectMetadataBatch } from "../service/metadata-reads";
 import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
+
+vi.mock("../service/metadata-reads");
 
 function makeMeta(tmdbId: string, type: "movie" | "tv"): CanonicalMetadata {
   return {
@@ -39,11 +42,12 @@ function stubbedService(opts: {
   feed: MetadataKey[] | null;
   meta?: Record<string, CanonicalMetadata>;
 }) {
-  // The DB is never used because both reads are stubbed below.
+  // The DB is never used because both reads are stubbed: getDiscoverFeed via a
+  // method spy, and the batch metadata select via the mocked reads module.
   const catalog = new CatalogService({} as never);
   const getDiscoverFeed = vi.spyOn(catalog, "getDiscoverFeed").mockResolvedValue(opts.feed);
-  const getMetadataBatch = vi.spyOn(catalog, "getMetadataBatch").mockResolvedValue(opts.meta ?? {});
-  return { catalog, getDiscoverFeed, getMetadataBatch };
+  vi.mocked(selectMetadataBatch).mockResolvedValue({ out: opts.meta ?? {}, accessed: [] });
+  return { catalog, getDiscoverFeed };
 }
 
 describe("CatalogService.getTrendingMetadata", () => {
@@ -64,7 +68,7 @@ describe("CatalogService.getTrendingMetadata", () => {
       { tmdbId: "2", type: "movie" },
       { tmdbId: "3", type: "tv" },
     ];
-    const { catalog, getMetadataBatch } = stubbedService({
+    const { catalog } = stubbedService({
       feed,
       meta: {
         "movie:1": makeMeta("1", "movie"),
@@ -72,15 +76,13 @@ describe("CatalogService.getTrendingMetadata", () => {
       },
     });
     const result = await catalog.getTrendingMetadata(2);
-    // Slices to the limit, and reads side-effect-free: the public pre-auth
-    // endpoint must not record access under anonymous traffic.
-    expect(getMetadataBatch).toHaveBeenCalledWith(
-      [
-        { tmdbId: "1", type: "movie" },
-        { tmdbId: "2", type: "movie" },
-      ],
-      { recordAccess: false },
-    );
+    // Slices to the limit, then reads the batch select directly — side-effect-free,
+    // so the public pre-auth endpoint never records access under anonymous traffic
+    // (getMetadataBatch, which getTrendingMetadata deliberately bypasses, would).
+    expect(selectMetadataBatch).toHaveBeenCalledWith(expect.anything(), [
+      { tmdbId: "1", type: "movie" },
+      { tmdbId: "2", type: "movie" },
+    ]);
     expect(result.map((m) => m.tmdbId)).toEqual(["1", "2"]);
   });
 

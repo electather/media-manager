@@ -82,19 +82,10 @@ export class CatalogService {
     return row;
   }
 
-  /**
-   * Batch metadata read. Records access for the returned rows by default (this
-   * feeds the prune throttle); pass `recordAccess: false` for side-effect-free
-   * reads such as the public pre-auth endpoint, which must not mutate catalog
-   * state under anonymous traffic.
-   */
-  async getMetadataBatch(
-    items: MetadataKey[],
-    opts: { recordAccess?: boolean } = {},
-  ): Promise<Record<string, CanonicalMetadata>> {
+  async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     const { out, accessed } = await selectMetadataBatch(this.db, items);
-    if ((opts.recordAccess ?? true) && accessed.length > 0) this.recordAccess(accessed);
+    if (accessed.length > 0) this.recordAccess(accessed);
     return out;
   }
 
@@ -155,11 +146,13 @@ export class CatalogService {
    */
   async getTrendingMetadata(limit: number): Promise<CanonicalMetadata[]> {
     const keys = await this.getDiscoverFeed("trending", "popularity_desc", utcDayBucket());
-    if (!keys) return [];
+    if (!keys || keys.length === 0) return [];
     const sliced = keys.slice(0, limit);
-    // Side-effect-free read: skip access recording (see the contract above).
-    const meta = await this.getMetadataBatch(sliced, { recordAccess: false });
-    return sliced.map((k) => meta[`${k.type}:${k.tmdbId}`]).filter(Boolean) as CanonicalMetadata[];
+    // Side-effect-free read: go straight to the batch select, skipping the
+    // access recording getMetadataBatch performs, so anonymous traffic never
+    // mutates catalog state (see the contract above).
+    const { out } = await selectMetadataBatch(this.db, sliced);
+    return sliced.map((k) => out[`${k.type}:${k.tmdbId}`]).filter(Boolean) as CanonicalMetadata[];
   }
 
   async getRecommendations(
