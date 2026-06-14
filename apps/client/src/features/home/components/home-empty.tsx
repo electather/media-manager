@@ -8,7 +8,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { Clapperboard } from "lucide-react";
-import * as m from "@/paraglide/messages";
+import { m } from "@/paraglide/messages";
 import { EmptyState } from "@/shared/components/empty-state";
 import { Button } from "@/shared/ui/button";
 import { homeKeys } from "../lib/query-keys";
