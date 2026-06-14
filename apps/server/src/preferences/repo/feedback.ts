@@ -39,6 +39,19 @@ export async function listFeedbackSince(userId: string, sinceMs: number): Promis
     .all();
 }
 
+/**
+ * Distinct ids of users with any feedback event at or after `cutoff`. Backs
+ * the home warm job's "active user" union via the preferences service barrel.
+ */
+export async function listUserIdsWithFeedbackSince(cutoff: number): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ userId: feedback.userId })
+    .from(feedback)
+    .where(sql`${feedback.createdAt} >= ${cutoff}`)
+    .all();
+  return rows.map((row) => row.userId);
+}
+
 export async function listFeedbackForItem(
   userId: string,
   tmdbId: string,
