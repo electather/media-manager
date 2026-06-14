@@ -29,6 +29,14 @@ vi.mock("../lib/step-registry", () => ({
   },
 }));
 
+// Spy on the complete-onboarding fetcher so a Finish click can be asserted to
+// actually fire the mutation, without a real backend.
+const completeOnboardingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock("../lib/fetchers", async (orig) => ({
+  ...((await orig()) as object),
+  completeOnboarding: completeOnboardingMock,
+}));
+
 import { OnboardingWizard } from "../components/onboarding-wizard";
 import { onboardingKeys } from "../lib/query-keys";
 
@@ -128,5 +136,10 @@ describe("OnboardingWizard — Finish gate", () => {
     // the Finish action, and it is enabled (nothing required is unmet).
     expect(screen.queryByRole("button", { name: /next/i })).toBeNull();
     expect(finishButton().disabled).toBe(false);
+
+    // The whole point of the all-set state: clicking Finish completes onboarding.
+    completeOnboardingMock.mockClear();
+    await userEvent.setup().click(finishButton());
+    expect(completeOnboardingMock).toHaveBeenCalledTimes(1);
   });
 });
