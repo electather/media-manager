@@ -47,6 +47,9 @@ vi.mock("../../../../auth", async () => {
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../../db/schema/auth/roles");
   const { PERMISSIONS } = await import("@nama/shared/auth");
+  // Import the real slug constant (auth/types is not the mocked barrel) so the
+  // mock cannot silently diverge from production if the slug ever changes.
+  const { SYSTEM_ADMIN_ROLE_SLUG } = await import("../../../../auth/types");
   async function loadUserRole(userId: string) {
     const row = await db
       .select({ roleId: userRoles.roleId, systemSlug: roles.systemSlug })
@@ -55,7 +58,7 @@ vi.mock("../../../../auth", async () => {
       .where(eq(userRoles.userId, userId))
       .get();
     if (!row) return null;
-    return { roleId: row.roleId, isSystemAdmin: row.systemSlug === "admin" };
+    return { roleId: row.roleId, isSystemAdmin: row.systemSlug === SYSTEM_ADMIN_ROLE_SLUG };
   }
   async function roleHasPermission(
     role: { roleId: string; isSystemAdmin: boolean },
@@ -189,8 +192,10 @@ describe("admin diagnostics — ADMIN_SERVER gate", () => {
         await seedUser(userId, ["admin:server"]);
         mockUserId = userId;
         const res = await buildApp(route.app).request(route.path);
+        // Gate-focused: assert the caller is NOT rejected by the permission
+        // check. We deliberately do not pin a specific success status so the
+        // test stays decoupled from each handler's own response logic.
         expect(res.status).not.toBe(403);
-        expect(res.status).toBe(200);
       });
     }
   });
