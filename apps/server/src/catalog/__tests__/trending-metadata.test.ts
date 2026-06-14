@@ -72,10 +72,15 @@ describe("CatalogService.getTrendingMetadata", () => {
       },
     });
     const result = await catalog.getTrendingMetadata(2);
-    expect(getMetadataBatch).toHaveBeenCalledWith([
-      { tmdbId: "1", type: "movie" },
-      { tmdbId: "2", type: "movie" },
-    ]);
+    // Slices to the limit, and reads side-effect-free: the public pre-auth
+    // endpoint must not record access under anonymous traffic.
+    expect(getMetadataBatch).toHaveBeenCalledWith(
+      [
+        { tmdbId: "1", type: "movie" },
+        { tmdbId: "2", type: "movie" },
+      ],
+      { recordAccess: false },
+    );
     expect(result.map((m) => m.tmdbId)).toEqual(["1", "2"]);
   });
 

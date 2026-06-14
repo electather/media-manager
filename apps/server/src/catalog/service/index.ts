@@ -82,10 +82,19 @@ export class CatalogService {
     return row;
   }
 
-  async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
+  /**
+   * Batch metadata read. Records access for the returned rows by default (this
+   * feeds the prune throttle); pass `recordAccess: false` for side-effect-free
+   * reads such as the public pre-auth endpoint, which must not mutate catalog
+   * state under anonymous traffic.
+   */
+  async getMetadataBatch(
+    items: MetadataKey[],
+    opts: { recordAccess?: boolean } = {},
+  ): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     const { out, accessed } = await selectMetadataBatch(this.db, items);
-    if (accessed.length > 0) this.recordAccess(accessed);
+    if ((opts.recordAccess ?? true) && accessed.length > 0) this.recordAccess(accessed);
     return out;
   }
 
@@ -138,14 +147,18 @@ export class CatalogService {
    * canonical metadata, in feed order. Backs the public pre-auth poster grid:
    * it reuses the same daily snapshot as `discover/trending` and the
    * `trendingNow` home row, doing only cached DB reads and no per-request
-   * catalog or plugin work. Returns `[]` when the day's snapshot is absent,
-   * and drops feed keys with no metadata row while preserving order.
+   * catalog or plugin work. In particular it does **not** record metadata
+   * access, so anonymous login-page traffic never mutates catalog state nor
+   * keeps trending rows artificially warm against pruning. Returns `[]` when
+   * the day's snapshot is absent, and drops feed keys with no metadata row
+   * while preserving order.
    */
   async getTrendingMetadata(limit: number): Promise<CanonicalMetadata[]> {
     const keys = await this.getDiscoverFeed("trending", "popularity_desc", utcDayBucket());
     if (!keys) return [];
     const sliced = keys.slice(0, limit);
-    const meta = await this.getMetadataBatch(sliced);
+    // Side-effect-free read: skip access recording (see the contract above).
+    const meta = await this.getMetadataBatch(sliced, { recordAccess: false });
     return sliced.map((k) => meta[`${k.type}:${k.tmdbId}`]).filter(Boolean) as CanonicalMetadata[];
   }
 
