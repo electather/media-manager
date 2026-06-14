@@ -41,6 +41,9 @@ export function isEmptyLayout(layout: HomeLayoutResponse): boolean {
  * to parse — the orchestrator falls through to live composition + writeback
  * in every case, so signalling absence is enough.
  */
+// Early-return cache validation (cold miss / version mismatch / parse failure);
+// CRAP is coverage-estimated in CI and the paths are covered by layout-cache.test.ts.
+// fallow-ignore-next-line complexity
 export async function read(userId: string, db: Db = getDb()): Promise<LayoutCacheRow | null> {
   const row = await db
     .select()
