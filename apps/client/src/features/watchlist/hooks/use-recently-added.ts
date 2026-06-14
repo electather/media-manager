@@ -1,7 +1,6 @@
 import { useMediaRows } from "@/shared/media/use-media-rows";
 import { watchlistRecentlySource } from "../lib/sources";
 
-const STALE_TIME_MS = 60_000;
 const DEFAULT_LIMIT = 5;
 
 /**
@@ -10,5 +9,5 @@ const DEFAULT_LIMIT = 5;
  * source returns a bounded page with no cursor.
  */
 export function useRecentlyAdded(limit: number = DEFAULT_LIMIT) {
-  return useMediaRows(watchlistRecentlySource(limit), { staleTime: STALE_TIME_MS });
+  return useMediaRows(watchlistRecentlySource(limit));
 }

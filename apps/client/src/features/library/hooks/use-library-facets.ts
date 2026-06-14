@@ -15,7 +15,6 @@ export const facetsQueryOptions = () =>
   queryOptions({
     queryKey: libraryKeys.facets(),
     queryFn: fetchFacets,
-    staleTime: 60 * 1000,
   });
 
 /**

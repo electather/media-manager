@@ -14,6 +14,9 @@ export function PerfStatsCards() {
     queryKey: diagnosticsKeys.perf.summary(),
     queryFn: fetchPerfSummary,
     refetchInterval: 60_000,
+    // Shorter than the 60s default: this is a live monitoring view, so it stays
+    // tighter than the 60s poll to avoid serving a full poll-interval of stale
+    // stats when the admin reopens the tab.
     staleTime: 30_000,
   });
 

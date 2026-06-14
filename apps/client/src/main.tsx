@@ -20,7 +20,13 @@ function I18nRoot({ children }: { children: ReactNode }) {
   return <DirectionProvider direction={dir}>{children}</DirectionProvider>;
 }
 
-const queryClient = new QueryClient();
+// 60s is the app-wide baseline staleTime; it matches the largest existing
+// cluster of explicit overrides. Individual queries override it only when they
+// need fresher (e.g. polling diagnostics/notifications) or longer (e.g. 5-min
+// trending, immortal public config) caching.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 60_000 } },
+});
 
 const router = createRouter({ routeTree, context: { queryClient, session: null } });
 

@@ -20,7 +20,6 @@ export function RetentionPopover() {
   const cfgQuery = useQuery({
     queryKey: diagnosticsKeys.config(),
     queryFn: fetchDiagnosticsConfig,
-    staleTime: 60_000,
   });
   const mutation = useMutation({
     mutationFn: fetchUpdateDiagnosticsConfig,

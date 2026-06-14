@@ -59,8 +59,9 @@ describe("watchlist route loader prefetch (#513)", () => {
 
     await prefetchMediaRows(client, source);
 
-    // The page hook reads with the same `staleTime` the section uses, so the
-    // freshly-warmed cache is still fresh and the suspense read never refetches.
+    // The section hooks inherit the app-wide 60s `staleTime` default; this test's
+    // QueryClient sets no default, so it pins the same 60s here. The freshly-warmed
+    // cache is therefore still fresh and the suspense read never refetches.
     const { result } = renderHook(() => useMediaRows(source, { staleTime: STALE_TIME_MS }), {
       wrapper: wrap(client),
     });

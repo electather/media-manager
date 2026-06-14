@@ -31,6 +31,10 @@ export function ErrorsTable({
   const list = useQuery({
     queryKey: diagnosticsKeys.errors.list(filters),
     queryFn: () => fetchErrorList(filters),
+    // Live monitoring table: stay under the 60s default so switching tabs and
+    // reopening within the poll window does not show a full poll of stale rows.
+    // Matches the sibling summary read in errors-header.tsx.
+    staleTime: 30_000,
     refetchInterval: 30_000,
     placeholderData: (prev) => prev,
   });
