@@ -63,9 +63,10 @@ async function requireRole(roleId: string): Promise<{ id: string; systemSlug: st
 
 /**
  * Resolves `roleId` and rejects when it is admin-equivalent — either the system
- * Admin slug or any role holding an admin-tier permission (`admin:users` /
- * `admin:roles`). Guards on capability, not slug, so a custom role that grants
- * admin power cannot be handed out through these endpoints (issue #576).
+ * Admin slug or any role holding an admin-tier permission (any `admin:*`
+ * permission in `ADMIN_PERMISSIONS`: users, roles, server, requests, plugins,
+ * jobs). Guards on capability, not slug, so a custom role that grants admin
+ * power cannot be handed out through these endpoints (issue #576).
  *
  * Capability is resolved through the auth service barrel; the role's permission
  * set stays behind the auth/repo boundary.

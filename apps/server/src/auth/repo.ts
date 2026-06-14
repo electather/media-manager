@@ -84,10 +84,7 @@ export async function roleHasAnyPermission(
     .select({ permission: rolePermissions.permission })
     .from(rolePermissions)
     .where(
-      and(
-        eq(rolePermissions.roleId, roleId),
-        inArray(rolePermissions.permission, permissions as Permission[]),
-      ),
+      and(eq(rolePermissions.roleId, roleId), inArray(rolePermissions.permission, permissions)),
     )
     .get();
   return !!row;
