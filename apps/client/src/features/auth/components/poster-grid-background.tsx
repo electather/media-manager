@@ -48,7 +48,7 @@ const Poster = React.memo(function Poster({ src, seed }: PosterProps) {
         <img
           src={src}
           alt=""
-          aria-hidden="true"
+          loading="lazy"
           loading="lazy"
           onError={() => setFailed(true)}
           className="absolute inset-0 size-full object-cover"
