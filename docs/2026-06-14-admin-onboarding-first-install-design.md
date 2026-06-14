@@ -521,17 +521,31 @@ extension points for these.
 
 Refinements made during implementation, all consistent with the design's intent:
 
-- **Two creation helpers.** `auth/internal/create-user.ts` exports both
-  `createUserWithRole({ email, password, name, roleId })` and a sibling
-  `createUser({ email, password, name })` (no role). The admin user-creation
-  endpoint (`POST /api/admin/users`) uses the role variant when a `roleId` is
-  supplied and the no-role variant when it is omitted, preserving its prior
-  semantics under `disableSignUp`.
+- **One creation primitive, three callers.** `auth/internal/create-user.ts`
+  exports a transaction-aware `insertCredentialUserTx(tx, { email, password,
+  name, roleId?, emailVerified? })` that writes the `user` + credential `account`
+  (+ optional `user_roles`) rows. `createUserWithRole`/`createUser` wrap it in
+  their own transaction, and `claimBootstrap` calls it inside its
+  zero-users-asserting transaction — so the better-auth credential account shape
+  lives in exactly one place (resolves review note on the inlined third copy).
+  The admin user-creation endpoint (`POST /api/admin/users`) still uses the role
+  path when a `roleId` is supplied and the no-role path when omitted, preserving
+  its prior semantics under `disableSignUp`.
 - **Bootstrap service surface.** Token issuance/verification/consumption lives in
   `auth/internal/bootstrap.ts` (`needsBootstrap`, `ensureBootstrapToken`,
   `claimBootstrap`) and is exposed through `auth/service.ts` → the `auth` barrel
-  (the adapter never imports `internal/`). `claimBootstrap` inlines the
-  user+account+role inserts inside the single zero-users-asserting transaction.
+  (the adapter never imports `internal/`). `claimBootstrap` asserts zero users,
+  verifies the token (cheap hash check **before** the expensive scrypt password
+  hash, so a bad token never pays the scrypt cost), creates the admin via
+  `insertCredentialUserTx`, and consumes the token — all in one transaction.
+- **Bootstrap hardening (review-driven).** Token verification additionally
+  requires `consumedAt === null`, so a spent token from the boot log can never be
+  replayed even if every user row were later deleted (defense-in-depth behind the
+  zero-users gate). The bootstrap admin is created `emailVerified: true` — reading
+  the console token proves control of the server. After a successful claim the
+  client invalidates the cached `public-config` query so the now-`false`
+  `needsBootstrap` is refetched, otherwise the immortal `staleTime` would bounce
+  the new admin back to `/bootstrap` until a full reload.
 - **Token re-issue on restart.** Because only the SHA-256 hash is stored, the
   plaintext is unrecoverable after a process restart. So on a restart with a
   stale non-consumed row, `ensureBootstrapToken` mints a **fresh** token and
@@ -552,7 +566,9 @@ Refinements made during implementation, all consistent with the design's intent:
 - **Shared validation.** The `/bootstrap` form validates with the shared
   `bootstrapClaimSchema` (via its per-field `.shape`) through TanStack Form's
   Standard Schema support — the same schema the server validates with, no
-  hand-written validators.
+  hand-written validators. The `token` field enforces the exact issued shape
+  (43 base64url chars) so typos and truncated copies are rejected client-side
+  before the round-trip.
 - **Auth shell reuse.** The bootstrap page reuses the existing auth visual shell
   via a new `AuthShell` component extracted from `AuthLayout` (a pure refactor),
   so `/bootstrap` is a visual sibling of `/auth/login`.
@@ -560,7 +576,14 @@ Refinements made during implementation, all consistent with the design's intent:
   fire-and-forget triggers the `host.catalog.discover_snapshot` job so trending
   and new-release content lands within seconds instead of waiting for the next
   scheduled run. The warm never fails completion. The client renders a brief
-  warming empty state and polls until the home feed has content.
+  warming empty state and polls until the home feed has content, backing off
+  5s → 10s → 20s → cap 30s so a cold TMDB cache does not get hammered.
+- **Architecture boundaries.** The new `features/onboarding/` client feature and
+  `db/schema/app/` server schema namespace are registered as their own fallow
+  zones (`client-feat-onboarding`, `server-schema-app`) with allow-rules matching
+  the deps they actually use (auth/connections/settings-connections + shared on
+  the client; auth-internal → schema-app on the server), so the boundary gate
+  passes the same way every other feature/schema does.
 - **Cleanup.** `.github/workflows/create-user.yml` did not exist; the only
   `create-user` script reference (`db:create-user`) lived in the root
   `package.json` and was removed alongside deleting `db/create-user.ts`.
@@ -568,5 +591,5 @@ Refinements made during implementation, all consistent with the design's intent:
 Verified end-to-end in a browser against a fresh zero-user install: boot token
 banner → `/bootstrap` funnel → token claim (admin + `role_admin` created, token
 consumed) → session → `/setup` wizard → welcome + connect-services steps with
-Finish disabled until TMDB is configured. Plus `vp check` clean and `vp test`
-green (2805 tests).
+Finish disabled until TMDB is configured. Plus `vp check` clean, the fallow
+boundary/quality gate green, and `vp test` green (2814 tests).
