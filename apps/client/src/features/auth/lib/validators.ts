@@ -1,6 +1,5 @@
 import type { ZodTypeAny } from "zod";
 import { createUserSchema } from "@nama/shared/users";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
 import { m } from "@/paraglide/messages";
 
 function validateSchemaField(
@@ -30,12 +29,13 @@ export function validateLoginPassword(value: string): string | undefined {
 }
 
 export function validateNewPassword(value: string): string | undefined {
-  // Branch on which bound failed so the message points the right direction.
-  // The bounds are the shared constants the schema itself is built from.
   if (!value) return m.auth_password_required();
-  if (value.length < PASSWORD_MIN_LENGTH) return m.auth_password_too_short();
-  if (value.length > PASSWORD_MAX_LENGTH) return m.auth_password_too_long();
-  return undefined;
+  // Validate against the shared schema (single source of truth), then branch on
+  // which bound failed so the message points the right direction.
+  const result = createUserSchema.shape.password.safeParse(value);
+  if (result.success) return undefined;
+  const tooLong = result.error.issues.some((issue) => issue.code === "too_big");
+  return tooLong ? m.auth_password_too_long() : m.auth_password_too_short();
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {

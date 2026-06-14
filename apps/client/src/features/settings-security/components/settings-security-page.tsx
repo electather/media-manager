@@ -81,9 +81,6 @@ function SessionsSection() {
 
 // ─── Change password ────────────────────────────────────────────────────────
 
-// Single source of truth: the new-password minimum lives in @nama/shared/auth.
-const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
-
 function PasswordChangeForm({
   current,
   next,
@@ -179,10 +176,10 @@ export function ChangePasswordCard({
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const tooShort = next.length > 0 && next.length < MIN_PASSWORD_LENGTH;
+  const tooShort = next.length > 0 && next.length < PASSWORD_MIN_LENGTH;
   const mismatch = confirm.length > 0 && confirm !== next;
   const canSubmit =
-    current.length > 0 && next.length >= MIN_PASSWORD_LENGTH && confirm === next && !submitting;
+    current.length > 0 && next.length >= PASSWORD_MIN_LENGTH && confirm === next && !submitting;
 
   const reset = () => {
     setCurrent("");

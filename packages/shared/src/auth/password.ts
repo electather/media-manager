@@ -1,21 +1,13 @@
 import { z } from "zod";
 
 /**
- * The single source of truth for new-password policy across client and server.
- *
- * The minimum of 12 and maximum of 256 follow NIST SP 800-63B guidance: favour
- * length over composition rules, accept long passphrases, and cap the input so
- * an over-long value cannot become a hashing denial-of-service vector. Any flow
- * that sets or changes a password (bootstrap claim, admin user creation) must
- * reuse this schema so the rule never drifts between call sites.
- *
- * Verifying an EXISTING credential is intentionally NOT gated by this schema —
- * legacy accounts may hold shorter passwords, so the verification path stays
- * lenient (see `deleteAccountSchema.currentPassword`).
- *
- * Deferred follow-up: screening new passwords against a known-breach list via
- * HIBP k-anonymity is a service-layer concern tracked separately (optional in
- * the issue) and deliberately not enforced here.
+ * Single source of truth for new-password policy (client + server). Min 12 /
+ * max 256 follows NIST SP 800-63B — favour length, accept passphrases, and cap
+ * input so an over-long value cannot inflate hashing cost; every set/change
+ * flow reuses this schema. Verifying an EXISTING credential is intentionally
+ * not gated here (legacy accounts may be shorter — see
+ * `deleteAccountSchema.currentPassword`). A known-breach (HIBP) screen is a
+ * deferred service-layer follow-up.
  */
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 256;
