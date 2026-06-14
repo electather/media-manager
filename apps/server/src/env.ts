@@ -45,6 +45,13 @@ export const env = createEnv({
     EMAIL_PROVIDER_CONFIGURED: z.stringbool().default(false),
     NOTIFICATIONS_ENABLED: z.stringbool().default(true),
     /**
+     * Set true only when Nama runs behind a trusted reverse proxy / CDN that
+     * overwrites `X-Forwarded-For`. When false (the default, e.g. a directly
+     * exposed server), the per-IP rate limiter keys on the socket peer address
+     * because a direct client can forge `X-Forwarded-For` to evade the limit.
+     */
+    TRUST_PROXY: z.stringbool().default(false),
+    /**
      * Maximum consola verbosity printed to stdout inside job runs. Anything
      * more verbose than this threshold is dropped on stdout — buffered
      * dashboard logs keep every entry regardless. Consola levels:
