@@ -59,13 +59,18 @@ The dashboard is available at `http://localhost:3000`.
 git clone https://github.com/electather/nama.git
 cd nama
 bun install
-cp .env.example .env
-# Edit .env with your API keys and secrets
+cp .env.example .env.dev
+# Edit .env.dev with your API keys and secrets — this is the env file
+# loaded for local development (git-ignored, never committed).
 bun run db:migrate
 bun run dev
 ```
 
 Server: `http://localhost:3000` · Client: `http://localhost:5173`
+
+> Local development reads `.env.dev`. Generate the auth and encryption
+> secrets with `openssl rand -hex 32` and keep the file out of version
+> control — it is already listed in `.gitignore`.
 
 ## Architecture
 
