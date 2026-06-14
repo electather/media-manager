@@ -31,9 +31,10 @@ const selectMediaRows = (data: InfiniteData<Page>): MediaRows => ({
 });
 
 /**
- * Caller-tunable query options. Kept narrow on purpose: a feature picks its own
- * `staleTime` (watchlist sections cache 60s like the old per-feature hooks did)
- * without being able to clobber the cursor / flatten / key wiring the core owns.
+ * Caller-tunable query options. Kept narrow on purpose: a feature can pick its
+ * own `staleTime` (home rows cache 5min) without being able to clobber the
+ * cursor / flatten / key wiring the core owns. Omitting it inherits the shared
+ * QueryClient's 60s default, which is what the watchlist sections rely on.
  */
 export interface MediaRowsOptions {
   staleTime?: number;

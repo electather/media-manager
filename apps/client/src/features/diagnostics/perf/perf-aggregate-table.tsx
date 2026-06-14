@@ -62,6 +62,10 @@ export function PerfAggregateTable({
   const aggregate = useQuery({
     queryKey: diagnosticsKeys.perf.aggregate(filters),
     queryFn: () => fetchPerfAggregate(filters),
+    // Live monitoring table: stay under the 60s default so switching tabs and
+    // reopening within the poll window does not show a full poll of stale rows.
+    // Matches the sibling summary read in perf-stats-cards.tsx.
+    staleTime: 30_000,
     refetchInterval: 30_000,
     placeholderData: (prev) => prev,
   });

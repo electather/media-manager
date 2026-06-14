@@ -11,6 +11,8 @@ export function useUnreadCount() {
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     networkMode: "online",
+    // Shorter than the 60s default: the badge is a near-live counter, so it
+    // stays at half the poll interval to keep the count current on remount.
     staleTime: 15_000,
   });
 }

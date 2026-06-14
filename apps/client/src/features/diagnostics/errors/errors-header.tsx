@@ -26,6 +26,9 @@ export function ErrorsHeader() {
     queryKey: diagnosticsKeys.errors.summary(),
     queryFn: fetchErrorSummary,
     refetchInterval: 60_000,
+    // Shorter than the 60s default: this is a live monitoring view, so it stays
+    // tighter than the 60s poll to avoid serving a full poll-interval of stale
+    // counts when the admin reopens the tab.
     staleTime: 30_000,
   });
 

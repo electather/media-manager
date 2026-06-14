@@ -14,6 +14,8 @@ export function useSessions(): UseSuspenseQueryResult<AuthSession[]> {
   return useSuspenseQuery({
     queryKey: settingsSecurityKeys.sessions(),
     queryFn: fetchSessions,
+    // Shorter than the 60s default: a security surface where a just-revoked
+    // session should drop off the list promptly when the page is revisited.
     staleTime: 30_000,
   });
 }
