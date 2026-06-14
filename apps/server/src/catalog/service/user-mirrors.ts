@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { uniqBy } from "es-toolkit/array";
 import type { Db } from "../../db/client";
 import { userHistoryMirror, userRatingsMirror } from "../../db/schema/catalog";
@@ -29,6 +29,20 @@ export async function selectUserRatings(db: Db, userId: string): Promise<RatingE
     .where(eq(userRatingsMirror.userId, userId))
     .get();
   return row?.events ?? [];
+}
+
+/**
+ * Distinct ids of users whose history mirror was synced at or after `cutoff`.
+ * Backs the home warm job's "active user" union via the catalog service
+ * barrel, so the warm job never touches the catalog-owned mirror table.
+ */
+export async function selectUserIdsSyncedSince(db: Db, cutoff: number): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ userId: userHistoryMirror.userId })
+    .from(userHistoryMirror)
+    .where(sql`${userHistoryMirror.lastSyncedAt} >= ${cutoff}`)
+    .all();
+  return rows.map((row) => row.userId);
 }
 
 export async function selectHistoryCursors(db: Db, userId: string): Promise<PluginCursors> {
