@@ -29,10 +29,14 @@ const Poster = React.memo(function Poster({ src, seed }: PosterProps) {
   // the placeholder without touching its siblings.
   const [failed, setFailed] = React.useState(false);
 
-  // Reset the failure state when the live pool resolves a new src after mount.
-  React.useEffect(() => {
+  // Reset the failure flag when a new src arrives, derived during render rather
+  // than in a post-paint effect — otherwise a replacement src would show one
+  // committed frame still flagged as failed before the effect cleared it.
+  const [prevSrc, setPrevSrc] = React.useState(src);
+  if (prevSrc !== src) {
+    setPrevSrc(src);
     setFailed(false);
-  }, [src]);
+  }
 
   const showImage = src !== undefined && !failed;
 
