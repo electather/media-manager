@@ -13,6 +13,11 @@ export const Route = createFileRoute("/_authenticated")({
           search: { redirect: location.href },
         });
       }
+      // An authenticated user who has not finished onboarding is funneled to the wizard,
+      // except on the wizard route itself so it can render.
+      if (session.user.hasOnboarded === false && location.pathname !== "/setup") {
+        throw redirect({ to: "/setup" });
+      }
       return { session };
     } catch (err) {
       // Re-throw redirects; on any other error (network failure, etc.)

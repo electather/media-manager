@@ -16,7 +16,8 @@
       "./messages/shared/{locale}.json",
       "./messages/settings/{locale}.json",
       "./messages/watchlist/{locale}.json",
-      "./messages/auth/{locale}.json"
+      "./messages/auth/{locale}.json",
+      "./messages/onboarding/{locale}.json"
     ]
   }
 }

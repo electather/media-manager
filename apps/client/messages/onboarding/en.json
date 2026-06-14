@@ -1,0 +1,81 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "onboarding_bootstrap_heading": "Set up your server",
+  "onboarding_bootstrap_intro": "Create the first administrator account using the setup token printed in your server's console.",
+  "onboarding_bootstrap_name_label": "Name",
+  "onboarding_bootstrap_email_label": "Email",
+  "onboarding_bootstrap_password_label": "Password",
+  "onboarding_bootstrap_token_label": "Setup token",
+  "onboarding_bootstrap_token_placeholder": "Paste the token from the server console",
+  "onboarding_bootstrap_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "Creating administrator…",
+        "status=*": "Create administrator"
+      }
+    }
+  ],
+  "onboarding_bootstrap_name_required": "Name is required.",
+  "onboarding_bootstrap_email_invalid": "Enter a valid email address.",
+  "onboarding_bootstrap_password_too_short": "Password must be at least 8 characters.",
+  "onboarding_bootstrap_token_required": "The setup token is required.",
+  "onboarding_bootstrap_invalid_token": "That setup token is invalid. Check the server console and try again.",
+  "onboarding_bootstrap_failed": "Could not create the administrator account. Please try again.",
+  "onboarding_bootstrap_already_done_title": "Already set up",
+  "onboarding_bootstrap_already_done_body": "This server already has an administrator account.",
+  "onboarding_bootstrap_go_to_login": "Go to login",
+  "onboarding_wizard_title": "Welcome to nama",
+  "onboarding_wizard_subtitle": "A few steps to get your server ready.",
+  "onboarding_wizard_finish": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "Finishing…",
+        "status=*": "Finish setup"
+      }
+    }
+  ],
+  "onboarding_wizard_back": "Back",
+  "onboarding_wizard_next": "Next",
+  "onboarding_wizard_finish_blocked": "Complete the required steps before finishing.",
+  "onboarding_wizard_complete_failed": "Could not finish setup. Please try again.",
+  "onboarding_step_welcome_title": "Welcome",
+  "onboarding_step_connect_services_title": "Connect services",
+  "onboarding_welcome_heading": "Welcome to nama",
+  "onboarding_welcome_intro": "nama is your self-hosted home for discovering, tracking, and requesting movies and TV.",
+  "onboarding_welcome_mcp_heading": "Built for AI clients",
+  "onboarding_welcome_mcp_body": "nama exposes a Model Context Protocol endpoint, so assistants like Claude and Cursor can browse and act on your library on your behalf.",
+  "onboarding_connect_required_title": "Metadata provider",
+  "onboarding_connect_required_description": "TMDB powers every title, poster, and detail in nama. Add an API key to continue.",
+  "onboarding_connect_optional_title": "Personal connections",
+  "onboarding_connect_optional_description": "Link your media servers and tracking services. You can always do this later from settings.",
+  "onboarding_connect_optional_connect": "Connect",
+  "onboarding_connect_optional_empty": "No services are available to connect.",
+  "onboarding_tmdb_label": "TMDB API key",
+  "onboarding_tmdb_placeholder": "Your TMDB API key",
+  "onboarding_tmdb_why": "Required: nama uses TMDB for all artwork and metadata.",
+  "onboarding_tmdb_get_key": "Get a TMDB API key",
+  "onboarding_tmdb_test": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "Testing…",
+        "status=*": "Test key"
+      }
+    }
+  ],
+  "onboarding_tmdb_save": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "Saving…",
+        "status=*": "Save key"
+      }
+    }
+  ],
+  "onboarding_tmdb_test_ok": "The key works.",
+  "onboarding_tmdb_test_failed": "That key did not work. Check it and try again.",
+  "onboarding_tmdb_save_failed": "Could not save the key. Please try again.",
+  "onboarding_tmdb_saved": "TMDB key saved."
+}

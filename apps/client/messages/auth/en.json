@@ -33,6 +33,9 @@
   "auth_confirm_password_required": "Please confirm your password.",
   "auth_passwords_do_not_match": "Passwords do not match.",
   "auth_name_required": "Name is required.",
+  "auth_register_invite_only_title": "Invite only",
+  "auth_register_invite_only_body": "New accounts are created by an administrator. Ask your administrator for an invite, then sign in.",
+  "auth_register_go_to_login": "Go to login",
   "auth_login_submit": [
     {
       "selectors": ["status"],
