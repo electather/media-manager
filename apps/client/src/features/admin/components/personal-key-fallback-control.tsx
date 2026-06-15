@@ -6,27 +6,29 @@ import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
 
 import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
-import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
+import { m } from "@/paraglide/messages";
 
-const POLICIES: ReadonlyArray<{ value: PersonalKeyFallbackPolicy; label: string }> = [
-  { value: "off", label: "Off" },
-  { value: "admin-first", label: "Admin-first" },
-  { value: "personal-first", label: "Personal-first" },
-];
+import { fetchSetFallbackPolicy } from "../lib/fetchers";
 
-const EXPLAINERS: Record<PersonalKeyFallbackPolicy, string> = {
-  off: "Admin and user keys are kept separate. Global calls use the admin pool; user calls use the user's own keys only.",
-  "admin-first":
-    "Admin-owned keys are tried first; users' own keys only kick in when the admin pool is exhausted for that call.",
-  "personal-first":
-    "Users' own keys are tried first; admin-owned keys only fill in when the user's pool is exhausted.",
-};
+/** Label function for the three policy values, backed by `m.*`. */
+function policyLabel(policy: PersonalKeyFallbackPolicy): string {
+  if (policy === "off") return m.admin_plugins_fallback_policy_off_label();
+  if (policy === "admin-first") return m.admin_plugins_fallback_policy_admin_first_label();
+  return m.admin_plugins_fallback_policy_personal_first_label();
+}
 
-type PolicyEntry = (typeof POLICIES)[number];
+/** Explainer function for the three policy values, backed by `m.*`. */
+function policyExplainer(policy: PersonalKeyFallbackPolicy): string {
+  if (policy === "off") return m.admin_plugins_fallback_policy_off_explainer();
+  if (policy === "admin-first") return m.admin_plugins_fallback_policy_admin_first_explainer();
+  return m.admin_plugins_fallback_policy_personal_first_explainer();
+}
+
+const POLICIES: ReadonlyArray<PersonalKeyFallbackPolicy> = ["off", "admin-first", "personal-first"];
 
 interface PolicyButtonProps {
-  entry: PolicyEntry;
+  value: PersonalKeyFallbackPolicy;
   active: boolean;
   isPureGlobal: boolean;
   isPending: boolean;
@@ -34,7 +36,7 @@ interface PolicyButtonProps {
 }
 
 // fallow-ignore-next-line complexity
-function PolicyButton({ entry, active, isPureGlobal, isPending, onSelect }: PolicyButtonProps) {
+function PolicyButton({ value, active, isPureGlobal, isPending, onSelect }: PolicyButtonProps) {
   // For pure-global plugins keep the radios reachable to assistive
   // tech (`aria-disabled` instead of native `disabled`) — HTML
   // `disabled` removes elements from the accessibility tree in some
@@ -55,7 +57,7 @@ function PolicyButton({ entry, active, isPureGlobal, isPending, onSelect }: Poli
       size="sm"
       onClick={() => {
         if (ariaDisabled) return;
-        onSelect(entry.value);
+        onSelect(value);
       }}
       disabled={nativelyDisabled}
       className={cn(
@@ -68,7 +70,7 @@ function PolicyButton({ entry, active, isPureGlobal, isPending, onSelect }: Poli
       {isPending && active ? (
         <LoaderCircleIcon className="mr-1 size-3 animate-spin" aria-hidden="true" />
       ) : null}
-      {entry.label}
+      {policyLabel(value)}
     </Button>
   );
 }
@@ -89,7 +91,7 @@ function SegmentedControl({
   return (
     <div
       role="radiogroup"
-      aria-label="Personal key fallback policy"
+      aria-label={m.admin_plugins_fallback_policy_label()}
       className={cn(
         "inline-flex rounded-md border border-border bg-muted/30 p-0.5 text-xs",
         isPureGlobal && "opacity-60",
@@ -97,9 +99,9 @@ function SegmentedControl({
     >
       {POLICIES.map((p) => (
         <PolicyButton
-          key={p.value}
-          entry={p}
-          active={p.value === optimistic}
+          key={p}
+          value={p}
+          active={p === optimistic}
           isPureGlobal={isPureGlobal}
           isPending={isPending}
           onSelect={onSelect}
@@ -143,21 +145,16 @@ export function PersonalKeyFallbackControl({
   }, [policy]);
 
   const mutation = useMutation({
-    mutationFn: async (next: PersonalKeyFallbackPolicy) => {
-      const res = await api.plugins[":id"]["personal-key-fallback"].$patch({
-        param: { id: pluginId },
-        json: { policy: next },
-      });
-      if (!res.ok) throw new Error("Failed to update fallback policy.");
-    },
+    mutationFn: (next: PersonalKeyFallbackPolicy) =>
+      fetchSetFallbackPolicy({ pluginId, policy: next }),
     onSuccess: () => {
-      toast.success("Fallback policy updated.");
+      toast.success(m.admin_plugins_toast_fallback_saved());
       onChanged();
     },
     onError: (_err, _next, _ctx) => {
       // Revert the optimistic flip — the server didn't accept the change.
       setOptimistic(policy);
-      toast.error("Couldn't update fallback policy. Try again.");
+      toast.error(m.admin_plugins_toast_fallback_error());
     },
   });
 
@@ -170,7 +167,7 @@ export function PersonalKeyFallbackControl({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium">Personal key fallback</span>
+        <span className="text-xs font-medium">{m.admin_plugins_fallback_policy_label()}</span>
         {isPureGlobal ? (
           <Tooltip>
             <TooltipTrigger
@@ -186,7 +183,7 @@ export function PersonalKeyFallbackControl({
               }
             />
             <TooltipContent side="top">
-              Only applies to plugins with user-scoped capabilities.
+              {m.admin_plugins_fallback_policy_pure_global_tooltip()}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -199,7 +196,7 @@ export function PersonalKeyFallbackControl({
         )}
       </div>
       <p className="text-xs leading-snug text-muted-foreground" aria-live="polite">
-        {EXPLAINERS[optimistic]}
+        {policyExplainer(optimistic)}
       </p>
     </div>
   );

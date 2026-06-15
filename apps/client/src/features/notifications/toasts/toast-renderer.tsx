@@ -5,6 +5,7 @@ import { m } from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { SeverityIcon } from "../shared/severity-icon";
+import { isSafeActionUrl } from "../shared/url";
 import type { NotificationItemDto } from "../shared/types";
 import type { MarkReadMutation } from "../inbox/use-inbox-mutations";
 import type { ToastBroadcast } from "./use-toast-broadcast";
@@ -71,7 +72,12 @@ export function renderToast(item: NotificationItemDto, deps: ToastDeps): void {
         item={item}
         onClick={() => {
           markReadMutation.mutate([item.id]);
-          if (item.actionUrl) void navigate({ to: item.actionUrl });
+          // Mirror the guard used in inbox-row and popover-row: reject any URL
+          // whose scheme is not http: or https: so a malicious plugin-supplied
+          // actionUrl cannot trigger javascript: navigation via the router.
+          if (item.actionUrl && isSafeActionUrl(item.actionUrl)) {
+            void navigate({ to: item.actionUrl });
+          }
           sonnerToast.dismiss(id);
         }}
         onDismiss={() => sonnerToast.dismiss(id)}
