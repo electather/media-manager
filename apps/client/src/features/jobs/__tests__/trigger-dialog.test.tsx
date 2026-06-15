@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -11,8 +11,19 @@ vi.mock("@/shared/components/pickers", () => ({
   UserPicker: () => <div data-testid="user-picker" />,
   ConnectionPicker: () => <div data-testid="connection-picker" />,
 }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+// Mock the fetcher so tests control success vs. failure without a real HTTP layer.
+vi.mock("../lib/fetchers", () => ({
+  fetchTriggerJob: vi.fn(),
+}));
+
+import { fetchTriggerJob } from "../lib/fetchers";
+import { toast } from "sonner";
 import { DynamicTriggerDialog } from "../components/trigger-dialog";
+
+const mockFetchTriggerJob = vi.mocked(fetchTriggerJob);
+const mockToastError = vi.mocked(toast.error);
 
 function renderWithClient(node: ReactNode) {
   const qc = new QueryClient({
@@ -115,5 +126,60 @@ describe("DynamicTriggerDialog required validation", () => {
     const input = screen.getByRole("textbox", { name: /target/i });
     await user.type(input, "abc");
     expect(screen.queryByText(/this field is required/i)).toBeNull();
+  });
+});
+
+const numberJob = {
+  id: "host.math.compute",
+  name: "Compute",
+  kind: "triggerable",
+  enabled: true,
+  adminTriggerable: true,
+  userTriggerable: false,
+  inputSchema: {
+    type: "object",
+    properties: {
+      count: { type: "number", description: "How many items" },
+    },
+    required: ["count"],
+  },
+} as unknown as JobHandle;
+
+describe("DynamicTriggerDialog number coercion", () => {
+  it("submits a numeric value (not a string) for number-typed fields", async () => {
+    // Arrange: fetchTriggerJob resolves so the mutation reaches onSuccess.
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    await user.type(input, "5");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    // The fetcher should have been called with the number 5, not the string "5".
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        numberJob.id,
+        expect.objectContaining({ count: 5 }),
+      );
+    });
+  });
+});
+
+describe("DynamicTriggerDialog error handling", () => {
+  it("shows an error toast when the trigger fetch rejects", async () => {
+    // Arrange: simulate a server error so the mutation fires onError.
+    mockFetchTriggerJob.mockRejectedValueOnce(new Error("network error"));
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    await user.type(input, "3");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    // The user must see an error toast so the failure is not silent.
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("network error");
+    });
   });
 });
