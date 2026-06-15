@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, gte } from "drizzle-orm";
 import { uniqBy } from "es-toolkit/array";
 import type { Db } from "../../db/client";
 import { userHistoryMirror, userRatingsMirror } from "../../db/schema/catalog";
@@ -40,7 +40,7 @@ export async function selectUserIdsSyncedSince(db: Db, cutoff: number): Promise<
   const rows = await db
     .selectDistinct({ userId: userHistoryMirror.userId })
     .from(userHistoryMirror)
-    .where(sql`${userHistoryMirror.lastSyncedAt} >= ${cutoff}`)
+    .where(gte(userHistoryMirror.lastSyncedAt, cutoff))
     .all();
   return rows.map((row) => row.userId);
 }
