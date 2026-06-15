@@ -86,8 +86,11 @@ export class ArtworkService {
     // `lastRefreshedAt`, which would defer nightly `listStaleMetadata`
     // re-pickup for rows that legitimately have nothing yet.
     if (!urls.posterUrl && !urls.backdropUrl && !urls.clearLogoUrl) return;
-    // Suppress redundant patches when this canonical row was already written
-    // inside the dedup window, e.g. many users viewing the same hot title.
+    // Collapse write-backs for this canonical row inside the dedup window, e.g.
+    // many users viewing the same hot title. The window keys on the title only,
+    // so a partial first bundle (or a differing `languages` set) can defer a
+    // newly resolved slot until the window lapses — an accepted, bounded
+    // trade-off documented in the design doc's Concurrency section.
     if (!claimWriteBack(entry.key, Date.now())) return;
     void this.catalogService
       .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, urls)
