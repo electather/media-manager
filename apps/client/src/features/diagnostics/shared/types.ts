@@ -5,6 +5,8 @@ import type {
   PerfKind,
   PerfRecord,
 } from "@nama/shared/diagnostics";
+import { ERROR_SEVERITIES, ERROR_SOURCES } from "@nama/shared/diagnostics";
+import { m } from "@/paraglide/messages";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 /** Filter state owned by the diagnostics route — encoded in search params. */
@@ -25,10 +27,50 @@ export interface PerfFilters {
   search: string;
 }
 
+/** Default filter state for each tab. Lives here so the filter bars and the
+ *  filter hook share one source rather than the hook importing initialization
+ *  state from a component file. */
+export const ERRORS_DEFAULT_FILTERS: ErrorsFilters = {
+  severity: [...ERROR_SEVERITIES],
+  source: [...ERROR_SOURCES],
+  pluginId: null,
+  range: "24h",
+  requestId: "",
+  search: "",
+};
+
+export const PERF_DEFAULT_FILTERS: PerfFilters = {
+  kind: "all",
+  sort: "p95",
+  range: "24h",
+  requestId: "",
+  search: "",
+};
+
+/** Enum label functions shared by every call site so the i18n mapping lives in
+ *  one place per enum. */
+export const SOURCE_LABELS: Record<ErrorSource, () => string> = {
+  frontend: () => m.diagnostics_source_frontend(),
+  backend: () => m.diagnostics_source_backend(),
+  plugin: () => m.diagnostics_source_plugin(),
+  cron: () => m.diagnostics_source_cron(),
+};
+
+export const PERF_LABELS: Record<"p50" | "p95" | "p99" | "max", () => string> = {
+  p50: () => m.diagnostics_perf_label_p50(),
+  p95: () => m.diagnostics_perf_label_p95(),
+  p99: () => m.diagnostics_perf_label_p99(),
+  max: () => m.diagnostics_perf_label_max(),
+};
+
 /** Wire shape returned by `/admin/diagnostics/errors` list endpoint. List rows
- *  drop the heavyweight detail fields (`stack`, `context`, `connectionId`) —
- *  the detail sheet refetches the full {@link ErrorDetail} when opened. */
-export type ErrorListRow = Omit<ErrorRecord, "stack" | "context" | "connectionId">;
+ *  drop the heavyweight detail fields (`stack`, `resolvedStack`, `context`,
+ *  `connectionId`) — the detail sheet refetches the full {@link ErrorDetail}
+ *  when opened. */
+export type ErrorListRow = Omit<
+  ErrorRecord,
+  "stack" | "resolvedStack" | "context" | "connectionId"
+>;
 
 /** Detail view re-uses the canonical record shape from `@nama/shared`. */
 export type ErrorDetail = ErrorRecord;

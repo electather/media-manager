@@ -1,13 +1,11 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, GaugeIcon } from "lucide-react";
+import { GaugeIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
-import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { diagnosticsKeys } from "../shared/query-keys";
-import { fetchPerfAggregate } from "../shared/fetchers";
+import { DiagnosticsEmpty } from "../shared/diagnostics-empty";
 import { PinnedThreadBanner } from "../shared/pinned-thread-banner";
+import { usePerfAggregate } from "./use-perf-aggregate";
 import { PerfRow } from "./perf-row";
 import type { PerfAggregateGroup, PerfFilters } from "../shared/types";
 
@@ -41,7 +39,7 @@ const SORT_COMPARATORS: Record<SortKey, (a: PerfAggregateGroup, b: PerfAggregate
     lastAt: (a, b) => b.lastAt - a.lastAt,
   };
 
-function sortAndFilter(groups: PerfAggregateGroup[], filters: PerfFilters) {
+export function sortAndFilter(groups: PerfAggregateGroup[], filters: PerfFilters) {
   const compare = SORT_COMPARATORS[filters.sort] ?? SORT_COMPARATORS.p95;
   const sorted = [...groups].sort(compare);
   const q = filters.search.trim().toLowerCase();
@@ -49,9 +47,6 @@ function sortAndFilter(groups: PerfAggregateGroup[], filters: PerfFilters) {
   return sorted.filter((g) => (g.route ?? g.pluginId ?? "").toLowerCase().includes(q));
 }
 
-// Conditional rendering of pinned-banner + body branches over the query
-// states is intrinsic; further extraction would not simplify.
-// fallow-ignore-next-line complexity
 export function PerfAggregateTable({
   filters,
   selectedKey,
@@ -59,21 +54,9 @@ export function PerfAggregateTable({
   selectedGroup,
   onClearRequestId,
 }: Props) {
-  const aggregate = useQuery({
-    queryKey: diagnosticsKeys.perf.aggregate(filters),
-    queryFn: () => fetchPerfAggregate(filters),
-    // Live monitoring table: stay under the 60s default so switching tabs and
-    // reopening within the poll window does not show a full poll of stale rows.
-    // Matches the sibling summary read in perf-stats-cards.tsx.
-    staleTime: 30_000,
-    refetchInterval: 30_000,
-    placeholderData: (prev) => prev,
-  });
+  const { data } = usePerfAggregate(filters);
 
-  const sortedGroups = useMemo(() => {
-    const groups = (aggregate.data?.groups as PerfAggregateGroup[] | undefined) ?? [];
-    return sortAndFilter(groups, filters);
-  }, [aggregate.data, filters]);
+  const sortedGroups = useMemo(() => sortAndFilter(data.groups, filters), [data.groups, filters]);
 
   const pinnedRequestId = filters.requestId.trim();
 
@@ -88,96 +71,40 @@ export function PerfAggregateTable({
       ) : null}
 
       <Card className="gap-0 overflow-hidden p-0">
-        <PerfAggregateBody
-          isPending={aggregate.isPending}
-          isError={aggregate.isError}
-          refetch={() => aggregate.refetch()}
-          groups={sortedGroups}
-          selectedKey={selectedKey}
-          onSelect={onSelect}
-          selectedGroup={selectedGroup}
-          sort={filters.sort}
-          truncated={aggregate.data?.truncated ?? false}
-          sampleSize={aggregate.data?.sampleSize ?? 0}
-        />
+        {sortedGroups.length === 0 ? (
+          <DiagnosticsEmpty
+            icon={GaugeIcon}
+            title={m.diagnostics_perf_empty_title()}
+            body={m.diagnostics_perf_empty_body()}
+          />
+        ) : (
+          <>
+            <PerfTableHeader />
+            {sortedGroups.map((group) => {
+              const key = groupKey(group);
+              const isOpen = selectedKey === key;
+              return (
+                <PerfRow
+                  key={key}
+                  group={group}
+                  isOpen={isOpen}
+                  onOpen={() => {
+                    onSelect(isOpen ? null : key);
+                    selectedGroup(isOpen ? null : group);
+                  }}
+                />
+              );
+            })}
+            <PerfTableFooter
+              groupCount={sortedGroups.length}
+              sort={filters.sort}
+              truncated={data.truncated}
+              sampleSize={data.sampleSize}
+            />
+          </>
+        )}
       </Card>
     </div>
-  );
-}
-
-interface PerfAggregateBodyProps {
-  isPending: boolean;
-  isError: boolean;
-  refetch: () => void;
-  groups: PerfAggregateGroup[];
-  selectedKey: string | null;
-  onSelect: (key: string | null) => void;
-  selectedGroup: (group: PerfAggregateGroup | null) => void;
-  sort: PerfFilters["sort"];
-  truncated: boolean;
-  sampleSize: number;
-}
-
-function PerfAggregateBody({
-  isPending,
-  isError,
-  refetch,
-  groups,
-  selectedKey,
-  onSelect,
-  selectedGroup,
-  sort,
-  truncated,
-  sampleSize,
-}: PerfAggregateBodyProps) {
-  if (isPending) return <SkeletonRows />;
-  if (isError) {
-    return (
-      <Empty
-        icon="error"
-        title={m.diagnostics_perf_load_failed_title()}
-        body={m.diagnostics_perf_load_failed_body()}
-      >
-        <Button variant="outline" size="sm" onClick={refetch}>
-          {m.diagnostics_errors_retry()}
-        </Button>
-      </Empty>
-    );
-  }
-  if (groups.length === 0) {
-    return (
-      <Empty
-        icon="empty"
-        title={m.diagnostics_perf_empty_title()}
-        body={m.diagnostics_perf_empty_body()}
-      />
-    );
-  }
-  return (
-    <>
-      <PerfTableHeader />
-      {groups.map((group) => {
-        const key = groupKey(group);
-        const isOpen = selectedKey === key;
-        return (
-          <PerfRow
-            key={key}
-            group={group}
-            isOpen={isOpen}
-            onOpen={() => {
-              onSelect(isOpen ? null : key);
-              selectedGroup(isOpen ? null : group);
-            }}
-          />
-        );
-      })}
-      <PerfTableFooter
-        groupCount={groups.length}
-        sort={sort}
-        truncated={truncated}
-        sampleSize={sampleSize}
-      />
-    </>
   );
 }
 
@@ -217,45 +144,28 @@ function PerfTableFooter({
   );
 }
 
-function SkeletonRows() {
+/** Suspense fallback for the perf table. Exported so the tab can render it
+ *  inside the `<Suspense>` boundary that wraps {@link PerfAggregateTable}. */
+export function PerfAggregateTableSkeleton() {
   return (
-    <div>
-      {[0, 1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className="grid items-center gap-4 border-t border-border px-4 py-3 grid-cols-[minmax(0,1.2fr)_repeat(4,60px)_14px]"
-        >
-          <Skeleton className="h-4" />
-          <Skeleton className="h-4" />
-          <Skeleton className="h-4" />
-          <Skeleton className="h-4" />
-          <Skeleton className="h-4" />
-          <Skeleton className="h-2 w-2" />
+    <div className="flex flex-col gap-4">
+      <Card className="gap-0 overflow-hidden p-0">
+        <div>
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="grid items-center gap-4 border-t border-border px-4 py-3 grid-cols-[minmax(0,1.2fr)_repeat(4,60px)_14px]"
+            >
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4" />
+              <Skeleton className="h-2 w-2" />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
-  );
-}
-
-interface EmptyProps {
-  icon: "error" | "empty";
-  title: string;
-  body: string;
-  children?: React.ReactNode;
-}
-
-function Empty({ icon, title, body, children }: EmptyProps) {
-  const Icon = icon === "error" ? AlertTriangleIcon : GaugeIcon;
-  return (
-    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-      <div className="flex size-11 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
-        <Icon className="size-5" />
-      </div>
-      <div>
-        <div className="text-sm font-medium text-foreground">{title}</div>
-        <p className="mt-1 max-w-sm text-xs text-muted-foreground">{body}</p>
-      </div>
-      {children}
+      </Card>
     </div>
   );
 }

@@ -1,4 +1,8 @@
-import type { DiagnosticsConfigBody } from "@nama/shared/diagnostics";
+import {
+  ERROR_SEVERITIES,
+  ERROR_SOURCES,
+  type DiagnosticsConfigBody,
+} from "@nama/shared/diagnostics";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { rangeToWindow } from "./ranges";
@@ -7,7 +11,9 @@ import { DiagnosticsApiError, type ErrorsFilters, type PerfFilters } from "./typ
 const readJson = <R extends Response>(res: R) => readOkJson(res, DiagnosticsApiError);
 
 /** Builds the comma-delimited query shape the backend expects for list endpoints.
- *  One branch per optional filter is intrinsic to the API contract. */
+ *  The param is sent verbatim for a partial selection and omitted only when
+ *  every value is selected (the "all" optimisation). Empty selections never
+ *  reach here — {@link fetchErrorList} short-circuits them. */
 // fallow-ignore-next-line complexity
 function errorsQuery(filters: ErrorsFilters) {
   const window = rangeToWindow(filters.range);
@@ -15,10 +21,10 @@ function errorsQuery(filters: ErrorsFilters) {
     since: String(window.since),
     limit: "100",
   };
-  if (filters.severity.length > 0 && filters.severity.length < 3) {
+  if (filters.severity.length < ERROR_SEVERITIES.length) {
     out.severity = filters.severity.join(",");
   }
-  if (filters.source.length > 0 && filters.source.length < 4) {
+  if (filters.source.length < ERROR_SOURCES.length) {
     out.source = filters.source.join(",");
   }
   if (filters.pluginId) out.pluginId = filters.pluginId;
@@ -28,6 +34,13 @@ function errorsQuery(filters: ErrorsFilters) {
 }
 
 export async function fetchErrorList(filters: ErrorsFilters) {
+  // Deselecting every severity or source means "show nothing". Omitting the
+  // param would make the backend fall back to its defaults and return rows the
+  // user explicitly filtered out, so resolve to an empty result without a
+  // round trip instead.
+  if (filters.severity.length === 0 || filters.source.length === 0) {
+    return { records: [], total: 0 };
+  }
   return readJson(await api.admin.diagnostics.errors.$get({ query: errorsQuery(filters) }));
 }
 
