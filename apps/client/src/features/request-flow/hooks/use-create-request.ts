@@ -29,6 +29,13 @@ interface CreateContext {
  * the UI to the request button. The seeded row plus `staleTime` +
  * focus-refetch on `useUserRequests` reconcile labels later without that
  * flicker.
+ *
+ * The one exception is a success that settles without a `requestId` (the
+ * response schema allows null): there is no real id to swap in, so that
+ * branch instead drops the optimistic row and *does* invalidate to recover
+ * the live request under its real id. It knowingly trades the no-invalidate
+ * flicker guarantee here, because in that rare path an uncancellable phantom
+ * row is worse than a transient revert. Do not "unify" the two branches.
  */
 export function useCreateRequest() {
   const qc = useQueryClient();
