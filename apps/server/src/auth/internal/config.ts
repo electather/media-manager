@@ -116,8 +116,14 @@ const options = {
       // bare `/mcp` URL and rely on unauthenticated RFC 7591 registration to
       // obtain a client id before the user can authorize. Requiring auth here
       // would break first-connect for every MCP client we ship docs for.
-      // Abuse is bounded by the rate limit below, which the better-auth
-      // oauth-provider applies per IP at the framework layer.
+      // Abuse is bounded by two controls: the per-IP rate limit below, applied
+      // by the better-auth oauth-provider at the framework layer, and the
+      // scheduled stale-client sweep (auth/jobs/stale-client-sweep.ts) which
+      // deletes dynamically-registered clients that no user authorized within
+      // the TTL — bounding table growth that the per-IP limit alone cannot, as
+      // an attacker behind rotating IPs could otherwise register unbounded
+      // never-used clients. Residual risk: a determined attacker can still
+      // accumulate up to one TTL window of unauthorized clients between sweeps.
       allowUnauthenticatedClientRegistration: true,
       // Cap dynamic client registration at 5 requests per hour per IP.
       // The default is 5/minute, which is too generous for an unauthenticated

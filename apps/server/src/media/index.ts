@@ -128,20 +128,10 @@ export {
 } from "./progress";
 export type { ActiveRow, RowSort, RowFilter } from "@nama/shared/media";
 export {
-  listActiveRows,
   listActiveRowsKeyset,
-  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,
-  allKnownKeys,
-  upsertActiveRow,
-  softRemoveRow,
-  bulkInsertActiveRows,
-  trySeedLock,
-  clearSeedLock,
   hasUserSeeded,
   listSeededUserIds,
-  type UpsertActiveResult,
-  type SoftRemoveResult,
 } from "./service";
