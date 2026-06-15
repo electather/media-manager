@@ -142,16 +142,21 @@ const WRITE_BACK_DEDUP_MS = 60_000;
  */
 const recentWriteBacks = new Map<string, number>();
 
-/**
- * Returns `true` and records the timestamp when a write-back for `key` should
- * proceed; returns `false` when one already fired inside the dedup window.
- * Prunes expired entries on each call so the map stays bounded by the number
- * of distinct keys touched within the window rather than growing forever.
- */
-function claimWriteBack(key: string, now: number): boolean {
+/** Drops entries older than the dedup window so the map stays bounded by the
+ *  number of distinct keys touched within a window rather than growing forever. */
+function pruneExpiredWriteBacks(now: number): void {
   for (const [k, at] of recentWriteBacks) {
     if (now - at >= WRITE_BACK_DEDUP_MS) recentWriteBacks.delete(k);
   }
+}
+
+/**
+ * Returns `true` and records the timestamp when a write-back for `key` should
+ * proceed; returns `false` when one already fired inside the dedup window.
+ * Prunes expired entries on each call.
+ */
+function claimWriteBack(key: string, now: number): boolean {
+  pruneExpiredWriteBacks(now);
   const last = recentWriteBacks.get(key);
   if (last !== undefined && now - last < WRITE_BACK_DEDUP_MS) return false;
   recentWriteBacks.set(key, now);
