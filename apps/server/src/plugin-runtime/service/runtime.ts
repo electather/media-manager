@@ -83,7 +83,11 @@ interface PickedCredential {
  * `user-pool.ts` and `admin-policy.ts`.
  */
 function parseGlobalConfig(pluginId: string, raw: string | null): unknown {
-  if (!raw) return null;
+  // Only an absent column (`null`/`undefined`) is "no config". An empty string
+  // must fall through to `JSON.parse` — `JSON.parse("")` throws, so a stray
+  // empty value (manual DB edit, migration bug) surfaces as the typed
+  // `plugin.input_invalid` rather than being silently swallowed as `null`.
+  if (raw == null) return null;
   const [err, parsed] = attempt(() => JSON.parse(raw) as unknown);
   if (err) {
     throw new PluginError(

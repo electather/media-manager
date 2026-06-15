@@ -770,4 +770,20 @@ describe("runtime parses stored globalConfig defensively", () => {
     });
     await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).resolves.toBeNull();
   });
+
+  it("throws plugin.input_invalid for an empty-string globalConfig (not silently null)", async () => {
+    // An empty string is not "no config" — only an absent column is. `""` can
+    // only land via a manual edit or migration bug, exactly the corruption the
+    // defensive parse exists to surface, so it must throw rather than be
+    // swallowed as null.
+    pluginRows.set("cfg-plugin", {
+      id: "cfg-plugin",
+      globalConfig: "",
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).rejects.toMatchObject({
+      code: "plugin.input_invalid",
+    });
+  });
 });

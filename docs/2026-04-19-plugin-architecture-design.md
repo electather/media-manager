@@ -1016,6 +1016,8 @@ When both set: **fetch via internal, return external in ∀ fields leaving serve
 
 DNS resolution for `x-allowed-host` URLs happens inside `ctx.fetch` → runtime applies blocklist to resolved address (not just hostname string) to mitigate DNS-rebinding. RFC1918 / ULA / unique-local ranges deliberately **allowed** — expected topology for docker-compose & LAN deployments.
 
+Blocklist is enforced inside `ctx.fetch` as a hard reject that takes precedence over **both** the static `manifest.allowedHosts` and admin allowlists — a manifest (even `allowedHosts: ["*"]`) cannot opt a host out of the blocklist. Hostname matching covers the IPv4-mapped IPv6 form of every blocked IPv4 address (loopback, link-local, `0.0.0.0`) in either the dotted (`::ffff:127.0.0.1`) or URL-normalised hex (`::ffff:7f00:1`) spelling, since WHATWG URL parsing canonicalises the former into the latter.
+
 **Redirect rejection.** `ctx.fetch` forces `redirect: 'manual'` on every outbound call. Any HTTP 3xx response throws `plugin.upstream_error`, preventing a plugin (or attacker-controlled server) from redirecting to an internal endpoint that would bypass the hostname allowlist.
 
 **App-level external URL for OAuth & link-backs.** Host reads `APP_EXTERNAL_URL` (env var) for:

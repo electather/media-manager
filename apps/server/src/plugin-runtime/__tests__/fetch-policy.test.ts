@@ -469,9 +469,20 @@ describe("isBlockedHostname", () => {
     },
   );
 
+  // The embedded-IPv4 decode must also honour the exact-match blocklist:
+  // `::ffff:0.0.0.0` normalises to `[::ffff:0:0]` → `0.0.0.0`, which neither
+  // the loopback nor link-local predicate catches but BLOCKED_EXACT_HOSTNAMES
+  // does.
+  it.each([["::ffff:0:0"], ["::ffff:0.0.0.0"], ["[::ffff:0:0]"]])(
+    "blocks IPv4-mapped IPv6 unspecified %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
   // Public and private addresses tunnelled through IPv4-mapped IPv6 must NOT
-  // be over-blocked — only loopback/link-local octets are rejected. `8.8.8.8`
-  // → `::ffff:808:808`, `192.168.1.1` → `::ffff:c0a8:101`.
+  // be over-blocked — only loopback/link-local/unspecified octets are
+  // rejected. `8.8.8.8` → `::ffff:808:808`, `192.168.1.1` → `::ffff:c0a8:101`.
   it.each([["::ffff:808:808"], ["::ffff:c0a8:101"]])(
     "allows non-loopback IPv4-mapped IPv6 %s (by design)",
     (hostname) => {

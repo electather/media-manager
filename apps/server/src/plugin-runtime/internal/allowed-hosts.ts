@@ -116,11 +116,17 @@ export function isBlockedHostname(hostname: string): boolean {
   if (isIpv4Loopback(h)) return true;
   if (isIpv4LinkLocal(h)) return true;
   if (isIpv6LinkLocal(h)) return true;
-  // Re-run the IPv4 blocklist against the address embedded in an IPv4-mapped
-  // IPv6 host so the mapped form cannot smuggle loopback or link-local past the
-  // same gates as a bare IPv4 address.
+  // Re-run the full IPv4 blocklist against the address embedded in an
+  // IPv4-mapped IPv6 host so the mapped form cannot smuggle loopback,
+  // link-local, or an exact-listed address (e.g. `::ffff:0:0` → `0.0.0.0`)
+  // past the same gates as a bare IPv4 address.
   const embedded = ipv4MappedIpv6Embedded(h);
-  if (embedded && (isIpv4Loopback(embedded) || isIpv4LinkLocal(embedded))) return true;
+  if (
+    embedded &&
+    (isIpv4Loopback(embedded) || isIpv4LinkLocal(embedded) || BLOCKED_EXACT_HOSTNAMES.has(embedded))
+  ) {
+    return true;
+  }
   return false;
 }
 
