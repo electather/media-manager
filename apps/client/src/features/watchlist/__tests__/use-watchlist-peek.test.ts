@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { renderHook, act } from "@testing-library/react";
 import { useWatchlistPeek } from "../hooks/use-watchlist-peek";
 
@@ -11,6 +11,10 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 describe("useWatchlistPeek", () => {
+  beforeEach(() => {
+    navigateMock.mockClear();
+  });
+
   it("calls navigate with the correct peek contract when invoked", () => {
     const { result } = renderHook(() => useWatchlistPeek());
 
