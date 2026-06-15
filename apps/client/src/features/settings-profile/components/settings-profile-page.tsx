@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { trim } from "es-toolkit/string";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -148,7 +149,7 @@ export function NameRow({
   const trimmed = trim(draft);
   const dirty = trimmed.length > 0 && trimmed !== currentName;
 
-  const save = async () => {
+  const save = useCallback(async () => {
     if (!dirty) return;
     setSubmitting(true);
     try {
@@ -156,7 +157,8 @@ export function NameRow({
         await onSave(trimmed);
       } else {
         const result = await authClient.updateUser({ name: trimmed });
-        if (result.error) throw new Error(result.error.message ?? "Update failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_name_failed());
       }
       // Better Auth's `useSession` is reactive and refreshes on its own after
       // `updateUser`, so the only React Query data tied to the user identity
@@ -169,12 +171,17 @@ export function NameRow({
     } finally {
       setSubmitting(false);
     }
-  };
-  const discard = () => setDraft(currentName);
+  }, [dirty, trimmed, onSave, qc]);
+
+  const discard = useCallback(() => setDraft(currentName), [currentName]);
+
+  // Wrap in useCallback so useSettingsDirty's effect only re-runs when dirty
+  // or label changes, not on every keystroke.
+  const handleSave = useCallback(() => void save(), [save]);
 
   useSettingsDirty("profile-name", dirty, {
     label: m.settings_profile_dirty_name(),
-    onSave: () => void save(),
+    onSave: handleSave,
     onDiscard: discard,
   });
 
@@ -237,6 +244,14 @@ export function EmailRow({
 
   const submit = () => {
     if (!dirty) return;
+    // Validate the draft email format on the client before opening the confirm
+    // dialog so the user sees an error immediately rather than after a round
+    // trip. z.email() reuses the same pattern as the shared DeleteAccountBody
+    // schema, keeping validation consistent across the app.
+    if (!z.email().safeParse(trimmedDraft).success) {
+      setError(m.settings_profile_email_invalid());
+      return;
+    }
     setError(null);
     setConfirmOpen(true);
   };
@@ -251,7 +266,8 @@ export function EmailRow({
         const result = await authClient.changeEmail(
           emailEnabled ? { newEmail: next, callbackURL: "/settings/profile" } : { newEmail: next },
         );
-        if (result.error) throw new Error(result.error.message ?? "Email change failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_email_failed());
       }
       setConfirmOpen(false);
       // Better Auth refreshes the active session reactively; nothing in the
@@ -263,7 +279,7 @@ export function EmailRow({
           : m.settings_profile_toast_email_updated(),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error ? err.message : m.settings_profile_toast_email_failed());
     } finally {
       setSubmitting(false);
     }
@@ -425,6 +441,34 @@ function RoleRow() {
 // ─── Verify banner ──────────────────────────────────────────────────────────
 
 const VERIFICATION_COOLDOWN_SECONDS = 60;
+const COOLDOWN_STORAGE_PREFIX = "nama:verify-cooldown:";
+
+/**
+ * Returns the remaining cooldown seconds for the given email by reading the
+ * persisted deadline from localStorage. Returns 0 when no deadline is stored
+ * or the deadline has already passed.
+ */
+function readPersistedCooldown(email: string): number {
+  try {
+    const raw = window.localStorage.getItem(COOLDOWN_STORAGE_PREFIX + email);
+    if (!raw) return 0;
+    const deadline = parseInt(raw, 10);
+    return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  } catch {
+    return 0;
+  }
+}
+
+function writePersistedCooldown(email: string, seconds: number): void {
+  try {
+    window.localStorage.setItem(
+      COOLDOWN_STORAGE_PREFIX + email,
+      String(Date.now() + seconds * 1000),
+    );
+  } catch {
+    // localStorage may be unavailable (private mode, storage quota, etc.).
+  }
+}
 
 export function VerifyBanner({
   email,
@@ -434,8 +478,15 @@ export function VerifyBanner({
   /** Optional override used by tests; default path calls Better Auth. */
   onResend?: () => Promise<void> | void;
 }) {
-  const [cooldown, setCooldown] = useState(0);
+  // Initialise from localStorage so the cooldown survives page reloads.
+  const [cooldown, setCooldown] = useState(() => readPersistedCooldown(email));
   const [submitting, setSubmitting] = useState(false);
+
+  // Re-read the persisted deadline whenever the email prop changes (e.g. the
+  // user navigates between accounts in the same session).
+  useEffect(() => {
+    setCooldown(readPersistedCooldown(email));
+  }, [email]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -450,12 +501,16 @@ export function VerifyBanner({
         await onResend();
       } else {
         const result = await authClient.sendVerificationEmail({ email });
-        if (result.error) throw new Error(result.error.message ?? "Send failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_verification_failed());
       }
+      writePersistedCooldown(email, VERIFICATION_COOLDOWN_SECONDS);
       setCooldown(VERIFICATION_COOLDOWN_SECONDS);
       toast.success(m.settings_profile_toast_verification_sent());
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(
+        err instanceof Error ? err.message : m.settings_profile_toast_verification_failed(),
+      );
     } finally {
       setSubmitting(false);
     }

@@ -35,6 +35,12 @@ export function SettingsDirtyProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback((id: string, payload: DirtyPayload | null) => {
     if (payload) {
+      // Delete before re-inserting so that re-registering an existing key
+      // moves it to the end of Map insertion order. JS Maps preserve insertion
+      // order, and set() on an existing key updates in place without reordering,
+      // so delete + set is necessary to produce true most-recently-updated
+      // semantics when the same page re-registers after a draft change.
+      map.current.delete(id);
       map.current.set(id, payload);
     } else {
       map.current.delete(id);

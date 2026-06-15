@@ -24,11 +24,13 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-// Mock the settings fetchers module so the dialog always calls deleteAccount
-// directly without needing a test-only escape hatch prop.
+// Mock the settings shared fetchers module so the hook under test calls our
+// mock instead of making a real network request.
 const deleteAccountMock = vi.hoisted(() => vi.fn<() => Promise<void>>());
-vi.mock("@/features/settings", async () => {
-  const actual = await vi.importActual<typeof import("@/features/settings")>("@/features/settings");
+vi.mock("@/features/settings/shared/fetchers", async () => {
+  const actual = await vi.importActual<typeof import("@/features/settings/shared/fetchers")>(
+    "@/features/settings/shared/fetchers",
+  );
   return { ...actual, deleteAccount: deleteAccountMock };
 });
 

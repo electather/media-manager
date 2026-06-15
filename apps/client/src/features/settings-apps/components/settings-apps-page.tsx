@@ -52,8 +52,16 @@ function SettingsAppsPage() {
     setConfirmRevokeAll(false);
     revokeAll.mutate(targets, {
       onSuccess: ({ count, failed }) => {
-        if (failed > 0) {
+        if (failed === count) {
+          // Every revoke failed — treat as a total failure.
           toast.error(m.settings_apps_toast_revoke_all_failed());
+          return;
+        }
+        if (failed > 0) {
+          // Partial success: surface how many succeeded and how many remain.
+          toast.error(
+            m.settings_apps_toast_revoke_all_partial({ revoked: count - failed, count, failed }),
+          );
           return;
         }
         toast.success(m.settings_apps_toast_revoked_all({ count }));
