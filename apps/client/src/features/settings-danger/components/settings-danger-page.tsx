@@ -35,12 +35,7 @@ function DangerPage() {
 
   const startExport = () => {
     setExportLocked(true);
-    // Anchor nav to the streamed ZIP, not `fetch`, so the browser's download
-    // pipeline handles the attachment. Per docs/2026-04-24-user-settings-design.md
-    // (L286, L312) error reporting is intentionally deferred to v2 — anchor-nav
-    // failures fall through to the browser's "download failed" UI. Buffering the
-    // ZIP client-side via `res.blob()` would double the peak memory the L311
-    // rate cap exists to bound, so we keep the documented v1 path.
+    // Anchor-nav, not fetch: browser download pipeline streams the ZIP. Silent failure accepted v1 per design doc L312.
     triggerAnchorDownload("/api/me/export");
     toast.success(m.settings_danger_toast_export_started());
     window.setTimeout(() => setExportLocked(false), 1000);
