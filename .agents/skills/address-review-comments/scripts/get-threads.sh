@@ -11,6 +11,6 @@ OWNER=$(cut -d/ -f1 <<< "$REPO")
 NAME=$(cut -d/ -f2 <<< "$REPO")
 
 gh api graphql \
-  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:250){nodes{id isResolved comments(first:100){nodes{databaseId}}}}}}}' \
+  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:100){nodes{databaseId}}}}}}}' \
   -f o="$OWNER" -f r="$NAME" -F n="$PR" \
   --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | . as $t | $t.comments.nodes[] | "thread=\($t.id) comment_id=\(.databaseId)"'

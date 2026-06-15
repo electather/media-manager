@@ -13,6 +13,6 @@ gh pr view "$PR" --json reviews \
   --jq '.reviews | group_by(.author.login) | .[] | last | "\(.author.login): \(.state)"'
 
 gh api graphql \
-  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:250){nodes{isResolved}}}}}' \
+  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved}}}}}' \
   -f o="$OWNER" -f r="$NAME" -F n="$PR" \
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false)] | length | "unresolved_threads: \(.)"'

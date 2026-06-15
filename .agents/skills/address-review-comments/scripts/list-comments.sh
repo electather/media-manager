@@ -12,9 +12,9 @@ NAME=$(cut -d/ -f2 <<< "$REPO")
 
 echo "=== INLINE (unresolved only) ==="
 gh api graphql \
-  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:250){nodes{isResolved comments(first:100){nodes{databaseId path line originalLine author{login}body}}}}}}}' \
+  -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{databaseId path line originalLine author{login}body}}}}}}}' \
   -f o="$OWNER" -f r="$NAME" -F n="$PR" \
-  --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | .comments.nodes[] | "id=\(.databaseId) file=\(.path) line=\(.line // .originalLine) author=\(.author.login)\n\(.body)\n---"'
+  --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | .comments.nodes[] | ["id=\(.databaseId) file=\(.path) line=\(.line // .originalLine) author=\(.author.login)", .body, "---"] | join("\n")'
 
 echo "=== REVIEWS ==="
 gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
