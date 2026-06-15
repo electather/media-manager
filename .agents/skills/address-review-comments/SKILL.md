@@ -96,6 +96,13 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 
 - Group fixes into focused commits with imperative-mood messages. Reference the thread if useful (`fix: null-check user in summary — addresses review`).
 - If fixes change user-visible behavior, update the changeset.
+- **Run fallow** before pushing. For each flag:
+  - Valid (dead code, boundary violation, real issue) → fix it in this PR.
+  - Invalid (false positive, intentional pattern) → add an inline ignore with a one-line reason:
+    ```ts
+    // fallow-ignore-next-line <rule> — <reason why this is not a real issue>
+    ```
+  - Never add to `.fallow/dead-code-baseline.json`. Baseline entries are permanent noise; inline ignores are self-documenting.
 - Run the project's checks/tests before pushing (`vp check && vp test`, `make lint test`, etc. — check `CLAUDE.md`).
 - Push. Resolve threads you fully addressed with a fix (see §3). Leave pushback threads unresolved — the reviewer resolves those.
 - When everything is handled, request a re-review: `gh pr edit <num> --add-reviewer <handle>` or via the GitHub UI prompt.
