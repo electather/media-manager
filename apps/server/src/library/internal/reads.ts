@@ -1,4 +1,6 @@
 import { clearSeedLock, trySeedLock } from "../repo";
+// Pre-existing reads.ts ↔ service.ts cycle from #542; refactor tracked in #666.
+// fallow-ignore-next-line circular-dependency
 import { syncMembership } from "../service";
 import type { MaybeLibraryContext } from "../types";
 import { asLibraryContext } from "./context";
