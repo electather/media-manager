@@ -69,7 +69,34 @@ describe("RetentionForm", () => {
     });
     fetchersMock.fetchUpdateAdminSettings.mockResolvedValue({
       inboxRetentionDays: 365,
-      deliveryRetentionDays: 365,
+      deliveryRetentionDays: 30,
+    });
+    const qc = makeClient();
+    qc.setQueryData(notificationsKeys.admin.settings(), {
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
+    });
+    const user = userEvent.setup();
+    render(<RetentionForm />, { wrapper: withClient(qc) });
+
+    const inboxInput = (await screen.findByLabelText(/inbox retention/i)) as HTMLInputElement;
+    await user.clear(inboxInput);
+    await user.type(inboxInput, "365");
+    const form = inboxInput.closest("form")!;
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(fetchersMock.fetchUpdateAdminSettings).toHaveBeenCalledWith({
+        inboxRetentionDays: 365,
+        deliveryRetentionDays: 30,
+      });
+    });
+  });
+
+  it("does not call the mutation when a value exceeds the max of 3650", async () => {
+    fetchersMock.fetchAdminSettings.mockResolvedValue({
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
     });
     const qc = makeClient();
     qc.setQueryData(notificationsKeys.admin.settings(), {
@@ -84,12 +111,58 @@ describe("RetentionForm", () => {
     await user.type(inboxInput, "9999");
     const form = inboxInput.closest("form")!;
     fireEvent.submit(form);
+    expect(fetchersMock.fetchUpdateAdminSettings).not.toHaveBeenCalled();
+  });
 
+  it("does not call the mutation for a non-integer value", async () => {
+    fetchersMock.fetchAdminSettings.mockResolvedValue({
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
+    });
+    const qc = makeClient();
+    qc.setQueryData(notificationsKeys.admin.settings(), {
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
+    });
+    const user = userEvent.setup();
+    render(<RetentionForm />, { wrapper: withClient(qc) });
+
+    const inboxInput = (await screen.findByLabelText(/inbox retention/i)) as HTMLInputElement;
+    await user.clear(inboxInput);
+    await user.type(inboxInput, "1.5");
+    const form = inboxInput.closest("form")!;
+    fireEvent.submit(form);
+    expect(fetchersMock.fetchUpdateAdminSettings).not.toHaveBeenCalled();
+  });
+
+  it("syncs input state to server-authoritative values after a successful save", async () => {
+    fetchersMock.fetchAdminSettings.mockResolvedValue({
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
+    });
+    // The server normalises 3640 → 3640 (no change needed, just verifying round-trip).
+    fetchersMock.fetchUpdateAdminSettings.mockResolvedValue({
+      inboxRetentionDays: 3640,
+      deliveryRetentionDays: 30,
+    });
+    const qc = makeClient();
+    qc.setQueryData(notificationsKeys.admin.settings(), {
+      inboxRetentionDays: 30,
+      deliveryRetentionDays: 30,
+    });
+    const user = userEvent.setup();
+    render(<RetentionForm />, { wrapper: withClient(qc) });
+
+    const inboxInput = (await screen.findByLabelText(/inbox retention/i)) as HTMLInputElement;
+    await user.clear(inboxInput);
+    await user.type(inboxInput, "3640");
+    const form = inboxInput.closest("form")!;
+    fireEvent.submit(form);
+
+    // After the mutation resolves the input must reflect the server response so
+    // the form and cache do not disagree if the server clamps a value.
     await waitFor(() => {
-      expect(fetchersMock.fetchUpdateAdminSettings).toHaveBeenCalledWith({
-        inboxRetentionDays: 9999,
-        deliveryRetentionDays: 30,
-      });
+      expect(inboxInput.value).toBe("3640");
     });
   });
 });
