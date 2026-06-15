@@ -1,23 +1,7 @@
 import * as m from "@/paraglide/messages";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 
-type CastEntry = { name: string; role: string };
-
-type RoleKey =
-  | "media_detail_role_lead"
-  | "media_detail_role_co_lead"
-  | "media_detail_role_supporting"
-  | "media_detail_role_recurring"
-  | "media_detail_role_cast";
-
-const ROLE_BY_INDEX: Record<number, RoleKey> = {
-  0: "media_detail_role_lead",
-  1: "media_detail_role_co_lead",
-  2: "media_detail_role_supporting",
-  3: "media_detail_role_supporting",
-  4: "media_detail_role_recurring",
-  5: "media_detail_role_recurring",
-};
+type CastEntry = { name: string; role: string | null };
 
 function initials(name: string): string {
   return name
@@ -35,9 +19,11 @@ function buildEntries(item: HomeMediaItem): CastEntry[] {
     entries.push({ name: item.director, role: m.media_detail_role_director() });
   }
   if (item.cast) {
-    item.cast.forEach((name, index) => {
-      const roleKey = ROLE_BY_INDEX[index] ?? "media_detail_role_cast";
-      entries.push({ name, role: m[roleKey]() });
+    // The API returns names only — no per-credit role or character metadata is
+    // available yet. Role is omitted rather than fabricated from array position
+    // to avoid presenting invented billing information to the user.
+    item.cast.forEach((name) => {
+      entries.push({ name, role: null });
     });
   }
   return entries;
@@ -57,7 +43,9 @@ export function DetailCastGrid({ item }: { item: HomeMediaItem }) {
           <CastAvatar index={index} name={entry.name} />
           <div className="min-w-0">
             <div className="truncate text-sm font-medium text-foreground">{entry.name}</div>
-            <div className="text-xs text-muted-foreground">{entry.role}</div>
+            {entry.role !== null ? (
+              <div className="text-xs text-muted-foreground">{entry.role}</div>
+            ) : null}
           </div>
         </li>
       ))}

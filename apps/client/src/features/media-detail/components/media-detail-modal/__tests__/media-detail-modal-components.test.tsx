@@ -119,26 +119,26 @@ describe("ModalSeasons", () => {
 });
 
 describe("ModalFeedback", () => {
-  it("toggles a single active vote (like/dislike are mutually exclusive)", () => {
+  it("renders like/dislike vote buttons in disabled state (persistence not yet wired)", () => {
     render(<ModalFeedback hasNote={false} onNoteClick={vi.fn()} />);
     const like = screen.getByRole("button", { name: /^like$/i });
     const dislike = screen.getByRole("button", { name: /^dislike$/i });
+    // Buttons must remain disabled until vote persistence is implemented to
+    // prevent users from believing their input was saved.
+    expect((like as HTMLButtonElement).disabled).toBe(true);
+    expect((dislike as HTMLButtonElement).disabled).toBe(true);
     expect(like.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(like);
-    expect(like.getAttribute("aria-pressed")).toBe("true");
-    expect(dislike.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(dislike);
-    expect(like.getAttribute("aria-pressed")).toBe("false");
-    expect(dislike.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(dislike);
     expect(dislike.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("invokes onNoteClick when the note pill is clicked", () => {
+  it("renders note pill in disabled state (persistence not yet wired)", () => {
     const onNoteClick = vi.fn();
     render(<ModalFeedback hasNote={false} onNoteClick={onNoteClick} />);
-    fireEvent.click(screen.getByRole("button", { name: /add a note/i }));
-    expect(onNoteClick).toHaveBeenCalledOnce();
+    const noteBtn = screen.getByRole("button", { name: /add a note/i });
+    // The note button must be disabled until note persistence is implemented.
+    expect((noteBtn as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(noteBtn);
+    expect(onNoteClick).not.toHaveBeenCalled();
   });
 
   it("switches the note pill label when a note is present", () => {

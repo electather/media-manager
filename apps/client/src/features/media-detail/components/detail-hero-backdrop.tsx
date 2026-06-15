@@ -23,7 +23,18 @@ export function DetailHeroBackdrop({ src, posterSrc }: Props) {
       className="scroll-driven-backdrop-fade pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
       {imageSrc ? (
-        <img src={imageSrc} alt="" className="size-full object-cover object-top" />
+        // decoding="async" keeps the large hero image off the main-thread decode
+        // path; onError hides a broken img so the gradient stack still reads
+        // cleanly without a torn placeholder filling the viewport.
+        <img
+          src={imageSrc}
+          alt=""
+          decoding="async"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+          className="size-full object-cover object-top"
+        />
       ) : null}
       <div
         className="absolute inset-0"
