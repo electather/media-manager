@@ -240,13 +240,13 @@ function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): num
   // Pin both the locale and the sensitivity so ordering is reproducible across
   // environments (dev machine vs server vs CI). Without a pinned locale,
   // localeCompare resolves to the ICU host default, which varies and can
-  // produce different orderings for accented or non-ASCII titles. The "base"
-  // sensitivity makes the compare case- and accent-insensitive, which replaces
-  // the previous host-default toLocaleLowerCase()/normalize() pre-pass — that
-  // step was itself locale-dependent (e.g. Turkish dotless-i) and is redundant
-  // here. No numeric collation: ordering stays purely lexical, matching the
-  // pre-fix behaviour.
-  return at.localeCompare(bt, "en", { sensitivity: "base" });
+  // produce different orderings for accented or non-ASCII titles. The "accent"
+  // sensitivity is case-insensitive but accent-sensitive, exactly reproducing
+  // the pre-fix net behaviour (host-default toLocaleLowerCase() followed by an
+  // accent-sensitive compare) while removing the host-dependent pre-pass — that
+  // step was itself locale-dependent (e.g. Turkish dotless-i). So this is a
+  // pure locale pin: collation semantics are unchanged from before.
+  return at.localeCompare(bt, "en", { sensitivity: "accent" });
 }
 
 // fallow-ignore-next-line complexity
