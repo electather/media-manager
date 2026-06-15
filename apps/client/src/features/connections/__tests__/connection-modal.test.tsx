@@ -8,6 +8,7 @@ import { ConnectionModal, type PluginSummary } from "../components/connection-mo
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const formPluginBase: PluginSummary = {
@@ -58,6 +59,20 @@ const traktPlugin: PluginSummary = {
   poolable: true,
   credentialsSchema: null,
   adminSharedAvailable: true,
+};
+
+const redirectPlugin: PluginSummary = {
+  id: "seerr",
+  name: "Overseerr",
+  version: "1.0.0",
+  description: "Request management.",
+  authKind: "oauth_redirect",
+  userScopedCapabilities: [{ id: "requests", version: "v1" }],
+  globalScopedCapabilities: [],
+  userConfigSchema: null,
+  poolable: false,
+  credentialsSchema: null,
+  adminSharedAvailable: false,
 };
 
 const noAuthPlugin: PluginSummary = {
@@ -286,5 +301,80 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
         userConfig: { serverUrl: "https://ntfy.sh" },
       },
     ]);
+  });
+
+  it("clears the 'Connection verified' badge once the user edits a field after a passing test", async () => {
+    // A successful test verifies a *specific* config. If the user then edits
+    // the URL or API key, the green badge must not keep claiming the
+    // now-different config is verified, or they could save an untested change.
+    stubFetch(async (input) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/connections/verify-config")) {
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+
+    render(
+      <ConnectionModal
+        open
+        plugin={formPluginBase}
+        existing={null}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    await fillRequiredFields();
+    await userEvent.click(screen.getByRole("button", { name: /test connection/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Connection verified")).toBeTruthy();
+    });
+
+    // Editing any field invalidates the verified state.
+    await userEvent.type(screen.getByPlaceholderText("https://example.com"), "/extra");
+
+    await waitFor(() => {
+      expect(screen.queryByText("Connection verified")).toBeNull();
+    });
+  });
+
+  it("refuses to navigate to a non-https OAuth redirect URL", async () => {
+    // `redirectUrl` is server-controlled, but the client navigates to it
+    // unconditionally. A `javascript:` (or otherwise non-https) value must be
+    // rejected with the authorize error rather than triggering navigation.
+    stubFetch(async (input) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/connections/oauth/redirect/start")) {
+        return new Response(JSON.stringify({ redirectUrl: "javascript:alert(1)", nonce: "n1" }), {
+          status: 200,
+        });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    // Spy on the real `assign` rather than replacing `window.location`, so the
+    // rest of the location object (read by the api base URL) stays intact and
+    // we avoid spreading the Location class instance.
+    const assign = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+
+    render(
+      <ConnectionModal
+        open
+        plugin={redirectPlugin}
+        existing={null}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /^connect$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to start authorization.")).toBeTruthy();
+    });
+    expect(assign).not.toHaveBeenCalled();
   });
 });

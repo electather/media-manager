@@ -2,7 +2,6 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
-import { api } from "@/shared/lib/api";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/shared/ui/drawer";
 import { Field, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -30,6 +29,17 @@ import { ConnectionModalDone } from "./connection-modal-done";
 import { ConnectionModalFooter } from "./connection-modal-footer";
 import { ConnectionModalHeader } from "./connection-modal-header";
 import { readErrorBody, readErrorMessage, routeFormError } from "../lib/form-errors";
+import {
+  createConnection,
+  getUserConfig,
+  patchDisplayName,
+  patchUserConfig,
+  pollDeviceAuth,
+  startDeviceAuth,
+  startRedirectAuth,
+  verifyConfig,
+} from "../lib/fetchers";
+import { isSafeAuthUrl } from "../lib/url";
 import type {
   DeviceState,
   ExistingConnection,
@@ -120,9 +130,7 @@ export function ConnectionModal({
     // fallow-ignore-next-line complexity
     void (async () => {
       try {
-        const res = await api.connections[":id"]["user-config"].$get({
-          param: { id: existing.id },
-        });
+        const res = await getUserConfig(existing.id);
         if (!res.ok || cancelled) return;
         const body = await res.json();
         if (cancelled) return;
@@ -143,27 +151,30 @@ export function ConnectionModal({
   // Countdown tick for the device code panel.
   useInterval(() => setNow(Date.now()), device.kind === "waiting" ? 1000 : null);
 
-  // Poll the device auth endpoint while the device panel is live.
+  // Poll the device auth endpoint while the device panel is live. The poll is
+  // a self-scheduling setTimeout recursion rather than setInterval: the next
+  // tick is only scheduled after the previous round-trip settles, so a slow
+  // response can never overlap with a fresh request (device-code endpoints
+  // enforce a minimum interval and return slow_down/429 under overlap).
   useEffect(() => {
     if (device.kind !== "waiting") return;
     const { nonce, intervalSec } = device;
     let cancelled = false;
+    let timer: number | undefined;
     // fallow-ignore-next-line complexity
-    const id = window.setInterval(async () => {
-      if (cancelled) return;
+    const tick = async () => {
       try {
-        const res = await api.connections.oauth.device.poll.$post({ json: { nonce } });
-        const body = (await res.json()) as
-          | { status: "pending" }
-          | { status: "completed"; connectionId: string }
-          | { status: "error"; message: string };
+        const body = await pollDeviceAuth(nonce);
         if (cancelled) return;
         if (body.status === "completed") {
           onSuccess();
           setStage("done");
           setDevice({ kind: "idle" });
-        } else if (body.status === "error") {
+          return;
+        }
+        if (body.status === "error") {
           setDevice({ kind: "err", message: body.message });
+          return;
         }
       } catch (err) {
         if (cancelled) return;
@@ -174,11 +185,14 @@ export function ConnectionModal({
               ? err.message
               : m.settings_connections_modal_error_polling_failed(),
         });
+        return;
       }
-    }, intervalSec * 1000);
+      timer = window.setTimeout(() => void tick(), intervalSec * 1000);
+    };
+    timer = window.setTimeout(() => void tick(), intervalSec * 1000);
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      window.clearTimeout(timer);
     };
   }, [device, onSuccess]);
 
@@ -221,6 +235,15 @@ export function ConnectionModal({
     setTopError(null);
   };
 
+  // Editing any field after a successful test invalidates the "Verified"
+  // badge — the config that was verified is no longer the one on screen, so
+  // reset the test state back to idle to avoid claiming an untested change is
+  // verified.
+  const handleValuesChange = (next: Record<string, unknown>) => {
+    setValues(next);
+    setTest((prev) => (prev.kind === "ok" ? { kind: "idle" } : prev));
+  };
+
   // fallow-ignore-next-line complexity
   const runTest = async () => {
     clearPendingErrors();
@@ -235,9 +258,7 @@ export function ConnectionModal({
     }
     setTest({ kind: "testing" });
     try {
-      const res = await api.connections["verify-config"].$post({
-        json: { pluginId: plugin.id, userConfig: values },
-      });
+      const res = await verifyConfig({ pluginId: plugin.id, userConfig: values });
       const body = (await res.json()) as FormErrorBody & { ok?: boolean };
       if (body.ok) {
         setTest({ kind: "ok" });
@@ -310,23 +331,15 @@ export function ConnectionModal({
     connectionId: string,
     submission: Record<string, unknown>,
   ): Promise<Response> => {
-    await api.connections[":id"]["display-name"].$patch({
-      param: { id: connectionId },
-      json: { displayName: displayName || plugin.name },
-    });
-    return api.connections[":id"]["user-config"].$patch({
-      param: { id: connectionId },
-      json: { userConfig: submission },
-    });
+    await patchDisplayName({ id: connectionId, displayName: displayName || plugin.name });
+    return patchUserConfig({ id: connectionId, userConfig: submission });
   };
 
   const createNewConnection = (submission: Record<string, unknown>): Promise<Response> =>
-    api.connections.$post({
-      json: {
-        pluginId: plugin.id,
-        userConfig: submission,
-        displayName: displayName || undefined,
-      },
+    createConnection({
+      pluginId: plugin.id,
+      userConfig: submission,
+      displayName: displayName || undefined,
     });
 
   const handleSaveOauthEdit = async () => {
@@ -334,10 +347,7 @@ export function ConnectionModal({
     setSaving(true);
     setTopError(null);
     try {
-      await api.connections[":id"]["display-name"].$patch({
-        param: { id: existing.id },
-        json: { displayName: displayName || plugin.name },
-      });
+      await patchDisplayName({ id: existing.id, displayName: displayName || plugin.name });
       onSuccess();
       onOpenChange(false);
     } catch (err) {
@@ -351,9 +361,7 @@ export function ConnectionModal({
   const handleStartDevice = async () => {
     setDevice({ kind: "starting" });
     try {
-      const res = await api.connections.oauth.device.start.$post({
-        json: { pluginId: plugin.id },
-      });
+      const res = await startDeviceAuth(plugin.id);
       if (!res.ok)
         throw new Error(
           await readErrorMessage(res, m.settings_connections_modal_error_device_start_failed()),
@@ -383,14 +391,18 @@ export function ConnectionModal({
     setSaving(true);
     setTopError(null);
     try {
-      const res = await api.connections.oauth.redirect.start.$post({
-        json: { pluginId: plugin.id },
-      });
+      const res = await startRedirectAuth(plugin.id);
       if (!res.ok)
         throw new Error(
           await readErrorMessage(res, m.settings_connections_modal_error_authorize_failed()),
         );
       const body = (await res.json()) as { redirectUrl: string; nonce: string };
+      // Guard against navigating to a non-https scheme or malformed value:
+      // `redirectUrl` is server-controlled, but a buggy or compromised plugin
+      // response (e.g. `javascript:` or an http downgrade) must not become an
+      // unconditional navigation. Reject with the standard authorize error.
+      if (!isSafeAuthUrl(body.redirectUrl))
+        throw new Error(m.settings_connections_modal_error_authorize_failed());
       // Stash the nonce + plugin name so the callback route can resume the
       // flow and show a clean return-destination toast. sessionStorage is
       // safe here — the callback runs in the same tab.
@@ -483,7 +495,7 @@ export function ConnectionModal({
               hasUserConfigFields={hasUserConfigFields}
               userConfigSchema={userConfigSchema}
               values={values}
-              setValues={setValues}
+              setValues={handleValuesChange}
               serverErrors={serverErrors}
               submitAttempted={submitAttempted}
               plugin={plugin}
