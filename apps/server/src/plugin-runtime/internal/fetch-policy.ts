@@ -104,9 +104,14 @@ export function buildFetch(
     // instance-metadata endpoints. Reject regardless of which allow list a
     // host appears on so the manifest can never opt out of the blocklist.
     if (isBlockedHostname(hostname)) {
+      // The host may *be* in the allowlist (even `*`) yet still be rejected
+      // here, so the devMessage names the real reason rather than reusing the
+      // "not in allowlist" phrasing of the membership check below. The
+      // plugin-facing `plugin.upstream_error` code is unchanged — plugins treat
+      // it as a terminal call failure already (see the JSDoc above).
       throw new PluginError(
         "plugin.upstream_error",
-        `[${pluginId}] host not in allowlist: ${hostname}`,
+        `[${pluginId}] host is blocked (loopback / link-local / metadata): ${hostname}`,
       );
     }
     const inManifest = isHostAllowed(hostname, allowedHosts);

@@ -15,8 +15,9 @@ import { isNil } from "es-toolkit/predicate";
  * fields that represent the plugin's *own intended upstream* (the user's
  * Plex/Jellyfin server, a self-hosted mirror, etc.), never to generic proxy
  * targets or free-form URL inputs. `isBlockedHostname` below catches cloud
- * instance-metadata endpoints, loopback, link-local, and IPv4-mapped IPv6
- * loopback at resolution time (see the "SSRF mitigation" section of the
+ * instance-metadata endpoints, loopback, link-local, and the IPv4-mapped IPv6
+ * form of both (in either the dotted or URL-normalised hex spelling) at
+ * resolution time (see the "SSRF mitigation" section of the
  * design doc); DNS-rebinding mitigation still has to happen at fetch time
  * and is tracked separately. The host boundary and intent check live with
  * the plugin author.
@@ -78,9 +79,28 @@ function isIpv6LinkLocal(hostname: string): boolean {
   return /^fe[89ab][0-9a-f]?:/.test(hostname);
 }
 
-function isIpv4MappedIpv6Loopback(hostname: string): boolean {
-  // ::ffff:127.0.0.0/104 — loopback tunnelled through IPv4-mapped IPv6.
-  return /^::ffff:127(?:\.\d{1,3}){3}$/.test(hostname);
+// Extracts the embedded IPv4 address from an IPv4-mapped IPv6 host, in dotted
+// or hex form, as the four octets `a.b.c.d`. Returns null when the host is not
+// an IPv4-mapped IPv6 address.
+//
+// WHATWG URL parsing (Node + Bun) never preserves the dotted
+// `::ffff:127.0.0.1` form a plugin author might type — it canonicalises to the
+// compressed hex `::ffff:7f00:1`. A regex that only matched the dotted form let
+// `http://[::ffff:127.0.0.1]/` (and link-local IMDS via `::ffff:169.254.169.254`)
+// slip through `isBlockedHostname` once `URL.hostname` normalised it. Decode the
+// embedded IPv4 from either spelling so the IPv4 blocklist below applies to both.
+function ipv4MappedIpv6Embedded(hostname: string): string | null {
+  const prefix = "::ffff:";
+  if (!hostname.startsWith(prefix)) return null;
+  const rest = hostname.slice(prefix.length);
+  // Dotted form: `::ffff:127.0.0.1` arrives verbatim.
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(rest)) return rest;
+  // Hex form: `::ffff:7f00:1` → two 16-bit groups encoding the four octets.
+  const match = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(rest);
+  if (!match) return null;
+  const high = Number.parseInt(match[1]!, 16);
+  const low = Number.parseInt(match[2]!, 16);
+  return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
 }
 
 /**
@@ -96,7 +116,11 @@ export function isBlockedHostname(hostname: string): boolean {
   if (isIpv4Loopback(h)) return true;
   if (isIpv4LinkLocal(h)) return true;
   if (isIpv6LinkLocal(h)) return true;
-  if (isIpv4MappedIpv6Loopback(h)) return true;
+  // Re-run the IPv4 blocklist against the address embedded in an IPv4-mapped
+  // IPv6 host so the mapped form cannot smuggle loopback or link-local past the
+  // same gates as a bare IPv4 address.
+  const embedded = ipv4MappedIpv6Embedded(h);
+  if (embedded && (isIpv4Loopback(embedded) || isIpv4LinkLocal(embedded))) return true;
   return false;
 }
 
