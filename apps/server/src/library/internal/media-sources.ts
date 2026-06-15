@@ -25,6 +25,11 @@ import { toLensFilters } from "./lens-filters";
  * override so the pipeline reads the denormalized columns instead of re-probing
  * availability (design §Enrich).
  */
+// The four lens registrations share the `MediaSourceRegistration` skeleton by
+// design — each differs only in its source, params type, and Row type, so a
+// factory would erase the per-lens generic parameters the resolver type-checks
+// against. fallow's clone detector flags the shared shape; keep it explicit.
+// fallow-ignore-next-line code-duplication
 const azRegistration: MediaSourceRegistration<LibraryLensQueryParsed, AzParams, LibraryRow> = {
   sourceId: "library-az",
   rateLimit: "read",

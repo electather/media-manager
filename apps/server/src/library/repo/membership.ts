@@ -56,6 +56,10 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
  * specific ids in bounded `IN` chunks. This stays within SQLite's
  * bound-parameter limit for arbitrarily large libraries.
  */
+// fallow's coverage-free CRAP estimate flags the three-path overflow guard
+// (empty / fast `notInArray` / slow chunked `inArray`) the SQLite variable
+// limit intrinsically needs.
+// fallow-ignore-next-line complexity
 export async function tombstoneMissing(
   userId: string,
   keepKeys: string[],
@@ -74,7 +78,11 @@ export async function tombstoneMissing(
   }
 
   if (keepKeys.length <= SQLITE_VARIABLE_LIMIT) {
-    // Fast path: all keys fit in one predicate.
+    // Fast path: all keys fit in one predicate. Shares the UPDATE skeleton with
+    // the slow path below but applies the opposite predicate (`notInArray` over
+    // the keep set vs chunked `inArray` over the computed absent set); merging
+    // them would couple the two SQLite-variable-limit strategies.
+    // fallow-ignore-next-line code-duplication
     const tombstoned = await db
       .update(libraryItems)
       .set({ owned: false, unownedAt: now })
@@ -118,6 +126,8 @@ export async function tombstoneMissing(
   let count = 0;
   for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
     const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
+    // Shares the UPDATE skeleton with the fast path above; see the note there.
+    // fallow-ignore-next-line code-duplication
     const tombstoned = await db
       .update(libraryItems)
       .set({ owned: false, unownedAt: now })
