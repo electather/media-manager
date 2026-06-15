@@ -66,9 +66,9 @@ function VoteButton({
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         active
           ? activeClass
-          : disabled
-            ? "border-border bg-foreground/6 text-muted-foreground"
-            : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+          : // hover:* is inert on disabled buttons (pointer-events:none); kept
+            // for when vote persistence is wired and the button is re-enabled.
+            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
