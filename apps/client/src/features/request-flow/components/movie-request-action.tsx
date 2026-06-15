@@ -5,9 +5,9 @@ import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
-import { useCancelRequest } from "../api/use-cancel-request";
-import { useCreateRequest } from "../api/use-create-request";
-import { useUserRequests } from "../api/use-user-requests";
+import { useCancelRequest } from "../hooks/use-cancel-request";
+import { useCreateRequest } from "../hooks/use-create-request";
+import { useUserRequests } from "../hooks/use-user-requests";
 import {
   mediaRequestToUiStatus,
   normalizeRequestStatus,

@@ -1,5 +1,5 @@
 import type { SeasonAvailabilityServer, SeasonInfo as WireSeasonInfo } from "@nama/shared/home";
-import type { Episode, EpisodeStatus, Season } from "@/features/request-flow/lib/types";
+import type { Episode, EpisodeStatus, Season } from "@/features/request-flow";
 
 export type DerivedSeasonStatus = "available" | "partial" | "unavailable" | "upcoming";
 
