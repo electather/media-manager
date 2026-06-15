@@ -140,9 +140,9 @@ describe("RetentionForm", () => {
       inboxRetentionDays: 30,
       deliveryRetentionDays: 30,
     });
-    // The server normalises 3640 → 3640 (no change needed, just verifying round-trip).
+    // Server clamps 3640 → 3650; input must adopt the server value, not what was typed.
     fetchersMock.fetchUpdateAdminSettings.mockResolvedValue({
-      inboxRetentionDays: 3640,
+      inboxRetentionDays: 3650,
       deliveryRetentionDays: 30,
     });
     const qc = makeClient();
@@ -162,7 +162,7 @@ describe("RetentionForm", () => {
     // After the mutation resolves the input must reflect the server response so
     // the form and cache do not disagree if the server clamps a value.
     await waitFor(() => {
-      expect(inboxInput.value).toBe("3640");
+      expect(inboxInput.value).toBe("3650");
     });
   });
 });
