@@ -26,7 +26,7 @@ vi.mock("../../media", async () => {
   };
 });
 
-const { ArtworkService } = await import("../service");
+const { ArtworkService, resetWriteBackDedupForTests } = await import("../service");
 const { PluginCallError } = await import("../../media");
 
 function bundle(overrides: Partial<ArtworkBundle> = {}): ArtworkBundle {
@@ -50,7 +50,13 @@ async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
 }
 
-beforeEach(() => dispatchMock.mockReset());
+beforeEach(() => {
+  dispatchMock.mockReset();
+  // `recentWriteBacks` is module-scope and persists across tests in-process.
+  // Reset it so each test starts with an empty window instead of having to
+  // pick a never-before-seen tmdb id forever.
+  resetWriteBackDedupForTests();
+});
 
 describe("ArtworkService", () => {
   it("dispatches one call per canonical (idsHash, type) and echoes back every client key", async () => {
@@ -237,6 +243,53 @@ describe("ArtworkService write-back", () => {
     expect(dispatchMock).toHaveBeenCalledTimes(1);
     expect(patchArtwork).toHaveBeenCalledTimes(1);
     expect(result.results["lean"]).toEqual(result.results["rich"]);
+    // The collapsed dispatch must carry the union of both rows' ids, not just
+    // the first-seen subset. Provider eligibility keys off the dispatched ids
+    // (fanart movies accept imdb), so dropping `imdb` here would silently
+    // narrow coverage and make the outcome batch-order dependent.
+    expect(dispatchMock.mock.calls[0]![0]).toMatchObject({
+      input: { ids: { tmdb: "1010", imdb: "tt1010" }, type: "movie" },
+    });
+  });
+
+  it("unions ids regardless of which subset is seen first", async () => {
+    dispatchMock.mockResolvedValue(
+      bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
+    );
+    const { stub } = makeCatalogStub();
+    // Rich row first, lean row second: the canonical key still keys on tmdb
+    // (highest precedence) and the dispatch keeps every id, so coverage does
+    // not depend on which row the client happened to send first.
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "rich", ids: { tmdb: "1011", tvdb: "70533" }, type: "tv" },
+      { key: "lean", ids: { tmdb: "1011" }, type: "tv" },
+    ]);
+    expect(dispatchMock).toHaveBeenCalledTimes(1);
+    expect(dispatchMock.mock.calls[0]![0]).toMatchObject({
+      input: { ids: { tmdb: "1011", tvdb: "70533" }, type: "tv" },
+    });
+  });
+
+  it("releases the dedup window when a patch rejects so the next read can retry", async () => {
+    dispatchMock.mockResolvedValue(
+      bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
+    );
+    const patchArtwork = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("db down"))
+      .mockResolvedValue(undefined);
+    const stub = { patchArtwork } as unknown as CatalogService;
+    // First request claims the window then its patch fails. Because the patch
+    // is best-effort, the failure must not poison the window: the second
+    // request for the same hot title should be allowed to write again.
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { tmdb: "4040" }, type: "movie" },
+    ]);
+    await flushMicrotasks();
+    await new ArtworkService("u2", stub).getArtwork([
+      { key: "k", ids: { tmdb: "4040" }, type: "movie" },
+    ]);
+    expect(patchArtwork).toHaveBeenCalledTimes(2);
   });
 
   it("suppresses a second write-back for the same canonical title within the window", async () => {

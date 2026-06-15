@@ -117,7 +117,7 @@ ARTWORK.GET
 | dispatch reject one key          | per-key error map (existing); other keys unaffected                                             |
 | patchArtwork throw               | `consola.error("[artwork] patch failed", e)`, 200 to client                                     |
 | patchArtwork: row absent (race)  | 0 rows updated, no error, next read writes                                                      |
-| 2 concurrent gets, same cold key | first hits plugin, second hits `mv:` cache; both patch, COALESCE safe                           |
+| 2 concurrent gets, same cold key | first hits plugin, second hits `mv:` cache; first patch claims a per-key write-back window, the second is suppressed for that window (COALESCE would make it safe but redundant). See Concurrency. |
 | caller exceeds per-user rate limit | 429 + `Retry-After: N` header + `{ code: "mcp.rate_limited" }` body; TMDB call skipped. Bucket capacity 60, refill 1/s, charged per unique canonical lookup in batch. |
 
 ## Schema migration
@@ -130,7 +130,11 @@ Drizzle migration. No data backfill needed (col was mostly null anyway).
 
 ## Concurrency
 
-`patchArtwork` per-key fire-and-forget. SQLite single-writer queues. `INSERT OR REPLACE` on metadata writes preserves `created_at` via existing `COALESCE`. Patch never overwrites filled URL (COALESCE). No lock needed.
+`patchArtwork` per-key fire-and-forget. SQLite single-writer queues. `INSERT OR REPLACE` on metadata writes preserves `created_at` via existing `COALESCE`. Patch never overwrites filled URL (COALESCE), so concurrent patches are always *correct*.
+
+They are not free, though: the canonical row is shared across all users, so N viewers of the same hot title in the same instant would each fire a redundant COALESCE UPDATE against the one row, scaling WAL traffic with concurrent viewers. To bound that, the artwork service keeps a process-wide write-back dedup window (`WRITE_BACK_DEDUP_MS`, currently 60s): the first fulfilled dispatch for a canonical key claims the window and patches; later dispatches for the same key inside the window skip the patch. A failed patch releases the claim so the next read can retry — best-effort write-back is preserved. The window is purely a write-amplification guard; correctness still rests on COALESCE, so no DB lock is needed.
+
+The dedup state is process-local. Under the SQLite single-writer assumption there is one server instance, so the window suppresses all redundant patches. If the deployment ever fans out to N instances, each holds its own window → at most N patches per key per window — still correct (COALESCE), just less aggressively deduped.
 
 ## Backfill
 
