@@ -32,18 +32,19 @@ export interface ClientMediaSource<P> {
 export type MediaSourceSpec<P> = Omit<ClientMediaSource<P>, "fetchPage">;
 
 /**
- * Serialize a source param object into the string query the generic resolver
- * parses off `c.req.query()`. Null / undefined fields are dropped (the resolver
- * treats an absent param as unset); everything else is stringified, matching the
- * old per-feature fetchers that hand-built `Record<string, string>` queries.
+ * Serialize a source param object into the query the generic resolver parses
+ * off the request. Null / undefined fields are dropped (the resolver treats an
+ * absent param as unset); strings/numbers are stringified. A `string[]` value
+ * is forwarded as-is so the Hono client emits it as repeated params
+ * (`?genres=Drama&genres=Crime`), which the resolver reads multi-value — empty
+ * arrays are dropped like an unset axis.
  */
-function toQuery(params: Record<string, unknown>): Record<string, string> {
-  const query: Record<string, string> = {};
-  // Media source params are flat strings/numbers (`limit` is the only number);
-  // null/undefined fields are dropped (an absent param is unset on the resolver).
+function toQuery(params: Record<string, unknown>): Record<string, string | string[]> {
+  const query: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(params)) {
     if (typeof value === "string") query[key] = value;
     else if (typeof value === "number") query[key] = String(value);
+    else if (Array.isArray(value) && value.length > 0) query[key] = value as string[];
   }
   return query;
 }
@@ -52,11 +53,12 @@ function toQuery(params: Record<string, unknown>): Record<string, string> {
  * Build a `ClientMediaSource` from its spec, binding the one media read endpoint
  * (`GET /api/media/sources/:sourceId`). The cursor rides as a query param when
  * present; the resolver decodes only the opaque outer cursor and re-parses the
- * source params off the query (design §A3).
+ * source params off the query (design §A3). Params may be `string[]` for
+ * multi-value axes (the library lens filters), which ride as repeated params.
  */
-export function defineMediaSource<P extends Record<string, string | number | null | undefined>>(
-  spec: MediaSourceSpec<P>,
-): ClientMediaSource<P> {
+export function defineMediaSource<
+  P extends Record<string, string | string[] | number | null | undefined>,
+>(spec: MediaSourceSpec<P>): ClientMediaSource<P> {
   return {
     ...spec,
     async fetchPage(params, cursor) {

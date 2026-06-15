@@ -99,6 +99,30 @@ vi.mock("../../../home", async () => {
           enrichRows: vi.fn(),
         })),
       },
+      // A multi-value source: its `genres` axis mirrors the library lens
+      // `arrayParam` (a lone value coerces to a one-element array, a repeated
+      // one stays an array), so the resolver must feed it the multi-value query
+      // rather than a single collapsed value.
+      fakeHomeMulti: {
+        sourceId: "fakeHomeMulti",
+        rateLimit: undefined,
+        paramSchema: z.object({
+          genres: z
+            .preprocess(
+              (v) => (v == null ? undefined : Array.isArray(v) ? v : [v]),
+              z.array(z.string()).optional(),
+            )
+            .catch(undefined),
+        }),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        eligibility: vi.fn(async () => true),
+        build: vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
+          source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
+          cfg: { params: {}, cursor, limit: 10 },
+          enrichRows: vi.fn(),
+        })),
+      },
     },
   };
 });
@@ -164,7 +188,7 @@ beforeEach(() => {
   mockUserId = "u1";
   vi.mocked(media.listRows).mockClear();
   vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
-  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded"]) {
+  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded", "fakeHomeMulti"]) {
     homeReg(id).build.mockClear();
     homeReg(id).eligibility?.mockClear();
   }
@@ -229,6 +253,26 @@ describe("media source resolver (US-003, design §A3)", () => {
     const res = await buildApp().request("/media/sources/fakeWatchlistParams");
     expect(res.status).toBe(400);
     expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+  });
+
+  it("feeds a repeated query param to the source schema as an array (multi-value)", async () => {
+    // The library lens filters arrive as repeated params (?genres=Drama&genres=
+    // Crime); the resolver must parse them multi-value so both reach the source,
+    // not just the first.
+    const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama&genres=Crime");
+    expect(res.status).toBe(200);
+    expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({
+      genres: ["Drama", "Crime"],
+    });
+  });
+
+  it("feeds a single occurrence of a query param as a plain string (single-value parity)", async () => {
+    // A lone occurrence stays a string, so single-value source schemas
+    // (home/watchlist) see the exact shape they did before the multi-value
+    // change — backward compatible.
+    const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama");
+    expect(res.status).toBe(200);
+    expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({ genres: ["Drama"] });
   });
 
   it("400s an undecodable cursor on a home source (cursorOnNull '400')", async () => {

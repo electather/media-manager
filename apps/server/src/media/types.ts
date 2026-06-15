@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
 import type { HostErrorCode } from "@nama/shared/diagnostics";
 import type { ArtworkRequestItem, ArtworkBundle } from "@nama/shared/artwork";
-import type { CanonicalMetadata } from "@nama/shared/catalog";
+import type { CanonicalMetadata, RecommendationList } from "@nama/shared/catalog";
 import type { MediaRowBucket, MediaType, RowSort } from "@nama/shared/media";
 import type { RawCanonicalSource, CatalogService } from "../catalog";
 import type { Cursor } from "./cursor";
@@ -148,6 +148,15 @@ export interface SourceContext {
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
   logger: ConsolaInstance;
+  /**
+   * Request-scoped memo for the user's `"default"` recommendation list the
+   * consumer injects. Home's `recommendedForYou-*` rows read this list from
+   * both their eligibility check and their source `fetchRawSet`, across two
+   * partitions (tv + movies), so a single compose would otherwise fetch it up
+   * to four times. Consumers that do not read recommendations leave it unset;
+   * callers fall back to `catalog.getRecommendations` when it is absent.
+   */
+  recommendations?: () => Promise<RecommendationList | null>;
   /**
    * Artwork fetcher the consumer injects so the pipeline's enrich stage can
    * hydrate posters/backdrops without media importing the artwork module

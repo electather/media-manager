@@ -59,15 +59,11 @@ export function filtersToQuery(filters: LibraryFilters): LibraryQuery {
  * `library-collections` id is excluded: collections is not a media source (it
  * has its own endpoint + response shape).
  *
- * MULTI-VALUE LIMITATION (carried over from phase 2, surfaced loudly per rule
- * 12): the unified source route parses its filters with `c.req.query()`
- * (single-value) inside the handler — NOT `c.req.queries()` — so a repeated
- * param collapses to one value server-side, and the shared `defineMediaSource`
- * `toQuery` forwards only string/number values (it drops arrays). So each lens
- * axis is sent as its FIRST selected value; selecting two genres filters by the
- * first only. The collections + facets endpoints (their own routes, validated
- * with `c.req.queries()`) DO honor multi-value. Settling true multi-value on the
- * lens path is a server change (read `queries()` + split) tracked as a followup.
+ * Multi-value axes round-trip: `lensSourceParams` forwards the full selected
+ * array, `defineMediaSource.toQuery` emits it as repeated params, and the
+ * resolver reads the multi-value query into the lens schema's tolerant array
+ * params — so selecting two genres filters by both, matching the collections +
+ * facets endpoints and the popover's active-count badge.
  */
 export function defineLensSource(
   lens: Exclude<LibraryLens, "collections">,
@@ -83,20 +79,20 @@ export function defineLensSource(
 }
 
 /**
- * The flat single-value params `defineMediaSource.toQuery` forwards. Each axis
- * sends its first selected value (the unified source route collapses repeated
- * params to one anyway — see {@link defineLensSource}); an empty axis is left
- * undefined so `toQuery` drops it. The whole object is still folded into the
- * cache key, so two different first-values are two cache entries.
+ * The per-axis params `defineMediaSource.toQuery` forwards as repeated query
+ * params. Each axis sends its full selected array so multi-value filtering
+ * works; an empty axis is left undefined so `toQuery` drops it (an absent param
+ * is an open axis server-side). The whole object is folded into the cache key,
+ * so each filter combination gets its own entry.
  */
-function lensSourceParams(filters: LibraryFilters): Record<string, string | undefined> {
-  const first = (values: string[]): string | undefined => values[0];
+function lensSourceParams(filters: LibraryFilters): Record<string, string[] | undefined> {
+  const axis = (values: string[]): string[] | undefined => (values.length > 0 ? values : undefined);
   return {
-    kinds: first(filters.kinds),
-    genres: first(filters.genres),
-    qualities: first(filters.qualities),
-    servers: first(filters.servers),
-    watched: first(filters.watched),
+    kinds: axis(filters.kinds),
+    genres: axis(filters.genres),
+    qualities: axis(filters.qualities),
+    servers: axis(filters.servers),
+    watched: axis(filters.watched),
   };
 }
 

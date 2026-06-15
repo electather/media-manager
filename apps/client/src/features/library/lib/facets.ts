@@ -1,4 +1,4 @@
-import type { LibraryFacetCounts } from "@nama/shared/library";
+import { QUALITY_TIERS, type LibraryFacetCounts } from "@nama/shared/library";
 
 /** The value lists the filter popover offers per multi-valued axis. */
 export interface LibraryFacetValues {
@@ -8,20 +8,38 @@ export interface LibraryFacetValues {
 }
 
 /**
+ * Fidelity ordinal for a quality label: its index in the hi→lo `QUALITY_TIERS`
+ * tuple (0 = highest fidelity), or the tuple length for any free-form label the
+ * tuple does not list (so unknown labels sink below every listed tier). Mirrors
+ * the server's `rankQualityTier` so the popover order matches the descending
+ * fidelity the Quality lens uses; the canonical rank tuple is shared, so the two
+ * agree value-for-value without a duplicate rank definition.
+ */
+function rankQualityTier(label: string): number {
+  const index = QUALITY_TIERS.indexOf(label as (typeof QUALITY_TIERS)[number]);
+  return index === -1 ? QUALITY_TIERS.length : index;
+}
+
+/**
  * Derive the popover's option lists from the facet count maps. The keys of each
  * count record ARE the present values (the server only emits a bucket that has
  * at least one owned title), so the option list is the sorted key set — no
- * separate value endpoint needed. Pinned to `en` collation so the fa build keeps
- * the same option order. Pure (no React) so it is unit-testable on its own.
+ * separate value endpoint needed. Genres and servers sort alphabetically (pinned
+ * to `en` collation so the fa build keeps the same option order); qualities sort
+ * by descending fidelity rank, falling back to `en` collation for ties (two
+ * labels the tuple does not list). Pure (no React) so it is unit-testable.
  */
 export function deriveFacetValues(counts: LibraryFacetCounts | undefined): LibraryFacetValues {
   if (!counts) return { genres: [], qualities: [], servers: [] };
-  const sorted = (record: Record<string, number>) =>
+  const alpha = (record: Record<string, number>) =>
     Object.keys(record).sort((a, b) => a.localeCompare(b, "en"));
+  const byQualityTier = Object.keys(counts.qualities).sort(
+    (a, b) => rankQualityTier(a) - rankQualityTier(b) || a.localeCompare(b, "en"),
+  );
   return {
-    genres: sorted(counts.genres),
-    qualities: sorted(counts.qualities),
-    servers: sorted(counts.servers),
+    genres: alpha(counts.genres),
+    qualities: byQualityTier,
+    servers: alpha(counts.servers),
   };
 }
 

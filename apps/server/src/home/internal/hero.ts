@@ -145,7 +145,11 @@ async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInter
 }
 
 async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
-  const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
+  // Share the request-scoped rec-list fetch with the recommendedForYou rows
+  // when the memo is present; fall back to a direct fetch otherwise.
+  const rec = await (ctx.recommendations
+    ? ctx.recommendations()
+    : ctx.catalog.getRecommendations(ctx.userId, "default"));
   if (!rec || rec.items.length === 0) return [];
   const keys = rec.items
     .slice(0, POOL_SIZE)

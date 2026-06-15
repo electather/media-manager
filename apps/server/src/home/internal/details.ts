@@ -20,6 +20,15 @@ export async function composeDetailsResponse(
   const deadlineOpts = { deadlineMs: ctx.deadlineMs };
   let summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
   if (!summary) {
+    // On a cache miss this fetches live metadata for `tmdbId` and persists it,
+    // so an unbounded `tmdbId` lets any caller force the server to fetch and
+    // write a canonical row for an arbitrary id. Bound it to a numeric tmdb id
+    // before the live fetch so the write-on-read path cannot be driven by
+    // opaque input. The adapter route validates the same shape, but the guard
+    // lives here too so the composer is safe regardless of caller.
+    if (!/^\d+$/u.test(tmdbId)) {
+      throw new HttpError(400, "home.bad_input", `invalid tmdbId: ${tmdbId}`);
+    }
     const raw = (await ctx.mediaService.getMetadata(
       tmdbId,
       mediaType,
