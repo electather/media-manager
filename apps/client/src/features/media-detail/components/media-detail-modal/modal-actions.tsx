@@ -55,8 +55,10 @@ function PrimaryAction({ item }: { item: MediaDetailItem }) {
   if (item.mediaType === "tv") return null;
 
   if (item.status === "available") {
+    // Playback is not yet wired; disabling prevents a silent no-op while
+    // keeping the button visible so users understand the intent.
     return (
-      <Button size="lg">
+      <Button size="lg" disabled>
         <Play aria-hidden="true" className="fill-current" />
         {m.home_detail_watch()}
       </Button>
