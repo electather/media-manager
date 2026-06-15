@@ -11,7 +11,7 @@ OWNER=$(cut -d/ -f1 <<< "$REPO")
 NAME=$(cut -d/ -f2 <<< "$REPO")
 
 gh pr view "$PR" --json reviews \
-  --jq '.reviews | group_by(.author.login) | .[] | last | "\(.author.login): \(.state)"'
+  --jq '.reviews | group_by(.author.login // "ghost") | .[] | last | "\(.author.login // "ghost"): \(.state)"'
 
 JSON=$(gh api graphql \
   -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved}}}}}' \

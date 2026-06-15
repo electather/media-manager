@@ -9,7 +9,7 @@ Reviewers catch real issues — and sometimes they are wrong, working from an ol
 
 ## Scripts
 
-Use the scripts in `scripts/` — they output only what you need. Prefer them over raw `gh api` calls.
+Use the scripts in `.agents/skills/address-review-comments/scripts/` — they output only what you need. Prefer them over raw `gh api` calls.
 
 | Script | Usage |
 |--------|-------|
