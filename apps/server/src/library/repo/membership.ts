@@ -93,6 +93,14 @@ export async function tombstoneMissing(
   // predicate is not safe. Instead, fetch the owned id set, compute the absent
   // ids in JS, and tombstone them by id using bounded IN predicates.
   //
+  // This splits the atomic fast-path UPDATE into read-then-update with no
+  // enclosing transaction. That is safe ONLY under the single-writer sync model:
+  // `library.sync` is the lone writer (cron + per-user seed lock, design §Sync),
+  // and its phase-1 upsert completes before this runs, so no concurrent writer
+  // can insert or own a row between step 1 and step 2. A future caller invoking
+  // `tombstoneMissing` concurrently with another owner-mutating writer would
+  // open a TOCTOU window here that the fast path does not have.
+  //
   // Step 1: collect currently-owned ids for this user.
   const ownedRows = await db
     .select({ id: libraryItems.id })

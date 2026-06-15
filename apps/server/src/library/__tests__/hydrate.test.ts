@@ -265,6 +265,61 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     }
   });
 
+  // PER-CHUNK PERSISTENCE — the pass writes each chunk's projection as it
+  // resolves rather than buffering every update for one write after the loop.
+  // This matters because the scheduled jobs cap a user row at a wall-clock
+  // timeout (`runRowWithTimeout` races the handler against 30s/60s) and abandon
+  // the row's in-flight work when it fires, while the availability probes run
+  // unbounded. If the pass only wrote after the loop, a row that timed out in a
+  // later chunk would discard every earlier chunk's completed work and the next
+  // run would redo it. Here a never-resolving probe in the SECOND chunk (rows
+  // 25+) is raced against a short timeout exactly as the job runner does: the
+  // FIRST chunk (rows 0–24) must already be persisted (`hydratedAt` stamped) so
+  // `staleOrNew` skips it next run, while the stalled second-chunk rows stay
+  // un-stamped and are retried. Under a single-write-after-loop design every row
+  // would be un-stamped here, failing the first assertion.
+  it("persists completed chunks before a later chunk stalls", async () => {
+    const COUNT = 30; // Two chunks: rows 0–24 then 25–29 (HYDRATE_CONCURRENCY = 25).
+    for (let i = 0; i < COUNT; i++) {
+      await seedOwned(String(2000 + i));
+    }
+
+    // The probes resolve normally for the first 25 calls (chunk 1) then hang on
+    // the 26th onward (chunk 2), modelling a slow provider that blows the row
+    // timeout. `loadAvailability` fires `getMatchingServers` + `getAvailabilityQuality`
+    // per row, so the 26th `getMatchingServers` call is the first row of chunk 2.
+    let serverCalls = 0;
+    const { ctx } = makeCtx({});
+    ctx.mediaService.getMatchingServers = vi.fn().mockImplementation(() => {
+      serverCalls += 1;
+      if (serverCalls > 25) return new Promise(() => {}); // Never resolves — stalls chunk 2.
+      return Promise.resolve([]);
+    }) as typeof ctx.mediaService.getMatchingServers;
+
+    // Race the pass against a short timeout, mirroring `runRowWithTimeout`. The
+    // pass cannot finish (chunk 2 hangs), so the timeout wins and the awaiting
+    // continuation after the stalled chunk never runs.
+    const timedOut = Symbol("timeout");
+    const outcome = await Promise.race([
+      hydrate(ctx, { staleTtlMs: 1000 }),
+      new Promise((resolve) => setTimeout(() => resolve(timedOut), 50)),
+    ]);
+    expect(outcome).toBe(timedOut);
+
+    // Chunk 1 (rows 0–24) finished before the stall, so its writes are durable —
+    // proving each chunk persists as it resolves, not after the whole loop.
+    for (let i = 0; i < 25; i++) {
+      const row = await rowById(`movie:${2000 + i}`);
+      expect(row?.hydratedAt).not.toBeNull();
+    }
+    // Chunk 2 (rows 25–29) never resolved, so those rows are still un-stamped and
+    // a later run re-selects them.
+    for (let i = 25; i < COUNT; i++) {
+      const row = await rowById(`movie:${2000 + i}`);
+      expect(row?.hydratedAt).toBeNull();
+    }
+  });
+
   // NULL-SAFE — a row whose metadata batch is missing (the catalog has no
   // canonical row for it yet) must still hydrate the columns it CAN resolve
   // rather than throwing and stalling the whole pass. The metadata-sourced

@@ -78,15 +78,24 @@ export async function hydrate(
   // Fan out in bounded chunks to cap concurrent plugin calls. Each chunk runs
   // its rows fully before the next chunk starts, so at most
   // 2 × HYDRATE_CONCURRENCY plugin requests are in-flight at once.
-  const updates: Awaited<ReturnType<typeof buildUpdate>>[] = [];
+  //
+  // Persist each chunk's projection as soon as it resolves rather than buffering
+  // every update for one write after the loop. The hydrate jobs cap a user row
+  // at a wall-clock timeout (30s for `library.sync`, 60s for `library.hydrate`)
+  // and abandon the row's in-flight work when it fires, while the availability
+  // probes run unbounded (no per-probe deadline in the scheduled path). Writing
+  // per chunk means a row that times out mid-pass keeps the chunks that already
+  // finished — `writeHydration` stamps `hydratedAt`, so the next run's
+  // `staleOrNew` skips them and resumes from where this pass stopped instead of
+  // redoing completed work.
+  let hydrated = 0;
   for (let i = 0; i < targets.length; i += HYDRATE_CONCURRENCY) {
     const slice = targets.slice(i, i + HYDRATE_CONCURRENCY);
     const chunkUpdates = await Promise.all(
       slice.map((target) => buildUpdate(ctx, target, sources)),
     );
-    updates.push(...chunkUpdates);
+    hydrated += await writeHydration(ctx.userId, chunkUpdates, now);
   }
-  const hydrated = await writeHydration(ctx.userId, updates, now);
   return { considered: targets.length, hydrated };
 }
 
