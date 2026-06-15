@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import {
@@ -13,6 +11,7 @@ import type { CompactMediaItem } from "@nama/shared/media";
 import { sourceLabel } from "../../lib/types";
 import { cn } from "@/shared/lib/utils";
 import { useRecentlyAdded } from "../../hooks/use-recently-added";
+import { useWatchlistPeek } from "../../hooks/use-watchlist-peek";
 
 const MS_PER_MIN = 60 * 1000;
 const MS_PER_HOUR = 60 * MS_PER_MIN;
@@ -44,18 +43,7 @@ function relativeLabel(addedAt: number, now: number = Date.now()): string {
 
 export function RecentlyAdded() {
   const { items } = useRecentlyAdded();
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   const top = items;
   if (top.length === 0) return null;
   return (
@@ -104,6 +92,9 @@ function RecentRow({
         )}
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
+        {/* Label computed fresh each render — no tick interval, so the value
+            advances only when the section re-renders (route change or stale-time
+            refetch). Live-clock precision not needed here. */}
         <span className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
           {item.addedAt != null ? relativeLabel(item.addedAt) : null}
         </span>

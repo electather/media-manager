@@ -10,6 +10,17 @@ import { RecentlyAdded } from "./sections/recently-added";
 import { TonightPick } from "./sections/tonight-pick";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
+// Approximate skeleton heights for each section type. These values match the
+// typical rendered height when data is present; sections that resolve to null
+// when empty will cause a layout shift from skeleton to nothing — a known
+// trade-off until each section exposes its own typed skeleton component.
+const SK_HERO = 420; // Tonight pick: 16/9 hero card + alternates list.
+const SK_SCROLL_ROW = 360; // Poster scroll row (2/3 cards ≈ 300px + head).
+const SK_MOOD_MOSAIC = 560; // 3-column mood cluster grid.
+const SK_GRID_ROW = 300; // Single-row backdrop (16/9) grid.
+const SK_GRID_TALL = 400; // Awaiting: multi-row poster grid.
+const SK_LIST = 360; // Recently-added list rows.
+
 /**
  * Curated content for `/watchlist`. Each section fetches its own data behind
  * its own Suspense boundary so a slow Tonight pick can't block the rest of
@@ -18,22 +29,22 @@ import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 export function WatchlistCuratedPage() {
   return (
     <>
-      <SectionFrame heightPx={420} queryKey={watchlistKeys.tonight()}>
+      <SectionFrame heightPx={SK_HERO} queryKey={watchlistKeys.tonight()}>
         <TonightPick />
       </SectionFrame>
-      <SectionFrame heightPx={360} queryKey={watchlistKeys.items({ bucket: "ready" })}>
+      <SectionFrame heightPx={SK_SCROLL_ROW} queryKey={watchlistKeys.items({ bucket: "ready" })}>
         <ReadyRow />
       </SectionFrame>
-      <SectionFrame heightPx={560} queryKey={watchlistKeys.moods()}>
+      <SectionFrame heightPx={SK_MOOD_MOSAIC} queryKey={watchlistKeys.moods()}>
         <MoodMosaic />
       </SectionFrame>
-      <SectionFrame heightPx={300} queryKey={watchlistKeys.items({ bucket: "upcoming" })}>
+      <SectionFrame heightPx={SK_GRID_ROW} queryKey={watchlistKeys.items({ bucket: "upcoming" })}>
         <ComingUp />
       </SectionFrame>
-      <SectionFrame heightPx={400} queryKey={watchlistKeys.items({ bucket: "awaiting" })}>
+      <SectionFrame heightPx={SK_GRID_TALL} queryKey={watchlistKeys.items({ bucket: "awaiting" })}>
         <Awaiting />
       </SectionFrame>
-      <SectionFrame heightPx={360} queryKey={watchlistKeys.recently()}>
+      <SectionFrame heightPx={SK_LIST} queryKey={watchlistKeys.recently()}>
         <RecentlyAdded />
       </SectionFrame>
     </>

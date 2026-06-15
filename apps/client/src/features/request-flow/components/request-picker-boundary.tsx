@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
-import { requestFlowKeys } from "../api/query-keys";
+import { requestFlowKeys } from "../lib/query-keys";
 
 type Props = {
   mediaType: "movie" | "tv";

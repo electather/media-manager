@@ -15,6 +15,7 @@ import type { CompactMediaItem } from "@nama/shared/media";
 import { shortRuntimeLabel } from "../../../lib/format";
 import { MOOD_REGISTRY } from "../../../lib/mood-registry";
 import { useMoodCluster } from "../../../hooks/use-mood-cluster";
+import { useWatchlistPeek } from "../../../hooks/use-watchlist-peek";
 import { WatchlistCard } from "../../watchlist-card";
 
 interface MoodClusterProps {
@@ -27,17 +28,7 @@ const PREVIEW_LIMIT = 3;
 export function MoodCluster({ moodId, count }: MoodClusterProps) {
   const { items } = useMoodCluster(moodId, PREVIEW_LIMIT);
   const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   const onSeeAll = useCallback(() => {
     void navigate({ to: "/watchlist/moods/$moodId", params: { moodId } });
   }, [navigate, moodId]);

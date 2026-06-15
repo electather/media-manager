@@ -3,14 +3,20 @@ import { useMemo } from "react";
 import { SearchIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 import { Button } from "@/shared/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-group";
 import { cn } from "@/shared/lib/utils";
 
-import type { AdminInvite, AdminUserSummary, AdminUsersFilter } from "../lib/types";
+import {
+  ADMIN_USER_ROLE_IDS,
+  type AdminInvite,
+  type AdminUserSummary,
+  type AdminUsersFilter,
+} from "../lib/types";
+import { isAdmin, isInviteActive } from "../lib/user-predicates";
 import { InviteRow } from "./invite-row";
 import { UserRow } from "./user-row";
-import { roleSummaries } from "../lib/role-summaries";
 
 interface Props {
   users: AdminUserSummary[];
@@ -33,27 +39,29 @@ export function UsersList({
   onQueryChange,
   onOpenUser,
 }: Props) {
-  const roles = roleSummaries();
-
+  // Read the active locale so the memo recomputes when it changes; message
+  // helpers resolve against the current locale, and `setLocale` re-renders
+  // mounted pages without a reload, so an empty dep list would freeze these
+  // role names in the first language.
+  const locale = getLocale();
   const rolesById = useMemo(
     () =>
-      Object.fromEntries(roles.map((r) => [r.id, r])) as Record<
-        string,
-        { id: string; name: string }
-      >,
-    [roles],
+      Object.fromEntries(
+        ADMIN_USER_ROLE_IDS.map((id) => [id, { id, name: m.admin_users_role_name({ role: id }) }]),
+      ) as Record<string, { id: string; name: string }>,
+    [locale],
   );
 
   const now = Date.now();
   const counts = {
     all: users.length,
-    admins: users.filter((u) => u.role?.id === "role_admin").length,
-    invites: invites.filter((i) => !(i.expired || i.expiresAt < now)).length,
+    admins: users.filter(isAdmin).length,
+    invites: invites.filter((i) => isInviteActive(i, now)).length,
   };
 
   const filtered = useMemo(() => {
     let list = users;
-    if (filter === "admins") list = list.filter((u) => u.role?.id === "role_admin");
+    if (filter === "admins") list = list.filter(isAdmin);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
