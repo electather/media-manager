@@ -146,7 +146,10 @@ const WRITE_BACK_DEDUP_MS = 60_000;
 const recentWriteBacks = new Map<string, number>();
 
 /** Drops entries older than the dedup window so the map stays bounded by the
- *  number of distinct keys touched within a window rather than growing forever. */
+ *  number of distinct keys touched within a window rather than growing forever.
+ *  Runs a linear scan on every `claimWriteBack`; that is a deliberate trade-off
+ *  — the map is window-bounded so the scan is cheap under the single-process
+ *  SQLite assumption, and it avoids a second timer/heap to track expiry. */
 function pruneExpiredWriteBacks(now: number): void {
   for (const [k, at] of recentWriteBacks) {
     if (now - at >= WRITE_BACK_DEDUP_MS) recentWriteBacks.delete(k);

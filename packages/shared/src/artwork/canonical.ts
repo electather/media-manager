@@ -27,6 +27,9 @@ export function canonicalArtworkKey(ids: ArtworkIdMap, type: MediaType): string 
     const value = ids[idType];
     if (value) return `${type}|${idType}:${value}`;
   }
+  // Unreachable for validated input — `artworkIdMapSchema.refine` rejects an
+  // empty id map. The type-only fallback keeps this total; it is intentional
+  // dead code, not a collapse path two real titles can hit.
   return type;
 }
 
