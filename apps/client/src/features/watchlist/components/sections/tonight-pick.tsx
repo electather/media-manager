@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import {
@@ -20,21 +18,11 @@ import type { CompactMediaItem } from "@nama/shared/media";
 import { WatchlistCard } from "../watchlist-card";
 import { shortRuntimeLabel } from "../../lib/format";
 import { useTonight } from "../../hooks/use-tonight";
+import { useWatchlistPeek } from "../../hooks/use-watchlist-peek";
 
 export function TonightPick() {
   const { items } = useTonight();
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   const [hero, ...alternates] = items;
   if (!hero) return null;
 
