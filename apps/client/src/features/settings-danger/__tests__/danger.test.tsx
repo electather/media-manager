@@ -32,16 +32,50 @@ vi.mock("@/features/settings", async () => {
   return { ...actual, deleteAccount: deleteAccountMock };
 });
 
-import { DeleteAccountDialog } from "@/features/settings-danger/components/settings-danger-page";
+// Spy on the anchor-download seam so the export click can be asserted to
+// trigger a browser download (the documented anchor-nav v1 path) without a
+// real backend or navigation.
+const triggerAnchorDownloadMock = vi.hoisted(() => vi.fn());
+vi.mock("@/shared/lib/anchor-download", () => ({
+  triggerAnchorDownload: triggerAnchorDownloadMock,
+}));
+
+// Stub the auth client so the page can read a session email and the
+// sign-out side effect is inert.
+const authMock = vi.hoisted(() => ({
+  useSession: vi.fn(() => ({ data: { user: { email: "alex@example.com" } } })),
+  signOut: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@/shared/lib/auth", () => ({ authClient: authMock }));
+
+import {
+  DeleteAccountDialog,
+  SettingsDangerRoute,
+} from "@/features/settings-danger/components/settings-danger-page";
 import { renderWithProviders } from "@/features/settings/__tests__/test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
   toastMock.error.mockReset();
   deleteAccountMock.mockReset();
+  triggerAnchorDownloadMock.mockReset();
 });
 
 afterEach(() => cleanup());
+
+describe("export my data", () => {
+  it("triggers an anchor download to /api/me/export and shows the started toast", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SettingsDangerRoute />);
+
+    await user.click(await screen.findByTestId("export-data"));
+
+    // Anchor-nav v1: the export must hand off to the browser download pipeline,
+    // not buffer the ZIP client-side. See docs/2026-04-24-user-settings-design.md L286.
+    expect(triggerAnchorDownloadMock).toHaveBeenCalledWith("/api/me/export");
+    expect(toastMock.success).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("DeleteAccountDialog", () => {
   it("disables submit until both email + password are valid", async () => {
