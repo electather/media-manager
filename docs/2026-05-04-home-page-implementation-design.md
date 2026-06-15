@@ -94,23 +94,11 @@ PR 1 adds `client-feat-home` zone and updates two allow lists:
 `RowKind` is imported from `@nama/shared/home` — **never redefined locally**. The shared enum is the single source of truth.
 
 ```typescript
-import type { CompactMediaItem, RowKind } from "@nama/shared/home";
+import type { CompactMediaItem, MatchReasonKey, RowKind } from "@nama/shared/home";
 export type { RowKind };
 
-export const MATCH_REASON_KEYS = [
-  "matches_recent_picks",
-  "from_genre_you_love",
-  "similar_to_seed",
-  "because_in_watchlist",
-  "continuing_series",
-  "upcoming_release",
-  "recently_added",
-  "highly_rated",
-  "from_active_series",
-  "finishing_soon",
-] as const;
-
-export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
+// MATCH_REASON_KEYS and MatchReasonKey are defined in packages/shared/src/home/enums.ts
+// and re-exported from @nama/shared/home — not redefined locally.
 ```
 
 The shared `ROW_KINDS` tuple (`continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`) determines which rows exist. Mock data maps the prototype's demo rows to these kinds:

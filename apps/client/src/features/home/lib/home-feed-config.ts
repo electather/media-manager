@@ -1,6 +1,5 @@
 import * as m from "@/paraglide/messages";
-import { MATCH_REASON_KEYS } from "@nama/shared/home";
-import type { MatchReasonKey, RowKind } from "@nama/shared/home";
+import { MATCH_REASON_KEYS, type MatchReasonKey, type RowKind } from "@nama/shared/home";
 import type { RowData } from "./types";
 
 /**
