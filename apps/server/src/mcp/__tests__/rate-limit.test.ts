@@ -54,8 +54,8 @@ describe("TokenBucketLimiter — idle bucket eviction", () => {
     // the eviction window — it is actively limiting and must not be reclaimed.
     const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 0.0001, idleEvictionMs });
 
-    expect(limiter.check("noisy")).toBeNull(); // drains the single token
-    expect(limiter.check("noisy")).not.toBeNull(); // bucket empty → throttled
+    expect(limiter.check("noisy")).toBeNull(); // This drains the single token.
+    expect(limiter.check("noisy")).not.toBeNull(); // The bucket is empty, so it is throttled.
     expect(limiter.size).toBe(1);
 
     // Sit idle far past the window, then touch a different key to run the sweep.
@@ -83,6 +83,6 @@ describe("TokenBucketLimiter — idle bucket eviction", () => {
     // (e.g. flipping the `<` guard to `<=`, which would mean "more than").
     vi.setSystemTime(idleEvictionMs);
     expect(limiter.check("trigger")).toBeNull();
-    expect(limiter.size).toBe(1); // "edge" evicted; only "trigger" remains
+    expect(limiter.size).toBe(1); // "edge" was evicted, so only "trigger" remains.
   });
 });
