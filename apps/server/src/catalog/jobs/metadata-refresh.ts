@@ -71,11 +71,19 @@ export async function runCatalogMetadataRefresh(
 interface FetchResult {
   key: MetadataKey;
   data: RawCanonicalSource | null;
+  /**
+   * True when every contacted provider errored (e.g. an upstream outage or
+   * rate-limit storm). The dispatch still resolves with `data: null`, so
+   * without this flag a total outage is indistinguishable from a genuine
+   * upstream removal and would be miscounted as not-found.
+   */
+  allFailed: boolean;
 }
 
 async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchResult> {
-  const data = await media.getMetadata(key.tmdbId, key.type);
-  return { key, data };
+  const result = await media.getMetadataResult(key.tmdbId, key.type);
+  const allFailed = result.attempted > 0 && result.errors.length === result.attempted;
+  return { key, data: result.data ?? null, allFailed };
 }
 
 interface CollectResult {
@@ -104,11 +112,23 @@ function collectFresh(
       failures += 1;
       continue;
     }
-    const data = result.value.data;
+    const { data, allFailed } = result.value;
     if (!data) {
-      // A fulfilled fetch with no data means the upstream no longer has this
-      // title. This is a normal expected outcome and must not be conflated
-      // with a dispatch rejection so operators can track genuine plugin errors.
+      if (allFailed) {
+        // Every provider errored (e.g. an upstream outage or rate-limit
+        // storm). The dispatch resolves with `data: null`, but this is a
+        // transient failure, not a removal — count it as a failure so a real
+        // outage is not silently logged as not-found.
+        ctx.logger.debug(
+          `[catalog:metadata-refresh] all providers failed for ${key.type}:${key.tmdbId}`,
+        );
+        failures += 1;
+        continue;
+      }
+      // A fulfilled fetch with no data and no errors means the upstream no
+      // longer has this title. This is a normal expected outcome and must not
+      // be conflated with a dispatch failure so operators can track genuine
+      // plugin errors.
       notFound += 1;
       continue;
     }

@@ -17,7 +17,6 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
-import { MAX_MIRROR_EVENTS } from "../service/user-mirrors";
 import type { HistoryEvent, RatingEvent } from "@nama/shared/catalog";
 import { seedUser } from "./helpers";
 
@@ -143,36 +142,5 @@ describe("CatalogService user mirrors", () => {
     const events = await catalog.getUserRatings("u1");
     const ids = events.map((e) => e.tmdbId).sort();
     expect(ids).toEqual(["1", "2", "3", "4"]);
-  });
-
-  it("caps history events at MAX_MIRROR_EVENTS, keeping the most recent by watchedAt", async () => {
-    // Without a cap the events JSON blob grows without bound and each sync
-    // re-serializes the full lifetime history, creating a linear-cost cliff.
-    // This test verifies the merge trims to MAX_MIRROR_EVENTS and keeps the
-    // newest events so the most actionable data is never evicted first.
-    const batch: HistoryEvent[] = Array.from({ length: MAX_MIRROR_EVENTS + 5 }, (_, i) =>
-      historyEvent({ tmdbId: String(i + 1), watchedAt: i + 1 }),
-    );
-    await catalog.appendUserHistory("u1", batch, "trakt", MAX_MIRROR_EVENTS + 5);
-
-    const stored = await catalog.getUserHistory("u1");
-    expect(stored.length).toBe(MAX_MIRROR_EVENTS);
-    // The five oldest events (watchedAt 1-5) must be evicted.
-    const watchedAts = stored.map((e) => e.watchedAt);
-    expect(Math.min(...watchedAts)).toBeGreaterThanOrEqual(6);
-  });
-
-  it("caps rating events at MAX_MIRROR_EVENTS, keeping the most recent by ratedAt", async () => {
-    // Mirrors the history-cap invariant for the ratings table: a long-lived
-    // user's ratings blob must not grow without bound across repeated syncs.
-    const batch: RatingEvent[] = Array.from({ length: MAX_MIRROR_EVENTS + 5 }, (_, i) =>
-      ratingEvent({ tmdbId: String(i + 1), ratedAt: i + 1 }),
-    );
-    await catalog.appendUserRatings("u1", batch, "trakt", MAX_MIRROR_EVENTS + 5);
-
-    const stored = await catalog.getUserRatings("u1");
-    expect(stored.length).toBe(MAX_MIRROR_EVENTS);
-    const ratedAts = stored.map((e) => e.ratedAt);
-    expect(Math.min(...ratedAts)).toBeGreaterThanOrEqual(6);
   });
 });

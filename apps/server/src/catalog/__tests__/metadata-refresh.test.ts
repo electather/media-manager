@@ -12,17 +12,36 @@ vi.mock("../../env", () => ({
 }));
 
 // Shared spy that all MediaService instances will delegate to. Replaced in
-// each beforeEach so test isolation is preserved.
-let getMetadataMock = vi.fn();
+// each beforeEach so test isolation is preserved. The job consumes the full
+// `AggregateResult` so it can tell an upstream removal apart from an outage.
+let getMetadataResultMock = vi.fn();
 
 vi.mock("../../media", () => ({
   // eslint-disable-next-line @typescript-eslint/no-extraneous-class
   MediaService: class {
-    getMetadata(...args: unknown[]) {
-      return getMetadataMock(...args);
+    getMetadataResult(...args: unknown[]) {
+      return getMetadataResultMock(...args);
     }
   },
 }));
+
+const dispatchError = {
+  pluginId: "tmdb",
+  connectionId: null,
+  code: "plugin.unavailable" as const,
+  devMessage: "upstream 503",
+};
+
+/** Shapes a successful dispatch result around the raw canonical source. */
+function ok(data: unknown) {
+  return { data, errors: [], attempted: 1 };
+}
+
+/** A fulfilled dispatch with no data and no errors — a genuine removal. */
+const notFoundResult = { data: null, errors: [], attempted: 1 };
+
+/** A fulfilled dispatch where every contacted provider errored. */
+const allFailedResult = { data: null, errors: [dispatchError], attempted: 1 };
 
 import {
   cleanupInMemoryDbs,
@@ -61,7 +80,7 @@ describe("runCatalogMetadataRefresh", () => {
   beforeEach(async () => {
     db = await createInMemoryDb();
     catalog = new CatalogService(db);
-    getMetadataMock = vi.fn();
+    getMetadataResultMock = vi.fn();
   });
 
   it("logs refreshed, not-found, and failed counts as distinct values", async () => {
@@ -95,9 +114,9 @@ describe("runCatalogMetadataRefresh", () => {
 
     // Key "1" refreshes successfully, key "2" returns null (not-found),
     // key "3" rejects (genuine failure).
-    getMetadataMock
-      .mockResolvedValueOnce({ ...baseRow, title: "Refreshed", ids: { tmdb_id: "1" } })
-      .mockResolvedValueOnce(null)
+    getMetadataResultMock
+      .mockResolvedValueOnce(ok({ ...baseRow, title: "Refreshed", ids: { tmdb_id: "1" } }))
+      .mockResolvedValueOnce(notFoundResult)
       .mockRejectedValueOnce(new Error("upstream timeout"));
 
     const ctx = makeCtx();
@@ -131,13 +150,47 @@ describe("runCatalogMetadataRefresh", () => {
     ]);
 
     // A fulfilled fetch that returns null is not-found, not a failure.
-    getMetadataMock.mockResolvedValueOnce(null);
+    getMetadataResultMock.mockResolvedValueOnce(notFoundResult);
 
     const ctx = makeCtx();
     await runCatalogMetadataRefresh({ catalog }, ctx);
 
     expect(ctx.logger.info).toHaveBeenCalledWith(
       expect.stringMatching(/0 refreshed.*1 not-found.*0 failed/),
+    );
+  });
+
+  it("counts an all-providers-errored dispatch as a failure, not not-found", async () => {
+    // When every provider errors (e.g. TMDB is down or rate-limited) the
+    // dispatch resolves with `data: null` but a non-empty `errors` array. This
+    // is a transient outage, not an upstream removal — it must increment the
+    // failure counter so a real outage is never silently logged as not-found.
+    const now = Date.now();
+    const staleTs = now - 60 * 24 * 60 * 60 * 1000;
+    const baseRow = {
+      title: "T",
+      type: "movie" as const,
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "5" },
+    };
+
+    const { toCanonicalRow } = await import("../canonical");
+    await catalog.writeMetadata([
+      { ...toCanonicalRow(staleKey("5"), baseRow, staleTs), lastRefreshedAt: staleTs },
+    ]);
+
+    getMetadataResultMock.mockResolvedValueOnce(allFailedResult);
+
+    const ctx = makeCtx();
+    await runCatalogMetadataRefresh({ catalog }, ctx);
+
+    expect(ctx.logger.info).toHaveBeenCalledWith(
+      expect.stringMatching(/0 refreshed.*0 not-found.*1 failed/),
     );
   });
 });
