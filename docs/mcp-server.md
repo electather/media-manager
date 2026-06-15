@@ -746,6 +746,8 @@ oauthProvider({
 
 `allowUnauthenticatedClientRegistration` lets Claude Desktop, Cursor & similar clients self-register as public clients on first connect. Without it → each client needs manually-registered `client_id`, defeating "paste URL" UX those clients assume.
 
+**Dynamic client lifecycle & cleanup.** A self-registered client is ownerless (`oauth_client.user_id IS NULL`) until a user authorizes it, at which point an `oauth_consent` row is written. Honest clients complete this handshake in minutes. Abandoned registrations (probes, retries, abuse behind rotating IPs) would otherwise accumulate forever, since the per-IP rate limit caps registration rate but not total table size. A scheduled sweep (`host.auth.stale_client_sweep`, `auth/jobs/stale-client-sweep.ts`, hourly) deletes any client that is still ownerless, still has no consent row, and is older than the TTL (24h). Cascade deletes on `client_id` reclaim orphaned token rows. The sweep can never touch an owned client (deliberately provisioned, e.g. one with `skip_consent`, which `z.never()` blocks at the dynamic-registration endpoint so it is always owner-created) or a consented one. See `docs/2026-04-20-job-service-design.md` for the job enumeration.
+
 ### Well-known endpoints
 
 3 Hono routes, one-liners per Better Auth's conventions:
@@ -789,7 +791,7 @@ Stateless at app level. MCP session IDs live in Postgres & Redis via `CacheProvi
 
 2 layers:
 
-1. **Better Auth's built-in per-IP rate limiting** on OAuth endpoints (`/oauth2/token`, `/oauth2/authorize`, etc.). Defaults fine.
+1. **Better Auth's built-in per-IP rate limiting** on OAuth endpoints (`/oauth2/token`, `/oauth2/authorize`, etc.). Dynamic client registration is capped tighter than the default (5/hour per IP, see `auth/internal/config.ts`) since it is an unauthenticated write. This bounds registration _rate_ but not total table size, so it is paired with the stale-client sweep (see §OAuth server): an attacker behind rotating IPs could otherwise register unbounded never-used clients, and the hourly sweep reclaims any left unauthorized past the TTL.
 2. **Per-user MCP rate limiting** on `/api/mcp`: token bucket keyed by JWT `sub`, default 60 tool calls per minute, configurable via env. Excess → `mcp.rate_limited` with `retry_after` param. Limiter is the first gate in `dispatchTool` — `mcp.tool_not_found` and `mcp.forbidden` paths also consume a token so unknown-tool or missing-scope traffic cannot bypass the bucket.
 
 Per-user limit prevents over-eager agent from hammering server (& transitively external APIs). Per-external-API rate limits remain responsibility of each plugin's `ctx.fetch` enforcement.
