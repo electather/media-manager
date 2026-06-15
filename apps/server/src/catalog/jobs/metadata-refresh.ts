@@ -72,18 +72,23 @@ interface FetchResult {
   key: MetadataKey;
   data: RawCanonicalSource | null;
   /**
-   * True when every contacted provider errored (e.g. an upstream outage or
-   * rate-limit storm). The dispatch still resolves with `data: null`, so
-   * without this flag a total outage is indistinguishable from a genuine
-   * upstream removal and would be miscounted as not-found.
+   * True only when a provider was actually queried and reported the title is
+   * gone: at least one provider was contacted (`attempted > 0`), none errored
+   * (`errors` empty), yet no data came back. This is the genuine upstream
+   * removal. Every other no-data shape — every provider errored (outage or
+   * rate-limit storm) or no provider was contacted at all (`attempted === 0`,
+   * e.g. the metadata capability has no configured provider) — is treated as a
+   * failure, because the title was never confirmed absent and so must not be
+   * logged as a removal.
    */
-  allFailed: boolean;
+  notFound: boolean;
 }
 
 async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchResult> {
   const result = await media.getMetadataResult(key.tmdbId, key.type);
-  const allFailed = result.attempted > 0 && result.errors.length === result.attempted;
-  return { key, data: result.data ?? null, allFailed };
+  const data = result.data ?? null;
+  const notFound = data === null && result.attempted > 0 && result.errors.length === 0;
+  return { key, data, notFound };
 }
 
 interface CollectResult {
@@ -112,24 +117,23 @@ function collectFresh(
       failures += 1;
       continue;
     }
-    const { data, allFailed } = result.value;
+    const { data } = result.value;
     if (!data) {
-      if (allFailed) {
-        // Every provider errored (e.g. an upstream outage or rate-limit
-        // storm). The dispatch resolves with `data: null`, but this is a
-        // transient failure, not a removal — count it as a failure so a real
-        // outage is not silently logged as not-found.
-        ctx.logger.debug(
-          `[catalog:metadata-refresh] all providers failed for ${key.type}:${key.tmdbId}`,
-        );
-        failures += 1;
+      if (result.value.notFound) {
+        // A provider answered and the title is genuinely gone upstream. This
+        // is a normal expected outcome and must not be conflated with a
+        // dispatch failure so operators can track genuine plugin errors.
+        notFound += 1;
         continue;
       }
-      // A fulfilled fetch with no data and no errors means the upstream no
-      // longer has this title. This is a normal expected outcome and must not
-      // be conflated with a dispatch failure so operators can track genuine
-      // plugin errors.
-      notFound += 1;
+      // No data, but the title was never confirmed absent: either every
+      // provider errored (outage / rate-limit storm) or no provider was
+      // contacted at all. Count it as a failure so these never masquerade as
+      // upstream removals in the summary log.
+      ctx.logger.debug(
+        `[catalog:metadata-refresh] no data and not confirmed absent for ${key.type}:${key.tmdbId}`,
+      );
+      failures += 1;
       continue;
     }
     fresh.push(toCanonicalRow(key, data));

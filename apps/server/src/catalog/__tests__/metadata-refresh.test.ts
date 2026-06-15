@@ -43,6 +43,9 @@ const notFoundResult = { data: null, errors: [], attempted: 1 };
 /** A fulfilled dispatch where every contacted provider errored. */
 const allFailedResult = { data: null, errors: [dispatchError], attempted: 1 };
 
+/** A dispatch where no provider was contacted at all (none configured). */
+const noProviderResult = { data: null, errors: [], attempted: 0 };
+
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,
@@ -185,6 +188,40 @@ describe("runCatalogMetadataRefresh", () => {
     ]);
 
     getMetadataResultMock.mockResolvedValueOnce(allFailedResult);
+
+    const ctx = makeCtx();
+    await runCatalogMetadataRefresh({ catalog }, ctx);
+
+    expect(ctx.logger.info).toHaveBeenCalledWith(
+      expect.stringMatching(/0 refreshed.*0 not-found.*1 failed/),
+    );
+  });
+
+  it("counts a no-provider-contacted dispatch as a failure, not not-found", async () => {
+    // When the metadata capability has no configured provider the dispatch
+    // resolves with `attempted: 0` and no errors. Nothing was actually queried,
+    // so the title was never confirmed absent — bucketing it as not-found would
+    // wrongly report it as an upstream removal. It must count as a failure.
+    const now = Date.now();
+    const staleTs = now - 60 * 24 * 60 * 60 * 1000;
+    const baseRow = {
+      title: "T",
+      type: "movie" as const,
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "6" },
+    };
+
+    const { toCanonicalRow } = await import("../canonical");
+    await catalog.writeMetadata([
+      { ...toCanonicalRow(staleKey("6"), baseRow, staleTs), lastRefreshedAt: staleTs },
+    ]);
+
+    getMetadataResultMock.mockResolvedValueOnce(noProviderResult);
 
     const ctx = makeCtx();
     await runCatalogMetadataRefresh({ catalog }, ctx);
