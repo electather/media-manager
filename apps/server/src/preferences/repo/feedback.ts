@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, lt, sql } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { feedback, preferenceProfiles } from "../../db/schema";
 
@@ -97,7 +97,7 @@ export async function listStaleProfileUsers(
   return getDb()
     .selectDistinct({ userId: preferenceProfiles.userId })
     .from(preferenceProfiles)
-    .where(sql`${preferenceProfiles.lastRebuiltAt} < ${staleBeforeMs}`)
+    .where(lt(preferenceProfiles.lastRebuiltAt, staleBeforeMs))
     .all();
 }
 
@@ -121,7 +121,7 @@ export async function listFreshCombinedUserIds(freshCutoffMs: number): Promise<s
     .where(
       and(
         eq(preferenceProfiles.mediaType, "combined"),
-        sql`${preferenceProfiles.lastRebuiltAt} >= ${freshCutoffMs}`,
+        gte(preferenceProfiles.lastRebuiltAt, freshCutoffMs),
       ),
     )
     .all();
