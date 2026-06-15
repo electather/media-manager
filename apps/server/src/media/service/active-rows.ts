@@ -3,7 +3,7 @@
  * `user_watchlist_seed` tables. Cross-module callers (e.g. the watchlist
  * module sources) import these names from the media barrel rather than
  * reaching into `../repo` directly, keeping the repo as a private data layer
- * (design §M.2). Write operations live in `writes.ts`.
+ * (consolidation design §J). Write operations live in `writes.ts`.
  */
 export {
   listActiveRowsKeyset,
