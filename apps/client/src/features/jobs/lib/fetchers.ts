@@ -15,10 +15,12 @@ export async function fetchTriggerJob(
   jobId: string,
   input: Record<string, FormFieldValue> | null,
 ): Promise<{ runId?: string }> {
+  // No cast — the return type flows from Hono's inferred res.json() via
+  // readOkJson and is enforced by this function's return-type annotation.
   return readJson(
     await api.admin.jobs[":id"].trigger.$post({
       param: { id: jobId },
       json: input,
     }),
-  ) as Promise<{ runId?: string }>;
+  );
 }
