@@ -266,10 +266,13 @@ describe("media source resolver (US-003, design §A3)", () => {
     });
   });
 
-  it("feeds a single occurrence of a query param as a plain string (single-value parity)", async () => {
-    // A lone occurrence stays a string, so single-value source schemas
-    // (home/watchlist) see the exact shape they did before the multi-value
-    // change — backward compatible.
+  it("coerces a lone occurrence to a one-element array for a tolerant array schema", async () => {
+    // `c.req.valid("query")` hands a lone occurrence to the schema as a plain
+    // string (`{ genres: "Drama" }`); the lens's tolerant `arrayParam`
+    // (`Array.isArray(v) ? v : [v]`) then coerces it to `["Drama"]`. So a
+    // single-value selection reaches the source as a one-element array — the
+    // same axis shape a multi-value selection takes. (The strict single-value
+    // parity delta is pinned by the RISK-202 case below.)
     const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama");
     expect(res.status).toBe(200);
     expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({ genres: ["Drama"] });

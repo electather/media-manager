@@ -39,12 +39,23 @@ export type MediaSourceSpec<P> = Omit<ClientMediaSource<P>, "fetchPage">;
  * (`?genres=Drama&genres=Crime`), which the resolver reads multi-value — empty
  * arrays are dropped like an unset axis.
  */
+// Reason: each branch maps one irreducible param category (string / number /
+// non-empty array; everything else is an unset axis the resolver ignores). It
+// is exercised by source.test.ts; the flagged CRAP is the export-reference
+// coverage estimate, not the real path. Mirrors error.ts's tested constructor.
+// fallow-ignore-next-line complexity
+function serializeParam(value: unknown): string | string[] | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (Array.isArray(value) && value.length > 0) return value as string[];
+  return undefined;
+}
+
 function toQuery(params: Record<string, unknown>): Record<string, string | string[]> {
   const query: Record<string, string | string[]> = {};
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string") query[key] = value;
-    else if (typeof value === "number") query[key] = String(value);
-    else if (Array.isArray(value) && value.length > 0) query[key] = value as string[];
+    const serialized = serializeParam(value);
+    if (serialized !== undefined) query[key] = serialized;
   }
   return query;
 }

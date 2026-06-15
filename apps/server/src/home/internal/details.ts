@@ -27,7 +27,9 @@ export async function composeDetailsResponse(
     // opaque input. The adapter route validates the same shape, but the guard
     // lives here too so the composer is safe regardless of caller.
     if (!/^\d+$/u.test(tmdbId)) {
-      throw new HttpError(400, "home.bad_input", `invalid tmdbId: ${tmdbId}`);
+      // Static message — the raw `tmdbId` is echoed into the response body as
+      // `devMessage`, so don't reflect arbitrary caller input back.
+      throw new HttpError(400, "home.bad_input", "tmdbId must be a numeric string");
     }
     const raw = (await ctx.mediaService.getMetadata(
       tmdbId,

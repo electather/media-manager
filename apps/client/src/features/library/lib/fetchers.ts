@@ -14,6 +14,19 @@ import { throwOnError } from "./types";
 type CollectionsQueryInput = InferRequestType<typeof api.library.collections.$get>["query"];
 
 /**
+ * The filter axis keys. The two filter -> query transforms below walk this one
+ * list rather than repeating each axis name, so a new axis is wired in one place
+ * and neither transform carries a per-axis branch chain.
+ */
+const FILTER_AXES = [
+  "kinds",
+  "genres",
+  "qualities",
+  "servers",
+  "watched",
+] as const satisfies readonly (keyof LibraryFilters)[];
+
+/**
  * The query shape every library read accepts: the active facet filters flattened
  * to the repeated-param encoding the server's tolerant `arrayParam` schema
  * parses (`?genres=Drama&genres=Crime`). Each axis is optional (an empty axis is
@@ -37,11 +50,10 @@ type LibraryQuery = {
  */
 export function filtersToQuery(filters: LibraryFilters): LibraryQuery {
   const query: LibraryQuery = {};
-  if (filters.kinds.length > 0) query.kinds = filters.kinds;
-  if (filters.genres.length > 0) query.genres = filters.genres;
-  if (filters.qualities.length > 0) query.qualities = filters.qualities;
-  if (filters.servers.length > 0) query.servers = filters.servers;
-  if (filters.watched.length > 0) query.watched = filters.watched;
+  for (const axis of FILTER_AXES) {
+    const values = filters[axis];
+    if (values.length > 0) query[axis] = values;
+  }
   return query;
 }
 
@@ -86,14 +98,12 @@ export function defineLensSource(
  * so each filter combination gets its own entry.
  */
 function lensSourceParams(filters: LibraryFilters): Record<string, string[] | undefined> {
-  const axis = (values: string[]): string[] | undefined => (values.length > 0 ? values : undefined);
-  return {
-    kinds: axis(filters.kinds),
-    genres: axis(filters.genres),
-    qualities: axis(filters.qualities),
-    servers: axis(filters.servers),
-    watched: axis(filters.watched),
-  };
+  const params: Record<string, string[] | undefined> = {};
+  for (const axis of FILTER_AXES) {
+    const values = filters[axis];
+    params[axis] = values.length > 0 ? values : undefined;
+  }
+  return params;
 }
 
 /**
