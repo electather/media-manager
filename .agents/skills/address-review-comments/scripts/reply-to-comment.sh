@@ -8,6 +8,7 @@ set -euo pipefail
 PR=$1
 COMMENT_ID=$2
 BODY=$(cat)
+[[ -z "$BODY" ]] && { echo "Error: reply body is empty — pipe body via stdin" >&2; exit 1; }
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 gh api -X POST "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
