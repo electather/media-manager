@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import { ModalFeedback } from "../modal-feedback";
 import { ModalMatchReason } from "../modal-match-reason";
 import { ModalNote } from "../modal-note";
@@ -120,7 +120,7 @@ describe("ModalSeasons", () => {
 
 describe("ModalFeedback", () => {
   it("renders like/dislike vote buttons in disabled state (persistence not yet wired)", () => {
-    render(<ModalFeedback hasNote={false} onNoteClick={vi.fn()} />);
+    render(<ModalFeedback hasNote={false} />);
     const like = screen.getByRole("button", { name: /^like$/i });
     const dislike = screen.getByRole("button", { name: /^dislike$/i });
     // Buttons must remain disabled until vote persistence is implemented to
@@ -132,17 +132,15 @@ describe("ModalFeedback", () => {
   });
 
   it("renders note pill in disabled state (persistence not yet wired)", () => {
-    const onNoteClick = vi.fn();
-    render(<ModalFeedback hasNote={false} onNoteClick={onNoteClick} />);
+    render(<ModalFeedback hasNote={false} />);
     const noteBtn = screen.getByRole("button", { name: /add a note/i });
-    // The note button must be disabled until note persistence is implemented.
+    // The note button must be disabled until note persistence is implemented;
+    // no onClick is wired since disabled buttons never fire.
     expect((noteBtn as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(noteBtn);
-    expect(onNoteClick).not.toHaveBeenCalled();
   });
 
   it("switches the note pill label when a note is present", () => {
-    render(<ModalFeedback hasNote onNoteClick={vi.fn()} />);
+    render(<ModalFeedback hasNote />);
     expect(screen.getByRole("button", { name: /edit your note/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /add a note/i })).toBeNull();
   });

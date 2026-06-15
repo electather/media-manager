@@ -4,10 +4,9 @@ import { cn } from "@/shared/lib/utils";
 
 type Props = {
   hasNote: boolean;
-  onNoteClick: () => void;
 };
 
-export function ModalFeedback({ hasNote, onNoteClick }: Props) {
+export function ModalFeedback({ hasNote }: Props) {
   return (
     <div className="flex flex-col gap-2 px-6 sm:px-10">
       <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
@@ -30,7 +29,7 @@ export function ModalFeedback({ hasNote, onNoteClick }: Props) {
           label={m.home_detail_feedback_dislike()}
           icon={<ThumbsDown className="size-3.5" />}
         />
-        <NoteButton hasNote={hasNote} onClick={onNoteClick} />
+        <NoteButton hasNote={hasNote} />
         <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground/60">
           <Sparkles className="size-2.5" aria-hidden="true" />
           {m.home_detail_feedback_tagline()}
@@ -77,14 +76,14 @@ function VoteButton({
   );
 }
 
-function NoteButton({ hasNote, onClick }: { hasNote: boolean; onClick: () => void }) {
+function NoteButton({ hasNote }: { hasNote: boolean }) {
   return (
     // Note persistence is not yet wired; disabled to avoid misleading users
     // into believing their input was saved across sessions.
+    // onClick omitted — disabled buttons never fire; restore when persistence lands.
     <button
       type="button"
       disabled
-      onClick={onClick}
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }

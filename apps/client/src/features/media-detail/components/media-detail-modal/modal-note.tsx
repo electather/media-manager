@@ -85,10 +85,10 @@ export function ModalNote({ sectionRef, taRef, note, editing, setEditing, onSave
       ) : (
         // Note persistence is not yet wired; the add-note affordance is
         // disabled to prevent silent discard of user input on close/reopen.
+        // onClick omitted — disabled buttons never fire; restore when persistence lands.
         <button
           type="button"
           disabled
-          onClick={() => setEditing(true)}
           className="w-full cursor-not-allowed rounded-xl border border-dashed border-border/60 bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground/70 opacity-50"
         >
           <span className="flex items-center gap-2">
