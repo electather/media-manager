@@ -9,6 +9,7 @@ import {
   type MediaRequest,
   type RequestTarget,
 } from "@nama/shared/media";
+import { consola } from "consola";
 import { z } from "zod";
 import { HttpError, badRequest } from "../../diagnostics/http-errors";
 import { mapRequestPluginError, PluginCallError } from "../errors";
@@ -42,7 +43,7 @@ export async function requestDownload(
   const { connectionId, targetId } = decoded;
 
   if (input.mediaType === "movie" && input.seasons?.length) {
-    console.warn("[mediaService] seasons ignored for movie request", {
+    consola.warn("[mediaService] seasons ignored for movie request", {
       tmdbId: input.tmdbId,
     });
   }
@@ -111,7 +112,7 @@ export async function listRequestTargets(
     const c = eligible[i]!;
     if (settledResult.status === "rejected") {
       const err = settledResult.reason as unknown;
-      console.warn("[mediaService] listTargets failed", {
+      consola.warn("[mediaService] listTargets failed", {
         pluginId: c.pluginId,
         connectionId: c.connectionId,
         err: err instanceof Error ? err.message : String(err),
@@ -122,7 +123,7 @@ export async function listRequestTargets(
     if (!result) continue;
     for (const t of result.targets) {
       if (!TARGET_ID_RE.test(t.targetId)) {
-        console.warn("[mediaService] invalid targetId, skipping", {
+        consola.warn("[mediaService] invalid targetId, skipping", {
           pluginId: c.pluginId,
           targetId: t.targetId,
         });
