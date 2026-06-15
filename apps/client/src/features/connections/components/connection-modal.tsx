@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
@@ -97,6 +97,14 @@ export function ConnectionModal({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [stage, setStage] = useState<Stage>("configure");
 
+  // Generation counter for the verify-config round-trip. Every edit bumps it;
+  // a `runTest` call captures the generation at dispatch and discards its
+  // result if the values changed while the request was in flight. Without this
+  // a slow verification could resolve and stamp "verified" / "failed" onto a
+  // config the user has since edited. A ref (not state) because changing it
+  // must not trigger a render and the in-flight closure reads the latest value.
+  const testRunRef = useRef(0);
+
   const isMobile = useIsMobile();
 
   // fallow-ignore-next-line complexity
@@ -104,6 +112,9 @@ export function ConnectionModal({
     if (!open) return;
     setDisplayName(existing?.displayName ?? "");
     setServerErrors({});
+    // Invalidate any verify-config request left in flight from a prior open so
+    // its result can't apply to this fresh session.
+    testRunRef.current += 1;
     setTest({ kind: "idle" });
     setSaving(false);
     setTopError(null);
@@ -235,13 +246,16 @@ export function ConnectionModal({
     setTopError(null);
   };
 
-  // Editing any field after a successful test invalidates the "Verified"
-  // badge — the config that was verified is no longer the one on screen, so
-  // reset the test state back to idle to avoid claiming an untested change is
-  // verified.
+  // Editing any field invalidates the test result — the config that was tested
+  // is no longer the one on screen. Reset any non-idle badge (verified, failed,
+  // or in-flight) back to idle so it never claims an untested change passed or
+  // failed. Bumping the generation also discards a verify-config request still
+  // in flight: when it resolves, `runTest` sees a stale generation and drops
+  // the result instead of stamping "verified" / "failed" onto the new values.
   const handleValuesChange = (next: Record<string, unknown>) => {
     setValues(next);
-    setTest((prev) => (prev.kind === "ok" ? { kind: "idle" } : prev));
+    testRunRef.current += 1;
+    setTest((prev) => (prev.kind === "idle" ? prev : { kind: "idle" }));
   };
 
   // fallow-ignore-next-line complexity
@@ -256,10 +270,15 @@ export function ConnectionModal({
         return;
       }
     }
+    // Capture the generation this run belongs to. If the values change (or the
+    // modal re-opens) while the request is in flight, the generation moves on
+    // and we drop this stale result rather than stamping it onto the new config.
+    const runGeneration = testRunRef.current;
     setTest({ kind: "testing" });
     try {
       const res = await verifyConfig({ pluginId: plugin.id, userConfig: values });
       const body = (await res.json()) as FormErrorBody & { ok?: boolean };
+      if (testRunRef.current !== runGeneration) return;
       if (body.ok) {
         setTest({ kind: "ok" });
       } else {
@@ -274,6 +293,7 @@ export function ConnectionModal({
         );
       }
     } catch (err) {
+      if (testRunRef.current !== runGeneration) return;
       setTest({ kind: "err" });
       setTopError(
         err instanceof Error ? err.message : m.settings_connections_modal_error_test_failed(),

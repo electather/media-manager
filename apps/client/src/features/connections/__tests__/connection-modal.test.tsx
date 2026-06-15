@@ -341,6 +341,54 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
     });
   });
 
+  it("does not show 'Connection verified' when an in-flight test resolves after the config changed", async () => {
+    // Race guard: the user edits a field while `/verify-config` is still in
+    // flight. When that stale request finally resolves `ok`, it must NOT stamp
+    // "Connection verified" onto the now-different config — otherwise a slow
+    // verification could green-light an untested change.
+    let resolveVerify: ((res: Response) => void) | undefined;
+    const verifyInFlight = new Promise<Response>((resolve) => {
+      resolveVerify = resolve;
+    });
+    stubFetch(async (input) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/connections/verify-config")) {
+        // Hold the response open until the test releases it, simulating a slow
+        // verification that outlives the user's edit.
+        return verifyInFlight;
+      }
+      return new Response("{}", { status: 200 });
+    });
+
+    render(
+      <ConnectionModal
+        open
+        plugin={formPluginBase}
+        existing={null}
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    await fillRequiredFields();
+    await userEvent.click(screen.getByRole("button", { name: /test connection/i }));
+
+    // While the verify request is still pending, the user edits the URL.
+    await userEvent.type(screen.getByPlaceholderText("https://example.com"), "/changed");
+
+    // Now the stale verification finally resolves with a passing result.
+    resolveVerify?.(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+
+    // The badge must stay clear of "Connection verified" for the changed config.
+    await waitFor(() => {
+      expect(screen.queryByText("Connection verified")).toBeNull();
+    });
+    // Give any erroneously-queued state update a chance to land, then re-assert.
+    await Promise.resolve();
+    expect(screen.queryByText("Connection verified")).toBeNull();
+  });
+
   it("refuses to navigate to a non-https OAuth redirect URL", async () => {
     // `redirectUrl` is server-controlled, but the client navigates to it
     // unconditionally. A `javascript:` (or otherwise non-https) value must be
