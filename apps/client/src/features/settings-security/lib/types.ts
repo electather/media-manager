@@ -9,7 +9,9 @@ import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
  * decouple the UI from upstream churn.
  *
  * Better Auth serializes the date fields as `Date` on direct calls and as
- * ISO strings over the wire, so both are accepted at the trust boundary.
+ * ISO strings over the wire. `z.coerce.date()` accepts both and rejects
+ * non-parseable strings, so a bad value throws at the trust boundary rather
+ * than reaching `new Date(...)` and rendering "NaN years ago".
  */
 export const authSessionSchema = z.object({
   id: z.string(),
@@ -17,9 +19,9 @@ export const authSessionSchema = z.object({
   userId: z.string(),
   ipAddress: z.string().nullish(),
   userAgent: z.string().nullish(),
-  createdAt: z.union([z.date(), z.string()]),
-  updatedAt: z.union([z.date(), z.string()]),
-  expiresAt: z.union([z.date(), z.string()]),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  expiresAt: z.coerce.date(),
 });
 
 export type AuthSession = z.infer<typeof authSessionSchema>;

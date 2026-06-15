@@ -43,4 +43,12 @@ describe("fetchSessions", () => {
     });
     await expect(fetchSessions()).rejects.toBeInstanceOf(SettingsSecurityApiError);
   });
+
+  it("throws a typed error when a date field contains a non-parseable string", async () => {
+    // z.coerce.date() must reject "n/a" so it never reaches new Date("n/a"),
+    // which would silently produce an Invalid Date and render "NaN years ago".
+    const withBadDate = { ...validRow, createdAt: "n/a" };
+    authMock.listSessions.mockResolvedValue({ data: [withBadDate], error: null });
+    await expect(fetchSessions()).rejects.toBeInstanceOf(SettingsSecurityApiError);
+  });
 });
