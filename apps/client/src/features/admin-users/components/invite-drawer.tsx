@@ -26,7 +26,7 @@ import {
   generateInviteCode,
   inviteUrl,
 } from "../lib/invites-mock";
-import { roleSummaries } from "../lib/role-summaries";
+import { ADMIN_USER_ROLE_IDS, isAdminUserRoleId, type AdminUserRoleId } from "../lib/types";
 import { RoleTag } from "./role-tag";
 
 interface Props {
@@ -52,10 +52,9 @@ export function InviteDrawer({ open, onClose }: Props) {
 }
 
 function InviteDrawerBody({ open, onClose }: Props) {
-  const roles = roleSummaries();
   const [tab, setTab] = useState<"email" | "link">("email");
   const [emails, setEmails] = useState("");
-  const [roleId, setRoleId] = useState<string>("role_member");
+  const [roleId, setRoleId] = useState<AdminUserRoleId>("role_member");
   const [expiresInDays, setExpiresInDays] = useState<string>("7");
   const [maxUses, setMaxUses] = useState<string>("5");
   const [generated, setGenerated] = useState<{
@@ -78,7 +77,11 @@ function InviteDrawerBody({ open, onClose }: Props) {
     return () => window.clearTimeout(t);
   }, [open]);
 
-  const role = roles.find((r) => r.id === roleId) ?? null;
+  const role = {
+    id: roleId,
+    name: m.admin_users_role_name({ role: roleId }),
+    description: m.admin_users_role_description({ role: roleId }),
+  };
   const parsed = emails
     .split(/[\s,;]+/)
     .map((s) => s.trim())
@@ -171,7 +174,7 @@ function InviteDrawerBody({ open, onClose }: Props) {
               <ExpiresField value={expiresInDays} onChange={setExpiresInDays} includeQuarterly />
             </div>
 
-            {role ? <RoleHint role={role} headingId="invite-email-hint" kind="email" /> : null}
+            <RoleHint role={role} headingId="invite-email-hint" kind="email" />
           </TabsContent>
 
           <TabsContent value="link" className="flex flex-col gap-5">
@@ -208,7 +211,7 @@ function InviteDrawerBody({ open, onClose }: Props) {
                   </Select>
                   <FieldDescription>{m.admin_users_invite_max_uses_hint()}</FieldDescription>
                 </Field>
-                {role ? <RoleHint role={role} headingId="invite-link-hint" kind="link" /> : null}
+                <RoleHint role={role} headingId="invite-link-hint" kind="link" />
               </>
             )}
           </TabsContent>
@@ -240,19 +243,24 @@ function InviteDrawerBody({ open, onClose }: Props) {
   );
 }
 
-function RoleField({ roleId, onChange }: { roleId: string; onChange: (v: string) => void }) {
-  const roles = roleSummaries();
+function RoleField({
+  roleId,
+  onChange,
+}: {
+  roleId: AdminUserRoleId;
+  onChange: (v: AdminUserRoleId) => void;
+}) {
   return (
     <Field>
       <FieldLabel>{m.admin_users_invite_role_label()}</FieldLabel>
-      <Select value={roleId} onValueChange={(v) => onChange(v ?? "")}>
+      <Select value={roleId} onValueChange={(v) => isAdminUserRoleId(v) && onChange(v)}>
         <SelectTrigger>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {roles.map((r) => (
-            <SelectItem key={r.id} value={r.id}>
-              {r.name}
+          {ADMIN_USER_ROLE_IDS.map((id) => (
+            <SelectItem key={id} value={id}>
+              {m.admin_users_role_name({ role: id })}
             </SelectItem>
           ))}
         </SelectContent>
