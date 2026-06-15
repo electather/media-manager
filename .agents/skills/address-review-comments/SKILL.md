@@ -40,7 +40,7 @@ Always work in a fresh worktree branched from `origin/main` so the current check
 
 ## 1. Gather the comments
 
-- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs.
+- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs. Resolved threads are excluded automatically — only act on what's listed.
 - If no PR was named, infer from the current branch: `gh pr view --json number,url`. Confirm with the user if ambiguous.
 - List the distinct concerns so you can address them one by one. Don't batch-respond blindly — each concern needs its own verification.
 
@@ -57,6 +57,7 @@ Do this before changing code or replying:
    - "We already have a helper for this" → find it. If you can't find it, say so.
    - "This isn't tested" → check the test files; maybe it is.
 4. **Classify**: valid / partially valid / invalid / unsure.
+5. **Out-of-scope finding.** If during verification you discover a real issue unrelated to this PR (different file, different feature, not caused by this change): create a GH issue (`gh issue create --title "<short title>" --body "<description with file:line context>"`), note the issue number in your reply, and move on. Do not fix it here.
 
 Do not skip verification because the reviewer is senior, confident, or has been right before. One wrong fix on a public branch costs more than a minute of checking.
 
@@ -110,6 +111,10 @@ After pushing the round of fixes:
    - No new comments after the wait and CI is green.
    - The user explicitly stops the loop.
    - You hit an unsure case from §5 — surface to the user before continuing.
+5. **Loop cap — 2 iterations.** After 2 complete iterations, if unresolved threads remain:
+   - **Non-breaking threads** (nits, naming, style, docs, suggestions): for each, create a GH issue (`gh issue create --title "<short title>" --body "Raised in PR #<num>: <comment_body>"`) and resolve the thread (`scripts/resolve-thread.sh`). Reply on the thread with the issue link.
+   - **Breaking threads** (correctness, security, behaviour change, API): do not convert to issues — surface to the user and block merge.
+   - Once all non-breaking threads are converted and resolved, proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
 
 Always re-sync with `origin/main` at the start of each loop iteration — base may have advanced.
 
