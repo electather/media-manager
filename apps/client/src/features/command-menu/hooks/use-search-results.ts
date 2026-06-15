@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { SearchKind } from "@nama/shared/search";
 import { isNil } from "es-toolkit/predicate";
 import { trim } from "es-toolkit/string";
@@ -38,6 +38,10 @@ export interface UseSearchResultsResult {
  * `useDeferredValue`-wrapped so cmdk's input stays responsive while React
  * defers the fetch, then `useDebouncedValue` keeps the network off the path
  * for typeahead bursts. Falls back to no-op when the query is short.
+ *
+ * Placeholder data is only kept when the previous query shared the same scope
+ * (kind). Carrying over results from a different scope would briefly present
+ * the wrong titles under the new scope's heading before the fresh fetch lands.
  */
 export function useSearchResults(rawQuery: string, scope: CommandScope): UseSearchResultsResult {
   const deferred = useDeferredValue(rawQuery);
@@ -51,7 +55,15 @@ export function useSearchResults(rawQuery: string, scope: CommandScope): UseSear
     queryFn: () => fetchSearch({ q: trimmed, kind }),
     enabled,
     staleTime: STALE_MS,
-    placeholderData: keepPreviousData,
+    // Only show stale results as a placeholder when the scope (kind) has not
+    // changed — cross-scope placeholder data would label the wrong titles as
+    // results for the new scope until the fresh fetch resolves.
+    placeholderData: (previousData, previousQuery) => {
+      if (!previousQuery) return undefined;
+      const prevKey = previousQuery.queryKey as ReturnType<typeof commandMenuKeys.search>;
+      const prevKind = prevKey[2]?.kind;
+      return prevKind === kind ? previousData : undefined;
+    },
   });
 
   return {

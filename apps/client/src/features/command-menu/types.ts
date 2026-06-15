@@ -24,15 +24,14 @@ export type CommandScope = null | "tv" | "movie";
 export type PageRoute = "/" | "/library" | "/watchlist" | "/settings" | "/settings/connections";
 
 /**
- * Media item shape the command menu fuzzy-matches and renders. Layered on
- * top of the wire `CompactMediaItem` with optional client-side fields the
- * mock feed already supplies (tags, runtime, director, cast).
+ * Media item shape the command menu fuzzy-matches and renders. Extends the
+ * wire `CompactMediaItem` with `tags`, which the live search and trending
+ * responses both provide. Fields like `runtime`, `director`, and `cast` are
+ * not returned by any live endpoint and have been removed so the match
+ * function does not silently no-op on them in production.
  */
 export type CommandMenuMediaItem = CompactMediaItem & {
   tags?: string[];
-  runtime?: string;
-  director?: string;
-  cast?: string[];
 };
 
 export type ContributionKind = "page" | "action" | "search-mode" | "setting";
