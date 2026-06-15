@@ -8,6 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-
 import { cn } from "@/shared/lib/utils";
 
 import type { AdminInvite, AdminUserSummary, AdminUsersFilter } from "../lib/types";
+import { isAdmin, isInviteActive } from "../lib/user-predicates";
 import { InviteRow } from "./invite-row";
 import { UserRow } from "./user-row";
 import { roleSummaries } from "../lib/role-summaries";
@@ -47,13 +48,13 @@ export function UsersList({
   const now = Date.now();
   const counts = {
     all: users.length,
-    admins: users.filter((u) => u.role?.id === "role_admin").length,
-    invites: invites.filter((i) => !(i.expired || i.expiresAt < now)).length,
+    admins: users.filter(isAdmin).length,
+    invites: invites.filter((i) => isInviteActive(i, now)).length,
   };
 
   const filtered = useMemo(() => {
     let list = users;
-    if (filter === "admins") list = list.filter((u) => u.role?.id === "role_admin");
+    if (filter === "admins") list = list.filter(isAdmin);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
