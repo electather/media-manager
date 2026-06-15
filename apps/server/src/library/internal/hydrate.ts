@@ -45,7 +45,7 @@ interface BatchSources {
  * socket exhaustion. Matches the `BATCH_SIZE` convention in the catalog
  * metadata-refresh job.
  */
-const HYDRATE_CONCURRENCY = 25;
+export const HYDRATE_CONCURRENCY = 25;
 
 /**
  * Hydrates the denormalized browse projection for a user's new and stale owned

@@ -32,7 +32,7 @@ vi.mock("../../db/client", async () => {
 // mocking either would defeat the very invariants these tests guard — that the
 // orchestrator folds the stubbed sources into the projection columns and that
 // `staleOrNew` selects exactly the missing/stale rows.
-const { hydrate } = await import("../internal/hydrate");
+const { hydrate, HYDRATE_CONCURRENCY } = await import("../internal/hydrate");
 const { staleOrNew, writeHydration, upsertOwned, __resetLibraryForTests } = await import("../repo");
 const { asLibraryContext } = await import("../internal/context");
 
@@ -248,7 +248,7 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
   // rows, `considered` would equal `targets.length` but `hydrated` would be
   // fewer, or some rows would remain un-stamped (`hydratedAt = null`).
   it("hydrates all rows when the stale set exceeds HYDRATE_CONCURRENCY", async () => {
-    const COUNT = 30; // Deliberately larger than HYDRATE_CONCURRENCY (25).
+    const COUNT = HYDRATE_CONCURRENCY + 5; // Deliberately larger than HYDRATE_CONCURRENCY.
     for (let i = 0; i < COUNT; i++) {
       await seedOwned(String(1000 + i));
     }
@@ -283,9 +283,12 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
   // single-write-after-loop design every row would be un-stamped here, failing
   // the first assertion.
   it("persists completed chunks before a later chunk stalls", async () => {
-    const COUNT = 30; // Two chunks: rows 0–24 then 25–29 (HYDRATE_CONCURRENCY = 25).
+    // One full chunk (HYDRATE_CONCURRENCY rows) plus a partial second chunk, so
+    // the loop spans exactly two chunks regardless of the constant's value.
+    const COUNT = HYDRATE_CONCURRENCY + 5;
     // `staleOrNew` orders by composite id, so the chunk boundary is deterministic:
-    // ids `movie:2000`–`movie:2024` are chunk 1, `movie:2025`–`movie:2029` chunk 2.
+    // ids `movie:2000`…`movie:${2000 + HYDRATE_CONCURRENCY - 1}` are chunk 1, the
+    // rest chunk 2 (the four-digit suffixes sort lexicographically == numerically).
     // The per-id assertions below depend on that explicit ordering, not on
     // SQLite's incidental PK order.
     for (let i = 0; i < COUNT; i++) {
@@ -300,15 +303,16 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
       reachedChunkTwo = resolve;
     });
 
-    // The probes resolve normally for the first 25 calls (chunk 1) then hang on
-    // the 26th onward (chunk 2), modelling a slow provider that blows the row
+    // The probes resolve normally for chunk 1's HYDRATE_CONCURRENCY rows then hang
+    // on the first chunk-2 call, modelling a slow provider that blows the row
     // timeout. `loadAvailability` fires `getMatchingServers` + `getAvailabilityQuality`
-    // per row, so the 26th `getMatchingServers` call is the first row of chunk 2.
+    // per row, so the (HYDRATE_CONCURRENCY + 1)-th `getMatchingServers` call is the
+    // first row of chunk 2.
     let serverCalls = 0;
     const { ctx } = makeCtx({});
     ctx.mediaService.getMatchingServers = vi.fn().mockImplementation(() => {
       serverCalls += 1;
-      if (serverCalls > 25) {
+      if (serverCalls > HYDRATE_CONCURRENCY) {
         reachedChunkTwo();
         return new Promise(() => {}); // Never resolves — stalls chunk 2 forever.
       }
@@ -321,15 +325,15 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     // Block until chunk 2's probe runs — proof chunk 1 fully persisted first.
     await chunkTwoStarted;
 
-    // Chunk 1 (rows 0–24) finished before the stall, so its writes are durable —
-    // proving each chunk persists as it resolves, not after the whole loop.
-    for (let i = 0; i < 25; i++) {
+    // Chunk 1 finished before the stall, so its writes are durable — proving each
+    // chunk persists as it resolves, not after the whole loop.
+    for (let i = 0; i < HYDRATE_CONCURRENCY; i++) {
       const row = await rowById(`movie:${2000 + i}`);
       expect(row?.hydratedAt).not.toBeNull();
     }
-    // Chunk 2 (rows 25–29) never resolved, so those rows are still un-stamped and
-    // a later run re-selects them.
-    for (let i = 25; i < COUNT; i++) {
+    // Chunk 2 never resolved, so those rows are still un-stamped and a later run
+    // re-selects them.
+    for (let i = HYDRATE_CONCURRENCY; i < COUNT; i++) {
       const row = await rowById(`movie:${2000 + i}`);
       expect(row?.hydratedAt).toBeNull();
     }
