@@ -286,13 +286,15 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     // One full chunk (HYDRATE_CONCURRENCY rows) plus a partial second chunk, so
     // the loop spans exactly two chunks regardless of the constant's value.
     const COUNT = HYDRATE_CONCURRENCY + 5;
-    // `staleOrNew` orders by composite id, so the chunk boundary is deterministic:
-    // ids `movie:2000`…`movie:${2000 + HYDRATE_CONCURRENCY - 1}` are chunk 1, the
-    // rest chunk 2 (the four-digit suffixes sort lexicographically == numerically).
-    // The per-id assertions below depend on that explicit ordering, not on
-    // SQLite's incidental PK order.
+    // Suffixes are zero-padded to a fixed width (mirroring sync.test.ts) so they
+    // sort lexicographically == numerically for any COUNT, independent of digit
+    // count. `staleOrNew` orders by composite id, so the chunk boundary is then
+    // deterministic: the first HYDRATE_CONCURRENCY ids are chunk 1, the rest
+    // chunk 2. The per-id assertions below depend on that explicit ordering, not
+    // on SQLite's incidental PK order.
+    const seedId = (i: number) => `p${String(i).padStart(6, "0")}`;
     for (let i = 0; i < COUNT; i++) {
-      await seedOwned(String(2000 + i));
+      await seedOwned(seedId(i));
     }
 
     // A deferred resolved by chunk 2's first probe. Awaiting it is the
@@ -328,13 +330,13 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     // Chunk 1 finished before the stall, so its writes are durable — proving each
     // chunk persists as it resolves, not after the whole loop.
     for (let i = 0; i < HYDRATE_CONCURRENCY; i++) {
-      const row = await rowById(`movie:${2000 + i}`);
+      const row = await rowById(`movie:${seedId(i)}`);
       expect(row?.hydratedAt).not.toBeNull();
     }
     // Chunk 2 never resolved, so those rows are still un-stamped and a later run
     // re-selects them.
     for (let i = HYDRATE_CONCURRENCY; i < COUNT; i++) {
-      const row = await rowById(`movie:${2000 + i}`);
+      const row = await rowById(`movie:${seedId(i)}`);
       expect(row?.hydratedAt).toBeNull();
     }
   });
