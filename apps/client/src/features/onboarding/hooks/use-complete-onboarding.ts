@@ -19,3 +19,6 @@ export function useCompleteOnboarding() {
     },
   });
 }
+
+/** The mutation object returned by {@link useCompleteOnboarding}. */
+export type CompleteOnboardingMutation = ReturnType<typeof useCompleteOnboarding>;

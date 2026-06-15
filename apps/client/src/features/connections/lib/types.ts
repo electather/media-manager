@@ -1,23 +1,12 @@
-import type { CapabilityEntry } from "@/shared/lib/capabilities";
+// The wire shape the connection modal renders is owned by the server contract,
+// so re-export the authoritative `PluginSummary` from the shared package rather
+// than maintaining a parallel client copy that can drift. The modal reads a
+// subset of its fields; the extra fields (poolable, credentialsSchema) are
+// harmless to carry through. Imported (not just re-exported) so the local
+// `AuthKind` alias below can index into it.
+import type { PluginSummary } from "@nama/shared/connections";
 
-/**
- * Shape the connection modal needs to render the create/edit dialog. Mirrors
- * the `PluginSummary` shape returned by `/api/connections/available` and
- * embedded on connection rows — both `connections.tsx` and
- * `admin/plugins.tsx` can pass the inferred row through unchanged.
- */
-export interface PluginSummary {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  logoUrl?: string;
-  authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
-  userScopedCapabilities: ReadonlyArray<CapabilityEntry>;
-  globalScopedCapabilities: ReadonlyArray<CapabilityEntry>;
-  userConfigSchema: Record<string, unknown> | null;
-  adminSharedAvailable: boolean;
-}
+export type { PluginSummary };
 
 export interface ExistingConnection {
   id: string;

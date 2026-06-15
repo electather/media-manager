@@ -28,6 +28,14 @@ const BOOTSTRAP_ROW_ID = "bootstrap";
 // single-tenant event so that is acceptable today — revisit if clustering lands.
 let issuedToken: string | null = null;
 
+// Once any user exists, `needsBootstrap` is permanently false: the flag only
+// ever transitions true→false (when the first user is created) and never back.
+// `GET /api/config/public` calls `needsBootstrap` on every request, so once we
+// observe a user we cache that result and short-circuit the per-request
+// `SELECT id FROM user LIMIT 1`. While no user exists we keep querying so the
+// flag flips to false the instant the first user is created within this process.
+let userExistsLatch = false;
+
 /** Returns the SHA-256 hex digest of `token`. */
 function sha256Hex(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -53,9 +61,20 @@ function tokenMatchesUnconsumed(
   return timingSafeEqual(storedBuf, suppliedBuf);
 }
 
-/** Test helper: drop the in-memory token so the next ensure call re-issues. */
+/**
+ * Test helper: drop the in-memory token so the next ensure call re-issues. Also
+ * clears the user-exists latch, since both are per-process bootstrap state that
+ * leaks between tests in the same file; resetting them together keeps every
+ * `ensureBootstrapToken` test starting from a clean fresh-install state.
+ */
 export function resetBootstrapTokenForTest(): void {
   issuedToken = null;
+  userExistsLatch = false;
+}
+
+/** Test helper: clear the user-exists latch so `needsBootstrap` queries again. */
+export function resetBootstrapLatchForTest(): void {
+  userExistsLatch = false;
 }
 
 /** Prints the plaintext setup token to the console in a boxed banner. */
@@ -74,9 +93,15 @@ function printBanner(token: string): void {
 
 /** Returns `true` when the `user` table has zero rows. */
 export async function needsBootstrap(): Promise<boolean> {
+  // Once a user has been observed the flag is false forever, so skip the query.
+  if (userExistsLatch) return false;
   const db = getDb();
   const row = await db.select({ id: user.id }).from(user).limit(1).get();
-  return !row;
+  if (row) {
+    userExistsLatch = true;
+    return false;
+  }
+  return true;
 }
 
 /**

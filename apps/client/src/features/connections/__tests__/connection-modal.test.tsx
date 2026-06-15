@@ -38,6 +38,8 @@ const formPluginBase: PluginSummary = {
       },
     },
   },
+  poolable: false,
+  credentialsSchema: null,
   adminSharedAvailable: false,
 };
 
@@ -53,6 +55,8 @@ const traktPlugin: PluginSummary = {
   ],
   globalScopedCapabilities: [{ id: "idResolve", version: "v1" }],
   userConfigSchema: null,
+  poolable: true,
+  credentialsSchema: null,
   adminSharedAvailable: true,
 };
 
@@ -79,6 +83,8 @@ const noAuthPlugin: PluginSummary = {
       },
     },
   },
+  poolable: false,
+  credentialsSchema: null,
   adminSharedAvailable: false,
 };
 

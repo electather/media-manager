@@ -44,7 +44,6 @@ import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { ConnectionModal } from "@/features/connections";
-import type { PluginSummary as ModalPluginSummary } from "@/features/connections";
 import type { ConnectionListItem, PluginSummary } from "@nama/shared/connections";
 import { type ConnectionStatus } from "@nama/shared/connections";
 import { isNotificationOnlyPlugin } from "@nama/shared/plugins";
@@ -121,7 +120,7 @@ function ConnectionsSkeleton() {
 type Filter = "all" | "issues" | "disabled";
 
 interface ModalTarget {
-  plugin: ModalPluginSummary;
+  plugin: PluginSummary;
   existing?: { id: string; displayName: string | null } | null;
   reconnect?: boolean;
 }
@@ -206,7 +205,7 @@ function ConnectionsPage() {
     });
   };
 
-  const onAdd = (plugin: PluginSummary) => setModal({ plugin: plugin as ModalPluginSummary });
+  const onAdd = (plugin: PluginSummary) => setModal({ plugin });
 
   const pluginsById = useMemo(() => keyBy(plugins, (plugin) => plugin.id), [plugins]);
 
@@ -214,7 +213,7 @@ function ConnectionsPage() {
     const plugin = pluginsById[conn.pluginId] ?? null;
     if (!plugin) return;
     setModal({
-      plugin: plugin as ModalPluginSummary,
+      plugin,
       existing: { id: conn.id, displayName: conn.displayName },
     });
   };
@@ -225,7 +224,7 @@ function ConnectionsPage() {
   const onReconnect = (conn: ConnectionListItem) => {
     const plugin = pluginsById[conn.pluginId] ?? null;
     if (!plugin) return;
-    setModal({ plugin: plugin as ModalPluginSummary, reconnect: true });
+    setModal({ plugin, reconnect: true });
   };
 
   const onConfirmDisconnect = () => {

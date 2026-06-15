@@ -29,6 +29,14 @@ vi.mock("../lib/step-registry", () => ({
   },
 }));
 
+// Spy on the complete-onboarding fetcher so a Finish click can be asserted to
+// actually fire the mutation, without a real backend.
+const completeOnboardingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock("../lib/fetchers", async (orig) => ({
+  ...((await orig()) as object),
+  completeOnboarding: completeOnboardingMock,
+}));
+
 import { OnboardingWizard } from "../components/onboarding-wizard";
 import { onboardingKeys } from "../lib/query-keys";
 
@@ -102,5 +110,36 @@ describe("OnboardingWizard — Finish gate", () => {
 
     // With the only required step complete, Finish is allowed.
     expect(finishButton().disabled).toBe(false);
+  });
+
+  // A non-admin member is funneled to /setup by the route guard but the server
+  // resolves zero applicable steps for them in v1. Rather than show an empty,
+  // step-less wizard the user can't make sense of, the shell must render a brief
+  // "all set" state whose single enabled Finish button completes onboarding.
+  it("renders an all-set state with an enabled Finish when no step applies", async () => {
+    renderWizard({
+      hasOnboarded: false,
+      steps: [
+        // The only step does not apply (e.g. an admin-only step for a member),
+        // so the wizard filters it out and has nothing to render.
+        {
+          id: "connect-services",
+          title: "Connect services",
+          applies: false,
+          required: true,
+          complete: false,
+        },
+      ],
+    });
+
+    // The wizard never reaches the stepper, so no Next button is shown — only
+    // the Finish action, and it is enabled (nothing required is unmet).
+    expect(screen.queryByRole("button", { name: /next/i })).toBeNull();
+    expect(finishButton().disabled).toBe(false);
+
+    // The whole point of the all-set state: clicking Finish completes onboarding.
+    completeOnboardingMock.mockClear();
+    await userEvent.setup().click(finishButton());
+    expect(completeOnboardingMock).toHaveBeenCalledTimes(1);
   });
 });

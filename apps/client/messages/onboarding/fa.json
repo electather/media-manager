@@ -41,6 +41,8 @@
   "onboarding_wizard_next": "بعدی",
   "onboarding_wizard_finish_blocked": "پیش از پایان، گام‌های الزامی را کامل کنید.",
   "onboarding_wizard_complete_failed": "اتمام راه‌اندازی ممکن نشد. لطفاً دوباره تلاش کنید.",
+  "onboarding_wizard_nothing_title": "همه‌چیز آماده است",
+  "onboarding_wizard_nothing_body": "چیزی برای پیکربندی حساب شما وجود ندارد. برای شروع استفاده از nama، پایان را بزنید.",
   "onboarding_step_welcome_title": "خوش‌آمدگویی",
   "onboarding_step_connect_services_title": "اتصال سرویس‌ها",
   "onboarding_welcome_heading": "به nama خوش آمدید",
