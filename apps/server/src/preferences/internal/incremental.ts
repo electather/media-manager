@@ -57,7 +57,10 @@ export async function applyIncrementalUpdate(
     );
     if (!contribution) continue;
     const weight = recordWeight(record);
-    if (weight === 0 && (record.noteKeywords?.length ?? 0) === 0) continue;
+    // Skip zero-weight records entirely: even when noteKeywords are present
+    // applyToProfile multiplies every keyword boost by weight (0), producing
+    // no net change while still inflating sampleSize and the applied counter.
+    if (weight === 0) continue;
     applied += applyRecordToPartitions(record, contribution, weight, partitions, existing);
   }
 

@@ -7,3 +7,19 @@ export class PreferencesError extends Error {
     this.name = "PreferencesError";
   }
 }
+
+/** Thrown when a required job is not yet registered with the jobs registry. */
+export class JobNotRegisteredError extends PreferencesError {
+  constructor(jobId: string) {
+    super(`job ${jobId} is not registered`, "preferences.job_not_registered");
+    this.name = "JobNotRegisteredError";
+  }
+}
+
+/** Thrown when a registered job does not expose the expected handler. */
+export class JobNotTriggerableError extends PreferencesError {
+  constructor(jobId: string) {
+    super(`job ${jobId} has no triggerFromApi handler`, "preferences.job_not_triggerable");
+    this.name = "JobNotTriggerableError";
+  }
+}

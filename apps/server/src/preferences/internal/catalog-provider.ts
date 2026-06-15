@@ -34,6 +34,12 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
   private hits = 0;
   private misses = 0;
   private unresolved = 0;
+  /**
+   * Keys for which a cold-fill write-back is already in flight. Prevents
+   * redundant writes when the same item is missed across multiple rebuild
+   * partitions (movie, tv, combined) in a single job run.
+   */
+  private readonly coldFillInFlight = new Set<string>();
 
   constructor(
     private readonly catalog: CatalogService,
@@ -58,12 +64,24 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
       return null;
     }
 
-    // Detached cold-fill write-back. Reads ⊥ block on the persist; write
-    // failures are logged and dropped so a transient DB hiccup never poisons
-    // a rebuild. `void … .catch` avoids the floating-promise lint.
-    void this.coldFill({ tmdbId, type: mediaType }, features).catch((err) => {
-      consola.warn("[catalog:provider] cold-fill write-back failed", err);
-    });
+    // Deduplicate in-flight cold-fill writes so that the same item missed
+    // across multiple rebuild partitions (movie/tv/combined) in one job run
+    // triggers only a single writeMetadata call rather than three concurrent
+    // writes to the same row.
+    const fillKey = `${mediaType}:${tmdbId}`;
+    if (!this.coldFillInFlight.has(fillKey)) {
+      this.coldFillInFlight.add(fillKey);
+      // Detached write-back. Reads do not block on the persist; write failures
+      // are logged and dropped so a transient DB hiccup never poisons a rebuild.
+      // `void … .catch` avoids the floating-promise lint rule.
+      void this.coldFill({ tmdbId, type: mediaType }, features)
+        .catch((err) => {
+          consola.warn("[catalog:provider] cold-fill write-back failed", err);
+        })
+        .finally(() => {
+          this.coldFillInFlight.delete(fillKey);
+        });
+    }
     return features;
   }
 

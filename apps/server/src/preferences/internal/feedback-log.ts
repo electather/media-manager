@@ -6,6 +6,9 @@ import * as repo from "../repo";
 import type { UserItemFeedback } from "../types";
 import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 
+/** Maximum byte length accepted for a user note before truncation. */
+const NOTE_MAX_BYTES = 4096;
+
 export interface RecordFeedbackInput {
   userId: string;
   tmdbId: string;
@@ -28,7 +31,18 @@ function processNoteFields(
   noteKeywordsJson: string | null;
   noteKeywordsArray: string[] | null;
 } {
-  const note = typeof raw === "string" && raw.length > 0 ? raw : null;
+  let rawNote = typeof raw === "string" && raw.length > 0 ? raw : null;
+  if (rawNote && Buffer.byteLength(rawNote, "utf8") > NOTE_MAX_BYTES) {
+    // Truncate oversized notes so that O(n) classification work stays bounded.
+    // Slicing on character count rather than bytes avoids splitting multi-byte
+    // code points; the ceiling is generous enough that real notes are unaffected.
+    rawNote = rawNote.slice(0, NOTE_MAX_BYTES);
+    consola.warn("[feedback-log] note truncated to NOTE_MAX_BYTES", {
+      userId: context.userId,
+      tmdbId: context.tmdbId,
+    });
+  }
+  const note = rawNote;
   if (!note)
     return { note: null, noteSentiment: null, noteKeywordsJson: null, noteKeywordsArray: null };
   const noteSentiment = classifySentiment(note);

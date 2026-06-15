@@ -168,6 +168,29 @@ describe("CatalogPreferenceProvider", () => {
     expect(fallback.getComments).toHaveBeenCalledWith("u1");
   });
 
+  it("deduplicates cold-fill writes when the same item is missed multiple times concurrently", async () => {
+    // Simulates the rebuild fanning out across movie/tv/combined partitions,
+    // each missing the same tmdbId. Only one writeMetadata call must be issued.
+    const catalog = new CatalogService(await createInMemoryDb());
+    const writeSpy = vi.spyOn(catalog, "writeMetadata");
+    const fallback = makeFallback();
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    // Three concurrent misses for the same key — mimics three rebuild partitions.
+    await Promise.all([
+      provider.getItemFeatures("u1", "550", "movie"),
+      provider.getItemFeatures("u1", "550", "movie"),
+      provider.getItemFeatures("u1", "550", "movie"),
+    ]);
+
+    // Yield two macrotask turns so the detached write-back chain settles.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Only the first miss should have triggered a cold-fill write.
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("counts canonical hits, fallback misses, and unresolved misses", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     await catalog.writeMetadata([
