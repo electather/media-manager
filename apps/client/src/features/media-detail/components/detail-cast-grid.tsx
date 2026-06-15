@@ -19,9 +19,7 @@ function buildEntries(item: HomeMediaItem): CastEntry[] {
     entries.push({ name: item.director, role: m.media_detail_role_director() });
   }
   if (item.cast) {
-    // The API returns names only — no per-credit role or character metadata is
-    // available yet. Role is omitted rather than fabricated from array position
-    // to avoid presenting invented billing information to the user.
+    // API returns names only; role omitted to avoid presenting invented billing to users.
     item.cast.forEach((name) => {
       entries.push({ name, role: null });
     });
