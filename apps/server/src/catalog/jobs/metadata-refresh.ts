@@ -47,22 +47,24 @@ export async function runCatalogMetadataRefresh(
   }
   const media = new MediaService(SYSTEM_USER_ID);
   let refreshed = 0;
+  let notFound = 0;
   let failures = 0;
 
   for (let i = 0; i < stale.length; i += BATCH_SIZE) {
     ctx.abortSignal.throwIfAborted();
     const slice = stale.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(slice.map((key) => fetchOne(media, key)));
-    const fresh = collectFresh(slice, results, ctx);
-    if (fresh.length > 0) {
-      await deps.catalog.writeMetadata(fresh);
-      refreshed += fresh.length;
+    const counts = collectFresh(slice, results, ctx);
+    if (counts.fresh.length > 0) {
+      await deps.catalog.writeMetadata(counts.fresh);
+      refreshed += counts.fresh.length;
     }
-    failures += results.length - fresh.length;
+    notFound += counts.notFound;
+    failures += counts.failures;
   }
 
   ctx.logger.info(
-    `[catalog:metadata-refresh] processed ${stale.length} keys (${refreshed} refreshed, ${failures} failed)`,
+    `[catalog:metadata-refresh] processed ${stale.length} keys (${refreshed} refreshed, ${notFound} not-found, ${failures} failed)`,
   );
 }
 
@@ -76,13 +78,21 @@ async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchRes
   return { key, data };
 }
 
+interface CollectResult {
+  fresh: CanonicalMetadata[];
+  notFound: number;
+  failures: number;
+}
+
 // fallow-ignore-next-line complexity
 function collectFresh(
   slice: MetadataKey[],
   results: PromiseSettledResult<FetchResult>[],
   ctx: JobRunContext,
-): CanonicalMetadata[] {
-  const out: CanonicalMetadata[] = [];
+): CollectResult {
+  const fresh: CanonicalMetadata[] = [];
+  let notFound = 0;
+  let failures = 0;
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     const key = slice[i];
@@ -91,11 +101,18 @@ function collectFresh(
       ctx.logger.debug(
         `[catalog:metadata-refresh] dispatch rejected for ${key.type}:${key.tmdbId}`,
       );
+      failures += 1;
       continue;
     }
     const data = result.value.data;
-    if (!data) continue;
-    out.push(toCanonicalRow(key, data));
+    if (!data) {
+      // A fulfilled fetch with no data means the upstream no longer has this
+      // title. This is a normal expected outcome and must not be conflated
+      // with a dispatch rejection so operators can track genuine plugin errors.
+      notFound += 1;
+      continue;
+    }
+    fresh.push(toCanonicalRow(key, data));
   }
-  return out;
+  return { fresh, notFound, failures };
 }

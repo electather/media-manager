@@ -5,6 +5,14 @@ import { userHistoryMirror, userRatingsMirror } from "../../db/schema/catalog";
 import type { HistoryEvent, PluginCursors, RatingEvent } from "@nama/shared/catalog";
 import type { PerUserMutex } from "../internal/mutex";
 
+/**
+ * Maximum number of history or rating events retained per user in the mirror
+ * tables. The merge keeps the most recent events by their timestamp so that
+ * the oldest data is evicted first. Without a cap the JSON column grows
+ * without bound and each sync re-serializes the full lifetime history.
+ */
+export const MAX_MIRROR_EVENTS = 10_000;
+
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /** Shared state the mirror append path needs: the DB plus the per-user mutex. */
@@ -156,14 +164,20 @@ async function appendMirrorRows<E>(
  * Append-only merge for the history mirror. Dedupe key is
  * `(tmdbId, mediaType, sourceConnectionId, watchedAt, episodeKey ?? '')`
  * so re-syncing the same plugin window is idempotent. Existing events keep
- * their original ordering; new events append in arrival order.
+ * their original ordering; new events append in arrival order. The result is
+ * capped at `MAX_MIRROR_EVENTS` by dropping the oldest events (smallest
+ * `watchedAt`) so the column does not grow without bound over time.
  */
 function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
-  return uniqBy([...prior, ...next], historyKey);
+  const merged = uniqBy([...prior, ...next], historyKey);
+  if (merged.length <= MAX_MIRROR_EVENTS) return merged;
+  return merged.sort((a, b) => b.watchedAt - a.watchedAt).slice(0, MAX_MIRROR_EVENTS);
 }
 
 function mergeRatings(prior: RatingEvent[], next: RatingEvent[]): RatingEvent[] {
-  return uniqBy([...prior, ...next], ratingKey);
+  const merged = uniqBy([...prior, ...next], ratingKey);
+  if (merged.length <= MAX_MIRROR_EVENTS) return merged;
+  return merged.sort((a, b) => b.ratedAt - a.ratedAt).slice(0, MAX_MIRROR_EVENTS);
 }
 
 function historyKey(event: HistoryEvent): string {
