@@ -90,6 +90,9 @@ function isIpv6LinkLocal(hostname: string): boolean {
 // slip through `isBlockedHostname` once `URL.hostname` normalised it. Decode the
 // embedded IPv4 from either spelling so the IPv4 blocklist below applies to both.
 function ipv4MappedIpv6Embedded(hostname: string): string | null {
+  // Expects a bracket-free hostname — every call site runs `normalizeHostname`
+  // first, which strips the `[...]` IPv6 wrapping. A bracketed `[::ffff:...]`
+  // would not match the prefix and return null.
   const prefix = "::ffff:";
   if (!hostname.startsWith(prefix)) return null;
   const rest = hostname.slice(prefix.length);
