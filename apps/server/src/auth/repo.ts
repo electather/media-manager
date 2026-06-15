@@ -1,6 +1,6 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, notInArray } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { user } from "../db/schema/auth";
+import { oauthClient, oauthConsent, user } from "../db/schema/auth";
 import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import { SYSTEM_ADMIN_ROLE_SLUG, type Permission } from "./types";
 import { ALL_PERMISSIONS } from "@nama/shared/auth";
@@ -122,4 +122,31 @@ export async function filterUsersWithPermission(
 ): Promise<Set<string>> {
   if (userIds.length === 0) return new Set();
   return new Set(await selectUsersByPermission(permission, inArray(userRoles.userId, userIds)));
+}
+
+/**
+ * Deletes dynamically-registered OAuth clients that were never authorized and
+ * are older than `cutoff` (epoch ms). A stale dynamic client is identified by
+ * having no owner (`userId IS NULL` — RFC 7591 registration sets no owner) and
+ * no consent row (no user has authorized it), so this never removes a client a
+ * user has connected. Returns the number of rows deleted.
+ *
+ * This bounds unbounded growth of the oauth client table from the
+ * unauthenticated registration endpoint, whose only other control is the
+ * per-IP rate limit. Cascade deletes on `client_id` clean up any orphaned
+ * token rows automatically.
+ */
+export async function deleteStaleDynamicClients(cutoff: number): Promise<number> {
+  const db = getDb();
+  const consentedClientIds = db.select({ clientId: oauthConsent.clientId }).from(oauthConsent);
+  const result = await db
+    .delete(oauthClient)
+    .where(
+      and(
+        isNull(oauthClient.userId),
+        lt(oauthClient.createdAt, new Date(cutoff)),
+        notInArray(oauthClient.clientId, consentedClientIds),
+      ),
+    );
+  return result.rowsAffected;
 }
