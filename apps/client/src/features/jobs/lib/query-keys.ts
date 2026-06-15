@@ -1,11 +1,10 @@
-/** Hierarchical query-key factory for the jobs feature.
+/** Query-key root for the jobs feature.
  *
- * All React Query keys for jobs are rooted under `jobsKeys.all` so that
- * a single `invalidateQueries({ queryKey: jobsKeys.all })` clears every
- * cached jobs resource. Never use ad-hoc string arrays at call sites.
+ * Every React Query key for jobs is rooted at `jobsKeys.all` so that a single
+ * `invalidateQueries({ queryKey: jobsKeys.all })` clears every cached jobs
+ * resource. Per-resource members (e.g. `list`, `detail`) will be added here
+ * alongside the query hooks that consume them.
  */
 export const jobsKeys = {
   all: ["admin", "jobs"] as const,
-  list: () => [...jobsKeys.all, "list"] as const,
-  runs: (jobId: string) => [...jobsKeys.all, "runs", jobId] as const,
 } as const;

@@ -21,6 +21,7 @@ vi.mock("../lib/fetchers", () => ({
 import { fetchTriggerJob } from "../lib/fetchers";
 import { toast } from "sonner";
 import { DynamicTriggerDialog } from "../components/trigger-dialog";
+import { JobsApiError } from "../lib/types";
 
 const mockFetchTriggerJob = vi.mocked(fetchTriggerJob);
 const mockToastError = vi.mocked(toast.error);
@@ -198,6 +199,26 @@ describe("DynamicTriggerDialog error handling", () => {
     // The user must see an error toast so the failure is not silent.
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("network error");
+    });
+  });
+
+  it("surfaces the server reason from a JobsApiError body", async () => {
+    // The HttpError middleware ships the user-facing reason in `devMessage`
+    // (apps/server/src/diagnostics/middleware.ts), never `message`, so the
+    // toast must read `devMessage` to tell admins why the trigger failed
+    // (e.g. "job is already running") instead of the generic fallback.
+    mockFetchTriggerJob.mockRejectedValueOnce(
+      new JobsApiError(409, { code: "job.already_running", devMessage: "job is already running" }),
+    );
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    await user.type(input, "3");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("job is already running");
     });
   });
 });
