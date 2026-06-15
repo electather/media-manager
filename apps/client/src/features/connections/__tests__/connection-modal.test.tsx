@@ -374,19 +374,39 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
     await fillRequiredFields();
     await userEvent.click(screen.getByRole("button", { name: /test connection/i }));
 
-    // While the verify request is still pending, the user edits the URL.
+    // While the verify request is still pending, the user edits the URL. This
+    // bumps the test generation and resets the state to idle.
     await userEvent.type(screen.getByPlaceholderText("https://example.com"), "/changed");
 
-    // Now the stale verification finally resolves with a passing result.
-    resolveVerify?.(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    // Now the stale verification finally resolves with a passing result. The
+    // resolved body's `json()` is observable so we can wait until `runTest` has
+    // actually consumed it before asserting — otherwise the assertion could
+    // pass while the stale `setTest({ kind: "ok" })` is still queued, masking a
+    // regression. Its generation no longer matches, so `runTest` must drop it.
+    let verifyBodyConsumed = false;
+    const staleResponse = new Response(JSON.stringify({ ok: true }), { status: 200 });
+    const realJson = staleResponse.json.bind(staleResponse);
+    staleResponse.json = async () => {
+      const body = await realJson();
+      verifyBodyConsumed = true;
+      return body;
+    };
+    resolveVerify?.(staleResponse);
 
-    // The badge must stay clear of "Connection verified" for the changed config.
+    // Wait until the stale result has been fully read and its (dropped) state
+    // path has run, then flush React's scheduler before asserting.
     await waitFor(() => {
-      expect(screen.queryByText("Connection verified")).toBeNull();
+      expect(verifyBodyConsumed).toBe(true);
     });
-    // Give any erroneously-queued state update a chance to land, then re-assert.
-    await Promise.resolve();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /test connection/i })).toBeTruthy();
+    });
+
+    // The badge must stay clear of "Connection verified" for the changed
+    // config, and the button label must read "Test connection" not "Tested" —
+    // had the stale resolve applied, both would be the opposite.
     expect(screen.queryByText("Connection verified")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^tested$/i })).toBeNull();
   });
 
   it("refuses to navigate to a non-https OAuth redirect URL", async () => {

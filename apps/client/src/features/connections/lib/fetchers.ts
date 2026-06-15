@@ -61,7 +61,7 @@ export function startDeviceAuth(pluginId: string): Promise<Response> {
 
 export async function pollDeviceAuth(nonce: string): Promise<DevicePollResult> {
   const res = await api.connections.oauth.device.poll.$post({ json: { nonce } });
-  return (await readOkJson(res, ConnectionsApiError)) as DevicePollResult;
+  return (await readOkJson(res, ConnectionsApiError)) satisfies DevicePollResult;
 }
 
 export function startRedirectAuth(pluginId: string): Promise<Response> {
