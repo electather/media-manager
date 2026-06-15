@@ -1,3 +1,6 @@
+// fallow-ignore-file code-duplication
+// Per-module typed-error classes intentionally share the same base-class shape across modules (library, notifications, watchlist); each module owns its own errors.
+
 /** Base error class for preference-engine failures. */
 export class PreferencesError extends Error {
   readonly code: string;

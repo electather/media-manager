@@ -64,25 +64,34 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
       return null;
     }
 
-    // Deduplicate in-flight cold-fill writes so that the same item missed
-    // across multiple rebuild partitions (movie/tv/combined) in one job run
-    // triggers only a single writeMetadata call rather than three concurrent
-    // writes to the same row.
-    const fillKey = `${mediaType}:${tmdbId}`;
-    if (!this.coldFillInFlight.has(fillKey)) {
-      this.coldFillInFlight.add(fillKey);
-      // Detached write-back. Reads do not block on the persist; write failures
-      // are logged and dropped so a transient DB hiccup never poisons a rebuild.
-      // `void … .catch` avoids the floating-promise lint rule.
-      void this.coldFill({ tmdbId, type: mediaType }, features)
-        .catch((err) => {
-          consola.warn("[catalog:provider] cold-fill write-back failed", err);
-        })
-        .finally(() => {
-          this.coldFillInFlight.delete(fillKey);
-        });
-    }
+    this.scheduleColdFill(tmdbId, mediaType, features);
     return features;
+  }
+
+  /**
+   * Schedules a detached cold-fill write-back, deduplicating in-flight writes so
+   * the same item missed across multiple rebuild partitions (movie/tv/combined)
+   * in one job run triggers a single `writeMetadata` rather than concurrent
+   * writes to the same canonical row.
+   */
+  private scheduleColdFill(
+    tmdbId: string,
+    mediaType: "movie" | "tv",
+    features: CandidateFeatures,
+  ): void {
+    const fillKey = `${mediaType}:${tmdbId}`;
+    if (this.coldFillInFlight.has(fillKey)) return;
+    this.coldFillInFlight.add(fillKey);
+    // Detached write-back. Reads do not block on the persist; write failures
+    // are logged and dropped so a transient DB hiccup never poisons a rebuild.
+    // `void … .catch` avoids the floating-promise lint rule.
+    void this.coldFill({ tmdbId, type: mediaType }, features)
+      .catch((err) => {
+        consola.warn("[catalog:provider] cold-fill write-back failed", err);
+      })
+      .finally(() => {
+        this.coldFillInFlight.delete(fillKey);
+      });
   }
 
   async getHistory(userId: string): Promise<HistorySignal[]> {
