@@ -1,9 +1,8 @@
-import { eq } from "drizzle-orm";
 import { consola } from "consola";
+import { attempt } from "es-toolkit/util";
 import type { PersonalKeyFallbackPolicy } from "@nama/shared/plugins";
-import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { plugins } from "../../db/schema/plugin-runtime/plugins";
+import * as repo from "../repo";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "../internal/allowed-hosts";
 import { loadPluginPolicy, type PluginAdminPolicy } from "../internal/admin-policy";
 import { buildContext } from "../internal/context";
@@ -76,42 +75,53 @@ interface PickedCredential {
 }
 
 /**
+ * Parses a stored `globalConfig` JSON column defensively. A corrupt value
+ * (manual DB edit, partial write, future migration bug) must degrade into a
+ * typed `PluginError` that funnels through the existing plugin-error boundary
+ * instead of escaping as a raw `SyntaxError` and surfacing as a generic 500.
+ * Mirrors the guarded `attempt(() => JSON.parse(...))` pattern already used in
+ * `user-pool.ts` and `admin-policy.ts`.
+ */
+function parseGlobalConfig(pluginId: string, raw: string | null): unknown {
+  if (!raw) return null;
+  const [err, parsed] = attempt(() => JSON.parse(raw) as unknown);
+  if (err) {
+    throw new PluginError(
+      "plugin.input_invalid",
+      `[${pluginId}] stored globalConfig is not valid JSON`,
+    );
+  }
+  return parsed;
+}
+
+/**
  * Central entry point for all plugin lifecycle and invocation.
  * Kept as a single class so the registry, DB, and crypto concerns stay in one place.
  */
 export class PluginRuntime {
   // fallow-ignore-next-line complexity
   async bootstrapBuiltins(): Promise<void> {
-    const db = getDb();
     const now = Date.now();
     for (const builtin of listBuiltins()) {
       const loaded = await validatePluginModule(builtin.module, builtin.bytes);
-      const existing = await db.select().from(plugins).where(eq(plugins.id, builtin.id)).get();
+      const existing = await repo.findInstalledPlugin(builtin.id);
+      const version = builtin.module.manifest.version;
       if (!existing) {
-        await db.insert(plugins).values({
+        await repo.insertBuiltin({
           id: builtin.id,
-          version: builtin.module.manifest.version,
-          sourceUrl: `builtin:${builtin.id}`,
-          sourceType: "builtin",
+          version,
           checksum: loaded.checksum,
           manifest: loaded.manifestJson,
-          enabled: 1,
-          installedAt: now,
-          updatedAt: now,
+          now,
         });
-      } else if (
-        existing.checksum !== loaded.checksum ||
-        existing.version !== builtin.module.manifest.version
-      ) {
-        await db
-          .update(plugins)
-          .set({
-            version: builtin.module.manifest.version,
-            checksum: loaded.checksum,
-            manifest: loaded.manifestJson,
-            updatedAt: now,
-          })
-          .where(eq(plugins.id, builtin.id));
+      } else if (existing.checksum !== loaded.checksum || existing.version !== version) {
+        await repo.updateBuiltin({
+          id: builtin.id,
+          version,
+          checksum: loaded.checksum,
+          manifest: loaded.manifestJson,
+          now,
+        });
       }
       const enabled = (existing?.enabled ?? 1) === 1;
       capabilityRegistry.register({
@@ -125,11 +135,7 @@ export class PluginRuntime {
   }
 
   async setEnabled(pluginId: string, enabled: boolean): Promise<void> {
-    const db = getDb();
-    await db
-      .update(plugins)
-      .set({ enabled: enabled ? 1 : 0, updatedAt: Date.now() })
-      .where(eq(plugins.id, pluginId));
+    await repo.setEnabled(pluginId, enabled);
     capabilityRegistry.setEnabled(pluginId, enabled);
     if (!enabled) {
       mcpLifecycleHooks?.onPluginDisabled(pluginId);
@@ -140,39 +146,26 @@ export class PluginRuntime {
   }
 
   async uninstall(pluginId: string): Promise<void> {
-    const db = getDb();
     if (getBuiltin(pluginId)) {
       throw new PluginError("plugin.builtin_uninstall", "built-in plugins cannot be uninstalled");
     }
-    await db.delete(plugins).where(eq(plugins.id, pluginId));
+    await repo.deletePlugin(pluginId);
     capabilityRegistry.unregister(pluginId);
     mcpLifecycleHooks?.onPluginDisabled(pluginId);
   }
 
   async setGlobalConfig(pluginId: string, config: unknown): Promise<void> {
-    const db = getDb();
-    await db
-      .update(plugins)
-      .set({
-        globalConfig: config !== null && config !== undefined ? JSON.stringify(config) : null,
-        updatedAt: Date.now(),
-      })
-      .where(eq(plugins.id, pluginId));
+    const configJson = config !== null && config !== undefined ? JSON.stringify(config) : null;
+    await repo.setGlobalConfig(pluginId, configJson);
   }
 
   async getGlobalConfig(pluginId: string): Promise<unknown> {
-    const db = getDb();
-    const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
-    if (!row || !row.globalConfig) return null;
-    return JSON.parse(row.globalConfig);
+    const raw = await repo.getGlobalConfigJson(pluginId);
+    return parseGlobalConfig(pluginId, raw);
   }
 
   async setPersonalKeyFallback(pluginId: string, policy: PersonalKeyFallbackPolicy): Promise<void> {
-    const db = getDb();
-    await db
-      .update(plugins)
-      .set({ personalKeyFallback: policy, updatedAt: Date.now() })
-      .where(eq(plugins.id, pluginId));
+    await repo.setPersonalKeyFallback(pluginId, policy);
   }
 
   async getModule(pluginId: string): Promise<PluginModule> {
@@ -658,7 +651,7 @@ export class PluginRuntime {
       );
     }
     const row = await this.getPluginRow(pluginId);
-    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const globalConfig = parseGlobalConfig(pluginId, row.globalConfig);
     return { methodSpec, module, fn, row, globalConfig };
   }
 
@@ -717,7 +710,7 @@ export class PluginRuntime {
   ): Promise<PluginContext> {
     const module = await this.getModule(pluginId);
     const row = await this.getPluginRow(pluginId);
-    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const globalConfig = parseGlobalConfig(pluginId, row.globalConfig);
     const sharedCredentials =
       sharedCredentialsOverride !== undefined
         ? sharedCredentialsOverride

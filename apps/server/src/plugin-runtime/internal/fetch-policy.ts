@@ -5,6 +5,7 @@ import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
 import type { PluginLogger } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
+import { isBlockedHostname } from "./allowed-hosts";
 
 /** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
@@ -96,6 +97,18 @@ export function buildFetch(
       throw new PluginError("plugin.input_invalid", `[${pluginId}] invalid URL: ${url}`);
     }
     const hostname = parsed.hostname;
+    // Hard SSRF reject before any allow decision. The dynamic `x-allowed-host`
+    // path already filters these at resolution time, but a static
+    // `manifest.allowedHosts` entry (e.g. `localhost`, `169.254.169.254`,
+    // `metadata.google.internal`) would otherwise reach loopback or
+    // instance-metadata endpoints. Reject regardless of which allow list a
+    // host appears on so the manifest can never opt out of the blocklist.
+    if (isBlockedHostname(hostname)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host not in allowlist: ${hostname}`,
+      );
+    }
     const inManifest = isHostAllowed(hostname, allowedHosts);
     const inAdmin = isNil(adminAllowlist) ? true : isHostAllowed(hostname, adminAllowlist);
     const staticAllowed = inManifest && inAdmin;
