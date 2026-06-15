@@ -165,7 +165,7 @@ Semantics:
 - `adminTriggerable: true` → exposes job at `POST /api/jobs/:id/trigger` with no input (runs handler as if cron fired, `triggeredBy: "admin"`). Skip-if-running applies — cron tick mid-run → manual trigger returns `job.already_running`.
 - `capture` controls how failures labeled in error pipeline: host-internal → `{ source: "cron" }`; plugin jobs → `{ source: "plugin", pluginId }`.
 
-Used for: `pending_auth` sweep, `plugin_store` expired-row sweep, `error_records` retention sweep, plugin-global scheduled jobs.
+Used for: `pending_auth` sweep, `plugin_store` expired-row sweep, `error_records` retention sweep, `host.auth.stale_client_sweep` (deletes dynamically-registered OAuth clients no user authorized within the TTL — see `docs/mcp-server.md` §OAuth server), plugin-global scheduled jobs.
 
 ### `registerScheduledPerRow`
 
