@@ -307,6 +307,14 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
       .from(libraryItems)
       .where(and(eq(libraryItems.userId, USER_ID), eq(libraryItems.id, absentId)));
     expect(absent[0]?.owned).toBe(false);
+    // Spot-check kept rows in both chunks stay owned: a chunking bug that
+    // tombstoned a whole `inArray` slice instead of just the absent set could
+    // still report `removed === 1` if the absent row landed alone in one slice,
+    // but would flip these kept rows to `owned = false`.
+    const keptSecond = ownedIds[1]!; // First chunk.
+    const keptLast = ownedIds[OVER_LIMIT - 1]!; // Past the 900-row chunk boundary.
+    expect((await rowById(keptSecond))?.owned).toBe(true);
+    expect((await rowById(keptLast))?.owned).toBe(true);
   });
 
   // FEED THROW — a terminal all-providers failure inside `getCollectionFeed`
