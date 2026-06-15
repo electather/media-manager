@@ -11,6 +11,7 @@ import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { triggerAnchorDownload } from "@/shared/lib/anchor-download";
+import { api } from "@/shared/lib/api";
 import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
@@ -33,11 +34,32 @@ function DangerPage() {
   const [exportLocked, setExportLocked] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const startExport = () => {
+  const startExport = async () => {
     setExportLocked(true);
-    triggerAnchorDownload("/api/me/export");
-    toast.success(m.settings_danger_toast_export_started());
-    window.setTimeout(() => setExportLocked(false), 1000);
+    try {
+      // Fetch the export through the typed API client so a non-2xx response
+      // (e.g. 401, 429, 500) surfaces as an error toast instead of a silent
+      // no-op from the fire-and-forget anchor approach.
+      const res = await api.me.export.$get();
+      if (!res.ok) {
+        toast.error(m.settings_danger_delete_failed());
+        return;
+      }
+      // Derive the filename from the Content-Disposition header when present,
+      // falling back to a generic name so the blob URL download is labelled.
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const nameMatch = /filename="([^"]+)"/.exec(disposition);
+      const filename = nameMatch?.[1] ?? "export.zip";
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      triggerAnchorDownload(objectUrl, filename);
+      URL.revokeObjectURL(objectUrl);
+      toast.success(m.settings_danger_toast_export_started());
+    } catch {
+      toast.error(m.settings_danger_delete_failed());
+    } finally {
+      setExportLocked(false);
+    }
   };
 
   const onDeleted = async () => {
@@ -65,7 +87,7 @@ function DangerPage() {
               variant="outline"
               size="sm"
               disabled={exportLocked}
-              onClick={startExport}
+              onClick={() => void startExport()}
               data-testid="export-data"
             >
               {exportLocked ? (
@@ -118,14 +140,11 @@ function DeleteAccountDialog({
   email,
   onClose,
   onDeleted,
-  onSubmit,
 }: {
   open: boolean;
   email: string;
   onClose: () => void;
   onDeleted: () => void;
-  /** Optional override used by tests; default path calls the API. */
-  onSubmit?: (input: { confirmEmail: string; currentPassword: string }) => Promise<void>;
 }) {
   const [typed, setTyped] = useState("");
   const [pw, setPw] = useState("");
@@ -151,12 +170,7 @@ function DeleteAccountDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const body = { confirmEmail: trimmedEmail, currentPassword: pw };
-      if (onSubmit) {
-        await onSubmit(body);
-      } else {
-        await deleteAccount(body);
-      }
+      await deleteAccount({ confirmEmail: trimmedEmail, currentPassword: pw });
       onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : m.settings_danger_delete_failed());
@@ -239,7 +253,6 @@ interface RevealInputProps {
   onChange: (next: string) => void;
   placeholder?: string;
   autoComplete?: string;
-  autoFocus?: boolean;
   ariaInvalid?: boolean;
   "data-testid"?: string;
 }
@@ -254,7 +267,6 @@ function RevealInput(props: RevealInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={rest.autoComplete}
-        autoFocus={rest.autoFocus}
         placeholder={rest.placeholder}
         aria-invalid={rest.ariaInvalid ? true : undefined}
         data-testid={rest["data-testid"]}
@@ -263,7 +275,11 @@ function RevealInput(props: RevealInputProps) {
       <button
         type="button"
         onClick={() => setShown((s) => !s)}
-        aria-label={shown ? "Hide password" : "Show password"}
+        aria-label={
+          shown
+            ? m.settings_danger_reauth_password_hide()
+            : m.settings_danger_reauth_password_show()
+        }
         className="absolute inset-y-0 right-1 flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
       >
         {shown ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}

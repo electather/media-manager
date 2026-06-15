@@ -24,12 +24,21 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
+// Mock the settings fetchers module so the dialog always calls deleteAccount
+// directly without needing a test-only escape hatch prop.
+const deleteAccountMock = vi.hoisted(() => vi.fn<() => Promise<void>>());
+vi.mock("@/features/settings", async () => {
+  const actual = await vi.importActual<typeof import("@/features/settings")>("@/features/settings");
+  return { ...actual, deleteAccount: deleteAccountMock };
+});
+
 import { DeleteAccountDialog } from "@/features/settings-danger/components/settings-danger-page";
-import { renderWithProviders } from "./test-utils";
+import { renderWithProviders } from "@/features/settings/__tests__/test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
   toastMock.error.mockReset();
+  deleteAccountMock.mockReset();
 });
 
 afterEach(() => cleanup());
@@ -38,13 +47,7 @@ describe("DeleteAccountDialog", () => {
   it("disables submit until both email + password are valid", async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <DeleteAccountDialog
-        open
-        email="alex@example.com"
-        onClose={() => {}}
-        onDeleted={() => {}}
-        onSubmit={async () => {}}
-      />,
+      <DeleteAccountDialog open email="alex@example.com" onClose={() => {}} onDeleted={() => {}} />,
     );
 
     const confirm = await screen.findByTestId("confirm-delete");
@@ -57,8 +60,8 @@ describe("DeleteAccountDialog", () => {
     );
   });
 
-  it("calls onSubmit with the trimmed email + password", async () => {
-    const onSubmit = vi.fn(async () => {});
+  it("calls deleteAccount with the trimmed email + password and invokes onDeleted", async () => {
+    deleteAccountMock.mockResolvedValue(undefined);
     const onDeleted = vi.fn();
     const user = userEvent.setup();
     renderWithProviders(
@@ -67,7 +70,6 @@ describe("DeleteAccountDialog", () => {
         email="alex@example.com"
         onClose={() => {}}
         onDeleted={onDeleted}
-        onSubmit={onSubmit}
       />,
     );
 
@@ -76,11 +78,25 @@ describe("DeleteAccountDialog", () => {
     await user.click(screen.getByTestId("confirm-delete"));
 
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith({
+      expect(deleteAccountMock).toHaveBeenCalledWith({
         confirmEmail: "alex@example.com",
         currentPassword: "Secret123!",
       }),
     );
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+  });
+
+  it("shows an error message when deleteAccount rejects", async () => {
+    deleteAccountMock.mockRejectedValue(new Error("Wrong password"));
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeleteAccountDialog open email="alex@example.com" onClose={() => {}} onDeleted={() => {}} />,
+    );
+
+    await user.type(screen.getByTestId("delete-email"), "alex@example.com");
+    await user.type(screen.getByTestId("delete-password"), "BadPass!");
+    await user.click(screen.getByTestId("confirm-delete"));
+
+    await waitFor(() => expect(screen.getByText("Wrong password")).toBeTruthy());
   });
 });
