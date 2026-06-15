@@ -72,8 +72,8 @@ export class TokenBucketLimiter {
     }
   }
 
-  /** Number of live buckets. Exposed so eviction is observable in tests and
-   *  diagnostics; the limiting decision never depends on it. */
+  /** Number of live buckets. Exposed so eviction is observable in tests; the
+   *  limiting decision never depends on it. */
   get size(): number {
     return this.buckets.size;
   }

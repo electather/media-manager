@@ -2,14 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TokenBucketLimiter } from "../rate-limit";
 
-// PR #588 added `publicIpLimiter`, keyed by public client IPs — an
-// internet-facing, unbounded key namespace. TokenBucketLimiter must therefore
-// reclaim buckets it no longer needs instead of keeping an entry per key ever
-// seen. Eviction is deliberately invisible to the limiting *decision*: a bucket
-// that has refilled to capacity and gone idle is indistinguishable from a
-// never-seen key (recreating it yields the same full bucket), so `check()`
-// alone cannot reveal whether a stale entry was reclaimed. These tests observe
-// the bucket count (`size`) directly to pin the eviction down.
+// `TokenBucketLimiter` must reclaim buckets it no longer needs when keyed by an
+// unbounded internet-facing namespace (e.g. public client IPs). Eviction is
+// deliberately invisible to the limiting *decision*: a bucket that has refilled
+// to capacity and gone idle is indistinguishable from a never-seen key
+// (recreating it yields the same full bucket), so `check()` alone cannot reveal
+// whether a stale entry was reclaimed. These tests observe the bucket count
+// (`size`) directly to pin the eviction down.
 describe("TokenBucketLimiter — idle bucket eviction", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -69,5 +68,21 @@ describe("TokenBucketLimiter — idle bucket eviction", () => {
     // ...and it is still throttled: eviction did not silently hand it a fresh,
     // full bucket that would let the caller skip its limit.
     expect(limiter.check("noisy")).not.toBeNull();
+  });
+
+  it("evicts a full bucket idle for exactly the window (contract is 'idle for at least the window')", () => {
+    const idleEvictionMs = 60_000;
+    const limiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 1, idleEvictionMs });
+
+    expect(limiter.check("edge")).toBeNull();
+    expect(limiter.size).toBe(1);
+
+    // Idle for *exactly* the window. `idleEvictionMs`'s contract is "untouched
+    // for at least this many ms", so this full bucket is eligible: the sweep on
+    // the next access must evict it. Pins the boundary against an off-by-one
+    // (e.g. flipping the `<` guard to `<=`, which would mean "more than").
+    vi.setSystemTime(idleEvictionMs);
+    expect(limiter.check("trigger")).toBeNull();
+    expect(limiter.size).toBe(1); // "edge" evicted; only "trigger" remains
   });
 });
