@@ -284,6 +284,10 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
   // the first assertion.
   it("persists completed chunks before a later chunk stalls", async () => {
     const COUNT = 30; // Two chunks: rows 0–24 then 25–29 (HYDRATE_CONCURRENCY = 25).
+    // `staleOrNew` orders by composite id, so the chunk boundary is deterministic:
+    // ids `movie:2000`–`movie:2024` are chunk 1, `movie:2025`–`movie:2029` chunk 2.
+    // The per-id assertions below depend on that explicit ordering, not on
+    // SQLite's incidental PK order.
     for (let i = 0; i < COUNT; i++) {
       await seedOwned(String(2000 + i));
     }
