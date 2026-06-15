@@ -15,7 +15,7 @@ import { WatchlistErrorFallback } from "../../watchlist-error-fallback";
 import { MoodCluster } from "./mood-cluster";
 
 const MAX_CLUSTERS = 3;
-const SK_CLUSTER_PX = 420; // Cluster card skeleton height (poster 2/3 + head).
+const SK_CLUSTER = 420; // Cluster card skeleton height (poster 2/3 + head).
 
 export function MoodMosaic() {
   const { data } = useMoods();
@@ -52,9 +52,7 @@ export function MoodMosaic() {
             )}
           >
             <Suspense
-              fallback={
-                <Skeleton className="w-full rounded-2xl" style={{ height: SK_CLUSTER_PX }} />
-              }
+              fallback={<Skeleton className="w-full rounded-2xl" style={{ height: SK_CLUSTER }} />}
             >
               <MoodCluster moodId={c.moodId} count={c.count} />
             </Suspense>
