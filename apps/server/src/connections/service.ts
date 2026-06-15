@@ -18,6 +18,7 @@ import { decryptField, encryptJson } from "../crypto/helpers";
 import {
   computeDisplayFields,
   fetchConnectionByOwner,
+  parseUserConfig,
   promoteToDefault,
   requireConnection,
   stripRequestFields,
@@ -219,7 +220,7 @@ export const connectionsService = {
       if (!pluginRow) continue;
       if (pluginRow.enabled !== 1) continue;
       const manifest = parseManifest(pluginRow.manifest);
-      const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+      const userConfig = parseUserConfig(row.userConfig);
       const adminSharedAvailable = await fetchAdminShared(pluginRow.id);
       result.push({
         id: row.id,
@@ -250,7 +251,7 @@ export const connectionsService = {
     // Surface the inconsistency instead — the caller should reconnect or the
     // operator should delete the row.
     if (!pluginRow) throw notFound("connection.plugin_missing", "plugin not installed");
-    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+    const userConfig = parseUserConfig(row.userConfig);
     const schema = parseManifest(pluginRow.manifest).userConfigSchema;
     return stripResponseFields(schema, userConfig);
   },
@@ -280,9 +281,14 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
+    // Guard with requireConnection so a missing or foreign id throws
+    // connection.not_found (matching setDefault and updateUserConfig) instead
+    // of silently returning 200 OK with zero rows updated.
+    await requireConnection(db, args.connectionId, args.userId);
     await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
+    await invalidateUserCache(args.userId);
   },
 
   // fallow-ignore-next-line complexity
@@ -304,8 +310,7 @@ export const connectionsService = {
     // merge so a client cannot overwrite a plugin-owned field; the prior
     // stored value (resolved by the plugin on the last auth round-trip) is
     // what ends up in `merged`.
-    const prior =
-      (row.userConfig ? (JSON.parse(row.userConfig) as Record<string, unknown>) : null) ?? {};
+    const prior = (parseUserConfig(row.userConfig) as Record<string, unknown> | null) ?? {};
     const sanitizedIncoming = (stripRequestFields(manifest.userConfigSchema, args.userConfig) ??
       {}) as Record<string, unknown>;
     const merged = { ...prior, ...sanitizedIncoming };
@@ -392,7 +397,7 @@ export const connectionsService = {
     const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return { ok: false, message: "connection not found" };
     const credentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
-    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+    const userConfig = parseUserConfig(row.userConfig);
     const result = await pluginRuntime.testConnection(
       row.pluginId,
       args.userId,

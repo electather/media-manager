@@ -10,6 +10,7 @@ import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors"
 import { decryptField, encryptJson } from "../crypto/helpers";
 import {
   findConnectionForPlugin,
+  parseUserConfig,
   reconnectConnection,
   stripRequestFields,
   writeConnection,
@@ -308,7 +309,8 @@ async function persistConnectionFromAuth(
   if (!module.manifest.poolable) {
     const existing = await findConnectionForPlugin(db, userId, pluginId);
     if (existing) {
-      const priorConfig = existing.userConfig ? (JSON.parse(existing.userConfig) as unknown) : null;
+      // Use a guarded parse: a malformed row must not block the reconnect path.
+      const priorConfig = parseUserConfig(existing.userConfig);
       await reconnectConnection({
         connectionId: existing.id,
         userId,
