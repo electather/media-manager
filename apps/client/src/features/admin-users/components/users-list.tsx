@@ -7,11 +7,15 @@ import { Button } from "@/shared/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-group";
 import { cn } from "@/shared/lib/utils";
 
-import type { AdminInvite, AdminUserSummary, AdminUsersFilter } from "../lib/types";
+import {
+  ADMIN_USER_ROLE_IDS,
+  type AdminInvite,
+  type AdminUserSummary,
+  type AdminUsersFilter,
+} from "../lib/types";
 import { isAdmin, isInviteActive } from "../lib/user-predicates";
 import { InviteRow } from "./invite-row";
 import { UserRow } from "./user-row";
-import { roleSummaries } from "../lib/role-summaries";
 
 interface Props {
   users: AdminUserSummary[];
@@ -34,15 +38,12 @@ export function UsersList({
   onQueryChange,
   onOpenUser,
 }: Props) {
-  const roles = roleSummaries();
-
   const rolesById = useMemo(
     () =>
-      Object.fromEntries(roles.map((r) => [r.id, r])) as Record<
-        string,
-        { id: string; name: string }
-      >,
-    [roles],
+      Object.fromEntries(
+        ADMIN_USER_ROLE_IDS.map((id) => [id, { id, name: m.admin_users_role_name({ role: id }) }]),
+      ) as Record<string, { id: string; name: string }>,
+    [],
   );
 
   const now = Date.now();

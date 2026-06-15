@@ -18,6 +18,21 @@ export interface AdminUserDetail extends AdminUserSummary {
 
 export type AdminUsersFilter = "all" | "admins" | "invites";
 
+// Selectable roles in the invite drawer and user-detail role picker, in display
+// order. Mirrors the seed roles in features/admin-roles. The backend exposes no
+// list-roles endpoint yet; once `GET /api/admin/roles` lands, replace this static
+// list with the fetched roles. Names and descriptions live in the
+// admin_users_role_name / admin_users_role_description Paraglide variants, which
+// are keyed on these ids.
+export const ADMIN_USER_ROLE_IDS = ["role_admin", "role_member", "role_viewer"] as const;
+
+export type AdminUserRoleId = (typeof ADMIN_USER_ROLE_IDS)[number];
+
+/** Narrows an arbitrary role id to one of the statically known, selectable roles. */
+export function isAdminUserRoleId(id: string | null | undefined): id is AdminUserRoleId {
+  return ADMIN_USER_ROLE_IDS.includes(id as AdminUserRoleId);
+}
+
 export type AdminInviteKind = "email" | "link";
 
 export interface AdminInvite {
