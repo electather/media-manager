@@ -92,9 +92,9 @@ function RecentRow({
         )}
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
-        {/* Label is computed at render time; frozen between renders since there
-            is no tick interval. Acceptable here: the strip re-mounts on route
-            change and auto-refetches via the section's query stale time. */}
+        {/* Label computed fresh each render — no tick interval, so the value
+            advances only when the section re-renders (route change or stale-time
+            refetch). Live-clock precision not needed here. */}
         <span className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
           {item.addedAt != null ? relativeLabel(item.addedAt) : null}
         </span>
