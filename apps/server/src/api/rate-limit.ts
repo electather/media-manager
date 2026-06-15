@@ -105,9 +105,10 @@ export function clientIp(c: Context): string {
  *
  * One shared bucket pool guards all three public route groups on purpose (they
  * are all low-value decorative reads, so an IP's budget is shared across them).
- * Like the other TokenBucketLimiters its key→bucket Map is unbounded; keyed by
- * public client IPs that surface is larger than the per-user limiters, so LRU /
- * periodic eviction is worth a follow-up (tracked separately).
+ * Keyed by public client IPs the map would otherwise accumulate an entry per IP
+ * ever seen; TokenBucketLimiter caps that by evicting buckets that have
+ * refilled to full and gone idle (see its `idleEvictionMs`), so the map stays
+ * bounded by recently-active IPs.
  */
 export const publicIpLimiter = new TokenBucketLimiter({ capacity: 60, refillPerSec: 1 });
 

@@ -87,6 +87,17 @@ GET /api/public/trending?limit=<n>
   it keys on the socket peer address so a directly-exposed server can't be
   evaded with a forged header. See `apps/server/src/api/rate-limit.ts`
   (`publicIpRateLimit`).
+  - The limiter's key→bucket map is **bounded**. Because this limiter is keyed
+    on the (effectively unbounded, internet-facing) client IP, `TokenBucketLimiter`
+    evicts buckets that have refilled to capacity and gone idle past a window
+    (`idleEvictionMs`, default 10 min). A full, idle bucket is identical to a
+    never-seen key — recreating it yields the same full bucket — so eviction
+    never changes a limiting decision; it only caps the map's `size` at
+    recently-active IPs rather than accumulating one entry per IP ever seen.
+    Because sweeps are throttled to once per window, a newly idle key can remain
+    until the next sweep; in practice the map tracks IPs active within roughly
+    two windows, not a hard one-window cap. See `idleEvictionMs` in
+    `apps/server/src/mcp/rate-limit.ts`.
 
 ### 2. Client — fetch + render
 
