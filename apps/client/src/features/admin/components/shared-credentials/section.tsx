@@ -36,13 +36,13 @@ import { useNow } from "@/shared/hooks/use-now";
 import type { JSONSchema } from "@nama/shared";
 import { m } from "@/paraglide/messages";
 
-import { adminPluginsKeys } from "@/features/admin-plugins/shared/query-keys";
 import {
   fetchDeleteSharedCredential,
   fetchPatchSharedCredential,
   fetchSharedCredentials,
   fetchTestSharedCredentialPersisted,
 } from "../../lib/fetchers";
+import { adminKeys } from "../../lib/query-keys";
 
 import { SharedCredentialDialog } from "./dialog";
 
@@ -76,18 +76,20 @@ export function SharedCredentialsSection({
 }: SharedCredentialsSectionProps) {
   const qc = useQueryClient();
   const entries = useQuery({
-    queryKey: adminPluginsKeys.sharedCredentials(pluginId),
+    queryKey: adminKeys.sharedCredentials(pluginId),
     queryFn: () => fetchSharedCredentials(pluginId).then((body) => body.entries),
   });
 
   // Per design doc § "TanStack Query invalidation map": only changes that
-  // affect the meta line counters (add, delete, enable-toggle) should
-  // invalidate the parent `adminPluginsKeys.list()` key. A label/value-only
-  // edit fires `refetchLocal` so the row list updates without spawning an
-  // extra top-level plugins query.
+  // affect the meta line counters (add, delete, enable-toggle) should refetch
+  // the parent plugin row. That refetch is the caller's responsibility — it is
+  // delegated through `onChanged()` (the tab invalidates its own
+  // `adminPluginsKeys.list()` key). A label/value-only edit fires
+  // `refetchLocal`, which only re-reads this feature's credentials list so the
+  // rows update without spawning an extra top-level plugins query.
   const refetchLocal = () => {
     void qc.invalidateQueries({
-      queryKey: adminPluginsKeys.sharedCredentials(pluginId),
+      queryKey: adminKeys.sharedCredentials(pluginId),
     });
   };
   const refetchPool = () => {
@@ -292,20 +294,17 @@ function CredentialRow({
     // Optimistic update: flip the row's `enabled` immediately so the Switch
     // moves before the round-trip completes (hard rule 6 — >100ms latency).
     onMutate: async (next: boolean) => {
-      await qc.cancelQueries({ queryKey: adminPluginsKeys.sharedCredentials(pluginId) });
-      const prev = qc.getQueryData<SharedCredentialEntry[]>(
-        adminPluginsKeys.sharedCredentials(pluginId),
-      );
-      qc.setQueryData<SharedCredentialEntry[]>(
-        adminPluginsKeys.sharedCredentials(pluginId),
-        (old) => old?.map((row) => (row.id === entry.id ? { ...row, enabled: next } : row)),
+      await qc.cancelQueries({ queryKey: adminKeys.sharedCredentials(pluginId) });
+      const prev = qc.getQueryData<SharedCredentialEntry[]>(adminKeys.sharedCredentials(pluginId));
+      qc.setQueryData<SharedCredentialEntry[]>(adminKeys.sharedCredentials(pluginId), (old) =>
+        old?.map((row) => (row.id === entry.id ? { ...row, enabled: next } : row)),
       );
       return { prev };
     },
     onError: (_err, _next, ctx) => {
       // Restore the snapshot if the server rejected the change.
       if (ctx?.prev) {
-        qc.setQueryData(adminPluginsKeys.sharedCredentials(pluginId), ctx.prev);
+        qc.setQueryData(adminKeys.sharedCredentials(pluginId), ctx.prev);
       }
       toast.error(m.admin_plugins_shared_creds_toast_toggle_error());
     },
@@ -349,7 +348,7 @@ function CredentialRow({
         {showResult && test.isSuccess && test.data && !test.data.ok ? (
           <span className="inline-flex items-center gap-1 text-xs text-destructive">
             <XIcon className="size-3" />{" "}
-            {test.data.message ?? m.admin_plugins_shared_creds_row_test()}
+            {test.data.message ?? m.admin_plugins_shared_creds_row_test_failed()}
           </span>
         ) : null}
         {showResult && test.isError ? (

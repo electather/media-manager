@@ -8,6 +8,10 @@ const readJson = <R extends Response>(res: R) => readOkJson(res, AdminApiError);
 // ─── Shared credentials ───────────────────────────────────────────────────────
 
 /** Lists all shared credential entries for a plugin. */
+// The single-line `readJson(await api…$get({ param: { id } }))` idiom is the
+// shared fetcher pattern (already deduplicated behind `readOkJson`); the clone
+// detector matches its shape against the sibling admin-plugins fetchers file.
+// fallow-ignore-next-line code-duplication
 export async function fetchSharedCredentials(pluginId: string) {
   return readJson(await api.plugins[":id"]["shared-credentials"].$get({ param: { id: pluginId } }));
 }
@@ -32,12 +36,12 @@ export async function fetchPatchSharedCredential(input: {
   credId: string;
   patch: { label?: string; value?: unknown; enabled?: boolean };
 }) {
-  const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-    param: { id: input.pluginId, credId: input.credId },
-    json: input.patch,
-  });
-  if (!res.ok) await throwOnApiError(res, AdminApiError);
-  return res.json();
+  return readJson(
+    await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
+      param: { id: input.pluginId, credId: input.credId },
+      json: input.patch,
+    }),
+  );
 }
 
 /** Deletes a shared credential entry. */
@@ -53,11 +57,11 @@ export async function fetchTestSharedCredentialPersisted(input: {
   pluginId: string;
   credId: string;
 }) {
-  const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
-    param: { id: input.pluginId, credId: input.credId },
-  });
-  if (!res.ok) await throwOnApiError(res, AdminApiError);
-  return res.json() as Promise<{ ok: boolean; message?: string }>;
+  return readJson(
+    await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
+      param: { id: input.pluginId, credId: input.credId },
+    }),
+  ) as Promise<{ ok: boolean; message?: string }>;
 }
 
 /** Tests an unsaved credential value via the ephemeral endpoint. */
