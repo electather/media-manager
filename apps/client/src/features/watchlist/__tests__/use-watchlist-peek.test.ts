@@ -23,21 +23,14 @@ describe("useWatchlistPeek", () => {
     });
 
     expect(navigateMock).toHaveBeenCalledOnce();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const call: {
-      to: string;
-      replace: boolean;
-      resetScroll: boolean;
-      search: (p: Record<string, unknown>) => unknown;
-    } = navigateMock.mock.calls[0]![0];
-    // Route stays at current location.
-    expect(call.to).toBe(".");
-    // replace:false so the peek can be dismissed with the back button.
-    expect(call.replace).toBe(false);
-    // resetScroll:false so the user returns to the same scroll position.
-    expect(call.resetScroll).toBe(false);
-    // search merges peek into current params.
-    const merged = call.search({ sort: "recent" });
+    const [callArg] = navigateMock.mock.calls[0]!;
+    // Route stays at current location; replace:false allows back-button dismiss;
+    // resetScroll:false preserves the user's scroll position on dismiss.
+    expect(callArg).toMatchObject({ to: ".", replace: false, resetScroll: false });
+    // search must merge peek into the existing params, not replace them.
+    const merged = (callArg as { search: (p: Record<string, unknown>) => unknown }).search({
+      sort: "recent",
+    });
     expect(merged).toEqual({ sort: "recent", peek: "tt0111161" });
   });
 
