@@ -102,12 +102,16 @@ export async function tombstoneMissing(
   // ids in JS, and tombstone them by id using bounded IN predicates.
   //
   // This splits the atomic fast-path UPDATE into read-then-update with no
-  // enclosing transaction. That is safe ONLY under the single-writer sync model:
-  // `library.sync` is the lone writer (cron + per-user seed lock, design §Sync),
-  // and its phase-1 upsert completes before this runs, so no concurrent writer
-  // can insert or own a row between step 1 and step 2. A future caller invoking
-  // `tombstoneMissing` concurrently with another owner-mutating writer would
-  // open a TOCTOU window here that the fast path does not have.
+  // enclosing transaction. That is safe ONLY because the caller holds the
+  // per-user seed lock across both phase-1 upsert and this phase-2 tombstone
+  // (`library.sync` is the lone writer, design §Sync), so no concurrent writer
+  // can insert or own a row between step 1 and step 2. The lock — not the
+  // `owned = true` predicate below — is what closes the gap: that predicate only
+  // prevents double-tombstoning a row already tombstoned between the steps; it
+  // does NOT catch a row inserted-and-absent-from-`keepKeys` after step 1, which
+  // would escape the sweep entirely if a second writer could run concurrently. A
+  // future caller invoking `tombstoneMissing` outside the seed-locked sync job
+  // therefore opens a TOCTOU window (missed tombstone) the fast path does not have.
   //
   // Step 1: collect currently-owned ids for this user.
   const ownedRows = await db
