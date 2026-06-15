@@ -192,6 +192,28 @@
   "admin_users_pending_empty": "No pending invites.",
   "admin_users_you_badge": "You",
   "admin_users_no_role": "No role",
+  "admin_users_role_name": [
+    {
+      "declarations": ["input role"],
+      "selectors": ["role"],
+      "match": {
+        "role=role_admin": "Admin",
+        "role=role_member": "Member",
+        "role=role_viewer": "Viewer"
+      }
+    }
+  ],
+  "admin_users_role_description": [
+    {
+      "declarations": ["input role"],
+      "selectors": ["role"],
+      "match": {
+        "role=role_admin": "Full server access. Bypasses every permission check.",
+        "role=role_member": "Standard user — personal connections, watchlist, requests, and feedback.",
+        "role=role_viewer": "Read-only — can browse but not request, rate, or link external services."
+      }
+    }
+  ],
 
   "admin_users_invite_drawer_title": "Invite users",
   "admin_users_invite_drawer_subtitle": "Send email invites or generate a shareable link. Invitees pick their password and land on Profile.",
