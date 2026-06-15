@@ -2,7 +2,7 @@ import { m } from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 
 /** Heuristic 0–4 password strength score driving the meter and label. */
-export function passwordScore(pw: string): number {
+function passwordScore(pw: string): number {
   if (!pw) return 0;
   const checks = [
     pw.length >= 8,
