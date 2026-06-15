@@ -96,6 +96,8 @@ function ModalBody({
   onToggleWatchlist: () => void;
   onViewFullPage?: () => void;
 }) {
+  // Note/edit state — persistence not yet wired; all entry-points are disabled.
+  // Restore jumpToNote + re-wire ModalFeedback when persistence lands.
   const [note, setNote] = useState("");
   const [noteEditing, setNoteEditing] = useState(false);
   const noteSectionRef = useRef<HTMLDivElement>(null);
