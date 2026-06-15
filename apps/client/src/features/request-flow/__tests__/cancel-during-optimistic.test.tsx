@@ -11,13 +11,13 @@ const apiMock = vi.hoisted(() => ({
   history: vi.fn(),
   cancel: vi.fn(),
 }));
-vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+vi.mock("../lib/fetchers", () => ({ requestsApi: apiMock }));
 
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 
-import { useCancelRequest } from "../api/use-cancel-request";
-import { useCreateRequest } from "../api/use-create-request";
-import { requestFlowKeys } from "../api/query-keys";
+import { useCancelRequest } from "../hooks/use-cancel-request";
+import { useCreateRequest } from "../hooks/use-create-request";
+import { requestFlowKeys } from "../lib/query-keys";
 
 function withClient() {
   const qc = new QueryClient({
@@ -91,5 +91,31 @@ describe("cancel during optimistic window", () => {
 
     // Drain pending create.
     resolveCreate({ requestId: "42" });
+  });
+
+  it("drops the optimistic row and invalidates when the server settles with requestId: null", async () => {
+    const { qc, Wrapper } = withClient();
+    qc.setQueryData<MediaRequestsResponse>(requestFlowKeys.history(), { items: [] });
+
+    // The server can legitimately return a successful create with no id; the
+    // synthetic `__optimistic-*` id must not survive as the row's identity,
+    // because Cancel short-circuits those ids and could never reach the live
+    // server request (the bug behind #619).
+    apiMock.create.mockResolvedValueOnce({ requestId: null });
+
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useCreateRequest(), { wrapper: Wrapper });
+
+    await result.current.mutateAsync({ tmdbId: "550", mediaType: "movie", serviceId: "conn-1:1" });
+
+    // No row retains a synthetic id after a null-id settle.
+    const cache = qc.getQueryData<MediaRequestsResponse>(requestFlowKeys.history());
+    expect(cache?.items.some((r) => r.id.startsWith("__optimistic-"))).toBe(false);
+
+    // History is invalidated so a refetch reconciles the live server request.
+    const historyInvalidated = invalidateSpy.mock.calls.some(
+      ([opts]) => Array.isArray(opts?.queryKey) && opts.queryKey[1] === "history",
+    );
+    expect(historyInvalidated).toBe(true);
   });
 });
