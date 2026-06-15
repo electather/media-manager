@@ -88,6 +88,10 @@ function parseGlobalConfig(pluginId: string, raw: string | null): unknown {
   // empty value (manual DB edit, migration bug) surfaces as the typed
   // `plugin.input_invalid` rather than being silently swallowed as `null`.
   if (raw == null) return null;
+  // `raw` here is non-null and was produced by `setGlobalConfig` via
+  // `JSON.stringify`, so it is valid JSON. The ambiguous `JSON.parse("null")
+  // → null` case cannot arise: `setGlobalConfig(id, null)` clears the column to
+  // SQL NULL (handled above), never persists the literal string `"null"`.
   const [err, parsed] = attempt(() => JSON.parse(raw) as unknown);
   if (err) {
     throw new PluginError(
