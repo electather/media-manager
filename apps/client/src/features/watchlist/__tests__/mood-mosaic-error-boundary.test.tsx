@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { Suspense, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MoodMosaic } from "../components/sections/mood-mosaic";
 import { watchlistKeys } from "../lib/query-keys";
@@ -67,9 +67,7 @@ describe("MoodMosaic — cluster error boundary wiring", () => {
     // The cache key targeted by the retry button must be the cluster's own
     // moodItems key, not the root key, so retry is scoped to the one cluster.
     const resetQueriesSpy = vi.spyOn(client, "resetQueries");
-    act(() => {
-      screen.getByRole("button", { name: /retry/i }).click();
-    });
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(resetQueriesSpy).toHaveBeenCalledWith({
       queryKey: watchlistKeys.moodItems("cozy"),
     });
