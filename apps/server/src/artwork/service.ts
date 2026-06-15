@@ -1,10 +1,11 @@
 import { consola } from "consola";
-import type {
-  ArtworkBundle,
-  ArtworkError,
-  ArtworkGetResponse,
-  ArtworkIdMap,
-  ArtworkRequestItem,
+import {
+  canonicalArtworkKey,
+  type ArtworkBundle,
+  type ArtworkError,
+  type ArtworkGetResponse,
+  type ArtworkIdMap,
+  type ArtworkRequestItem,
 } from "@nama/shared/artwork";
 import type { CatalogService } from "../catalog";
 import { dispatchAggregatePerKind, PluginCallError } from "../media";
@@ -85,6 +86,9 @@ export class ArtworkService {
     // `lastRefreshedAt`, which would defer nightly `listStaleMetadata`
     // re-pickup for rows that legitimately have nothing yet.
     if (!urls.posterUrl && !urls.backdropUrl && !urls.clearLogoUrl) return;
+    // Suppress redundant patches when this canonical row was already written
+    // inside the dedup window, e.g. many users viewing the same hot title.
+    if (!claimWriteBack(entry.key, Date.now())) return;
     void this.catalogService
       .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, urls)
       .catch((err) => {
@@ -109,32 +113,58 @@ function top1(bundle: ArtworkBundle): {
 const DEFAULT_LANGUAGES = ["en", "00"] as const;
 
 interface CanonicalEntry {
+  /** Stable canonical key, also used to dedupe write-backs across requests. */
+  key: string;
   ids: ArtworkIdMap;
   type: "movie" | "tv";
   clientKeys: string[];
 }
 
+/**
+ * How long a canonical key stays "recently patched" before another write-back
+ * is allowed. The canonical metadata row is shared across all users, so when N
+ * users view the same hot title in the same window every fulfilled dispatch
+ * would otherwise fire its own COALESCE UPDATE against the one row. The patch
+ * is idempotent, but the redundant write/WAL traffic scales with concurrent
+ * viewers. Collapsing to at most one patch per key per window keeps a hot title
+ * from amplifying writes while still letting later renders refresh the row.
+ */
+const WRITE_BACK_DEDUP_MS = 60_000;
+
+/**
+ * Process-wide record of when each canonical key was last patched. Lives at
+ * module scope because `ArtworkService` is constructed per request, so the
+ * dedup state has to span requests to suppress cross-user amplification.
+ */
+const recentWriteBacks = new Map<string, number>();
+
+/**
+ * Returns `true` and records the timestamp when a write-back for `key` should
+ * proceed; returns `false` when one already fired inside the dedup window.
+ * Prunes expired entries on each call so the map cannot grow unbounded.
+ */
+function claimWriteBack(key: string, now: number): boolean {
+  for (const [k, at] of recentWriteBacks) {
+    if (now - at >= WRITE_BACK_DEDUP_MS) recentWriteBacks.delete(k);
+  }
+  const last = recentWriteBacks.get(key);
+  if (last !== undefined && now - last < WRITE_BACK_DEDUP_MS) return false;
+  recentWriteBacks.set(key, now);
+  return true;
+}
+
 function dedupeByCanonicalKey(items: ArtworkRequestItem[]): Map<string, CanonicalEntry> {
   const out = new Map<string, CanonicalEntry>();
   for (const item of items) {
-    const ck = canonicalKey(item.ids, item.type);
+    const ck = canonicalArtworkKey(item.ids, item.type);
     let entry = out.get(ck);
     if (!entry) {
-      entry = { ids: item.ids, type: item.type, clientKeys: [] };
+      entry = { key: ck, ids: item.ids, type: item.type, clientKeys: [] };
       out.set(ck, entry);
     }
     entry.clientKeys.push(item.key);
   }
   return out;
-}
-
-function canonicalKey(ids: ArtworkIdMap, type: "movie" | "tv"): string {
-  const parts: string[] = [type];
-  for (const k of ["tmdb", "imdb", "tvdb"] as const) {
-    const value = ids[k];
-    if (value) parts.push(`${k}:${value}`);
-  }
-  return parts.join("|");
 }
 
 function mapDispatchError(reason: unknown): ArtworkError {
