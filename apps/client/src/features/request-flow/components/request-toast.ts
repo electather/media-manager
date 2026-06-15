@@ -1,21 +1,6 @@
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
-import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
-
-/** Typed error thrown by `requestsApi.*` on non-2xx responses. */
-export class RequestError extends Error {
-  readonly status: number;
-  readonly code: string | undefined;
-  readonly body: ApiErrorBody | null;
-
-  constructor(status: number, body: ApiErrorBody | null) {
-    super(body?.message ?? `Request API failed (${status})`);
-    this.name = "RequestError";
-    this.status = status;
-    this.code = body?.code;
-    this.body = body;
-  }
-}
+import { RequestError } from "../lib/types";
 
 /** Maps a `RequestError` (or generic error) onto a destructive toast. */
 export function toastFromError(err: unknown): void {
