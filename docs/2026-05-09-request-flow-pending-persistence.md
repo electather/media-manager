@@ -245,7 +245,7 @@ resolvedSeasons = useMemo(() =>
 
 ### C.6 `useCreateRequest` — optimistic
 
-→ [apps/client/src/features/request-flow/api/use-create-request.ts](../apps/client/src/features/request-flow/api/use-create-request.ts)
+→ [apps/client/src/features/request-flow/hooks/use-create-request.ts](../apps/client/src/features/request-flow/hooks/use-create-request.ts)
 
 ```ts
 useMutation({
@@ -253,29 +253,53 @@ useMutation({
   onMutate: async (vars) => {
     await qc.cancelQueries({ queryKey: requestFlowKeys.history() })
     const prev = qc.getQueryData(requestFlowKeys.history())
+    const optimisticId = `__optimistic-${crypto.randomUUID()}`
     qc.setQueryData(requestFlowKeys.history(), (old) => ({
       items: [...(old?.items ?? []), {
-        id: `__optimistic-${crypto.randomUUID()}`,
+        id: optimisticId,
         tmdbId: vars.tmdbId, type: vars.mediaType, title: "",
         status: "pending" as const,
         seasons: vars.seasons ?? [],
-        targetLabel: null, profileLabel: null,
+        targetLabel: vars.serviceLabel ?? null, profileLabel: vars.profileLabel ?? null,
         createdAt: new Date().toISOString(),
       }],
     }))
-    return { prev }
+    return { prev, optimisticId }
   },
   onError: (_e, _v, ctx) => {
     if (ctx?.prev) qc.setQueryData(requestFlowKeys.history(), ctx.prev)
     toastFromError(...)
   },
-  onSuccess: () => qc.invalidateQueries({ queryKey: requestFlowKeys.history() }),
+  onSuccess: (data, vars, ctx) => {
+    // Null-id settle: no real id to swap in. Drop the optimistic row + invalidate
+    // so the next fetch reconciles under the real id (see §E null-id row).
+    if (data.requestId == null) {
+      qc.setQueryData(requestFlowKeys.history(), (old) => ({
+        items: (old?.items ?? []).filter((r) => r.id !== ctx?.optimisticId),
+      }))
+      qc.invalidateQueries({ queryKey: requestFlowKeys.history() })
+      return
+    }
+    // Normal path: swap the optimistic row for a real-id row with chosen labels.
+    // We do NOT invalidate — see the no-invalidate rationale below.
+    qc.setQueryData(requestFlowKeys.history(), (old) => ({
+      items: (old?.items ?? []).map((r) =>
+        r.id === ctx?.optimisticId
+          ? { ...r, id: data.requestId, targetLabel: vars.serviceLabel ?? r.targetLabel,
+              profileLabel: vars.profileLabel ?? r.profileLabel }
+          : r),
+    }))
+  },
 })
 ```
 
-Instant pending UI. Rollback on err → no flicker. Invalidate on 2xx → real `id` + `targetLabel`/`profileLabel` hydrate.
+Instant pending UI. Rollback on err → no flicker.
 
-Distinct from `targets` cache. Existing rule "NO invalidate(targets)" unchanged. We invalidate `history()` only.
+**No-invalidate on the normal 2xx path (refinement vs the original spec).** The first draft invalidated `history()` on every success. The shipped hook does not: Seerr can lag indexing a freshly-created request, so refetching here races a still-empty list and reverts the UI to the request button (re-arming a double-submit window). Instead we swap the optimistic row in place for a real-id row carrying the chosen labels; `staleTime` + focus-refetch on `useUserRequests` reconcile later without that flicker.
+
+**Null-id settle (the one path that *does* invalidate).** `createMediaRequestResponseSchema.requestId` is `z.string().nullable()`, so a 2xx can carry no id. There is then no real id to swap in, and retaining the synthetic `__optimistic-*` id would leave a row Cancel can never reach (`useCancelRequest` short-circuits those ids without `DELETE` — the #619 bug). So this branch drops the optimistic row and invalidates, knowingly trading the no-invalidate flicker guarantee because an uncancellable phantom row is worse than a transient revert. This is a rare path: the seerr provider populates `requestId` on success (`requestId: String(data.id)`), so the nullable case is a forward-compat allowance, not the common path. See the §E null-id row.
+
+Distinct from `targets` cache. Existing rule "NO invalidate(targets)" unchanged. We invalidate `history()` only, and only on the null-id branch.
 
 ### C.7 New `useCancelRequest`
 
@@ -353,6 +377,7 @@ Export `useUserRequests`, `useCancelRequest`. No removals.
 | History fetch fails | UI falls back to wire `item.status`. No toast. Silent. |
 | Optimistic id collision | UUID-prefixed `__optimistic-…` → never matches real id from server. |
 | Cancel during optimistic window | UI: disable × while `requestId.startsWith("__optimistic-")` (tooltip "submitting…"). Hook: `mutationFn` short-circuits — local cache filter only, no server call. See C.7. |
+| Create settles with `requestId: null` | Schema allows a null id on 2xx. Drop the optimistic row + `invalidate(history())` so the next fetch reconciles the live request under its real id. Retaining the `__optimistic-*` id would make the row permanently uncancellable (Cancel short-circuits synthetic ids). Knowingly trades the no-invalidate flicker guarantee on this rare path — an uncancellable phantom is worse than a transient revert. See C.6. (#619) |
 | Popover unmount on optimistic flip | Intended. `setStatus("pending")` removed from submit handler; derived render at [movie-request-action.tsx:66](../apps/client/src/features/request-flow/components/movie-request-action.tsx#L66) swaps `<Popover>`→`<RequestStatusInline>` immediately on `onMutate` cache write. Same for season picker. |
 | `getRequests` swallow→throw | Verified single consumer: [apps/server/src/api/procedures/requests.ts:17](../apps/server/src/api/procedures/requests.ts#L17). Safe to surface errors. |
 

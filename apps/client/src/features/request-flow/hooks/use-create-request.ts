@@ -4,9 +4,9 @@ import type {
   MediaRequest,
   MediaRequestsResponse,
 } from "@nama/shared/media";
-import { requestsApi } from "./client";
-import { requestFlowKeys } from "./query-keys";
-import { toastFromError } from "./errors";
+import { requestsApi } from "../lib/fetchers";
+import { requestFlowKeys } from "../lib/query-keys";
+import { toastFromError } from "../components/request-toast";
 
 interface CreateVars extends CreateMediaRequestBody {
   /** UI-only label hints carried into the optimistic + seeded cache row. */
@@ -29,6 +29,13 @@ interface CreateContext {
  * the UI to the request button. The seeded row plus `staleTime` +
  * focus-refetch on `useUserRequests` reconcile labels later without that
  * flicker.
+ *
+ * The one exception is a success that settles without a `requestId` (the
+ * response schema allows null): there is no real id to swap in, so that
+ * branch instead drops the optimistic row and *does* invalidate to recover
+ * the live request under its real id. It knowingly trades the no-invalidate
+ * flicker guarantee here, because in that rare path an uncancellable phantom
+ * row is worse than a transient revert. Do not "unify" the two branches.
  */
 export function useCreateRequest() {
   const qc = useQueryClient();
@@ -60,6 +67,19 @@ export function useCreateRequest() {
       toastFromError(err);
     },
     onSuccess: (data, vars, ctx) => {
+      // The server may settle a create without a `requestId` (the response
+      // schema declares it nullable). In that case we have no real id to swap
+      // in, so retaining the synthetic `__optimistic-*` id would leave a row
+      // that Cancel can never reach (`useCancelRequest` short-circuits those
+      // ids without calling DELETE). Drop the optimistic row and invalidate so
+      // the next fetch reconciles the live server request under its real id.
+      if (data.requestId == null) {
+        qc.setQueryData<MediaRequestsResponse>(requestFlowKeys.history(), (old) => ({
+          items: (old?.items ?? []).filter((r) => r.id !== ctx?.optimisticId),
+        }));
+        void qc.invalidateQueries({ queryKey: requestFlowKeys.history() });
+        return;
+      }
       // Replace the optimistic row with a real-id row carrying the user's
       // chosen labels. We do NOT invalidate — see header comment.
       qc.setQueryData<MediaRequestsResponse>(requestFlowKeys.history(), (old) => {
