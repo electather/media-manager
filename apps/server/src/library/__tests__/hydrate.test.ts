@@ -242,6 +242,29 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     expect(pastWindow.map((t) => t.id)).toEqual(["movie:550"]);
   });
 
+  // CONCURRENCY CAP — the hydrate pass must process all rows and write every
+  // projection even when the stale-row set exceeds HYDRATE_CONCURRENCY (25).
+  // This guards the chunked fan-out: if a chunk boundary accidentally dropped
+  // rows, `considered` would equal `targets.length` but `hydrated` would be
+  // fewer, or some rows would remain un-stamped (`hydratedAt = null`).
+  it("hydrates all rows when the stale set exceeds HYDRATE_CONCURRENCY", async () => {
+    const COUNT = 30; // Deliberately larger than HYDRATE_CONCURRENCY (25).
+    for (let i = 0; i < COUNT; i++) {
+      await seedOwned(String(1000 + i));
+    }
+
+    const { ctx } = makeCtx({});
+    const result = await hydrate(ctx, { staleTtlMs: 1000 });
+    expect(result.considered).toBe(COUNT);
+    expect(result.hydrated).toBe(COUNT);
+
+    // Every row must have been stamped — no row should still have a null hydratedAt.
+    for (let i = 0; i < COUNT; i++) {
+      const row = await rowById(`movie:${1000 + i}`);
+      expect(row?.hydratedAt).not.toBeNull();
+    }
+  });
+
   // NULL-SAFE — a row whose metadata batch is missing (the catalog has no
   // canonical row for it yet) must still hydrate the columns it CAN resolve
   // rather than throwing and stalling the whole pass. The metadata-sourced

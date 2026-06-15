@@ -1,7 +1,15 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import type { MediaType } from "@nama/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
+
+/**
+ * SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` is 999. Stay conservatively
+ * below it so a single `notInArray` predicate never exceeds the bound
+ * regardless of SQLite build version. {@link tombstoneMissing} chunks
+ * `keepKeys` to this limit.
+ */
+const SQLITE_VARIABLE_LIMIT = 900;
 
 /**
  * A new owned row to insert during membership sync. `id` is the composite
@@ -41,6 +49,12 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
  * absent from `keepKeys` (the keys present in the latest feed). Sets
  * `owned = false` and stamps `unownedAt`. Already-tombstoned rows are untouched
  * (the `owned = true` predicate excludes them). Returns the number tombstoned.
+ *
+ * When `keepKeys` exceeds {@link SQLITE_VARIABLE_LIMIT} the function falls
+ * back to a two-step approach: (1) read all currently-owned ids for the user,
+ * (2) compute the absent set in JS (owned minus keepKeys), then tombstone those
+ * specific ids in bounded `IN` chunks. This stays within SQLite's
+ * bound-parameter limit for arbitrarily large libraries.
  */
 export async function tombstoneMissing(
   userId: string,
@@ -48,14 +62,68 @@ export async function tombstoneMissing(
   now: number,
   db: Db = getDb(),
 ): Promise<number> {
-  const base = and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true));
-  const where = keepKeys.length > 0 ? and(base, notInArray(libraryItems.id, keepKeys)) : base;
-  const tombstoned = await db
-    .update(libraryItems)
-    .set({ owned: false, unownedAt: now })
-    .where(where)
-    .returning({ id: libraryItems.id });
-  return tombstoned.length;
+  if (keepKeys.length === 0) {
+    // An empty keepKeys means the full library should be tombstoned — no
+    // chunking needed, use the base predicate directly.
+    const tombstoned = await db
+      .update(libraryItems)
+      .set({ owned: false, unownedAt: now })
+      .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)))
+      .returning({ id: libraryItems.id });
+    return tombstoned.length;
+  }
+
+  if (keepKeys.length <= SQLITE_VARIABLE_LIMIT) {
+    // Fast path: all keys fit in one predicate.
+    const tombstoned = await db
+      .update(libraryItems)
+      .set({ owned: false, unownedAt: now })
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          eq(libraryItems.owned, true),
+          notInArray(libraryItems.id, keepKeys),
+        ),
+      )
+      .returning({ id: libraryItems.id });
+    return tombstoned.length;
+  }
+
+  // Slow path: keepKeys exceeds the SQLite variable limit so a single NOT IN
+  // predicate is not safe. Instead, fetch the owned id set, compute the absent
+  // ids in JS, and tombstone them by id using bounded IN predicates.
+  //
+  // Step 1: collect currently-owned ids for this user.
+  const ownedRows = await db
+    .select({ id: libraryItems.id })
+    .from(libraryItems)
+    .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)));
+
+  const keepSet = new Set(keepKeys);
+  const toTombstone = ownedRows.map((row) => row.id).filter((id) => !keepSet.has(id));
+
+  if (toTombstone.length === 0) return 0;
+
+  // Step 2: tombstone the computed absent set in bounded UPDATE chunks using
+  // `inArray` so each UPDATE targets only the rows that should be tombstoned,
+  // with no risk of accidentally touching rows in the keep set.
+  let count = 0;
+  for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
+    const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
+    const tombstoned = await db
+      .update(libraryItems)
+      .set({ owned: false, unownedAt: now })
+      .where(
+        and(
+          eq(libraryItems.userId, userId),
+          eq(libraryItems.owned, true),
+          inArray(libraryItems.id, slice),
+        ),
+      )
+      .returning({ id: libraryItems.id });
+    count += tombstoned.length;
+  }
+  return count;
 }
 
 /**

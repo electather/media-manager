@@ -38,6 +38,16 @@ interface BatchSources {
 }
 
 /**
+ * Maximum number of rows whose availability probes run concurrently in one
+ * hydrate pass. Each row fires two plugin calls (`getMatchingServers` +
+ * `getAvailabilityQuality`), so a large stale-row set could otherwise launch
+ * unbounded concurrent requests and trigger provider rate-limit bans or
+ * socket exhaustion. Matches the `BATCH_SIZE` convention in the catalog
+ * metadata-refresh job.
+ */
+const HYDRATE_CONCURRENCY = 25;
+
+/**
  * Hydrates the denormalized browse projection for a user's new and stale owned
  * rows (design §Sync + hydrate, phase 2). For each stale row it folds together
  * three independent sources and tolerates any of them being absent — a partial
@@ -47,9 +57,11 @@ interface BatchSources {
  *   - per-key `getAvailabilityQuality` → quality tiers (the N-call fan-out),
  *   - `loadProgressMap` → watchedState.
  *
- * The availability fan-out is the expensive part the design flags; it is bounded
- * by the stale-row set and runs only in background jobs. Returns counts for
- * run-status visibility. A fully-fresh library short-circuits to zero work.
+ * The availability fan-out runs in chunks of {@link HYDRATE_CONCURRENCY} rows so
+ * at most 2 × HYDRATE_CONCURRENCY plugin calls are in-flight at once, preventing
+ * provider rate-limit bans and socket exhaustion for large libraries. Returns
+ * counts for run-status visibility. A fully-fresh library short-circuits to
+ * zero work.
  */
 export async function hydrate(
   ctx: LibraryContext,
@@ -63,7 +75,17 @@ export async function hydrate(
     metadata: await loadMetadata(ctx, targets),
     progress: await loadProgress(ctx),
   };
-  const updates = await Promise.all(targets.map((target) => buildUpdate(ctx, target, sources)));
+  // Fan out in bounded chunks to cap concurrent plugin calls. Each chunk runs
+  // its rows fully before the next chunk starts, so at most
+  // 2 × HYDRATE_CONCURRENCY plugin requests are in-flight at once.
+  const updates: Awaited<ReturnType<typeof buildUpdate>>[] = [];
+  for (let i = 0; i < targets.length; i += HYDRATE_CONCURRENCY) {
+    const slice = targets.slice(i, i + HYDRATE_CONCURRENCY);
+    const chunkUpdates = await Promise.all(
+      slice.map((target) => buildUpdate(ctx, target, sources)),
+    );
+    updates.push(...chunkUpdates);
+  }
   const hydrated = await writeHydration(ctx.userId, updates, now);
   return { considered: targets.length, hydrated };
 }

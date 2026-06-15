@@ -30,7 +30,8 @@ vi.mock("../../db/client", async () => {
 // stubbed `getDb`. The repo is imported real (NOT mocked): mocking it would
 // defeat the very invariant the no-resurrect test exists to guard.
 const { syncMembership } = await import("../service");
-const { allKnownKeys, upsertOwned, __resetLibraryForTests } = await import("../repo");
+const { allKnownKeys, tombstoneMissing, upsertOwned, __resetLibraryForTests } =
+  await import("../repo");
 const { asLibraryContext } = await import("../internal/context");
 
 let testDb: Db;
@@ -272,6 +273,40 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect(result.removed).toBe(0);
     expect((await rowById("movie:800"))?.owned).toBe(true);
     expect((await rowById("movie:801"))?.owned).toBe(true);
+  });
+
+  // CHUNKED TOMBSTONE — `tombstoneMissing` must correctly tombstone absent rows
+  // even when `keepKeys` exceeds SQLite's variable limit (900 in the chunking
+  // implementation). The owned set has N > 900 rows; keepKeys lists all but one;
+  // the one absent row must be tombstoned and all others must stay owned. If the
+  // chunking were wrong (e.g. tombstoned rows absent from only a single chunk),
+  // far more than one row would be tombstoned.
+  it("tombstones exactly the rows absent from a keepKeys set larger than the chunk size", async () => {
+    const OVER_LIMIT = 950;
+    const ownedIds: string[] = [];
+    for (let i = 0; i < OVER_LIMIT; i++) {
+      ownedIds.push(`movie:t${String(i).padStart(4, "0")}`);
+    }
+    // Insert all rows as owned.
+    const rows = ownedIds.map((id) => {
+      const tmdbId = id.slice("movie:".length);
+      return { id, userId: USER_ID, tmdbId, mediaType: "movie" as const, ownedAt: Date.now() };
+    });
+    await upsertOwned(rows, testDb);
+    expect(await allKnownKeys(USER_ID)).toHaveProperty("size", OVER_LIMIT);
+
+    // keepKeys lists all ids EXCEPT the first — only that one should be tombstoned.
+    const absentId = ownedIds[0]!;
+    const keepKeys = ownedIds.slice(1);
+    const removed = await tombstoneMissing(USER_ID, keepKeys, Date.now(), testDb);
+    expect(removed).toBe(1);
+
+    // The absent row is tombstoned; all others remain owned.
+    const absent = await testDb
+      .select({ owned: libraryItems.owned })
+      .from(libraryItems)
+      .where(and(eq(libraryItems.userId, USER_ID), eq(libraryItems.id, absentId)));
+    expect(absent[0]?.owned).toBe(false);
   });
 
   // FEED THROW — a terminal all-providers failure inside `getCollectionFeed`

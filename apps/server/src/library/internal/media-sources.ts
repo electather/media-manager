@@ -1,6 +1,5 @@
 import { libraryLensQuerySchema, type LibraryLensQueryParsed } from "@nama/shared/library";
 import type { AnyMediaSourceRegistration, MediaSourceRegistration } from "../../media";
-import type { LensFilters } from "../repo";
 import { azSource, type AzParams } from "../sources/az";
 import { timelineSource, type TimelineParams } from "../sources/timeline";
 import { serverSource, type ServerParams } from "../sources/server";
@@ -8,6 +7,7 @@ import { qualitySource, type QualityParams } from "../sources/quality";
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import { asLibraryReadContext } from "./context";
 import { buildEnrichRows } from "./enrich";
+import { toLensFilters } from "./lens-filters";
 
 /**
  * Surfaces the library item lenses as `MediaSourceRegistration`s so the
@@ -33,7 +33,11 @@ const azRegistration: MediaSourceRegistration<LibraryLensQueryParsed, AzParams, 
   cursorOnNull: "firstPage",
   build: (ctx, params, cursor) => ({
     source: azSource,
-    cfg: { params: toLensParams(params), cursor, limit: params.limit },
+    cfg: {
+      params: { filters: toLensFilters(params), limit: params.limit },
+      cursor,
+      limit: params.limit,
+    },
     enrichRows: buildEnrichRows(asLibraryReadContext(ctx)),
   }),
 };
@@ -50,7 +54,11 @@ const timelineRegistration: MediaSourceRegistration<
   cursorOnNull: "firstPage",
   build: (ctx, params, cursor) => ({
     source: timelineSource,
-    cfg: { params: toLensParams(params), cursor, limit: params.limit },
+    cfg: {
+      params: { filters: toLensFilters(params), limit: params.limit },
+      cursor,
+      limit: params.limit,
+    },
     enrichRows: buildEnrichRows(asLibraryReadContext(ctx)),
   }),
 };
@@ -74,7 +82,11 @@ const serverRegistration: MediaSourceRegistration<
   cursorOnNull: "firstPage",
   build: (ctx, params, cursor) => ({
     source: serverSource,
-    cfg: { params: toLensParams(params), cursor, limit: params.limit },
+    cfg: {
+      params: { filters: toLensFilters(params), limit: params.limit },
+      cursor,
+      limit: params.limit,
+    },
     enrichRows: buildEnrichRows(asLibraryReadContext(ctx)),
   }),
 };
@@ -96,25 +108,14 @@ const qualityRegistration: MediaSourceRegistration<
   cursorOnNull: "firstPage",
   build: (ctx, params, cursor) => ({
     source: qualitySource,
-    cfg: { params: toLensParams(params), cursor, limit: params.limit },
+    cfg: {
+      params: { filters: toLensFilters(params), limit: params.limit },
+      cursor,
+      limit: params.limit,
+    },
     enrichRows: buildEnrichRows(asLibraryReadContext(ctx)),
   }),
 };
-
-/**
- * Projects the parsed wire query onto the `{ filters, limit }` shape the lens
- * sources read. All four lenses share the param shape, so one mapper serves
- * them. An omitted axis stays undefined → the repo applies no filter for it.
- */
-function toLensParams(params: LibraryLensQueryParsed): { filters: LensFilters; limit: number } {
-  const filters: LensFilters = {};
-  if (params.kinds) filters.kinds = params.kinds;
-  if (params.genres) filters.genres = params.genres;
-  if (params.qualities) filters.qualities = params.qualities;
-  if (params.servers) filters.servers = params.servers;
-  if (params.watched) filters.watched = params.watched;
-  return { filters, limit: params.limit };
-}
 
 /**
  * Registration map keyed by `sourceId`, one per library item lens. The flat
