@@ -10,9 +10,12 @@ import {
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { useMoods } from "../../../hooks/use-moods";
+import { watchlistKeys } from "../../../lib/query-keys";
+import { WatchlistErrorFallback } from "../../watchlist-error-fallback";
 import { MoodCluster } from "./mood-cluster";
 
 const MAX_CLUSTERS = 3;
+const SK_CLUSTER = 420; // Cluster card skeleton height (poster 2/3 + head).
 
 export function MoodMosaic() {
   const { data } = useMoods();
@@ -35,8 +38,22 @@ export function MoodMosaic() {
       </SectionHead>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {clusters.map((c) => (
-          <ErrorBoundary key={c.moodId} fallback={() => null}>
-            <Suspense fallback={<Skeleton className="h-[420px] w-full rounded-2xl" />}>
+          // Each cluster gets its own error boundary so a single failed fetch
+          // surfaces a retry affordance instead of silently collapsing the card.
+          // The query key targets only this cluster's cache so retry is scoped.
+          <ErrorBoundary
+            key={c.moodId}
+            fallback={({ error, reset }) => (
+              <WatchlistErrorFallback
+                error={error}
+                resetErrorBoundary={reset}
+                queryKey={watchlistKeys.moodItems(c.moodId)}
+              />
+            )}
+          >
+            <Suspense
+              fallback={<Skeleton className="w-full rounded-2xl" style={{ height: SK_CLUSTER }} />}
+            >
               <MoodCluster moodId={c.moodId} count={c.count} />
             </Suspense>
           </ErrorBoundary>

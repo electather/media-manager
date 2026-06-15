@@ -25,8 +25,7 @@ import { adminUsersKeys } from "../lib/query-keys";
 import { useAssignRole } from "../hooks/use-assign-role";
 import { useDeleteUser } from "../hooks/use-delete-user";
 import { useRevokeSessions } from "../hooks/use-revoke-sessions";
-import { roleSummaries } from "../lib/role-summaries";
-import type { AdminUserDetail } from "../lib/types";
+import { ADMIN_USER_ROLE_IDS, isAdminUserRoleId, type AdminUserDetail } from "../lib/types";
 import { RoleTag } from "./role-tag";
 
 interface Props {
@@ -66,7 +65,6 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
   });
   const user = data.user;
   const isSelf = selfId === user.id;
-  const roles = roleSummaries();
 
   const assignRole = useAssignRole();
   const revokeSessions = useRevokeSessions();
@@ -76,9 +74,12 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
 
   const onChangeRole = (nextRoleId: string | null) => {
     if (!nextRoleId || nextRoleId === user.role?.id) return;
-    const next = roles.find((r) => r.id === nextRoleId);
-    if (!next) return;
-    assignRole.mutate({ userId: user.id, roleId: nextRoleId, roleName: next.name });
+    if (!isAdminUserRoleId(nextRoleId)) return;
+    assignRole.mutate({
+      userId: user.id,
+      roleId: nextRoleId,
+      roleName: m.admin_users_role_name({ role: nextRoleId }),
+    });
   };
 
   const joined = new Date(user.createdAt).toLocaleDateString(undefined, {
@@ -86,6 +87,12 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
     month: "short",
     day: "numeric",
   });
+
+  // Only the seeded roles carry a description variant; other ids render blank.
+  const currentRoleId = user.role?.id;
+  const roleDescription = isAdminUserRoleId(currentRoleId)
+    ? m.admin_users_role_description({ role: currentRoleId })
+    : "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -98,9 +105,7 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex min-w-0 items-center gap-3">
             <RoleTag role={user.role} />
-            <span className="text-xs text-muted-foreground">
-              {roles.find((r) => r.id === user.role?.id)?.description ?? ""}
-            </span>
+            <span className="text-xs text-muted-foreground">{roleDescription}</span>
           </div>
           <Select
             value={user.role?.id ?? ""}
@@ -111,9 +116,9 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {roles.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.name}
+              {ADMIN_USER_ROLE_IDS.map((id) => (
+                <SelectItem key={id} value={id}>
+                  {m.admin_users_role_name({ role: id })}
                 </SelectItem>
               ))}
             </SelectContent>

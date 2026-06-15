@@ -10,6 +10,7 @@ import {
 import { SYSTEM_ADMIN_ROLE_SLUG, type Permission, type UserRoleInfo } from "./types";
 import {
   checkRolePermission,
+  deleteStaleDynamicClients,
   filterUsersWithPermission,
   findUserRole,
   listUsersWithPermission,
@@ -166,6 +167,18 @@ export class AuthService {
   usersHavingPermission(userIds: string[], permission: Permission): Promise<Set<string>> {
     return filterUsersWithPermission(userIds, permission);
   }
+
+  // ─── OAuth dynamic-client hygiene ────────────────────────────────────────
+
+  /**
+   * Deletes dynamically-registered OAuth clients that were never authorized
+   * and were created before `cutoff` (epoch ms). Backs the scheduled sweep
+   * that bounds growth of the client table from the unauthenticated RFC 7591
+   * registration endpoint. Returns the number of clients removed.
+   */
+  sweepStaleDynamicClients(cutoff: number): Promise<number> {
+    return deleteStaleDynamicClients(cutoff);
+  }
 }
 
 let instance: AuthService | null = null;
@@ -237,4 +250,9 @@ export function usersHavingPermission(
   permission: Permission,
 ): Promise<Set<string>> {
   return getAuthService().usersHavingPermission(userIds, permission);
+}
+
+/** @see {@link AuthService.sweepStaleDynamicClients} */
+export function sweepStaleDynamicClients(cutoff: number): Promise<number> {
+  return getAuthService().sweepStaleDynamicClients(cutoff);
 }
