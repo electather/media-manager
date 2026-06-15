@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, notInArray, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { oauthClient, oauthConsent, user } from "../db/schema/auth";
 import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
@@ -126,10 +126,16 @@ export async function filterUsersWithPermission(
 
 /**
  * Deletes dynamically-registered OAuth clients that were never authorized and
- * are older than `cutoff` (epoch ms). A stale dynamic client is identified by
- * having no owner (`userId IS NULL` — RFC 7591 registration sets no owner) and
- * no consent row (no user has authorized it), so this never removes a client a
- * user has connected. Returns the number of rows deleted.
+ * are not newer than `cutoff` (epoch ms). A stale dynamic client is identified
+ * by having no owner (`userId IS NULL` — RFC 7591 registration sets no owner)
+ * and no consent row (no user has authorized it), so this never removes a
+ * client a user has connected. Returns the number of rows deleted.
+ *
+ * A null `createdAt` also counts as stale: Better Auth stamps `createdAt` at
+ * registration, so a null value can only come from a manually-inserted or
+ * corrupted row. Without this, `created_at < cutoff` is NULL (falsy) for such
+ * rows and they would escape the sweep forever, breaking the table-growth
+ * bound this exists to enforce.
  *
  * This bounds unbounded growth of the oauth client table from the
  * unauthenticated registration endpoint, whose only other control is the
@@ -144,7 +150,7 @@ export async function deleteStaleDynamicClients(cutoff: number): Promise<number>
     .where(
       and(
         isNull(oauthClient.userId),
-        lt(oauthClient.createdAt, new Date(cutoff)),
+        or(isNull(oauthClient.createdAt), lt(oauthClient.createdAt, new Date(cutoff))),
         notInArray(oauthClient.clientId, consentedClientIds),
       ),
     );

@@ -34,13 +34,13 @@ const CUTOFF = NOW - 24 * 60 * 60 * 1000;
 async function insertClient(args: {
   id: string;
   userId: string | null;
-  createdAt: number;
+  createdAt: number | null;
 }): Promise<void> {
   await db.insert(oauthClient).values({
     id: args.id,
     clientId: args.id,
     userId: args.userId,
-    createdAt: new Date(args.createdAt),
+    createdAt: args.createdAt === null ? null : new Date(args.createdAt),
     redirectUris: ["http://localhost/callback"],
   });
 }
@@ -96,6 +96,21 @@ describe("deleteStaleDynamicClients", () => {
     expect(removed).toBe(0);
     const remaining = await db.select({ id: oauthClient.id }).from(oauthClient).all();
     expect(remaining.map((r) => r.id)).toEqual(["c_consented"]);
+  });
+
+  // WHY: a null `createdAt` is not produced by Better Auth (it stamps the
+  // column at registration), so an ownerless, unconsented row with no
+  // `createdAt` is corrupt registration spam. Treating it as stale keeps the
+  // table-growth bound unconditional — `created_at < cutoff` is NULL (falsy)
+  // for such rows, so without the `isNull` guard they would escape forever.
+  it("deletes ownerless, unconsented clients with a null createdAt", async () => {
+    await insertClient({ id: "c_null", userId: null, createdAt: null });
+
+    const removed = await deleteStaleDynamicClients(CUTOFF);
+
+    expect(removed).toBe(1);
+    const remaining = await db.select({ id: oauthClient.id }).from(oauthClient).all();
+    expect(remaining).toHaveLength(0);
   });
 
   // WHY: an owned client is a deliberately provisioned app, not dynamic-
