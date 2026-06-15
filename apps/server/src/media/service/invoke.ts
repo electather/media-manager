@@ -234,7 +234,12 @@ async function handleTerminalError<T>(
   conn: ResolvedConnection,
   normalized: { code: string; devMessage: string },
 ): Promise<InvocationOutcome<T>> {
-  if (normalized.code === "plugin.bad_credentials" || normalized.code === "plugin.upstream_error") {
+  // Only persist a terminal status for genuinely non-recoverable codes.
+  // Transient codes (upstream_error, rate_limited, timeout) reflect a
+  // temporary outage: writing "error" would permanently degrade the connection
+  // in the UI for a blip that will self-heal. bad_credentials and internal are
+  // both non-recoverable per the Error Handling table in docs/media-service.md.
+  if (normalized.code === "plugin.bad_credentials" || normalized.code === "plugin.internal") {
     await markConnectionStatus(connectionId(conn), "error", normalized.devMessage);
   }
   return errorOutcome(req, conn, normalized);

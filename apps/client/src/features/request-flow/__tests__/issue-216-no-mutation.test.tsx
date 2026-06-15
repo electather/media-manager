@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { RequestTarget } from "@nama/shared/media";
 
 const apiMock = vi.hoisted(() => ({ targets: vi.fn(), create: vi.fn() }));
-vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+vi.mock("../lib/fetchers", () => ({ requestsApi: apiMock }));
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), info: vi.fn(), error: vi.fn() }),

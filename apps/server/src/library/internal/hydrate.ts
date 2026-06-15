@@ -38,6 +38,16 @@ interface BatchSources {
 }
 
 /**
+ * Maximum number of rows whose availability probes run concurrently in one
+ * hydrate pass. Each row fires two plugin calls (`getMatchingServers` +
+ * `getAvailabilityQuality`), so a large stale-row set could otherwise launch
+ * unbounded concurrent requests and trigger provider rate-limit bans or
+ * socket exhaustion. Matches the `BATCH_SIZE` convention in the catalog
+ * metadata-refresh job.
+ */
+export const HYDRATE_CONCURRENCY = 25;
+
+/**
  * Hydrates the denormalized browse projection for a user's new and stale owned
  * rows (design §Sync + hydrate, phase 2). For each stale row it folds together
  * three independent sources and tolerates any of them being absent — a partial
@@ -47,9 +57,11 @@ interface BatchSources {
  *   - per-key `getAvailabilityQuality` → quality tiers (the N-call fan-out),
  *   - `loadProgressMap` → watchedState.
  *
- * The availability fan-out is the expensive part the design flags; it is bounded
- * by the stale-row set and runs only in background jobs. Returns counts for
- * run-status visibility. A fully-fresh library short-circuits to zero work.
+ * The availability fan-out runs in chunks of {@link HYDRATE_CONCURRENCY} rows so
+ * at most 2 × HYDRATE_CONCURRENCY plugin calls are in-flight at once, preventing
+ * provider rate-limit bans and socket exhaustion for large libraries. Returns
+ * counts for run-status visibility. A fully-fresh library short-circuits to
+ * zero work.
  */
 export async function hydrate(
   ctx: LibraryContext,
@@ -63,8 +75,27 @@ export async function hydrate(
     metadata: await loadMetadata(ctx, targets),
     progress: await loadProgress(ctx),
   };
-  const updates = await Promise.all(targets.map((target) => buildUpdate(ctx, target, sources)));
-  const hydrated = await writeHydration(ctx.userId, updates, now);
+  // Fan out in bounded chunks to cap concurrent plugin calls. Each chunk runs
+  // its rows fully before the next chunk starts, so at most
+  // 2 × HYDRATE_CONCURRENCY plugin requests are in-flight at once.
+  //
+  // Persist each chunk's projection as soon as it resolves rather than buffering
+  // every update for one write after the loop. The hydrate jobs cap a user row
+  // at a wall-clock timeout (30s for `library.sync`, 60s for `library.hydrate`)
+  // and abandon the row's in-flight work when it fires, while the availability
+  // probes run unbounded (no per-probe deadline in the scheduled path). Writing
+  // per chunk means a row that times out mid-pass keeps the chunks that already
+  // finished — `writeHydration` stamps `hydratedAt`, so the next run's
+  // `staleOrNew` skips them and resumes from where this pass stopped instead of
+  // redoing completed work.
+  let hydrated = 0;
+  for (let i = 0; i < targets.length; i += HYDRATE_CONCURRENCY) {
+    const slice = targets.slice(i, i + HYDRATE_CONCURRENCY);
+    const chunkUpdates = await Promise.all(
+      slice.map((target) => buildUpdate(ctx, target, sources)),
+    );
+    hydrated += await writeHydration(ctx.userId, chunkUpdates, now);
+  }
   return { considered: targets.length, hydrated };
 }
 

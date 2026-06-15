@@ -4,7 +4,7 @@ import { m } from "@/paraglide/messages";
 import { rollbackQuery, snapshotQuery } from "@/shared/lib/query/optimistic";
 import { fetchAssignRole } from "../lib/fetchers";
 import { adminUsersKeys } from "../lib/query-keys";
-import type { AdminUserSummary } from "../lib/types";
+import type { AdminUserDetail, AdminUserSummary } from "../lib/types";
 import { AdminUsersApiError } from "../lib/types";
 
 interface Vars {
@@ -17,22 +17,35 @@ interface ListSnapshot {
   users: AdminUserSummary[];
 }
 
+interface DetailSnapshot {
+  user: AdminUserDetail;
+}
+
 export function useAssignRole() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, roleId }: Vars) => fetchAssignRole(userId, roleId),
-    onMutate: ({ userId, roleId, roleName }) =>
-      snapshotQuery<ListSnapshot>(qc, adminUsersKeys.list(), (data) =>
-        data
-          ? {
-              users: data.users.map((u) =>
-                u.id === userId ? { ...u, role: { id: roleId, name: roleName } } : u,
-              ),
-            }
-          : data,
-      ),
-    onError: (err, _vars, ctx) => {
-      if (ctx?.prev) rollbackQuery(qc, adminUsersKeys.list(), ctx.prev);
+    onMutate: async ({ userId, roleId, roleName }) => {
+      const role = { id: roleId, name: roleName };
+      // Patch the list and the detail query simultaneously so both surfaces
+      // reflect the new role immediately while the request is in flight.
+      const [listCtx, detailCtx] = await Promise.all([
+        snapshotQuery<ListSnapshot>(qc, adminUsersKeys.list(), (data) =>
+          data
+            ? {
+                users: data.users.map((u) => (u.id === userId ? { ...u, role } : u)),
+              }
+            : data,
+        ),
+        snapshotQuery<DetailSnapshot>(qc, adminUsersKeys.detail(userId), (data) =>
+          data ? { user: { ...data.user, role } } : data,
+        ),
+      ]);
+      return { listCtx, detailCtx };
+    },
+    onError: (err, { userId }, ctx) => {
+      if (ctx?.listCtx.prev) rollbackQuery(qc, adminUsersKeys.list(), ctx.listCtx.prev);
+      if (ctx?.detailCtx.prev) rollbackQuery(qc, adminUsersKeys.detail(userId), ctx.detailCtx.prev);
       toast.error(err instanceof AdminUsersApiError ? err.message : String(err));
     },
     onSuccess: (_data, { roleName }) => {
