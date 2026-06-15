@@ -52,28 +52,37 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
   // fallow-ignore-next-line complexity
   const save = () => {
     setError(null);
-    if (!HEADER_NAME_PATTERN.test(name)) {
-      setError(m.admin_plugins_header_dialog_error_invalid_name());
-      return;
-    }
-    if ((PLUGIN_RESERVED_HEADER_NAMES as readonly string[]).includes(name.toLowerCase())) {
-      setError(m.admin_plugins_header_dialog_error_reserved());
-      return;
+    // Trim name before validation so leading/trailing whitespace doesn't cause
+    // confusing pattern failures, consistent with allowlist-panel normalization.
+    const trimmedName = name.trim();
+    // Name-format and reserved-name checks only apply on add; in edit mode the
+    // name field is read-only and was already validated when the header was saved.
+    if (!isEdit) {
+      if (!HEADER_NAME_PATTERN.test(trimmedName)) {
+        setError(m.admin_plugins_header_dialog_error_invalid_name());
+        return;
+      }
+      if ((PLUGIN_RESERVED_HEADER_NAMES as readonly string[]).includes(trimmedName.toLowerCase())) {
+        setError(m.admin_plugins_header_dialog_error_reserved());
+        return;
+      }
     }
     if (isEdit && preserveValue) {
       onClose();
       return;
     }
-    if (!value) {
+    // Trim value and reject whitespace-only strings the same way as empty ones.
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
       setError(m.admin_plugins_header_dialog_error_empty_value());
       return;
     }
-    if (/[\r\n]/.test(value)) {
+    if (/[\r\n]/.test(trimmedValue)) {
       setError(m.admin_plugins_header_dialog_error_crlf());
       return;
     }
     upsert.mutate(
-      { name, value },
+      { name: trimmedName, value: trimmedValue },
       {
         onSuccess: () => onClose(),
       },
