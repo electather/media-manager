@@ -1,6 +1,16 @@
 // UI-local types for the request flow. Wire types (`CreateMediaRequestBody`,
 // `RequestTarget`, `RequestProfile`) live in `@nama/shared/media`.
 
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
+
+/** Typed error thrown by `requestsApi.*` on non-2xx responses. */
+export class RequestError extends BaseApiError {
+  constructor(status: number, body: ApiErrorBody | null) {
+    super("RequestError", status, body, `Request API failed (${status})`);
+  }
+}
+
 /**
  * Per-episode status the request flow renders. Values map onto the four
  * status chip variants the picker expects; the request-flow feature owns

@@ -328,20 +328,10 @@ export {
   getPrimaryConnection,
 } from "./primary-preference";
 export {
-  listActiveRows,
   listActiveRowsKeyset,
-  findRowByKey,
   listAllActiveRows,
   listAvailableCandidates,
   hasActiveRows,
-  allKnownKeys,
-  upsertActiveRow,
-  softRemoveRow,
-  bulkInsertActiveRows,
-  trySeedLock,
-  clearSeedLock,
   hasUserSeeded,
   listSeededUserIds,
-  type UpsertActiveResult,
-  type SoftRemoveResult,
-} from "../repo";
+} from "./active-rows";
