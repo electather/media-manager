@@ -12,8 +12,8 @@ export interface RateLimitOptions {
    * bucket — so eviction never changes a limiting decision; it only reclaims
    * memory. This bounds the key→bucket map by the keys *active* within the
    * window (or still draining) rather than by every key ever seen, which
-   * matters for the IP-keyed public limiter facing the internet. Defaults to
-   * {@link DEFAULT_IDLE_EVICTION_MS}.
+   * matters for the IP-keyed public limiter facing the internet. Non-positive
+   * values are clamped to 1 ms. Defaults to {@link DEFAULT_IDLE_EVICTION_MS}.
    */
   idleEvictionMs?: number;
 }
@@ -49,7 +49,7 @@ export class TokenBucketLimiter {
   constructor(options: RateLimitOptions) {
     this.capacity = options.capacity;
     this.refillPerSec = options.refillPerSec;
-    this.idleEvictionMs = options.idleEvictionMs ?? DEFAULT_IDLE_EVICTION_MS;
+    this.idleEvictionMs = Math.max(1, options.idleEvictionMs ?? DEFAULT_IDLE_EVICTION_MS);
   }
 
   /**

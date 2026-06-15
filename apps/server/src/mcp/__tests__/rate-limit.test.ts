@@ -85,4 +85,18 @@ describe("TokenBucketLimiter — idle bucket eviction", () => {
     expect(limiter.check("trigger")).toBeNull();
     expect(limiter.size).toBe(1); // "edge" was evicted, so only "trigger" remains.
   });
+
+  it("clamps non-positive eviction windows so a limiter does not sweep on every call", () => {
+    const limiter = new TokenBucketLimiter({ capacity: 1, refillPerSec: 1, idleEvictionMs: 0 });
+
+    // Count 0 creates full buckets without consuming tokens, making immediate
+    // same-timestamp eviction observable if a zero window is not clamped.
+    expect(limiter.check("first", 0)).toBeNull();
+    expect(limiter.check("second", 0)).toBeNull();
+    expect(limiter.size).toBe(2);
+
+    vi.setSystemTime(1);
+    expect(limiter.check("trigger", 0)).toBeNull();
+    expect(limiter.size).toBe(1);
+  });
 });
