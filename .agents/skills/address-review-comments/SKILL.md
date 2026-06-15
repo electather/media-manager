@@ -121,7 +121,7 @@ After pushing the round of fixes:
 5. **Loop cap — 2 iterations.** After 2 complete iterations, if unresolved threads remain:
    - **Breaking threads** (correctness, security, behaviour change, API): surface to the user and block merge. Do not convert to issues.
    - **Non-breaking threads** (nits, naming, style, docs, suggestions): surface the list to the user and ask whether to convert them to GH issues and proceed with merge. Only create issues and resolve threads after explicit confirmation. Use `gh issue create --title "<short title>" --body "Raised in PR #<num>: <comment_body>"`, then `scripts/resolve-thread.sh`. Reply on each thread with the issue link.
-   - Once all non-breaking threads are converted and resolved (with user confirmation), proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
+   - Once all non-breaking threads are converted and resolved (with user confirmation), and **zero breaking threads remain**, proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
 
 Always re-sync with `origin/main` at the start of each loop iteration — base may have advanced.
 

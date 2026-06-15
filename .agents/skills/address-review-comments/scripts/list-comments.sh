@@ -15,6 +15,7 @@ INLINE_JSON=$(gh api graphql \
   -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{isResolved comments(first:100){nodes{databaseId path line originalLine author{login}body}}}}}}}' \
   -f o="$OWNER" -f r="$NAME" -F n="$PR")
 echo "$INLINE_JSON" | jq -r 'if (.data.repository.pullRequest.reviewThreads.nodes | length) >= 100 then "WARNING: result capped at 100 threads — some may be missing" else empty end' >&2
+echo "$INLINE_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | select(.comments.nodes | length >= 100) | "WARNING: thread \(.id) capped at 100 comments — some comment IDs missing"' >&2
 echo "$INLINE_JSON" | jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved==false) | .comments.nodes[] | ["id=\(.databaseId) file=\(.path) line=\(.line // .originalLine) author=\(.author.login)", .body, "---"] | join("\n")'
 
 echo "=== REVIEWS ==="
