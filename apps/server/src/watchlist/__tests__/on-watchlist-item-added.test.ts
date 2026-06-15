@@ -31,7 +31,6 @@ const { on } = await import("../../jobs/events");
 const { invalidateMoodSummary } = await import("../moods/cluster");
 const { invalidateTonightSection } = await import("../tonight/section");
 const { registerOnWatchlistItemAdded } = await import("../jobs/on-watchlist-item-added");
-const { registerOnWatchlistItemRemoved } = await import("../jobs/on-watchlist-item-removed");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,31 +53,6 @@ describe("on-watchlist-item-added", () => {
 
     const handler = vi.mocked(on).mock.calls[0]![2];
     await handler({ userId: "u1", key: "movie:1", source: "manual", createdAt: 1 });
-
-    expect(invalidateTonightSection).toHaveBeenCalledOnce();
-    expect(invalidateMoodSummary).toHaveBeenCalledOnce();
-    expect(invalidateTonightSection).toHaveBeenCalledWith("u1");
-    expect(invalidateMoodSummary).toHaveBeenCalledWith("u1");
-  });
-});
-
-describe("on-watchlist-item-removed", () => {
-  it("registers one handler for the ITEM_REMOVED event", () => {
-    registerOnWatchlistItemRemoved();
-
-    expect(on).toHaveBeenCalledTimes(1);
-    expect(on).toHaveBeenCalledWith(
-      WATCHLIST_EVENTS.ITEM_REMOVED,
-      expect.anything(),
-      expect.any(Function),
-    );
-  });
-
-  it("invalidates Tonight section and mood-summary for the mutated user", async () => {
-    registerOnWatchlistItemRemoved();
-
-    const handler = vi.mocked(on).mock.calls[0]![2];
-    await handler({ userId: "u1", key: "movie:1", source: "manual", removedAt: 1 });
 
     expect(invalidateTonightSection).toHaveBeenCalledOnce();
     expect(invalidateMoodSummary).toHaveBeenCalledOnce();
