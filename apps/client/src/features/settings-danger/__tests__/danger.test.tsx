@@ -133,4 +133,18 @@ describe("DeleteAccountDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Wrong password")).toBeTruthy());
   });
+
+  it("toggles the password reveal aria-label between show and hide", async () => {
+    // Guards the headline i18n fix: the type-check catches a wrong message key,
+    // but only this asserts the localized aria-label is actually rendered and
+    // flips on toggle, so dropping the label entirely would fail here.
+    const user = userEvent.setup();
+    renderWithProviders(
+      <DeleteAccountDialog open email="alex@example.com" onClose={() => {}} onDeleted={() => {}} />,
+    );
+
+    const reveal = await screen.findByRole("button", { name: /show password/i });
+    await user.click(reveal);
+    expect(screen.getByRole("button", { name: /hide password/i })).toBeTruthy();
+  });
 });

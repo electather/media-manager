@@ -35,7 +35,7 @@ function DangerPage() {
 
   const startExport = () => {
     setExportLocked(true);
-    // Anchor-nav, not fetch: browser download pipeline streams the ZIP. Silent failure accepted v1 per design doc L312.
+    // Anchor-nav, not fetch: browser streams the ZIP. Silent failure by design — see design doc L312.
     triggerAnchorDownload("/api/me/export");
     toast.success(m.settings_danger_toast_export_started());
     window.setTimeout(() => setExportLocked(false), 1000);
