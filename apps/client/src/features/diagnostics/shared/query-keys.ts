@@ -17,7 +17,7 @@ export const diagnosticsKeys = {
   },
   perf: {
     all: () => [...diagnosticsKeys.all, "perf"] as const,
-    aggregate: ({ range, kind, requestId }: PerfFilters) =>
+    aggregate: ({ range, kind, requestId }: PerfAggregateKeyFilters) =>
       [...diagnosticsKeys.all, "perf", "aggregate", { range, kind, requestId }] as const,
     summary: () => [...diagnosticsKeys.all, "perf", "summary"] as const,
     detail: (id: string) => [...diagnosticsKeys.all, "perf", "detail", id] as const,
