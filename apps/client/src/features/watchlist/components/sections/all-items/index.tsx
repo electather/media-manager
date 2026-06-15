@@ -1,9 +1,9 @@
 import { useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import type { MoodId, WatchlistBucket, WatchlistSort } from "@nama/shared/watchlist";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "../../watchlist-card";
 import { useAllItems } from "../../../hooks/use-all-items";
+import { useWatchlistPeek } from "../../../hooks/use-watchlist-peek";
 import { WatchlistEmpty } from "./empty";
 
 interface AllItemsProps {
@@ -18,18 +18,7 @@ export function AllItems({ sort, bucket, mood }: AllItemsProps) {
   if (bucket) args.bucket = bucket;
   if (mood) args.mood = mood;
   const { items, hasNextPage, isFetchingNextPage, fetchNextPage } = useAllItems(args);
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   const onEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
