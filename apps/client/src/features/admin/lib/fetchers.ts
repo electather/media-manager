@@ -61,7 +61,7 @@ export async function fetchTestSharedCredentialPersisted(input: {
     await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
       param: { id: input.pluginId, credId: input.credId },
     }),
-  ) as Promise<{ ok: boolean; message?: string }>;
+  );
 }
 
 /** Tests an unsaved credential value via the ephemeral endpoint. */
