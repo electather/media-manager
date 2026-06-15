@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import { WatchlistCard } from "../watchlist-card";
 import {
@@ -19,21 +17,11 @@ import {
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
 import { useReadyRow } from "../../hooks/use-ready-row";
+import { useWatchlistPeek } from "../../hooks/use-watchlist-peek";
 
 export function ReadyRow() {
   const { items } = useReadyRow();
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   if (items.length === 0) return null;
 
   return (

@@ -382,5 +382,7 @@
   "settings_danger_dialog_cancel": "Cancel",
   "settings_danger_toast_export_started": "Export started — check your downloads",
   "settings_danger_toast_account_deleted": "Account deleted — signing out",
-  "settings_danger_delete_failed": "Couldn't delete your account."
+  "settings_danger_delete_failed": "Couldn't delete your account.",
+  "settings_danger_reauth_password_show": "Show password",
+  "settings_danger_reauth_password_hide": "Hide password"
 }

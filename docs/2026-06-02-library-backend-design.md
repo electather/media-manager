@@ -121,6 +121,7 @@ sync(userId):
   #   server id   ← getMatchingServers/probeServer (existing path)
   #   quality     ← checkAvailability PER item → items[].quality (getMatchingServers DISCARDS quality)
   #   ∴ qualityTiers hydrate = N-call fan-out (N = owned titles × providers). OK in bg job, not a free ride.
+  #   ↳ #597: fan-out now bounded — rows hydrate in chunks of HYDRATE_CONCURRENCY (25), ≤2×25 plugin calls in-flight (see ledger 12).
   servers      ← getMatchingServers(key)
   qualityTiers ← checkAvailability(key).items[].quality       # N-call fan-out
   prog = loadProgressMap(keys)             → watchedState
@@ -436,5 +437,8 @@ Deviations / fixes (adversarial verify + tests caught a functional filter bug + 
 9. `selectRowsByIds` preview hydration was unscoped (cross-tenant read) → scoped to `user_id` + `owned`.
 10. Server/quality lenses selected a drizzle column-object over a raw `json_each` FROM (libsql runtime error on every request) → table-qualified `EXPANDED_ROW_COLUMNS`.
 11. Servers filter matched `id` while the facet/popover used `label` → matched on `label`.
+12. **#597 — hydrate availability fan-out was unbounded.** The §Sync+hydrate N-call fan-out fired `Promise.all` over the entire stale set, so a large library could launch unbounded concurrent plugin requests (provider rate-limit bans / socket exhaustion). Now fanned out in chunks of `HYDRATE_CONCURRENCY` (25, matching the catalog metadata-refresh `BATCH_SIZE`) so ≤2×25 probes are in-flight at once, and each chunk is persisted (`writeHydration`) as it resolves so a row that blows its scheduled wall-clock timeout keeps the chunks already finished and the next run resumes from where it stopped.
+13. **#597 — tombstone sweep overflowed SQLite's variable limit.** The full-sweep `tombstoneMissing` bound one parameter per kept key in a single `notInArray`, so a library with >999 kept keys blew SQLite's 999-bound-variable limit. Now: empty-keep → full sweep; ≤900 keep → single `notInArray` (≤902 bound params); >900 keep → JS set-diff then chunked `inArray` updates (read-then-update, safe only under the single-writer sync model, documented inline).
+14. **#597 — `staleOrNew` chunk order was incidental.** The hydrate target query had no `ORDER BY`, so the chunked fan-out relied on SQLite's implicit PK order for its boundaries and `writeHydration`'s "id order" claim. Added `.orderBy(libraryItems.id)` so chunk boundaries are genuinely deterministic and the partial-failure prefix is stable run-to-run.
 
 **Test totals:** server `apps/server` 648 + full monorepo 2674 passing; client library 44. `vp check` clean (1553 files); `fallow dead-code` → 0 boundary violations, baseline unchanged.
