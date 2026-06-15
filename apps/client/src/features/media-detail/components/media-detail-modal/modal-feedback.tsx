@@ -15,6 +15,7 @@ export function ModalFeedback({ hasNote }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         {/* Vote and note persistence is not yet wired; buttons are disabled to
             avoid misleading users into believing their input was saved. */}
+        {/* restore active={computed} + onClick when vote persistence lands */}
         <VoteButton
           active={false}
           disabled
@@ -93,7 +94,9 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         hasNote
           ? "border-primary/55 bg-primary/10 text-primary"
-          : "border-border bg-foreground/6 text-muted-foreground",
+          : // hover:* is inert on disabled buttons (pointer-events:none); kept
+            // for when note persistence is wired and the button is re-enabled.
+            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
         "cursor-not-allowed opacity-50",
       )}
     >
