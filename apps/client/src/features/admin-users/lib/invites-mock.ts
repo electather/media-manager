@@ -3,7 +3,9 @@ import type { AdminInvite } from "./types";
 
 // Client-side mock store for invites. Backend endpoints (POST /admin/invites,
 // GET /admin/invites, etc.) are not implemented yet; once they ship, replace
-// usage of this store with React Query hooks against the real API.
+// usage of this store with React Query hooks against the real API. The invite
+// links generated here are dead in production until then; gating this module
+// behind a feature flag before GA is tracked in #658.
 
 const DAY = 24 * 60 * 60 * 1000;
 
