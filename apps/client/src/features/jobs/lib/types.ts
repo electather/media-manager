@@ -1,10 +1,16 @@
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 
-/** Typed error class for jobs API calls. Carries status, body, and code. */
+/** Typed error class for jobs API calls. Carries status, body, and code.
+ *
+ * Resolves the user-facing `message` from the wire body the same way the
+ * `media`/`library` API errors do: `body.message`, then `body.devMessage`
+ * (which is where the HttpError middleware ships the reason for job triggers),
+ * then a generic fallback. Consumers can toast `err.message` directly.
+ */
 export class JobsApiError extends BaseApiError {
   constructor(status: number, body: ApiErrorBody | null) {
-    super("JobsApiError", status, body, `jobs request failed (${status})`);
+    super("JobsApiError", status, body, body?.devMessage ?? `jobs request failed (${status})`);
   }
 }
 

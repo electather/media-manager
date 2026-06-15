@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
 import { fetchTriggerJob } from "../lib/fetchers";
 import { jobsKeys } from "../lib/query-keys";
-import { JobsApiError } from "../lib/types";
 import type { FormFieldValue } from "../lib/types";
 
 /** Fires a manual trigger for a job.
@@ -26,10 +25,10 @@ export function useTriggerJob() {
       void qc.invalidateQueries({ queryKey: jobsKeys.all });
     },
     onError: (err) => {
-      const serverMsg =
-        err instanceof JobsApiError ? (err.body?.devMessage ?? err.body?.message) : undefined;
-      const msg = serverMsg ?? (err.message || m.jobs_trigger_error_generic());
-      toast.error(msg);
+      // `JobsApiError` already resolves the server reason into `err.message`
+      // (body.message → body.devMessage → generic), so a bare `Error` is the
+      // only case left to backstop here.
+      toast.error(err.message || m.jobs_trigger_error_generic());
     },
   });
 }
