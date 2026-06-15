@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 // The `watchlist_items` write events live in media (design §M.2). Watchlist can
 // only reach them through the media barrel, which would drag the full media
 // module graph (db/client → env) into this isolated registration unit test, so
-// stub the barrel down to the two constants + schemas the handler subscribes to.
+// stub the barrel down to the two constants + schemas the handlers subscribe to.
 vi.mock("../../media", () => ({
   WATCHLIST_EVENTS: {
     ITEM_ADDED: "watchlist.itemAdded",
@@ -30,57 +30,59 @@ vi.mock("../tonight/section", () => ({
 const { on } = await import("../../jobs/events");
 const { invalidateMoodSummary } = await import("../moods/cluster");
 const { invalidateTonightSection } = await import("../tonight/section");
-const { __resetRegistration, register } = await import("../jobs/on-watchlist-mutation");
+const { registerOnWatchlistItemAdded } = await import("../jobs/on-watchlist-item-added");
+const { registerOnWatchlistItemRemoved } = await import("../jobs/on-watchlist-item-removed");
 
 beforeEach(() => {
-  __resetRegistration();
   vi.clearAllMocks();
 });
 
-describe("watchlist mutation job registration", () => {
-  it("registers mutation invalidators for itemAdded and itemRemoved", () => {
-    register();
+describe("on-watchlist-item-added", () => {
+  it("registers one handler for the ITEM_ADDED event", () => {
+    registerOnWatchlistItemAdded();
 
-    expect(on).toHaveBeenCalledTimes(2);
+    expect(on).toHaveBeenCalledTimes(1);
     expect(on).toHaveBeenCalledWith(
       WATCHLIST_EVENTS.ITEM_ADDED,
       expect.anything(),
       expect.any(Function),
     );
-    expect(on).toHaveBeenCalledWith(
-      WATCHLIST_EVENTS.ITEM_REMOVED,
-      expect.anything(),
-      expect.any(Function),
-    );
   });
 
-  it("invalidates every watchlist summary cache for the mutated user", async () => {
-    register();
+  it("invalidates Tonight section and mood-summary for the mutated user", async () => {
+    registerOnWatchlistItemAdded();
 
-    const handlers = vi.mocked(on).mock.calls.map((call) => call[2]);
-    for (const handler of handlers) {
-      await handler({ userId: "u1", key: "movie:1", source: "manual", createdAt: 1 });
-    }
+    const handler = vi.mocked(on).mock.calls[0]![2];
+    await handler({ userId: "u1", key: "movie:1", source: "manual", createdAt: 1 });
 
-    expect(invalidateTonightSection).toHaveBeenCalledTimes(2);
-    expect(invalidateMoodSummary).toHaveBeenCalledTimes(2);
+    expect(invalidateTonightSection).toHaveBeenCalledOnce();
+    expect(invalidateMoodSummary).toHaveBeenCalledOnce();
     expect(invalidateTonightSection).toHaveBeenCalledWith("u1");
     expect(invalidateMoodSummary).toHaveBeenCalledWith("u1");
   });
+});
 
-  it("re-registers listeners after idempotency guard is reset", () => {
-    register();
+describe("on-watchlist-item-removed", () => {
+  it("registers one handler for the ITEM_REMOVED event", () => {
+    registerOnWatchlistItemRemoved();
 
-    expect(on).toHaveBeenCalledTimes(2);
-    expect(on).toHaveBeenCalledWith(
-      WATCHLIST_EVENTS.ITEM_ADDED,
-      expect.anything(),
-      expect.any(Function),
-    );
+    expect(on).toHaveBeenCalledTimes(1);
     expect(on).toHaveBeenCalledWith(
       WATCHLIST_EVENTS.ITEM_REMOVED,
       expect.anything(),
       expect.any(Function),
     );
+  });
+
+  it("invalidates Tonight section and mood-summary for the mutated user", async () => {
+    registerOnWatchlistItemRemoved();
+
+    const handler = vi.mocked(on).mock.calls[0]![2];
+    await handler({ userId: "u1", key: "movie:1", source: "manual", removedAt: 1 });
+
+    expect(invalidateTonightSection).toHaveBeenCalledOnce();
+    expect(invalidateMoodSummary).toHaveBeenCalledOnce();
+    expect(invalidateTonightSection).toHaveBeenCalledWith("u1");
+    expect(invalidateMoodSummary).toHaveBeenCalledWith("u1");
   });
 });

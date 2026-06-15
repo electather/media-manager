@@ -237,7 +237,11 @@ function compareForSort(
 function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): number {
   const at = (aMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
   const bt = (bMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
-  return at.localeCompare(bt);
+  // Pin locale and sensitivity so ordering is reproducible across environments
+  // (dev machine vs server vs CI). Without a pinned locale, localeCompare
+  // resolves to the ICU host default, which varies and can produce different
+  // orderings for accented or non-ASCII titles.
+  return at.localeCompare(bt, "en", { sensitivity: "base", numeric: true });
 }
 
 // fallow-ignore-next-line complexity
