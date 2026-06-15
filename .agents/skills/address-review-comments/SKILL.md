@@ -14,8 +14,8 @@ Use the scripts in `scripts/` — they output only what you need. Prefer them ov
 | Script | Usage |
 |--------|-------|
 | `review-summary.sh <PR>` | Reviewer verdicts + unresolved thread count. Run first. |
-| `list-comments.sh <PR>` | All inline and review-level comments with IDs. |
-| `reply-to-comment.sh <PR> <comment_id> <body>` | Post inline reply. |
+| `list-comments.sh <PR>` | All inline, review-level, and issue-level comments with IDs. |
+| `reply-to-comment.sh <PR> <comment_id>` | Post inline reply — body read from stdin. |
 | `get-threads.sh <PR>` | Unresolved thread node IDs paired with comment IDs. |
 | `resolve-thread.sh <thread_node_id>` | Mark thread resolved. |
 
@@ -40,7 +40,7 @@ Always work in a fresh worktree branched from `origin/main` so the current check
 
 ## 1. Gather the comments
 
-- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs. Resolved threads are excluded automatically — only act on what's listed.
+- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs. This covers inline diff threads, review-body comments, and top-level PR conversation comments. Resolved threads are excluded automatically — only act on what's listed.
 - If no PR was named, infer from the current branch: `gh pr view --json number,url`. Confirm with the user if ambiguous.
 - List the distinct concerns so you can address them one by one. Don't batch-respond blindly — each concern needs its own verification.
 
@@ -66,7 +66,7 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 - Make the **minimum change** that addresses the concern. No drive-by refactors.
 - Add or update a test if the comment was about behavior.
 - After fixing, reply on the thread: what changed and where (commit SHA, or `file.ts:42`).
-- For inline threads: `scripts/reply-to-comment.sh <num> <comment_id> "<body>"`.
+- For inline threads: `echo "<body>" | scripts/reply-to-comment.sh <num> <comment_id>` (body via stdin handles spaces and newlines).
 - For issue-level comments: `gh pr comment <num> --body "<body>"`.
 - **Mark the inline thread resolved** once the fix is pushed:
   1. `scripts/get-threads.sh <num>` — find the `thread=` ID matching the `comment_id`.
@@ -119,9 +119,9 @@ After pushing the round of fixes:
    - The user explicitly stops the loop.
    - You hit an unsure case from §5 — surface to the user before continuing.
 5. **Loop cap — 2 iterations.** After 2 complete iterations, if unresolved threads remain:
-   - **Non-breaking threads** (nits, naming, style, docs, suggestions): for each, create a GH issue (`gh issue create --title "<short title>" --body "Raised in PR #<num>: <comment_body>"`) and resolve the thread (`scripts/resolve-thread.sh`). Reply on the thread with the issue link.
-   - **Breaking threads** (correctness, security, behaviour change, API): do not convert to issues — surface to the user and block merge.
-   - Once all non-breaking threads are converted and resolved, proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
+   - **Breaking threads** (correctness, security, behaviour change, API): surface to the user and block merge. Do not convert to issues.
+   - **Non-breaking threads** (nits, naming, style, docs, suggestions): surface the list to the user and ask whether to convert them to GH issues and proceed with merge. Only create issues and resolve threads after explicit confirmation. Use `gh issue create --title "<short title>" --body "Raised in PR #<num>: <comment_body>"`, then `scripts/resolve-thread.sh`. Reply on each thread with the issue link.
+   - Once all non-breaking threads are converted and resolved (with user confirmation), proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
 
 Always re-sync with `origin/main` at the start of each loop iteration — base may have advanced.
 
