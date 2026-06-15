@@ -49,13 +49,21 @@ interface FieldItemProps {
   onChange: (v: FormFieldValue) => void;
 }
 
+/** JSON Schema numeric types whose form input is coerced to a `number`. */
+const NUMERIC_SCHEMA_TYPES = ["number", "integer"];
+
+function isNumericSchema(schema: JSONSchemaProperty): boolean {
+  return schema.type != null && NUMERIC_SCHEMA_TYPES.includes(schema.type);
+}
+
 /** Coerces a raw input value to the appropriate type for a schema field.
  *
- * Number fields receive a numeric conversion so the POSTed payload matches
- * the server's JSON-schema type declaration rather than sending a string.
+ * Numeric fields (`number` and `integer`) receive a numeric conversion so the
+ * POSTed payload matches the server's JSON-schema type declaration rather than
+ * sending a string the server-side AJV validator would reject.
  */
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
-  if (schema.type === "number") {
+  if (isNumericSchema(schema)) {
     if (raw === "") return null;
     const n = Number(raw);
     return Number.isNaN(n) ? null : n;
@@ -109,7 +117,7 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
       ) : (
         <Input
           id={fieldKey}
-          type={schema.type === "number" ? "number" : "text"}
+          type={isNumericSchema(schema) ? "number" : "text"}
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}

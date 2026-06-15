@@ -166,6 +166,33 @@ describe("DynamicTriggerDialog number coercion", () => {
     });
   });
 
+  it("coerces integer-typed fields to a number too (server AJV rejects strings)", async () => {
+    // JSON Schema uses `integer` as well as `number`; both must POST a numeric
+    // value or the server's AJV validation rejects the string.
+    const integerJob = {
+      ...numberJob,
+      inputSchema: {
+        type: "object",
+        properties: { count: { type: "integer", description: "How many items" } },
+        required: ["count"],
+      },
+    } as unknown as JobHandle;
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    await user.type(input, "7");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        integerJob.id,
+        expect.objectContaining({ count: 7 }),
+      );
+    });
+  });
+
   it("treats a cleared number input as null (not 0)", async () => {
     // Number("") === 0 in JavaScript, so an explicit empty-string guard is
     // needed to prevent clearing a field from snapping its value to 0.
