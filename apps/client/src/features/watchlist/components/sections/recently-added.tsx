@@ -44,10 +44,6 @@ function relativeLabel(addedAt: number, now: number = Date.now()): string {
 export function RecentlyAdded() {
   const { items } = useRecentlyAdded();
   const onPeek = useWatchlistPeek();
-  // Relative time labels are computed once at mount. The strip auto-refetches
-  // via the section's query stale time, so labels stay reasonably fresh without
-  // a client-side tick interval. A dedicated useNow() interval is omitted here
-  // because the strip is short-lived and re-mounts on route changes anyway.
   const top = items;
   if (top.length === 0) return null;
   return (
@@ -96,6 +92,9 @@ function RecentRow({
         )}
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
+        {/* Label is computed at render time; frozen between renders since there
+            is no tick interval. Acceptable here: the strip re-mounts on route
+            change and auto-refetches via the section's query stale time. */}
         <span className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
           {item.addedAt != null ? relativeLabel(item.addedAt) : null}
         </span>
