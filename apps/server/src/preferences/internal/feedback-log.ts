@@ -45,11 +45,14 @@ function processNoteFields(
   let classifyInput = note;
   if (classifyInput.length > NOTE_CLASSIFY_MAX_CHARS) {
     classifyInput = classifyInput.slice(0, NOTE_CLASSIFY_MAX_CHARS);
-    consola.warn("[feedback-log] note classification input bounded to NOTE_CLASSIFY_MAX_CHARS", {
-      userId: context.userId,
-      tmdbId: context.tmdbId,
-      noteLength: note.length,
-    });
+    consola.warn(
+      `[feedback-log] note classification input bounded to ${NOTE_CLASSIFY_MAX_CHARS} chars`,
+      {
+        userId: context.userId,
+        tmdbId: context.tmdbId,
+        noteLength: note.length,
+      },
+    );
   }
   const noteSentiment = classifySentiment(classifyInput);
   const keywords = extractNoteKeywords(classifyInput, itemKeywords);

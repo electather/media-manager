@@ -75,15 +75,14 @@ describe("CatalogPreferenceProvider", () => {
     expect(features?.title).toBe("Fight Club");
     expect(fallback.getItemFeatures).toHaveBeenCalledOnce();
 
-    // Wait one tick so the detached cold-fill `void writeMetadata(...)` runs.
-    // Yield two macrotask turns so the detached `void coldFill(...).catch(log)`
-    // chain settles. `setTimeout(0)` is portable across Node, Bun, and the
-    // Vitest browser runner; `setImmediate` is Node-only.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const persisted = await catalog.getMetadata("550", "movie");
-    expect(persisted?.features?.director).toBe("David Fincher");
+    // Poll until the detached cold-fill write-back lands. `vi.waitFor` retries
+    // until the assertion passes regardless of whether the write chain settles
+    // on a micro- or macrotask turn, so the test does not bet on a fixed number
+    // of `setTimeout(0)` yields.
+    await vi.waitFor(async () => {
+      const persisted = await catalog.getMetadata("550", "movie");
+      expect(persisted?.features?.director).toBe("David Fincher");
+    });
   });
 
   it("returns null when the fallback yields no features", async () => {
@@ -103,12 +102,8 @@ describe("CatalogPreferenceProvider", () => {
 
     const features = await provider.getItemFeatures("u1", "550", "movie");
     expect(features?.title).toBe("Fight Club");
-    // Yield two macrotask turns so the detached `void coldFill(...).catch(log)`
-    // chain settles. `setTimeout(0)` is portable across Node, Bun, and the
-    // Vitest browser runner; `setImmediate` is Node-only.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(writeSpy).toHaveBeenCalled();
+    // Poll until the detached write-back has attempted its write and failed.
+    await vi.waitFor(() => expect(writeSpy).toHaveBeenCalled());
   });
 
   it("falls back to the live provider for history when the mirror is empty", async () => {
@@ -183,12 +178,10 @@ describe("CatalogPreferenceProvider", () => {
       provider.getItemFeatures("u1", "550", "movie"),
     ]);
 
-    // Yield two macrotask turns so the detached write-back chain settles.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    // Only the first miss should have triggered a cold-fill write.
-    expect(writeSpy).toHaveBeenCalledTimes(1);
+    // Poll until the detached write-back settles, then assert exactly one write:
+    // only the first of the three concurrent misses should have triggered a
+    // cold-fill write. `vi.waitFor` avoids betting on a fixed macrotask count.
+    await vi.waitFor(() => expect(writeSpy).toHaveBeenCalledTimes(1));
   });
 
   it("counts canonical hits, fallback misses, and unresolved misses", async () => {
