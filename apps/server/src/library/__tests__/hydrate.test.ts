@@ -270,19 +270,31 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
   // This matters because the scheduled jobs cap a user row at a wall-clock
   // timeout (`runRowWithTimeout` races the handler against 30s/60s) and abandon
   // the row's in-flight work when it fires, while the availability probes run
-  // unbounded. If the pass only wrote after the loop, a row that timed out in a
+  // unbounded. If the pass only wrote after the loop, a row that stalled in a
   // later chunk would discard every earlier chunk's completed work and the next
-  // run would redo it. Here a never-resolving probe in the SECOND chunk (rows
-  // 25+) is raced against a short timeout exactly as the job runner does: the
-  // FIRST chunk (rows 0–24) must already be persisted (`hydratedAt` stamped) so
-  // `staleOrNew` skips it next run, while the stalled second-chunk rows stay
-  // un-stamped and are retried. Under a single-write-after-loop design every row
-  // would be un-stamped here, failing the first assertion.
+  // run would redo it. Here a never-resolving probe stalls the SECOND chunk
+  // (rows 25+), modelling that abandoned-on-timeout row. The gate is
+  // deterministic, not wall-clock: chunk 2's first probe only runs once the loop
+  // has fully awaited chunk 1's `Promise.all` AND its `writeHydration`, so when
+  // that probe fires we KNOW chunk 1 is persisted — no `setTimeout` race that
+  // could flake on a loaded runner. We assert the FIRST chunk (rows 0–24) is
+  // already stamped (so `staleOrNew` skips it next run) while the stalled
+  // second-chunk rows stay un-stamped and are retried. Under a
+  // single-write-after-loop design every row would be un-stamped here, failing
+  // the first assertion.
   it("persists completed chunks before a later chunk stalls", async () => {
     const COUNT = 30; // Two chunks: rows 0–24 then 25–29 (HYDRATE_CONCURRENCY = 25).
     for (let i = 0; i < COUNT; i++) {
       await seedOwned(String(2000 + i));
     }
+
+    // A deferred resolved by chunk 2's first probe. Awaiting it is the
+    // deterministic signal that the loop advanced past chunk 1 — i.e. chunk 1's
+    // `writeHydration` already committed — so the assertions never race a timer.
+    let reachedChunkTwo!: () => void;
+    const chunkTwoStarted = new Promise<void>((resolve) => {
+      reachedChunkTwo = resolve;
+    });
 
     // The probes resolve normally for the first 25 calls (chunk 1) then hang on
     // the 26th onward (chunk 2), modelling a slow provider that blows the row
@@ -292,19 +304,18 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     const { ctx } = makeCtx({});
     ctx.mediaService.getMatchingServers = vi.fn().mockImplementation(() => {
       serverCalls += 1;
-      if (serverCalls > 25) return new Promise(() => {}); // Never resolves — stalls chunk 2.
+      if (serverCalls > 25) {
+        reachedChunkTwo();
+        return new Promise(() => {}); // Never resolves — stalls chunk 2 forever.
+      }
       return Promise.resolve([]);
     }) as typeof ctx.mediaService.getMatchingServers;
 
-    // Race the pass against a short timeout, mirroring `runRowWithTimeout`. The
-    // pass cannot finish (chunk 2 hangs), so the timeout wins and the awaiting
-    // continuation after the stalled chunk never runs.
-    const timedOut = Symbol("timeout");
-    const outcome = await Promise.race([
-      hydrate(ctx, { staleTtlMs: 1000 }),
-      new Promise((resolve) => setTimeout(() => resolve(timedOut), 50)),
-    ]);
-    expect(outcome).toBe(timedOut);
+    // Kick off the pass but never await it: chunk 2 hangs, so it never resolves,
+    // exactly as the job runner abandons a row that blows its wall-clock timeout.
+    void hydrate(ctx, { staleTtlMs: 1000 });
+    // Block until chunk 2's probe runs — proof chunk 1 fully persisted first.
+    await chunkTwoStarted;
 
     // Chunk 1 (rows 0–24) finished before the stall, so its writes are durable —
     // proving each chunk persists as it resolves, not after the whole loop.
