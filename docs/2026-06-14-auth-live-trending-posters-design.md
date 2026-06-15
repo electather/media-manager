@@ -93,8 +93,11 @@ GET /api/public/trending?limit=<n>
     (`idleEvictionMs`, default 10 min). A full, idle bucket is identical to a
     never-seen key — recreating it yields the same full bucket — so eviction
     never changes a limiting decision; it only caps the map's `size` at
-    recently-active IPs rather than accumulating one entry per IP ever seen. See
-    `idleEvictionMs` in `apps/server/src/mcp/rate-limit.ts`.
+    recently-active IPs rather than accumulating one entry per IP ever seen.
+    Because sweeps are throttled to once per window, a newly idle key can remain
+    until the next sweep; in practice the map tracks IPs active within roughly
+    two windows, not a hard one-window cap. See `idleEvictionMs` in
+    `apps/server/src/mcp/rate-limit.ts`.
 
 ### 2. Client — fetch + render
 
