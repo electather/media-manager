@@ -5,7 +5,13 @@ import { Button } from "@/shared/ui/button";
 import { libraryKeys } from "../lib/query-keys";
 
 interface LibraryErrorFallbackProps {
-  /** The thrown error. Reported, never rendered raw — see the body note below. */
+  /**
+   * The thrown error, accepted to satisfy the `ErrorComponentProps` passthrough
+   * from `LibraryRouteError`. Intentionally not rendered or reported here: a
+   * `LibraryApiError` already reports at the fetch layer (`shared/lib/api.ts`),
+   * and its raw `message` / `devMessage` must never reach the UI — see the body
+   * note below.
+   */
   error: unknown;
   resetErrorBoundary: () => void;
 }

@@ -97,7 +97,7 @@ const watchlistWriteParamSchema = z
  * `api.media.sources[":sourceId"].$get({ query })`; a value may be a string or
  * a `string[]` (a multi-value axis emitted as repeated params), so it accepts
  * either and adds no behavioral validation (the handler's per-source
- * `reg.paramSchema.safeParse(parseQuery(c))` is authoritative).
+ * `reg.paramSchema.safeParse(c.req.valid("query"))` is authoritative).
  */
 const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 

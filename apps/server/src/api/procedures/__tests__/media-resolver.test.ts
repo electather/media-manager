@@ -275,6 +275,21 @@ describe("media source resolver (US-003, design §A3)", () => {
     expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({ genres: ["Drama"] });
   });
 
+  it("400s a repeated param against a strict single-value schema (RISK-202 delta)", async () => {
+    // Reading `c.req.valid("query")` surfaces a repeated param as a `string[]`.
+    // A strict single-value schema (`z.string()`) rejects the array → 400, where
+    // the old `c.req.query()` read would have silently taken the first value.
+    // This is the intended, more-correct behavior: home/watchlist sources never
+    // emit repeated params, so a repeated one is a malformed request, not a
+    // value to quietly truncate. Pinned so the parity delta stays deliberate.
+    const res = await buildApp().request(
+      "/media/sources/fakeWatchlistParams?required=a&required=b",
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+    expect(watchlistReg("fakeWatchlistParams").build).not.toHaveBeenCalled();
+  });
+
   it("400s an undecodable cursor on a home source (cursorOnNull '400')", async () => {
     const res = await buildApp().request("/media/sources/fakeHome?cursor=%7Bnot-a-cursor");
     expect(res.status).toBe(400);
