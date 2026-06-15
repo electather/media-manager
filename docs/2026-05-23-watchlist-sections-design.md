@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
 **Status:** design (rev 11)
-**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25; rev 8: 2026-05-25; rev 11: 2026-06-16)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25; rev 8: 2026-05-25; rev 9: 2026-05-26; rev 10: 2026-06-01; rev 11: 2026-06-16)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
