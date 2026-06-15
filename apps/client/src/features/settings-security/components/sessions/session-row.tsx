@@ -24,8 +24,8 @@ export function SessionListRow({
 }) {
   const ua = useMemo(() => parseUserAgent(session.userAgent ?? null), [session.userAgent]);
   const showIp = !ua.unknown && !!session.ipAddress;
-  const created = new Date(session.createdAt);
-  const updated = new Date(session.updatedAt);
+  const created = session.createdAt;
+  const updated = session.updatedAt;
   return (
     <li
       data-testid={`session-row-${session.id}`}
