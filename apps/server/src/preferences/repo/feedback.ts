@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, sql } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { feedback, preferenceProfiles } from "../../db/schema";
 
@@ -47,7 +47,7 @@ export async function listUserIdsWithFeedbackSince(cutoff: number): Promise<stri
   const rows = await getDb()
     .selectDistinct({ userId: feedback.userId })
     .from(feedback)
-    .where(sql`${feedback.createdAt} >= ${cutoff}`)
+    .where(gte(feedback.createdAt, cutoff))
     .all();
   return rows.map((row) => row.userId);
 }
