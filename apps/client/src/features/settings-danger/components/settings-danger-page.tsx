@@ -35,6 +35,7 @@ function DangerPage() {
 
   const startExport = () => {
     setExportLocked(true);
+    // Anchor-nav, not fetch: browser streams the ZIP. Silent failure by design — see design doc L312.
     triggerAnchorDownload("/api/me/export");
     toast.success(m.settings_danger_toast_export_started());
     window.setTimeout(() => setExportLocked(false), 1000);
@@ -118,14 +119,11 @@ function DeleteAccountDialog({
   email,
   onClose,
   onDeleted,
-  onSubmit,
 }: {
   open: boolean;
   email: string;
   onClose: () => void;
   onDeleted: () => void;
-  /** Optional override used by tests; default path calls the API. */
-  onSubmit?: (input: { confirmEmail: string; currentPassword: string }) => Promise<void>;
 }) {
   const [typed, setTyped] = useState("");
   const [pw, setPw] = useState("");
@@ -151,12 +149,7 @@ function DeleteAccountDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const body = { confirmEmail: trimmedEmail, currentPassword: pw };
-      if (onSubmit) {
-        await onSubmit(body);
-      } else {
-        await deleteAccount(body);
-      }
+      await deleteAccount({ confirmEmail: trimmedEmail, currentPassword: pw });
       onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : m.settings_danger_delete_failed());
@@ -239,7 +232,6 @@ interface RevealInputProps {
   onChange: (next: string) => void;
   placeholder?: string;
   autoComplete?: string;
-  autoFocus?: boolean;
   ariaInvalid?: boolean;
   "data-testid"?: string;
 }
@@ -254,7 +246,6 @@ function RevealInput(props: RevealInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={rest.autoComplete}
-        autoFocus={rest.autoFocus}
         placeholder={rest.placeholder}
         aria-invalid={rest.ariaInvalid ? true : undefined}
         data-testid={rest["data-testid"]}
@@ -263,7 +254,11 @@ function RevealInput(props: RevealInputProps) {
       <button
         type="button"
         onClick={() => setShown((s) => !s)}
-        aria-label={shown ? "Hide password" : "Show password"}
+        aria-label={
+          shown
+            ? m.settings_danger_reauth_password_hide()
+            : m.settings_danger_reauth_password_show()
+        }
         className="absolute inset-y-0 right-1 flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
       >
         {shown ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
