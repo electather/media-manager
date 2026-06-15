@@ -33,6 +33,7 @@
   "auth_password_too_long": "رمز عبور باید حداکثر ۲۵۶ کاراکتر باشد.",
   "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
   "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
+  "auth_social_signin_error": "ورود اجتماعی ناموفق بود. لطفاً دوباره تلاش کنید.",
   "auth_name_required": "نام الزامی است.",
   "auth_register_invite_only_title": "فقط با دعوت",
   "auth_register_invite_only_body": "حساب‌های جدید توسط مدیر ایجاد می‌شوند. از مدیر خود درخواست دعوت کنید، سپس وارد شوید.",
