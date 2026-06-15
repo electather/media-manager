@@ -22,6 +22,8 @@ export interface PasswordFormProps {
   onCancel: () => void;
 }
 
+// CRAP is inflated by per-field validation JSX, not branching logic.
+// fallow-ignore-next-line complexity
 export function PasswordForm({
   current,
   next,

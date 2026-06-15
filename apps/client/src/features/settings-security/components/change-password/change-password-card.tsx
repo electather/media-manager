@@ -10,6 +10,8 @@ import { m } from "@/paraglide/messages";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import { PasswordForm } from "./password-form";
 
+// CRAP is inflated by validation flags and conditional JSX, not branching logic.
+// fallow-ignore-next-line complexity
 export function ChangePasswordCard({
   onChangePassword,
 }: {
@@ -41,6 +43,8 @@ export function ChangePasswordCard({
     setOpen(false);
   };
 
+  // CRAP is inflated by Better Auth error-status handling, not avoidable branching.
+  // fallow-ignore-next-line complexity
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;

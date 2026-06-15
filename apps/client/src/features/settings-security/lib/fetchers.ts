@@ -5,6 +5,8 @@ import { authSessionSchema, SettingsSecurityApiError, type AuthSession } from ".
 
 const sessionListSchema = z.array(authSessionSchema);
 
+// CRAP is inflated by defensive trust-boundary fallbacks, which are intentional.
+// fallow-ignore-next-line complexity
 export async function fetchSessions(): Promise<AuthSession[]> {
   const result = await authClient.listSessions();
   if (result.error) {

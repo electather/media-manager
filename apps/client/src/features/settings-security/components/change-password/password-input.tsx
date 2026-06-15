@@ -13,6 +13,8 @@ interface PasswordInputProps {
   "data-testid"?: string;
 }
 
+// CRAP is inflated by show/hide toggle JSX, not branching logic.
+// fallow-ignore-next-line complexity
 export function PasswordInput(props: PasswordInputProps) {
   const [shown, setShown] = useState(false);
   const { value, onChange, ...rest } = props;

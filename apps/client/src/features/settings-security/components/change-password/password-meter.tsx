@@ -4,13 +4,15 @@ import { cn } from "@/shared/lib/utils";
 /** Heuristic 0–4 password strength score driving the meter and label. */
 export function passwordScore(pw: string): number {
   if (!pw) return 0;
-  let s = 0;
-  if (pw.length >= 8) s += 1;
-  if (pw.length >= 12) s += 1;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s += 1;
-  if (/\d/.test(pw)) s += 1;
-  if (/[^A-Za-z0-9]/.test(pw)) s += 1;
-  return Math.min(4, s);
+  const checks = [
+    pw.length >= 8,
+    pw.length >= 12,
+    /[a-z]/.test(pw) && /[A-Z]/.test(pw),
+    /\d/.test(pw),
+    /[^A-Za-z0-9]/.test(pw),
+  ];
+  const passed = checks.filter(Boolean).length;
+  return Math.min(4, passed);
 }
 
 export function PasswordMeter({ value }: { value: string }) {

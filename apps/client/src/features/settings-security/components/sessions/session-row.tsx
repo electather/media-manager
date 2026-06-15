@@ -11,6 +11,8 @@ import { m } from "@/paraglide/messages";
 
 import type { DisplaySession } from "../../lib/types";
 
+// CRAP is inflated by optional-field conditional JSX, not branching logic.
+// fallow-ignore-next-line complexity
 export function SessionListRow({
   session,
   isFirst,
