@@ -34,6 +34,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { api } from "@/shared/lib/api";
 import { useNow } from "@/shared/hooks/use-now";
 import type { JSONSchema } from "@nama/shared";
+import { m } from "@/paraglide/messages";
+
+import { adminPluginsKeys } from "@/features/admin-plugins/shared/query-keys";
+import {
+  fetchDeleteSharedCredential,
+  fetchPatchSharedCredential,
+  fetchSharedCredentials,
+  fetchTestSharedCredentialPersisted,
+} from "../../lib/fetchers";
 
 import { SharedCredentialDialog } from "./dialog";
 
@@ -67,25 +76,18 @@ export function SharedCredentialsSection({
 }: SharedCredentialsSectionProps) {
   const qc = useQueryClient();
   const entries = useQuery({
-    queryKey: ["admin", "plugins", pluginId, "shared-credentials"],
-    queryFn: async () => {
-      const res = await api.plugins[":id"]["shared-credentials"].$get({
-        param: { id: pluginId },
-      });
-      if (!res.ok) throw new Error("Failed to load shared credentials.");
-      const body = await res.json();
-      return body.entries;
-    },
+    queryKey: adminPluginsKeys.sharedCredentials(pluginId),
+    queryFn: () => fetchSharedCredentials(pluginId).then((body) => body.entries),
   });
 
   // Per design doc § "TanStack Query invalidation map": only changes that
   // affect the meta line counters (add, delete, enable-toggle) should
-  // invalidate the parent `["admin", "plugins"]` key. A label/value-only
+  // invalidate the parent `adminPluginsKeys.list()` key. A label/value-only
   // edit fires `refetchLocal` so the row list updates without spawning an
   // extra top-level plugins query.
   const refetchLocal = () => {
     void qc.invalidateQueries({
-      queryKey: ["admin", "plugins", pluginId, "shared-credentials"],
+      queryKey: adminPluginsKeys.sharedCredentials(pluginId),
     });
   };
   const refetchPool = () => {
@@ -105,16 +107,15 @@ export function SharedCredentialsSection({
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="text-sm font-medium">Shared credentials</h4>
+          <h4 className="text-sm font-medium">{m.admin_plugins_shared_creds_section_title()}</h4>
           <p className="text-xs text-muted-foreground">
-            Admin-owned pool. Users without their own connection still get global capabilities
-            through these.
+            {m.admin_plugins_shared_creds_section_description()}
           </p>
         </div>
         <AddButton
           onClick={() => setDialog({ kind: "add" })}
           disabled={atCapacity}
-          tooltip={atCapacity ? "This plugin only supports one shared credential." : null}
+          tooltip={atCapacity ? m.admin_plugins_shared_creds_capacity_tooltip() : null}
         />
       </div>
 
@@ -124,9 +125,9 @@ export function SharedCredentialsSection({
         </div>
       ) : entries.error ? (
         <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">
-          <span>Couldn't load shared credentials.</span>
+          <span>{m.admin_plugins_shared_creds_load_error()}</span>
           <Button variant="ghost" size="sm" onClick={() => entries.refetch()}>
-            Retry
+            {m.admin_plugins_shared_creds_load_retry()}
           </Button>
         </div>
       ) : list.length === 0 ? (
@@ -178,15 +179,17 @@ function EmptyRow({
 }) {
   const description =
     hint === "global-only"
-      ? "Global-scoped capabilities will return CAPABILITY_UNAVAILABLE until one is added."
+      ? m.admin_plugins_shared_creds_empty_global_only()
       : hint === "global-and-fallback"
-        ? "Global-scoped and user-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added."
-        : "User-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added.";
+        ? m.admin_plugins_shared_creds_empty_global_and_fallback()
+        : m.admin_plugins_shared_creds_empty_user_fallback();
   return (
     <div className="flex flex-col items-start gap-2 rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
-      <span>No shared credentials configured. {description}</span>
+      <span>
+        {m.admin_plugins_shared_creds_empty_prefix()} {description}
+      </span>
       <Button size="sm" onClick={onAdd} disabled={atCapacity}>
-        <PlusIcon /> Add credential
+        <PlusIcon /> {m.admin_plugins_shared_creds_add()}
       </Button>
     </div>
   );
@@ -205,7 +208,7 @@ function AddButton({
 }) {
   const button = (
     <Button size="sm" variant="outline" onClick={onClick} disabled={disabled}>
-      <PlusIcon /> Add credential
+      <PlusIcon /> {m.admin_plugins_shared_creds_add()}
     </Button>
   );
   if (!tooltip) return button;
@@ -281,30 +284,38 @@ function CredentialRow({
   onDeleteRequest: () => void;
   onPoolChange: () => void;
 }) {
+  const qc = useQueryClient();
+
   const toggleEnabled = useMutation({
-    mutationFn: async (next: boolean) => {
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-        param: { id: pluginId, credId: entry.id },
-        json: { enabled: next },
-      });
-      if (!res.ok) throw new Error("Failed to update.");
+    mutationFn: (next: boolean) =>
+      fetchPatchSharedCredential({ pluginId, credId: entry.id, patch: { enabled: next } }),
+    // Optimistic update: flip the row's `enabled` immediately so the Switch
+    // moves before the round-trip completes (hard rule 6 — >100ms latency).
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: adminPluginsKeys.sharedCredentials(pluginId) });
+      const prev = qc.getQueryData<SharedCredentialEntry[]>(
+        adminPluginsKeys.sharedCredentials(pluginId),
+      );
+      qc.setQueryData<SharedCredentialEntry[]>(
+        adminPluginsKeys.sharedCredentials(pluginId),
+        (old) => old?.map((row) => (row.id === entry.id ? { ...row, enabled: next } : row)),
+      );
+      return { prev };
+    },
+    onError: (_err, _next, ctx) => {
+      // Restore the snapshot if the server rejected the change.
+      if (ctx?.prev) {
+        qc.setQueryData(adminPluginsKeys.sharedCredentials(pluginId), ctx.prev);
+      }
+      toast.error(m.admin_plugins_shared_creds_toast_toggle_error());
     },
     // Toggling `enabled` shifts the meta line's enabled/total counts, so
     // the parent plugin row needs to refetch alongside the local list.
-    onSuccess: () => onPoolChange(),
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : "Couldn't update credential.");
-    },
+    onSettled: () => onPoolChange(),
   });
 
   const test = useMutation({
-    mutationFn: async () => {
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
-        param: { id: pluginId, credId: entry.id },
-      });
-      if (!res.ok) throw new Error("Test failed.");
-      return (await res.json()) as { ok: boolean; message?: string };
-    },
+    mutationFn: () => fetchTestSharedCredentialPersisted({ pluginId, credId: entry.id }),
   });
 
   const [showResult, setShowResult] = useState(false);
@@ -332,12 +343,13 @@ function CredentialRow({
             the matching `isSuccess` / `isError` flag avoids that overlap. */}
         {showResult && test.isSuccess && test.data?.ok ? (
           <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-            <CheckIcon className="size-3" /> Verified
+            <CheckIcon className="size-3" /> {m.admin_plugins_shared_creds_row_verified()}
           </span>
         ) : null}
         {showResult && test.isSuccess && test.data && !test.data.ok ? (
           <span className="inline-flex items-center gap-1 text-xs text-destructive">
-            <XIcon className="size-3" /> {test.data.message ?? "Test failed"}
+            <XIcon className="size-3" />{" "}
+            {test.data.message ?? m.admin_plugins_shared_creds_row_test()}
           </span>
         ) : null}
         {showResult && test.isError ? (
@@ -352,25 +364,29 @@ function CredentialRow({
           checked={entry.enabled}
           onCheckedChange={(next: boolean) => toggleEnabled.mutate(next)}
           disabled={toggleEnabled.isPending}
-          aria-label={entry.enabled ? "Disable credential" : "Enable credential"}
+          aria-label={
+            entry.enabled
+              ? m.admin_plugins_shared_creds_row_disable_aria()
+              : m.admin_plugins_shared_creds_row_enable_aria()
+          }
         />
         <Button variant="outline" size="sm" onClick={() => test.mutate()} disabled={test.isPending}>
           {test.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Test
+          {m.admin_plugins_shared_creds_row_test()}
         </Button>
         <Button variant="outline" size="sm" onClick={onEdit} disabled={test.isPending}>
-          Edit
+          {m.admin_plugins_shared_creds_row_edit()}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label={`More actions for ${entry.label}`}
+            aria-label={m.admin_plugins_shared_creds_row_more_aria({ label: entry.label })}
             className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <MoreHorizontalIcon className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem variant="destructive" onClick={onDeleteRequest}>
-              <TrashIcon /> Delete
+              <TrashIcon /> {m.admin_plugins_shared_creds_row_delete()}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -381,20 +397,25 @@ function CredentialRow({
 
 function RowMeta({ entry, cooldownSec }: { entry: SharedCredentialEntry; cooldownSec: number }) {
   if (!entry.enabled) {
-    return <span className="text-xs text-muted-foreground">Disabled</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {m.admin_plugins_shared_creds_row_disabled()}
+      </span>
+    );
   }
   if (cooldownSec > 0) {
     const mm = String(Math.floor(cooldownSec / 60)).padStart(2, "0");
     const ss = String(cooldownSec % 60).padStart(2, "0");
     return (
       <span className="inline-flex items-center gap-1 text-xs text-warning">
-        <ClockIcon className="size-3" /> Retry in {mm}:{ss}
+        <ClockIcon className="size-3" />{" "}
+        {m.admin_plugins_shared_creds_row_retry({ time: `${mm}:${ss}` })}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-xs text-success">
-      <CheckIcon className="size-3" /> Ready
+      <CheckIcon className="size-3" /> {m.admin_plugins_shared_creds_row_ready()}
     </span>
   );
 }
@@ -413,20 +434,17 @@ function DeleteCredentialDialog({
   onDeleted: () => void;
 }) {
   const mutation = useMutation({
-    mutationFn: async () => {
-      if (!entry) return;
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$delete({
-        param: { id: pluginId, credId: entry.id },
-      });
-      if (!res.ok) throw new Error("Failed to delete credential.");
+    mutationFn: () => {
+      if (!entry) return Promise.resolve();
+      return fetchDeleteSharedCredential({ pluginId, credId: entry.id });
     },
     onSuccess: () => {
-      toast.success("Shared credential deleted.");
+      toast.success(m.admin_plugins_shared_creds_toast_deleted());
       onDeleted();
       onClose();
     },
-    onError: (err: unknown) => {
-      toast.error(err instanceof Error ? err.message : "Couldn't delete credential.");
+    onError: () => {
+      toast.error(m.admin_plugins_shared_creds_toast_delete_error());
     },
   });
 
@@ -439,16 +457,15 @@ function DeleteCredentialDialog({
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <TriangleAlertIcon className="size-4" />
-            Delete &ldquo;{entry?.label}&rdquo;?
+            {entry?.label
+              ? m.admin_plugins_shared_creds_delete_title({ label: entry.label })
+              : null}
           </DialogTitle>
-          <DialogDescription>
-            This removes the credential from the pool. Capabilities that depend on it will return
-            CAPABILITY_UNAVAILABLE until you add a replacement.
-          </DialogDescription>
+          <DialogDescription>{m.admin_plugins_shared_creds_delete_description()}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
-            Cancel
+            {m.admin_plugins_shared_creds_delete_cancel()}
           </Button>
           <Button
             variant="destructive"
@@ -456,7 +473,7 @@ function DeleteCredentialDialog({
             disabled={mutation.isPending}
           >
             {mutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Delete
+            {m.admin_plugins_shared_creds_delete_confirm()}
           </Button>
         </DialogFooter>
       </DialogContent>
