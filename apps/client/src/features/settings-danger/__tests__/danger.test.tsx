@@ -53,12 +53,17 @@ import {
   SettingsDangerRoute,
 } from "@/features/settings-danger/components/settings-danger-page";
 import { renderWithProviders } from "@/features/settings/__tests__/test-utils";
+import { m } from "@/paraglide/messages";
 
 beforeEach(() => {
   toastMock.success.mockReset();
   toastMock.error.mockReset();
   deleteAccountMock.mockReset();
   triggerAnchorDownloadMock.mockReset();
+  authMock.useSession.mockReset();
+  authMock.useSession.mockReturnValue({ data: { user: { email: "alex@example.com" } } });
+  authMock.signOut.mockReset();
+  authMock.signOut.mockResolvedValue(undefined);
 });
 
 afterEach(() => cleanup());
@@ -74,6 +79,7 @@ describe("export my data", () => {
     // not buffer the ZIP client-side. See docs/2026-04-24-user-settings-design.md L286.
     expect(triggerAnchorDownloadMock).toHaveBeenCalledWith("/api/me/export");
     expect(toastMock.success).toHaveBeenCalledTimes(1);
+    expect(toastMock.success).toHaveBeenCalledWith(m.settings_danger_toast_export_started());
   });
 });
 
