@@ -6,43 +6,11 @@ import type {
   NotificationCategory,
   NotificationDeliveryStatus,
   NotificationEvent,
-  NotificationEventType,
   NotificationSeverity,
   AdminDeliveryRow,
 } from "@nama/shared/notifications";
 import { notificationDeliveries } from "../../db/schema/notifications";
 import type { Recipient } from "../types";
-
-export interface InsertDeliveryInput {
-  id: string;
-  eventId: string;
-  eventType: NotificationEventType;
-  eventPayload: string;
-  recipientConnectionId: string | null;
-  recipientUserId: string;
-  status: NotificationDeliveryStatus;
-  correlationKey?: string | null;
-}
-
-export async function insertDelivery(input: InsertDeliveryInput): Promise<void> {
-  const db = getDb();
-  const now = Date.now();
-  type DeliveryInsert = typeof notificationDeliveries.$inferInsert;
-  const values: DeliveryInsert = {
-    id: input.id,
-    eventId: input.eventId,
-    eventType: input.eventType,
-    eventPayload: input.eventPayload,
-    recipientConnectionId: input.recipientConnectionId,
-    recipientUserId: input.recipientUserId,
-    status: input.status,
-    correlationKey: input.correlationKey ?? null,
-    attemptCount: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await db.insert(notificationDeliveries).values(values);
-}
 
 /**
  * Atomically inserts one delivery row per recipient for a single event. Returns
@@ -97,22 +65,6 @@ export async function updateDeliveryStatus(
     updates.providerMessageId = providerMessageId;
   }
   await db.update(notificationDeliveries).set(updates).where(eq(notificationDeliveries.id, id));
-}
-
-export async function recordDeliveryAttempt(
-  id: string,
-  errorCode?: string,
-  errorMessage?: string,
-): Promise<void> {
-  const db = getDb();
-  await db
-    .update(notificationDeliveries)
-    .set({
-      attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
-      updatedAt: Date.now(),
-      ...(errorCode ? { lastErrorCode: errorCode, lastError: errorMessage ?? null } : {}),
-    })
-    .where(eq(notificationDeliveries.id, id));
 }
 
 /**

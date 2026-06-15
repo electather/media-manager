@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { consola } from "consola";
 import { env } from "../env";
 import { registerSink } from "../diagnostics/capture";
 import { findEntry } from "../jobs/registry";
@@ -171,16 +172,27 @@ export class NotificationsService {
    * the `job_runs` audit trail attributes these as system-initiated; the
    * admin path (`triggerDeliveryRetry`) keeps `admin` because that one IS a
    * direct admin action.
+   *
+   * Uses `Promise.allSettled` so a single failed trigger does not abort the
+   * remaining rows — the stale-pending sweep is the documented safety net for
+   * any row whose trigger fires and rejects.
    */
   private async triggerDeliveryFanout(deliveryIds: readonly string[]): Promise<void> {
     const jobEntry = findEntry("notification.deliver");
     if (!jobEntry?.triggerFromApi) return;
     const triggerApi = jobEntry.triggerFromApi;
-    await Promise.all(
+    const results = await Promise.allSettled(
       deliveryIds.map((deliveryId) =>
         triggerApi({ deliveryId }, { triggeredBy: "cron", requestId: newRequestId() }),
       ),
     );
+    for (const result of results) {
+      if (result.status === "rejected") {
+        consola.warn(
+          `notifications: delivery trigger failed (sweep will retry): ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        );
+      }
+    }
   }
 }
 

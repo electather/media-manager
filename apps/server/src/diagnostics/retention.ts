@@ -1,4 +1,4 @@
-import { lt, max, notInArray, sql } from "drizzle-orm";
+import { eq, lt, max, notInArray, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { appConfig, errorRecords, perfRecords, sourcemaps } from "../db/schema/infra/diagnostics";
 
@@ -20,6 +20,11 @@ const SOURCEMAP_RETAINED_BUILDS = 50;
 export interface AppConfigRow {
   errorRetentionDays: number;
   perfRetentionDays: number;
+}
+
+export interface NotificationRetentionRow {
+  inboxRetentionDays: number;
+  deliveryRetentionDays: number;
 }
 
 export interface SweepResult {
@@ -132,6 +137,83 @@ async function pruneSourcemaps(): Promise<number> {
     .where(notInArray(sourcemaps.buildId, keepIds))
     .returning({ id: sourcemaps.id });
   return deleted.length;
+}
+
+const DEFAULT_INBOX_RETENTION_DAYS = 90;
+const DEFAULT_DELIVERY_RETENTION_DAYS = 30;
+const MIN_NOTIFICATION_RETENTION_DAYS = 1;
+const MAX_NOTIFICATION_RETENTION_DAYS = 3650;
+
+function clampNotificationRetention(days: number): number {
+  return Math.max(
+    MIN_NOTIFICATION_RETENTION_DAYS,
+    Math.min(MAX_NOTIFICATION_RETENTION_DAYS, Math.floor(days)),
+  );
+}
+
+/**
+ * Reads (and if missing, seeds) the notification retention columns from the
+ * global app_config row. The notifications module routes all app_config access
+ * through this function so diagnostics owns the single-row contract.
+ */
+export async function getNotificationRetention(): Promise<NotificationRetentionRow> {
+  const db = getDb();
+  const now = Date.now();
+  const row = await db.select().from(appConfig).get();
+  if (row) {
+    return {
+      inboxRetentionDays: row.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: row.deliveryRetentionDays ?? DEFAULT_DELIVERY_RETENTION_DAYS,
+    };
+  }
+  await db
+    .insert(appConfig)
+    .values({
+      id: APP_CONFIG_ID,
+      errorRetentionDays: DEFAULT_ERROR_RETENTION_DAYS,
+      perfRetentionDays: DEFAULT_PERF_RETENTION_DAYS,
+      inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  return {
+    inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
+    deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
+  };
+}
+
+/**
+ * Updates the notification inbox and/or delivery retention windows, clamped to
+ * [1, 3650] days each. The seed + update pair is combined into a single
+ * onConflictDoUpdate so concurrent admin PUTs serialize correctly on the
+ * single-row primary key.
+ */
+export async function setNotificationRetention(input: {
+  inboxRetentionDays?: number;
+  deliveryRetentionDays?: number;
+}): Promise<NotificationRetentionRow> {
+  const db = getDb();
+  const current = await getNotificationRetention();
+  const next: NotificationRetentionRow = {
+    inboxRetentionDays:
+      input.inboxRetentionDays !== undefined
+        ? clampNotificationRetention(input.inboxRetentionDays)
+        : current.inboxRetentionDays,
+    deliveryRetentionDays:
+      input.deliveryRetentionDays !== undefined
+        ? clampNotificationRetention(input.deliveryRetentionDays)
+        : current.deliveryRetentionDays,
+  };
+  await db
+    .update(appConfig)
+    .set({
+      inboxRetentionDays: next.inboxRetentionDays,
+      deliveryRetentionDays: next.deliveryRetentionDays,
+      updatedAt: Date.now(),
+    })
+    .where(eq(appConfig.id, APP_CONFIG_ID));
+  return next;
 }
 
 /** Deletes diagnostic records older than the configured retention windows and
