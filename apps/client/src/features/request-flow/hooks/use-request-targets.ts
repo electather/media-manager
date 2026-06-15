@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { requestsApi } from "./client";
-import { requestFlowKeys } from "./query-keys";
+import { requestsApi } from "../lib/fetchers";
+import { requestFlowKeys } from "../lib/query-keys";
 
 const TARGETS_STALE_MS = 5 * 60_000;
 

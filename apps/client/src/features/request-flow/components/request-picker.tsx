@@ -4,7 +4,7 @@ import type { RequestProfile, RequestTarget } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import { useRequestTargets } from "../api/use-request-targets";
+import { useRequestTargets } from "../hooks/use-request-targets";
 
 export type PickerSubmission = {
   serviceId: string;

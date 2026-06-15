@@ -12,7 +12,7 @@ const apiMock = vi.hoisted(() => ({
   history: vi.fn(),
   cancel: vi.fn(),
 }));
-vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+vi.mock("../lib/fetchers", () => ({ requestsApi: apiMock }));
 
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
