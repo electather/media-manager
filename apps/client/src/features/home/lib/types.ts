@@ -14,21 +14,6 @@ export type { RowKind };
 /** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
 export type MessageKey = keyof typeof messages;
 
-export const MATCH_REASON_KEYS = [
-  "matches_recent_picks",
-  "from_genre_you_love",
-  "similar_to_seed",
-  "because_in_watchlist",
-  "continuing_series",
-  "upcoming_release",
-  "recently_added",
-  "highly_rated",
-  "from_active_series",
-  "finishing_soon",
-] as const;
-
-export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
-
 /**
  * Local UI-layer projection of `CompactMediaItem`. Re-exposes the wire fields
  * the cards/hero render and adds display-only scaffolding the API does not
