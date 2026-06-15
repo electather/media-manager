@@ -4,13 +4,12 @@ import type {
   CompactMediaItem,
   Facets,
   HeroReason,
-  MatchReasonKey,
   RowKind,
   SeriesContext,
 } from "@nama/shared/home";
 import type { MediaSourceId } from "@nama/shared/media";
 
-export type { MatchReasonKey, RowKind };
+export type { RowKind };
 
 /** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
 export type MessageKey = keyof typeof messages;
