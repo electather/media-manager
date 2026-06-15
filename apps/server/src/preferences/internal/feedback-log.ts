@@ -6,8 +6,12 @@ import * as repo from "../repo";
 import type { UserItemFeedback } from "../types";
 import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 
-/** Maximum byte length accepted for a user note before truncation. */
-const NOTE_MAX_BYTES = 4096;
+/**
+ * Maximum number of characters of a user note fed to the O(n) sentiment and
+ * keyword passes. The full note is always persisted; only the classification
+ * input is bounded so pathological inputs cannot blow up rebuild CPU.
+ */
+const NOTE_CLASSIFY_MAX_CHARS = 4096;
 
 export interface RecordFeedbackInput {
   userId: string;
@@ -31,23 +35,25 @@ function processNoteFields(
   noteKeywordsJson: string | null;
   noteKeywordsArray: string[] | null;
 } {
-  let rawNote = typeof raw === "string" && raw.length > 0 ? raw : null;
-  if (rawNote && Buffer.byteLength(rawNote, "utf8") > NOTE_MAX_BYTES) {
-    // Truncate oversized notes so that O(n) classification work stays bounded.
-    // Slicing on character count rather than bytes avoids splitting multi-byte
-    // code points; the ceiling is generous enough that real notes are unaffected.
-    rawNote = rawNote.slice(0, NOTE_MAX_BYTES);
-    consola.warn("[feedback-log] note truncated to NOTE_MAX_BYTES", {
-      userId: context.userId,
-      tmdbId: context.tmdbId,
-    });
-  }
-  const note = rawNote;
+  const note = typeof raw === "string" && raw.length > 0 ? raw : null;
   if (!note)
     return { note: null, noteSentiment: null, noteKeywordsJson: null, noteKeywordsArray: null };
-  const noteSentiment = classifySentiment(note);
-  const keywords = extractNoteKeywords(note, itemKeywords);
-  if (note.length > 20 && keywords.length === 0) {
+  // The full note is persisted, but the sentiment and keyword passes only see a
+  // bounded prefix so a pathologically long note cannot blow up rebuild CPU.
+  // Slice on character count (not bytes) to avoid splitting multi-byte code
+  // points; the ceiling is generous enough that real notes are never clipped.
+  let classifyInput = note;
+  if (classifyInput.length > NOTE_CLASSIFY_MAX_CHARS) {
+    classifyInput = classifyInput.slice(0, NOTE_CLASSIFY_MAX_CHARS);
+    consola.warn("[feedback-log] note classification input bounded to NOTE_CLASSIFY_MAX_CHARS", {
+      userId: context.userId,
+      tmdbId: context.tmdbId,
+      noteLength: note.length,
+    });
+  }
+  const noteSentiment = classifySentiment(classifyInput);
+  const keywords = extractNoteKeywords(classifyInput, itemKeywords);
+  if (classifyInput.length > 20 && keywords.length === 0) {
     consola.warn("[feedback-log] non-trivial note produced no keywords", {
       userId: context.userId,
       tmdbId: context.tmdbId,
