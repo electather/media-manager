@@ -6,6 +6,11 @@ import { m } from "@/paraglide/messages";
 import { useAdminSettings } from "./use-admin-settings";
 import { useUpdateAdminSettings } from "./use-update-admin-settings";
 
+/** Returns true only for valid integer values within the allowed retention range [1, 3650]. */
+function isValidRetentionDays(value: number): boolean {
+  return Number.isFinite(value) && Number.isInteger(value) && value >= 1 && value <= 3650;
+}
+
 export function RetentionForm() {
   const { data } = useAdminSettings();
   const update = useUpdateAdminSettings();
@@ -18,18 +23,23 @@ export function RetentionForm() {
         e.preventDefault();
         const inboxDays = Number(inbox);
         const deliveryDays = Number(delivery);
-        if (
-          !Number.isFinite(inboxDays) ||
-          !Number.isFinite(deliveryDays) ||
-          inboxDays < 1 ||
-          deliveryDays < 1
-        ) {
+        if (!isValidRetentionDays(inboxDays) || !isValidRetentionDays(deliveryDays)) {
           return;
         }
-        update.mutate({
-          inboxRetentionDays: inboxDays,
-          deliveryRetentionDays: deliveryDays,
-        });
+        update.mutate(
+          {
+            inboxRetentionDays: inboxDays,
+            deliveryRetentionDays: deliveryDays,
+          },
+          {
+            // Sync local input state to the server-authoritative values so the
+            // form reflects any clamping or normalization the server applied.
+            onSuccess: (response) => {
+              setInbox(String(response.inboxRetentionDays));
+              setDelivery(String(response.deliveryRetentionDays));
+            },
+          },
+        );
       }}
       className="flex flex-col gap-4"
     >
