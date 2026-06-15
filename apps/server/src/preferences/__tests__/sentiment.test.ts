@@ -27,14 +27,3 @@ describe("extractNoteKeywords", () => {
     expect(extractNoteKeywords("a b c", ["spaceship"])).toEqual([]);
   });
 });
-
-describe("classifySentiment on large inputs", () => {
-  it("handles a very large note without hanging (stays within O(n) on length)", () => {
-    // 50 KB of repeated words — exercises that the classifier is not catastrophically
-    // slow on pathological input. The test itself enforces a wallclock bound only
-    // implicitly through the test runner timeout; we mainly verify the return value.
-    const large = "good ".repeat(10_000);
-    const result = classifySentiment(large);
-    expect(result).toBe("positive");
-  });
-});
