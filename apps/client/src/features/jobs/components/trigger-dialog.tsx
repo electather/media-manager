@@ -34,7 +34,8 @@ function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
   const labels = schema["x-enum-labels"];
   return schema.enum.map((v: unknown) => {
     const value = String(v);
-    const label = labels && value in labels ? String(labels[value]) : value;
+    const label =
+      labels && typeof labels === "object" && value in labels ? String(labels[value]) : value;
     return { value, label };
   });
 }
@@ -55,6 +56,7 @@ interface FieldItemProps {
  */
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (schema.type === "number") {
+    if (raw === "") return null;
     const n = Number(raw);
     return Number.isNaN(n) ? null : n;
   }

@@ -164,6 +164,24 @@ describe("DynamicTriggerDialog number coercion", () => {
       );
     });
   });
+
+  it("treats a cleared number input as null (not 0)", async () => {
+    // Number("") === 0 in JavaScript, so an explicit empty-string guard is
+    // needed to prevent clearing a field from snapping its value to 0.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    await user.type(input, "5");
+    await user.clear(input);
+
+    // After clearing, the required validation should fire — the field is
+    // missing (null), not satisfied with 0.
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    expect(screen.getByText(/this field is required/i)).toBeTruthy();
+    // The fetcher must not have been called because the required field was empty.
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
+  });
 });
 
 describe("DynamicTriggerDialog error handling", () => {

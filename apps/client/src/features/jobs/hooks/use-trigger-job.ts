@@ -26,10 +26,9 @@ export function useTriggerJob() {
       void qc.invalidateQueries({ queryKey: jobsKeys.all });
     },
     onError: (err) => {
-      const msg =
-        err instanceof JobsApiError && err.body?.message
-          ? err.body.message
-          : err.message || m.jobs_trigger_error_generic();
+      const serverMsg =
+        err instanceof JobsApiError ? (err.body?.devMessage ?? err.body?.message) : undefined;
+      const msg = serverMsg ?? (err.message || m.jobs_trigger_error_generic());
       toast.error(msg);
     },
   });
