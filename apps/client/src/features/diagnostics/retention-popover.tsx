@@ -41,7 +41,10 @@ export function RetentionPopover() {
       if (ctx?.snapshot) {
         queryClient.setQueryData<DiagnosticsConfig>(diagnosticsKeys.config(), ctx.snapshot);
       }
-      const message = error instanceof DiagnosticsApiError ? error.message : String(error);
+      const message =
+        error instanceof DiagnosticsApiError
+          ? (error.body?.devMessage ?? error.message)
+          : String(error);
       toast.error(m.diagnostics_retention_update_failed({ message }));
     },
     onSettled: () => {
