@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 type Props = {
   /** Wide cinematic crop. Falls back to `posterSrc` when unset. */
   src: string | undefined;
@@ -17,22 +19,24 @@ type Props = {
  */
 export function DetailHeroBackdrop({ src, posterSrc }: Props) {
   const imageSrc = src ?? posterSrc;
+  // State-driven error hide: reset on src change so a new valid image is not
+  // left invisible when the component stays mounted across navigations.
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [imageSrc]);
+
   return (
     <div
       aria-hidden="true"
       className="scroll-driven-backdrop-fade pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
-      {imageSrc ? (
+      {imageSrc && !failed ? (
         // decoding="async" keeps the large hero image off the main-thread decode
-        // path; onError hides a broken img so the gradient stack still reads
-        // cleanly without a torn placeholder filling the viewport.
+        // path; hiding via state lets React reset visibility when src changes.
         <img
           src={imageSrc}
           alt=""
           decoding="async"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
+          onError={() => setFailed(true)}
           className="size-full object-cover object-top"
         />
       ) : null}
