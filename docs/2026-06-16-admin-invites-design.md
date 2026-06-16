@@ -122,6 +122,10 @@ WHERE code = ?
 The client drawer's existing unlimited option (`value="0"`) maps directly to `maxUses = 0`.
 
 ```
+extendInviteSchema = z.object({
+  expiresAt: z.number().int().positive(),   // same field as createInviteSchema; handler validates > Date.now()
+})
+
 acceptInviteSchema = z.object({
   name:     z.string().min(1),
   email:    z.email(),
@@ -167,11 +171,15 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
   - Generate an 18-char code, insert the row, return `AdminInviteDTO` with `url`.
 - `GET /admin/invites`
   - List non-revoked invites, newest first, with computed `expired`/`uses`.
-- `POST /admin/invites/:id/extend`
-  - Reset `expiresAt` to `now + TTL`; clear nothing else. (Named `extend` because
-    nothing is sent or re-sent — the link already exists and the admin shares it
-    manually. When the email-invite path lands, a separate `resend` endpoint
-    handles re-delivery for `kind = 'email'` invites.)
+- `POST /admin/invites/:id/extend` (`zValidator("json", extendInviteSchema)`)
+  - `extendInviteSchema = z.object({ expiresAt: z.number().int().positive() })` —
+    same field as `createInviteSchema`; handler validates `expiresAt > Date.now()`.
+    Admin supplies the new absolute expiry (the drawer reuses the same expiry
+    picker as creation). No `ttl` constant — admin intention is explicit.
+  - Set `expiresAt` to the supplied value; clear nothing else. (Named `extend`
+    because nothing is sent or re-sent — the link already exists and the admin
+    shares it manually. When the email-invite path lands, a separate `resend`
+    endpoint handles re-delivery for `kind = 'email'` invites.)
   - **Exhausted guard:** if `uses >= maxUses` (and `maxUses != 0`) at the time of
     the call, the invite is fully consumed — extending the expiry alone would be
     useless. Reject with `409 Conflict` and body `{ code: "INVITE_EXHAUSTED" }`
@@ -184,17 +192,19 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
 
 No admin/session middleware — accepters are unauthenticated. Registered in `router.ts`.
 
-`GET /invites/:code` uses the shared `publicIpRateLimit` (capacity 60, refill 1/s)
-— it is a cheap DB read with no side effects, the same class as `/public/*` reads.
+Rate limits are applied **per-route**, not at the subapp level. The `/invites`
+subapp does **not** receive the `publicIpRateLimit` outer wrapper:
 
-`POST /invites/:code/accept` uses a **dedicated lower-capacity limiter**
-(`acceptIpLimiter`: `TokenBucketLimiter({ capacity: 5, refillPerSec: 0.1 })`) —
-each call triggers a scrypt hash, so the shared 60-request burst would allow up to
-60 concurrent scrypt operations per IP before rate-limiting kicks in. A 5-request
-burst (≈ 1 accept/10 s sustained) is sufficient for legitimate use (an invite
-recipient submits once) while bounding the CPU impact of a burst attack to a handful
-of parallel hashes. Define `acceptIpLimiter` and its middleware in `api/rate-limit.ts`
-alongside `publicIpRateLimit`, keyed by `clientIp`.
+- `GET /invites/:code` — `publicIpRateLimit` (capacity 60, refill 1/s). Cheap DB
+  read; same budget class as `/public/*`. Separate bucket from the accept route,
+  so a preview burst does not drain the accept budget.
+- `POST /invites/:code/accept` — `acceptIpRateLimit` (capacity 5, refill 0.1/s),
+  backed by `acceptIpLimiter: TokenBucketLimiter({ capacity: 5, refillPerSec: 0.1 })`.
+  Each call triggers a scrypt hash; the lower cap bounds CPU exposure while still
+  covering any legitimate single-IP use (an invitee submits once).
+
+Both middlewares are defined in `api/rate-limit.ts` alongside `publicIpRateLimit`,
+keyed by `clientIp`.
 
 - `GET /invites/:code`
   - Look up by code. Return `InvitePreviewDTO` when active; `404` when missing;
@@ -246,14 +256,17 @@ alongside `publicIpRateLimit`, keyed by `clientIp`.
 - Update consumers:
   - `components/invite-drawer.tsx` — call `useCreateInvite`; **hide the email
     tab**, keep the link tab (role + expiry + max-uses).
-  - `components/invite-row.tsx` — resend/revoke via mutations; copy the
-    server-returned `url`.
+  - `components/invite-row.tsx` — extend/revoke via mutations; copy the
+    server-returned `url`. The "resend" button label becomes "extend" — consistent
+    with the backend endpoint name and avoids future confusion when email resend
+    lands (§9).
   - `components/users-page.tsx` — `useInvitesMock` → `useAdminInvites`.
   - `lib/user-predicates.ts` — pending count derived from the real invite list.
-    Update `isInviteActive` to:
-    `!invite.expired && invite.expiresAt >= Date.now() && (invite.maxUses === 0 || invite.uses < invite.maxUses)`
-    (`maxUses === 0` = unlimited; the current predicate only checks `expired` and
-    `expiresAt` — exhaustion is a new condition).
+    Update `isInviteActive` to `!invite.expired` — the server-computed `expired`
+    flag already encodes `expiresAt < now OR uses >= maxUses OR revokedAt != null`,
+    so no extra client-side checks are needed. (Previous draft included redundant
+    `expiresAt` and `maxUses` guards; those are correct only as stale-cache defense
+    but add confusion and the invite list is always fresh via React Query.)
 - `inviteUrl` now resolves to `/auth/invite/<code>`.
 - **Delete `lib/invites-mock.ts`.**
 
