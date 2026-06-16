@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { JSONSchema } from "@nama/shared";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
+import { parseUserConfig } from "../db/queries";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
@@ -308,7 +309,8 @@ async function persistConnectionFromAuth(
   if (!module.manifest.poolable) {
     const existing = await findConnectionForPlugin(db, userId, pluginId);
     if (existing) {
-      const priorConfig = existing.userConfig ? (JSON.parse(existing.userConfig) as unknown) : null;
+      // Use a guarded parse: a malformed row must not block the reconnect path.
+      const priorConfig = parseUserConfig(existing.userConfig, existing.id);
       await reconnectConnection({
         connectionId: existing.id,
         userId,
