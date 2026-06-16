@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { consola } from "consola";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb, type Db } from "./client";
@@ -28,15 +29,20 @@ export function parseUserConfig(raw: string | null | undefined, connectionId?: s
 }
 
 /**
- * Surfaces a corrupt `userConfig` row so operators can locate it. Logs the
- * owning connection id (when the caller has it) plus a truncated excerpt of the
- * raw value (capped to avoid log bloat on a large column) so the offending row
- * is directly identifiable without scanning the table for a substring.
+ * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
+ * connection id pinpoints the row; we deliberately do NOT log the raw value
+ * because `x-private` fields live in `userConfig` as plaintext and an excerpt
+ * could leak one into the logs. A length + short content hash is enough to tell
+ * corrupt rows apart and confirm a re-occurrence without exposing any content.
  */
 function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
+  const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")
+    .update(raw)
+    .digest("hex")
+    .slice(0, 8)}`;
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
     connectionId,
-    raw: raw.slice(0, 120),
+    fingerprint,
     error: err instanceof Error ? err.message : String(err),
   });
 }

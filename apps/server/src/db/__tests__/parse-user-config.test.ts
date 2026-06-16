@@ -58,4 +58,22 @@ describe("parseUserConfig", () => {
       warn.mockRestore();
     }
   });
+
+  it("never logs the raw userConfig content, since x-private fields are plaintext", () => {
+    const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
+    try {
+      // A plaintext x-private secret embedded in a corrupt blob must not leak.
+      const secret = "super-secret-internal-api-key";
+      parseUserConfig(`{${secret}`, "conn-123");
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).not.toContain(secret);
+      // A length + content hash is logged instead, enough to tell rows apart.
+      expect(warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ fingerprint: expect.stringContaining("sha256=") }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
