@@ -55,8 +55,12 @@ scrypt / mass-user-creation abuse, which entropy does not.
    expiry + max-uses + revoke. Trade-off: a database-level breach exposes every
    active invite code as an immediately-usable bearer credential. Acceptable given
    the closed-system threat model (self-hosted, small admin team), 90-bit entropy
-   making offline brute-force infeasible, and short TTLs + use-caps limiting the
-   blast radius of any single leaked code.
+   making offline brute-force infeasible, and the expiry + use-cap a creating admin
+   sets bounding the blast radius of any single leaked code. Note these are
+   admin-chosen knobs, not server-enforced ceilings: `expiresAt` has no maximum and
+   `maxUses = 0` means unlimited, so an admin can mint a long-lived, uncapped link.
+   The threat model relies on admins picking sane values; server-enforced upper
+   bounds on TTL and uses are a possible future hardening (§9).
 4. **Multi-use links.** Keep `maxUses` + `uses` (matches the existing drawer UI).
    Acceptance atomically guards the use count.
 5. **Accepter supplies email.** Link invites bind no email. The accepter types
@@ -213,7 +217,7 @@ keyed by `clientIp`.
   - Runs entirely inside **one `db.transaction`** so a later failure rolls back
     the use-count increment (no silently-burned use):
     1. **Atomic use guard** (single statement, race-safe under SQLite's
-       single-writer snapshot isolation):
+       serialized write model):
        ```
        UPDATE invites
           SET uses = uses + 1
@@ -262,7 +266,7 @@ keyed by `clientIp`.
     server-returned `url`. The "resend" button label becomes "extend" — consistent
     with the backend endpoint name and avoids future confusion when email resend
     lands (§9). **Rename Paraglide message keys:** replace
-    `m.admin_users_invite_resend()` (button) and `m.admin_users_invite_toast_resented()`
+    `m.admin_users_invite_resend()` (button) and `m.admin_users_invite_toast_resent()`
     (success toast) with new `admin_users_invite_extend` / `admin_users_invite_toast_extended`
     keys in `apps/client/messages/admin/en.json` and `fa.json`.
   - `components/users-list.tsx` — update the `isInviteActive(i, now)` call to
