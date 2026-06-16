@@ -131,17 +131,17 @@ const defaultPluginRows: PluginRow[] = [
 
 let pluginRows: PluginRow[] = defaultPluginRows;
 
-vi.mock("../../db/queries", () => ({
-  selectEnabledPlugins: async () => pluginRows,
-  parseUserConfig: (raw: string | null | undefined) => {
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as unknown;
-    } catch {
-      return null;
-    }
-  },
-}));
+vi.mock("../../db/queries", async (importActual) => {
+  // Re-use the real parseUserConfig so this integration test never drifts from
+  // the helper's edge-case behavior (its own contract is unit-tested in
+  // db/__tests__/parse-user-config.test.ts). `db/client` is mocked above, so
+  // importing the real module does not pull in env validation.
+  const actual = await importActual<typeof import("../../db/queries")>();
+  return {
+    parseUserConfig: actual.parseUserConfig,
+    selectEnabledPlugins: async () => pluginRows,
+  };
+});
 
 const { invokePerConnectionHandler, registerAllPluginJobs } = await import("../plugin-jobs");
 
