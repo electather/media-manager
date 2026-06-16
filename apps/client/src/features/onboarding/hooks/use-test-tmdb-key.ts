@@ -2,9 +2,9 @@ import { useMutation } from "@tanstack/react-query";
 import { testTmdbKey } from "../lib/fetchers";
 
 /**
- * Wraps the ephemeral TMDB key probe. The caller owns the result lifetime —
- * call `.reset()` whenever the candidate key value changes so the green/red
- * badge reflects the key currently in the input, not a previously tested one.
+ * Wraps the ephemeral TMDB key probe. Returns the mutation object; callers
+ * own result lifetime and should call `.reset()` when the candidate key value
+ * changes.
  */
 export function useTestTmdbKey() {
   return useMutation({ mutationFn: testTmdbKey });
