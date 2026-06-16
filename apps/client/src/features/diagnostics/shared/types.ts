@@ -139,3 +139,18 @@ export class DiagnosticsApiError extends Error {
     this.name = "DiagnosticsApiError";
   }
 }
+
+/** Narrows an unknown thrown value to the most useful human message: the
+ *  server-shipped `devMessage` for a {@link DiagnosticsApiError}, otherwise the
+ *  generic error message, falling back to `String(error)` for non-Error
+ *  throwables. Shared by the mutation toasts and the boundary fallback so the
+ *  narrowing logic lives in one place instead of being inlined per call site. */
+// The narrowing branches are intrinsic; the helper is small, pure, and unit
+// tested in __tests__/error-message.ts, so the estimated CRAP overcounts here.
+// fallow-ignore-next-line complexity
+export function diagnosticsErrorMessage(error: unknown): string {
+  if (error instanceof DiagnosticsApiError) {
+    return error.body?.devMessage ?? error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
+}

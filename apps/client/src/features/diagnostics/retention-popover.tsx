@@ -9,7 +9,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { diagnosticsKeys } from "./shared/query-keys";
 import { fetchDiagnosticsConfig, fetchUpdateDiagnosticsConfig } from "./shared/fetchers";
-import { DiagnosticsApiError, type DiagnosticsConfig } from "./shared/types";
+import { diagnosticsErrorMessage, type DiagnosticsConfig } from "./shared/types";
 
 const ERROR_OPTIONS = [7, 14, 30, 60, 90] as const;
 const PERF_OPTIONS = [1, 3, 7, 14, 30] as const;
@@ -41,11 +41,9 @@ export function RetentionPopover() {
       if (ctx?.snapshot) {
         queryClient.setQueryData<DiagnosticsConfig>(diagnosticsKeys.config(), ctx.snapshot);
       }
-      const message =
-        error instanceof DiagnosticsApiError
-          ? (error.body?.devMessage ?? error.message)
-          : String(error);
-      toast.error(m.diagnostics_retention_update_failed({ message }));
+      toast.error(
+        m.diagnostics_retention_update_failed({ message: diagnosticsErrorMessage(error) }),
+      );
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: diagnosticsKeys.config() });

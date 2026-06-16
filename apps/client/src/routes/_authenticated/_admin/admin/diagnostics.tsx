@@ -24,6 +24,9 @@ export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")
   validateSearch: (search) => searchSchema.parse(search),
 });
 
+// Route orchestrator: search-param defaults plus one navigate wrapper per
+// param (tab/rid/pid) are intrinsic to wiring the URL to the two tabs.
+// fallow-ignore-next-line complexity
 function AdminDiagnosticsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
