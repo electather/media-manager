@@ -13,5 +13,10 @@ export const commandMenuKeys = {
 export function isSearchKey(
   key: readonly unknown[],
 ): key is ReturnType<typeof commandMenuKeys.search> {
-  return key[0] === "command-menu" && key[1] === "search" && typeof key[2] === "object";
+  return (
+    key[0] === "command-menu" &&
+    key[1] === "search" &&
+    key[2] !== null &&
+    typeof key[2] === "object"
+  );
 }
