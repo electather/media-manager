@@ -23,6 +23,20 @@ export interface LoginFormProps {
   oauthError: string | undefined;
 }
 
+// Where Better Auth sends the browser back after a failed social sign-in. We
+// only forward the current redirect target; any stale `error` params already on
+// the URL are intentionally dropped so a re-attempt starts from a clean state.
+export function buildErrorCallbackURL(redirectTo: string | undefined): string {
+  return redirectTo ? `/auth/login?redirect=${encodeURIComponent(redirectTo)}` : "/auth/login";
+}
+
+// The form stays locked from submit through the async navigate() that follows a
+// successful login, so the settling redirect cannot re-enable inputs and let a
+// duplicate request through. Treating success as busy is what closes that window.
+export function isFormBusy(isSubmitting: boolean, isPending: boolean, isSuccess: boolean): boolean {
+  return isSubmitting || isPending || isSuccess;
+}
+
 export function LoginForm({ redirectTo, oauthError }: LoginFormProps) {
   const loginMutation = useLogin(redirectTo);
   const [rememberMe, setRememberMe] = useState(true);
@@ -34,9 +48,11 @@ export function LoginForm({ redirectTo, oauthError }: LoginFormProps) {
     },
   });
 
-  // Keep the form locked once the mutation succeeds so the async navigation
-  // settling cannot re-enable inputs and allow a duplicate submit.
-  const isBusy = form.state.isSubmitting || loginMutation.isPending || loginMutation.isSuccess;
+  const isBusy = isFormBusy(
+    form.state.isSubmitting,
+    loginMutation.isPending,
+    loginMutation.isSuccess,
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,9 +152,7 @@ export function LoginForm({ redirectTo, oauthError }: LoginFormProps) {
         )}
         <SocialButtons
           redirectTo={redirectTo}
-          errorCallbackURL={
-            redirectTo ? `/auth/login?redirect=${encodeURIComponent(redirectTo)}` : "/auth/login"
-          }
+          errorCallbackURL={buildErrorCallbackURL(redirectTo)}
         />
         <FieldDescription className="text-center">
           {m.auth_no_account_question()}{" "}

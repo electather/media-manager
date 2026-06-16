@@ -104,6 +104,9 @@ GET /api/public/trending?limit=<n>
 - Add a public query in the auth feature (`apps/client/src/features/auth/`) that
   calls `GET /api/public/trending` **without a session**. Follow the existing
   feature-architecture conventions (query-keys factory, typed client call).
+  The query suppresses `refetchOnWindowFocus` and `refetchOnReconnect` — the grid
+  is decorative, so a focus/reconnect refetch would only waste a request the
+  server cache (`Cache-Control: public, max-age=300`) already serves cheaply.
 - The grid always renders a **fixed full card count** (6 rows × 14 = 84). Cards are
   filled in order from the live `posters[]`; any remaining slots (when the feed
   returns fewer than the full count, including the empty case) fall through to a
