@@ -60,8 +60,10 @@ export function useSearchResults(rawQuery: string, scope: CommandScope): UseSear
     // results for the new scope until the fresh fetch resolves.
     placeholderData: (previousData, previousQuery) => {
       if (!previousQuery) return undefined;
+      // `commandMenuKeys.search` always returns a 3-tuple, so index [2] is
+      // always defined — the cast and direct access are both safe here.
       const prevKey = previousQuery.queryKey as ReturnType<typeof commandMenuKeys.search>;
-      const prevKind = prevKey[2]?.kind;
+      const prevKind = prevKey[2].kind;
       return prevKind === kind ? previousData : undefined;
     },
   });

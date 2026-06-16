@@ -534,6 +534,6 @@ Pre-stable → breaking OK. One step per PR. Each PR own changeset.
 - Plugin-pkg contributions.
 - Search relevance tuning beyond catalog-service default.
 
-> **Note (2026-06-16):** Cross-tab recents sync was previously listed here as a non-goal.
-> It was implemented in the #608 fix PR via a `storage` event listener in `useRecentItems`
-> (client-only, zero backend cost). It is now in scope and documented in §11.
+> **Note:** Cross-tab recents sync was previously listed here as a non-goal.
+> It was implemented via a `storage` event listener in `useRecentItems`
+> (client-only, zero backend cost) and is now in scope (see §11).

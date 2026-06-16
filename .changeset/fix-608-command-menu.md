@@ -1,5 +1,5 @@
 ---
-"@nama/client": minor
+"@nama/client": patch
 ---
 
-Fixed search scope switch showing stale results from the previous scope in the command menu. Command menu recents now sync across tabs in real time.
+Fixed search scope switch showing stale results from the previous scope in the command menu.
