@@ -22,16 +22,21 @@ export function parseUserConfig(raw: string | null | undefined): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch (err) {
-    // A corrupt row is a real data-integrity signal — degrade to null so reads
-    // don't 500, but surface the failure so operators can locate the bad row.
-    // Include a truncated excerpt of the raw value (capped to avoid log bloat
-    // on a large column) so the offending row is identifiable in a large DB.
-    consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
-      raw: typeof raw === "string" ? raw.slice(0, 120) : raw,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    warnCorruptUserConfig(raw, err);
     return null;
   }
+}
+
+/**
+ * Surfaces a corrupt `userConfig` row so operators can locate it. A truncated
+ * excerpt of the raw value (capped to avoid log bloat on a large column)
+ * identifies the offending row without dumping the full blob.
+ */
+function warnCorruptUserConfig(raw: string, err: unknown): void {
+  consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
+    raw: raw.slice(0, 120),
+    error: err instanceof Error ? err.message : String(err),
+  });
 }
 
 export async function queryEnabledConnectionsForPlugin(db: Db, userId: string, pluginId: string) {
