@@ -140,7 +140,9 @@ acceptInviteSchema = z.object({
 DTOs:
 
 - `AdminInviteDTO` — the server-side source of truth. Fields: `id`, `code`,
-  `url` (`/auth/invite/<code>`), `roleId`, `invitedBy: string | null` (null when
+  `url` (absolute URL: `${APP_EXTERNAL_URL ?? origin}/auth/invite/<code>`,
+  constructed server-side via the same pattern as `config.ts:14` — client copies
+  it directly without prepending origin), `roleId`, `invitedBy: string | null` (null when
   the creating admin has been deleted), `createdAt`, `expiresAt`, `maxUses`,
   `uses`, `expired` (computed). `revokedAt` is **not** exposed (list excludes
   revoked rows). `lib/types.ts::AdminInvite` must be updated to match: make
@@ -228,10 +230,12 @@ keyed by `clientIp`.
        ```
        0 rows changed ⇒ throw → `410 Gone` (consumed/expired/revoked between
        preview and accept).
-    2. **Unique-email check** within the txn (mirror `requireUniqueEmail` in
-       `users.ts`): duplicate ⇒ throw → `409` with an "account exists — log in"
-       body. (Checked before the insert so the failure is a clean 409, not a raw
-       UNIQUE-constraint error; the txn rolls back the increment from step 1.)
+    2. **Unique-email check** within the txn — inline a `SELECT` on `user.email`
+       using `tx` directly (do **not** call `requireUniqueEmail` from `users.ts`;
+       that function calls `getDb()` internally and is not tx-aware). Duplicate ⇒
+       throw → `409` with an "account exists — log in" body. (Checked before the
+       insert so the failure is a clean 409, not a raw UNIQUE-constraint error; the
+       txn rolls back the increment from step 1.)
     3. **Create the account** via `insertCredentialUserTx(tx, { email, password,`
        `name, roleId, emailVerified: true })` from
        `apps/server/src/auth/internal/create-user.ts`. This is the same primitive
