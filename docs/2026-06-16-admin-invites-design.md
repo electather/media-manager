@@ -52,7 +52,11 @@ scrypt / mass-user-creation abuse, which entropy does not.
    fixing the `/invite/<code>` vs `/auth/invite/$token` mismatch.
 3. **Plaintext code storage.** `invite-row.tsx` re-displays the code so an admin
    can re-copy the link; the code is therefore stored retrievably, scoped by
-   expiry + max-uses + revoke.
+   expiry + max-uses + revoke. Trade-off: a database-level breach exposes every
+   active invite code as an immediately-usable bearer credential. Acceptable given
+   the closed-system threat model (self-hosted, small admin team), 90-bit entropy
+   making offline brute-force infeasible, and short TTLs + use-caps limiting the
+   blast radius of any single leaked code.
 4. **Multi-use links.** Keep `maxUses` + `uses` (matches the existing drawer UI).
    Acceptance atomically guards the use count.
 5. **Accepter supplies email.** Link invites bind no email. The accepter types
@@ -74,7 +78,7 @@ invites
   id          text pk
   code        text not null unique          -- bearer token + URL token (see §2 entropy note)
   roleId      text not null -> roles.id      -- role granted on accept
-  invitedBy   text not null -> user.id       -- admin who created it
+  invitedBy   text null     -> user.id ON DELETE SET NULL  -- admin who created it; null after admin deletion
   createdAt   int  timestamp_ms not null
   expiresAt   int  timestamp_ms not null
   maxUses     int  not null default 1
@@ -99,10 +103,25 @@ collision the insert retries.
 ```
 createInviteSchema = z.object({
   roleId:    z.string().min(1),
-  expiresAt: z.number().int().positive(),   // ms timestamp, must be in the future
-  maxUses:   z.number().int().min(1),
+  expiresAt: z.number().int().positive(),   // ms timestamp; z.positive() rejects zero/negative but NOT past values
+  maxUses:   z.number().int().min(0),       // 0 = unlimited; positive integer = use cap
 })
+```
 
+`expiresAt > Date.now()` is enforced in the route handler (not in the schema) — a schema check would race and fail on slow networks. The handler rejects past timestamps with `400` before inserting the row.
+
+`maxUses = 0` means unlimited. The atomic use-guard in `POST /invites/:code/accept` treats 0 as "no cap":
+
+```sql
+WHERE code = ?
+  AND (maxUses = 0 OR uses < maxUses)
+  AND expiresAt > now
+  AND revokedAt IS NULL
+```
+
+The client drawer's existing unlimited option (`value="0"`) maps directly to `maxUses = 0`.
+
+```
 acceptInviteSchema = z.object({
   name:     z.string().min(1),
   email:    z.email(),
@@ -147,14 +166,30 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
 - `POST /admin/invites/:id/resend`
   - Reset `expiresAt` to `now + TTL`; clear nothing else. (Link invites have no
     email to re-send; this extends a still-shareable link.)
+  - **Exhausted guard:** if `uses >= maxUses` (and `maxUses != 0`) at the time of
+    the resend call, the invite is fully consumed — extending the expiry alone
+    would be useless. Reject with `409 Conflict` and body
+    `{ code: "INVITE_EXHAUSTED" }` so the admin knows to create a new invite
+    rather than extend the existing one. (An exhausted invite with `maxUses = 0`
+    is impossible by definition.)
 - `DELETE /admin/invites/:id`
   - Set `revokedAt = now` (soft revoke). List excludes revoked rows.
 
 ### 4.2 Public subapp — `invitesApp` at `/invites`
 
-No admin/session middleware — accepters are unauthenticated. Wrapped in
-`publicIpRateLimit`, matching every other public group in `router.ts`
-(`/bootstrap/*`, `/public/*`, `/config/public/*`). Registered in `router.ts`.
+No admin/session middleware — accepters are unauthenticated. Registered in `router.ts`.
+
+`GET /invites/:code` uses the shared `publicIpRateLimit` (capacity 60, refill 1/s)
+— it is a cheap DB read with no side effects, the same class as `/public/*` reads.
+
+`POST /invites/:code/accept` uses a **dedicated lower-capacity limiter**
+(`acceptIpLimiter`: `TokenBucketLimiter({ capacity: 5, refillPerSec: 0.1 })`) —
+each call triggers a scrypt hash, so the shared 60-request burst would allow up to
+60 concurrent scrypt operations per IP before rate-limiting kicks in. A 5-request
+burst (≈ 1 accept/10 s sustained) is sufficient for legitimate use (an invite
+recipient submits once) while bounding the CPU impact of a burst attack to a handful
+of parallel hashes. Define `acceptIpLimiter` and its middleware in `api/rate-limit.ts`
+alongside `publicIpRateLimit`, keyed by `clientIp`.
 
 - `GET /invites/:code`
   - Look up by code. Return `InvitePreviewDTO` when active; `404` when missing;
@@ -226,6 +261,13 @@ Replace the stub:
   same email + password via Better Auth email sign-in (the server minted no
   session), then redirect to `/setup`. Surface `409` (account exists — link to
   login) and `410` (invite consumed/expired) inline.
+- **Sign-in failure recovery:** account creation and sign-in are separate calls.
+  If `acceptInvite` succeeds (2xx) but the subsequent `signIn.email` call fails
+  (network error, transient Better Auth failure, etc.), the account already exists
+  — the user should **not** retry the form, which would 409. Show an inline banner:
+  "Your account was created. Sign-in failed — [go to login](/auth/login)." The
+  login page handles the normal email + password flow and gets them in without
+  re-registering.
 
 ## 7. Tests
 
@@ -283,8 +325,9 @@ DEL  apps/client/src/features/admin-users/lib/invites-mock.ts
 - **Email invites:** activate the `email` + `kind` columns, add an email-invite
   creation path that stores a hashed one-time token, and wire an email provider
   behind `EMAIL_PROVIDER_CONFIGURED`. Re-enable the drawer's email tab.
-- **Rate limiting:** add per-IP throttling on `POST /invites/:code/accept` if
-  abuse appears.
+- **Rate limiting:** `acceptIpLimiter` (capacity 5, refill 0.1/s) is in-scope for
+  this PR (§4.2). Tighten further or add per-invite-code throttling if abuse evidence
+  appears in practice.
 - **Audit:** extend beyond `revokedAt` to a full invite-event log if needed.
 
 ## 10. PR scope
