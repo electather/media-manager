@@ -182,7 +182,7 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
       userConfig: null,
     });
 
-    await promoteToDefault("u1", "p1", second);
+    await promoteToDefault("u1", second);
 
     const rows = await loadRows();
     const byId = new Map(rows.map((r) => [r.id, r.isDefault]));

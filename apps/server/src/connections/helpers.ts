@@ -193,13 +193,20 @@ function stringifyDisplayValue(v: unknown): string {
   return "";
 }
 
-/** Promotes the given connection id to default within its plugin; demotes the rest. */
-export async function promoteToDefault(
-  userId: string,
-  pluginId: string,
-  connectionId: string,
-): Promise<void> {
+/**
+ * Promotes the given connection to default within its plugin and demotes the
+ * rest. Returns `true` when the connection was found and updated, `false` when
+ * no row matched `(connectionId, userId)`. The caller is responsible for
+ * surfacing `false` as a `connection.not_found` error.
+ */
+export async function promoteToDefault(userId: string, connectionId: string): Promise<boolean> {
   const db = getDb();
+  // Load the row first to obtain pluginId for the sibling-demotion predicate.
+  // A single read followed by two writes inside a transaction is still atomic
+  // for SQLite's single-writer model and avoids exposing pluginId as a caller
+  // concern.
+  const row = await fetchConnectionByOwner(db, connectionId, userId);
+  if (!row) return false;
   const now = Date.now();
   await db.transaction(async (tx) => {
     await tx
@@ -208,7 +215,7 @@ export async function promoteToDefault(
       .where(
         and(
           eq(serviceConnections.userId, userId),
-          eq(serviceConnections.pluginId, pluginId),
+          eq(serviceConnections.pluginId, row.pluginId),
           ne(serviceConnections.id, connectionId),
         ),
       );
@@ -217,6 +224,7 @@ export async function promoteToDefault(
       .set({ isDefault: 1, updatedAt: now })
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
   });
+  return true;
 }
 
 async function ensureDefaultIfFirst(

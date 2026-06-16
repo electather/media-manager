@@ -113,7 +113,17 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              return Promise.resolve(undefined);
+              const affected = rows.map((r) => ({ id: r.id }));
+              // Extend the resolved Promise with a `.returning()` method so both
+              // `await where(...)` and `await where(...).returning(...)` work.
+              // Attaching `.returning()` to a real Promise avoids the
+              // unicorn/no-thenable lint rule (which only flags plain objects).
+              const promise = Promise.resolve(affected);
+              return Object.assign(promise, {
+                returning(_fields: unknown) {
+                  return Promise.resolve(affected);
+                },
+              });
             },
           };
         },

@@ -94,16 +94,24 @@ function buildPluginSummary(
   };
 }
 
+/**
+ * Applies `patch` to the connection row identified by `(connectionId, userId)`.
+ * Returns `true` when a row was updated, `false` when the row was missing or
+ * belongs to another user. Callers that must surface a missing row as an error
+ * should throw `notFound("connection.not_found", ...)` on `false`.
+ */
 async function updateConnectionWhere(
   db: Db,
   userId: string,
   connectionId: string,
   patch: Partial<typeof serviceConnections.$inferInsert>,
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const rows = await db
     .update(serviceConnections)
     .set({ ...patch, updatedAt: Date.now() })
-    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+    .returning({ id: serviceConnections.id });
+  return rows.length > 0;
 }
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
@@ -256,9 +264,8 @@ export const connectionsService = {
   },
 
   async setDefault(args: { userId: string; connectionId: string }): Promise<void> {
-    const db = getDb();
-    const row = await requireConnection(db, args.connectionId, args.userId);
-    await promoteToDefault(args.userId, row.pluginId, args.connectionId);
+    const found = await promoteToDefault(args.userId, args.connectionId);
+    if (!found) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -268,9 +275,10 @@ export const connectionsService = {
     enabled: boolean;
   }): Promise<void> {
     const db = getDb();
-    await updateConnectionWhere(db, args.userId, args.connectionId, {
+    const found = await updateConnectionWhere(db, args.userId, args.connectionId, {
       enabled: args.enabled ? 1 : 0,
     });
+    if (!found) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -280,13 +288,10 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    // Guard with requireConnection so a missing or foreign id throws
-    // connection.not_found (matching setDefault and updateUserConfig) instead
-    // of silently returning 200 OK with zero rows updated.
-    await requireConnection(db, args.connectionId, args.userId);
-    await updateConnectionWhere(db, args.userId, args.connectionId, {
+    const found = await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
+    if (!found) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -325,7 +330,7 @@ export const connectionsService = {
       await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
-    await db
+    const updated = await db
       .update(serviceConnections)
       .set({
         userConfig: JSON.stringify(configToSave),
@@ -345,7 +350,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
