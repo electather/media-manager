@@ -21,6 +21,8 @@ export const diagnosticsKeys = {
       [...diagnosticsKeys.all, "perf", "aggregate", { range, kind, requestId }] as const,
     summary: () => [...diagnosticsKeys.all, "perf", "summary"] as const,
     detail: (id: string) => [...diagnosticsKeys.all, "perf", "detail", id] as const,
-    detailDisabled: () => [...diagnosticsKeys.all, "perf", "detail", "disabled"] as const,
+    // Namespaced sentinel so the "no id selected" key cannot collide with a
+    // real perf record whose id happens to be the string "disabled".
+    detailDisabled: () => [...diagnosticsKeys.all, "perf", "detail", "__disabled__"] as const,
   },
 } as const;

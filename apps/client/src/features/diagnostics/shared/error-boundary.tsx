@@ -26,10 +26,14 @@ function FallbackInner({
   error,
   requestId,
   reset,
+  title,
+  body,
 }: {
   error: Error;
   requestId: string;
   reset: () => void;
+  title: string;
+  body: string;
 }) {
   const queryClient = useQueryClient();
   // Narrow the typed error to read the server-shipped diagnostic message and
@@ -53,9 +57,9 @@ function FallbackInner({
     <ErrorPage tone="danger">
       <ErrorPageFrame>
         <ErrorPageHeadline code={code} eyebrow={m.errors_server_eyebrow()}>
-          {m.diagnostics_errors_load_failed_title()}
+          {title}
         </ErrorPageHeadline>
-        <ErrorPageDescription>{m.diagnostics_errors_load_failed_body()}</ErrorPageDescription>
+        <ErrorPageDescription>{body}</ErrorPageDescription>
         <ErrorPageActions>
           <Button onClick={onRetry}>
             <RotateCcwIcon aria-hidden="true" />
@@ -81,7 +85,7 @@ function FallbackInner({
               : []),
             {
               label: m.errors_details_status(),
-              value: `${code} · ${m.diagnostics_errors_load_failed_title()}`,
+              value: `${code} · ${title}`,
             },
             ...(message
               ? [
@@ -100,12 +104,27 @@ function FallbackInner({
 
 /** Wraps a diagnostics surface so a failed Suspense read renders an in-place
  *  fallback that narrows {@link DiagnosticsApiError} rather than tearing down
- *  the route. */
-export function DiagnosticsErrorBoundary({ children }: { children: ReactNode }) {
+ *  the route. `title`/`body` let each surface (errors vs perf) supply its own
+ *  load-failure copy; they default to the errors strings. */
+export function DiagnosticsErrorBoundary({
+  children,
+  title = m.diagnostics_errors_load_failed_title(),
+  body = m.diagnostics_errors_load_failed_body(),
+}: {
+  children: ReactNode;
+  title?: string;
+  body?: string;
+}) {
   return (
     <ErrorBoundary
       fallback={({ error, requestId, reset }) => (
-        <FallbackInner error={error} requestId={requestId} reset={reset} />
+        <FallbackInner
+          error={error}
+          requestId={requestId}
+          reset={reset}
+          title={title}
+          body={body}
+        />
       )}
     >
       {children}

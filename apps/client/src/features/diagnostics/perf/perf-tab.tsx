@@ -1,4 +1,5 @@
 import { Suspense, useState } from "react";
+import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { PerfStatsCards } from "./perf-stats-cards";
 import { PerfFilterBar } from "./perf-filter-bar";
@@ -30,7 +31,10 @@ export function PerfTab({
     <div className="flex flex-col gap-4">
       <PerfStatsCards />
       <PerfFilterBar filters={filters} onChange={onFiltersChange} />
-      <DiagnosticsErrorBoundary>
+      <DiagnosticsErrorBoundary
+        title={m.diagnostics_perf_load_failed_title()}
+        body={m.diagnostics_perf_load_failed_body()}
+      >
         <Suspense fallback={<PerfAggregateTableSkeleton />}>
           <PerfAggregateTable
             filters={filters}
