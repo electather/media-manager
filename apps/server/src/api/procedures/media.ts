@@ -135,7 +135,12 @@ function buildSourceContext(userId: string): SourceContext {
   const catalog = getCatalogService();
   // Memoize the user's default rec list for this request so the home
   // `recommendedForYou-*` registrations read it once across their eligibility
-  // gate and source `fetchRawSet`, rather than once per pass.
+  // gate and source `fetchRawSet`, rather than once per pass. This is the
+  // sibling of `home/internal/recommendations-memo.ts`'s `makeRecommendationsMemo`
+  // (same in-flight-promise semantics); it is inlined rather than reused because
+  // that helper is internal to `home` and the `home` barrel deliberately does
+  // not re-export `internal/**`, so this adapter cannot import it across the
+  // module boundary. Keep the two in sync if the memo semantics change.
   let recsPending: ReturnType<CatalogService["getRecommendations"]> | undefined;
   return {
     userId,
