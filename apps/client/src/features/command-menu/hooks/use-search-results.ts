@@ -26,7 +26,7 @@ export interface UseSearchResultsResult {
   isSearching: boolean;
   /** Initial fetch in flight — no `data` yet. */
   isPending: boolean;
-  /** Any fetch in flight, including refetches against `keepPreviousData`. */
+  /** Any fetch in flight, including background refetches while placeholder data is shown. */
   isFetching: boolean;
   isError: boolean;
   error: Error | null;

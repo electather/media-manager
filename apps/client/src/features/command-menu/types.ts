@@ -24,15 +24,13 @@ export type CommandScope = null | "tv" | "movie";
 export type PageRoute = "/" | "/library" | "/watchlist" | "/settings" | "/settings/connections";
 
 /**
- * Media item shape the command menu fuzzy-matches and renders. Extends the
- * wire `CompactMediaItem` with `tags`, which the live search and trending
- * responses both provide. Fields like `runtime`, `director`, and `cast` are
- * not returned by any live endpoint and have been removed so the match
- * function does not silently no-op on them in production.
+ * Media item shape the command menu fuzzy-matches and renders.
+ * `CompactMediaItem` already declares `tags?: string[]`, so this is a direct
+ * alias — the intersection adds no fields. Fields like `runtime`, `director`,
+ * and `cast` are not returned by any live endpoint and have been removed so
+ * the match function does not silently no-op on them in production.
  */
-export type CommandMenuMediaItem = CompactMediaItem & {
-  tags?: string[];
-};
+export type CommandMenuMediaItem = CompactMediaItem;
 
 export type ContributionKind = "page" | "action" | "search-mode" | "setting";
 
