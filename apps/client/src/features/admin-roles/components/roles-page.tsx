@@ -39,10 +39,8 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
     (id: string) => membersByRole.get(id)?.length ?? 0,
     [membersByRole],
   );
-  const membersFor = useCallback(
-    (id: string): RoleMember[] => membersByRole.get(id) ?? [],
-    [membersByRole],
-  );
+  // membersFor is only called inline (never passed as a prop), so plain function is fine.
+  const membersFor = (id: string): RoleMember[] => membersByRole.get(id) ?? [];
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;
 

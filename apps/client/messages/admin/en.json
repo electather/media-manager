@@ -395,7 +395,16 @@
   ],
   "admin_roles_badge_system": "System",
   "admin_roles_badge_all_perms": "All permissions",
-  "admin_roles_row_perms_count": "{count} permissions",
+  "admin_roles_row_perms_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} permission",
+        "countPlural=other": "{count} permissions"
+      }
+    }
+  ],
   "admin_roles_default_new_name": "New role",
   "admin_roles_default_new_description": "Custom role.",
   "admin_roles_seed_admin_name": "Admin",

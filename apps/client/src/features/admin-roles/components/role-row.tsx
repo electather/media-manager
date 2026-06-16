@@ -46,7 +46,7 @@ export function RoleRow({ role, memberCount, isFirst, onOpen }: Props) {
         </div>
         <p className="mt-1 max-w-prose text-xs text-muted-foreground">{role.description}</p>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-          {m.admin_roles_row_perms_count({ count: String(permCount) })}
+          {m.admin_roles_row_perms_count({ count: permCount })}
         </p>
       </div>
       <div className="flex flex-col items-end gap-0.5 text-right">
