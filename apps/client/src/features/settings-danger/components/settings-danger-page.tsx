@@ -33,7 +33,7 @@ function DangerPage() {
   const [exportLocked, setExportLocked] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const startExport = async () => {
+  const startExport = () => {
     setExportLocked(true);
     // Anchor-nav, not fetch: browser streams the ZIP. Silent failure by design — see design doc L312.
     triggerAnchorDownload("/api/me/export");
@@ -66,7 +66,7 @@ function DangerPage() {
               variant="outline"
               size="sm"
               disabled={exportLocked}
-              onClick={() => void startExport()}
+              onClick={startExport}
               data-testid="export-data"
             >
               {exportLocked ? (
