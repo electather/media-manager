@@ -1,7 +1,6 @@
 import * as m from "@/paraglide/messages";
-import type { RowKind } from "@nama/shared/home";
-import { MATCH_REASON_KEYS } from "./types";
-import type { MatchReasonKey, RowData } from "./types";
+import { MATCH_REASON_KEYS, type MatchReasonKey, type RowKind } from "@nama/shared/home";
+import type { RowData } from "./types";
 
 /**
  * Initial vertical-virtualization estimate per home row. The values combine
