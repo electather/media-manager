@@ -37,9 +37,9 @@ import { useChannels } from "../hooks/use-channels";
 import { useDeleteChannel } from "../hooks/use-delete-channel";
 import { useNotificationPlugins } from "../hooks/use-notification-plugins";
 import { useRenameChannel } from "../hooks/use-rename-channel";
+import { useReplaceSubscriptions } from "../hooks/use-replace-subscriptions";
 import { useSubscriptions } from "../hooks/use-subscriptions";
 import { useTestChannel } from "../hooks/use-test-channel";
-import { useToggleSubscription } from "../hooks/use-toggle-subscription";
 import type { ChannelRowData, NotificationPluginEntry, NotifCategory } from "../lib/types";
 
 function isInboxRow(channel: { pluginId: string }): boolean {
@@ -53,13 +53,13 @@ export function SettingsNotificationsChannels({
   addOpen: boolean;
   setAddOpen: (open: boolean) => void;
 }) {
-  const channels = useChannels().data.channels as ChannelRowData[];
+  const channels = useChannels().data.channels;
   const categoriesResp = useCategories().data.categories;
   const subsResp = useSubscriptions().data.subscriptions;
   const notificationPlugins = useNotificationPlugins().data;
   const qc = useQueryClient();
 
-  const toggle = useToggleSubscription();
+  const replaceSubs = useReplaceSubscriptions();
   const test = useTestChannel();
   const deleteChannel = useDeleteChannel();
   const renameChannel = useRenameChannel();
@@ -82,12 +82,11 @@ export function SettingsNotificationsChannels({
   const handleReplaceSubs = (channelId: string, next: NotificationCategory[]) => {
     const current = subsByChannel.get(channelId) ?? new Set<NotificationCategory>();
     const nextSet = new Set(next);
-    for (const cat of categoriesResp) {
-      const wasOn = current.has(cat.id);
-      const willBeOn = nextSet.has(cat.id);
-      if (wasOn === willBeOn) continue;
-      toggle.mutate({ connectionId: channelId, category: cat.id, enabled: willBeOn });
-    }
+    const changes = categoriesResp
+      .filter((cat) => current.has(cat.id) !== nextSet.has(cat.id))
+      .map((cat) => ({ category: cat.id, enabled: nextSet.has(cat.id) }));
+    if (changes.length === 0) return;
+    replaceSubs.mutate({ connectionId: channelId, changes });
   };
 
   const handleTest = (ch: ChannelRowData) => test.mutate(ch.id);
@@ -132,7 +131,12 @@ export function SettingsNotificationsChannels({
   };
 
   const firstChannel = head(channels);
-  const onlyInbox = channels.length === 1 && firstChannel ? isInboxRow(firstChannel) : false;
+  // Show the add-channel footer when the only row is the inbox, and also when
+  // the endpoint returns no channels at all — without the zero-channel case the
+  // user would see an empty list with no guidance and no way to add a channel.
+  const onlyInbox =
+    channels.length === 0 ||
+    (channels.length === 1 && firstChannel ? isInboxRow(firstChannel) : false);
 
   return (
     <>

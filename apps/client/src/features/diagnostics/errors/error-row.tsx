@@ -1,10 +1,10 @@
-import type { ErrorSource } from "@nama/shared/diagnostics";
 import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { absoluteDateTime, compactRelativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { SEVERITY_BG, SEVERITY_TEXT, SeverityDot } from "@/shared/components/severity-dot";
 import { ThreadChip } from "../thread-chip";
+import { SOURCE_LABELS } from "../shared/types";
 import type { ErrorListRow } from "../shared/types";
 
 interface Props {
@@ -13,13 +13,6 @@ interface Props {
   onOpen: (id: string) => void;
   onJumpThread: (requestId: string) => void;
 }
-
-const SOURCE_LABELS: Record<ErrorSource, () => string> = {
-  frontend: () => m.diagnostics_source_frontend(),
-  backend: () => m.diagnostics_source_backend(),
-  plugin: () => m.diagnostics_source_plugin(),
-  cron: () => m.diagnostics_source_cron(),
-};
 
 // UI conditional rendering across optional row fields (pluginId, httpStatus,
 // requestId) is intrinsic.

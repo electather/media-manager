@@ -43,6 +43,12 @@ export interface HydrationUpdate {
  * read (design §Sync + hydrate, phase 2). Tombstoned rows (`owned = false`) are
  * excluded — only the live owned set is browsable, so spending a fan-out on a
  * tombstone would be wasted work.
+ *
+ * Rows are ordered by their composite id so the hydrate pass chunks the same
+ * deterministic boundaries on every run rather than relying on SQLite's
+ * incidental implicit (PK) order. That makes the chunked fan-out genuinely
+ * resumable — a timed-out pass leaves a stamped prefix that the next run skips —
+ * and matches `writeHydration`'s "updated in id order" guarantee.
  */
 export async function staleOrNew(
   userId: string,
@@ -64,7 +70,8 @@ export async function staleOrNew(
         eq(libraryItems.owned, true),
         or(isNull(libraryItems.hydratedAt), lt(libraryItems.hydratedAt, staleBefore)),
       ),
-    );
+    )
+    .orderBy(libraryItems.id);
 }
 
 /**

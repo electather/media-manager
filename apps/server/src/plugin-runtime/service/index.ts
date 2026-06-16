@@ -9,7 +9,7 @@ export {
   type InvokeArgs,
   type InvokeWithCredentialsArgs,
 } from "./runtime";
-export { capabilityRegistry, CapabilityRegistry, type RegistryEntry } from "../internal/registry";
+export { capabilityRegistry } from "../internal/registry";
 export {
   registerBuiltin,
   listBuiltins,
@@ -28,15 +28,6 @@ export {
   invalidatePluginPolicy,
   type PluginAdminPolicy,
 } from "../internal/admin-policy";
-export {
-  buildStore,
-  sweepExpiredStore,
-  isHostAllowed,
-  TokenBucket,
-  getBucket,
-  buildFetch,
-  buildLogger,
-} from "../internal/host-bridge";
 export {
   sharedCredentialsService,
   type SharedCredentialRow,

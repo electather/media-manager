@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { ReactElement } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { NotificationItemDto } from "../../shared/types";
 
@@ -148,5 +149,28 @@ describe("renderToast", () => {
     renderToast(makeItem("abc"), deps);
     const opts = sonnerCustomMock.mock.calls[0]![1] as { id: string };
     expect(opts.id).toBe("notif:abc");
+  });
+
+  it("navigates to actionUrl when it is a safe http/https URL", () => {
+    const deps = makeDeps();
+    const item = makeItem("nav", "warn", "https://example.com/page");
+    renderToast(item, deps);
+
+    // Extract the onClick from the rendered card via the sonnerCustomMock render arg.
+    const renderFn = sonnerCustomMock.mock.calls[0]![0] as (id: string) => ReactElement;
+    const rendered = render(renderFn("t1"));
+    fireEvent.click(rendered.getByRole("button", { name: /title nav/i }));
+    expect(deps.navigate).toHaveBeenCalledWith({ to: "https://example.com/page" });
+  });
+
+  it("does not navigate when actionUrl is an unsafe scheme like javascript:", () => {
+    const deps = makeDeps();
+    const item = makeItem("xss", "warn", "javascript:alert(1)");
+    renderToast(item, deps);
+
+    const renderFn = sonnerCustomMock.mock.calls[0]![0] as (id: string) => ReactElement;
+    const rendered = render(renderFn("t2"));
+    fireEvent.click(rendered.getByRole("button", { name: /title xss/i }));
+    expect(deps.navigate).not.toHaveBeenCalled();
   });
 });

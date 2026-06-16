@@ -10,6 +10,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { m } from "@/paraglide/messages";
+import { NotificationsErrorBoundary } from "../shared/error-boundary";
 import { useAdminDelivery } from "./use-admin-delivery";
 import { useRetryDelivery } from "./use-retry-delivery";
 import { DeliveryStatusBadge } from "./delivery-status-badge";
@@ -73,9 +74,11 @@ export function DeliveryDetailDialog({ id, onClose }: Props) {
     <Dialog open={id !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         {id ? (
-          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <DetailContent id={id} />
-          </Suspense>
+          <NotificationsErrorBoundary>
+            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <DetailContent id={id} />
+            </Suspense>
+          </NotificationsErrorBoundary>
         ) : null}
       </DialogContent>
     </Dialog>

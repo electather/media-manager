@@ -13,10 +13,12 @@ export function PerfStatsCards() {
   const summary = useQuery({
     queryKey: diagnosticsKeys.perf.summary(),
     queryFn: fetchPerfSummary,
+    // Polls every 60s. Shorter staleTime than the interval keeps reopened tabs
+    // from serving a full poll-interval of stale stats; skip polling while the
+    // tab is hidden or the client is offline.
     refetchInterval: 60_000,
-    // Shorter than the 60s default: this is a live monitoring view, so it stays
-    // tighter than the 60s poll to avoid serving a full poll-interval of stale
-    // stats when the admin reopens the tab.
+    refetchIntervalInBackground: false,
+    networkMode: "online",
     staleTime: 30_000,
   });
 
@@ -71,7 +73,6 @@ export function PerfStatsCards() {
         label={m.diagnostics_perf_stat_p99()}
         value={String(data.p99)}
         unit={m.diagnostics_perf_unit_ms()}
-        spark={p95s}
         accent="var(--color-destructive)"
         hint={m.diagnostics_perf_hint_24h()}
       />
@@ -83,7 +84,10 @@ interface StatCardProps {
   label: string;
   value: string;
   unit: string;
-  spark: number[];
+  /** Hourly series for the sparkline. Omitted for stats with no matching
+   *  series (e.g. p99, which the summary endpoint does not bucket) so we never
+   *  plot a different metric under the heading. */
+  spark?: number[];
   accent: string;
   hint?: string;
 }
@@ -101,9 +105,11 @@ function StatCard({ label, value, unit, spark, accent, hint }: StatCardProps) {
         <span className="text-2xl font-semibold leading-none">{value}</span>
         <span className="font-mono text-xs text-muted-foreground/80">{unit}</span>
       </div>
-      <div className="mt-auto">
-        <MiniLineSpark data={spark} accent={accent} />
-      </div>
+      {spark ? (
+        <div className="mt-auto">
+          <MiniLineSpark data={spark} accent={accent} />
+        </div>
+      ) : null}
     </Card>
   );
 }

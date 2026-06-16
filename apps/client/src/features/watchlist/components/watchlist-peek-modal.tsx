@@ -9,9 +9,10 @@ import { useAddToWatchlist, useIsInWatchlist, useRemoveFromWatchlist } from "../
 type PeekSearch = { peek?: string };
 
 /**
- * Shared modal driven by the `?peek=` search param. Reads the cached
- * watchlist row (when available) for an instant first paint and refines
- * with the full `useHomeDetails` payload as it arrives.
+ * Shared modal driven by the `?peek=` search param. Instant first paint comes
+ * from `useHomeDetails`'s `placeholderData`, which seeds summary fields from the
+ * row/section caches already in memory. The full details payload (cast, scores,
+ * etc.) replaces the placeholder once the `media.getDetails` fetch resolves.
  */
 // fallow-ignore-next-line complexity
 export function WatchlistPeekModal() {

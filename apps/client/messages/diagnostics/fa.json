@@ -13,6 +13,7 @@
   "diagnostics_retention_perf_label": "کارایی",
   "diagnostics_retention_perf_helper": "حجم بالا — بازه‌های کوتاه فضای ذخیره‌سازی را کنترل می‌کند.",
   "diagnostics_retention_value_days": "{value} روز",
+  "diagnostics_retention_update_failed": "به‌روزرسانی نگه‌داری ممکن نشد: {message}",
 
   "diagnostics_severity_error": "خطا",
   "diagnostics_severity_warning": "هشدار",
@@ -96,6 +97,7 @@
   "diagnostics_perf_unit_ms": "ms",
   "diagnostics_perf_hint_last_hour": "ساعت گذشته",
   "diagnostics_perf_hint_24h": "۲۴ساعت",
+  "diagnostics_perf_minispark_aria": "روند ۲۴ ساعته",
 
   "diagnostics_perf_detail_distribution": "توزیع · ۲۴ ساعت گذشته",
   "diagnostics_perf_detail_about_row": "درباره این سطر",
