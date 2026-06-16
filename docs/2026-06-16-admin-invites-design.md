@@ -203,7 +203,7 @@ alongside `publicIpRateLimit`, keyed by `clientIp`.
        UPDATE invites
           SET uses = uses + 1
         WHERE code = ?
-          AND uses < maxUses
+          AND (maxUses = 0 OR uses < maxUses)
           AND expiresAt > now
           AND revokedAt IS NULL
        ```
