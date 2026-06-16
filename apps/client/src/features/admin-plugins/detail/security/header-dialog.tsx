@@ -71,18 +71,19 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
       onClose();
       return;
     }
-    // Trim value and reject whitespace-only strings the same way as empty ones.
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
+    // Reject whitespace-only values the same way as empty ones. Do NOT trim
+    // the stored value — secrets/API keys are opaque and may legitimately
+    // contain leading or trailing whitespace.
+    if (!value.trim()) {
       setError(m.admin_plugins_header_dialog_error_empty_value());
       return;
     }
-    if (/[\r\n]/.test(trimmedValue)) {
+    if (/[\r\n]/.test(value)) {
       setError(m.admin_plugins_header_dialog_error_crlf());
       return;
     }
     upsert.mutate(
-      { name: trimmedName, value: trimmedValue },
+      { name: trimmedName, value },
       {
         onSuccess: () => onClose(),
       },
