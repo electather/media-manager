@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,8 +35,14 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
     return map;
   }, [usersQuery.data.users]);
 
-  const memberCount = (id: string) => membersByRole.get(id)?.length ?? 0;
-  const membersFor = (id: string): RoleMember[] => membersByRole.get(id) ?? [];
+  const memberCount = useCallback(
+    (id: string) => membersByRole.get(id)?.length ?? 0,
+    [membersByRole],
+  );
+  const membersFor = useCallback(
+    (id: string): RoleMember[] => membersByRole.get(id) ?? [],
+    [membersByRole],
+  );
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;
 
