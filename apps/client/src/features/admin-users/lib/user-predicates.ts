@@ -1,8 +1,11 @@
 import type { AdminInvite, AdminUserSummary } from "./types";
 
-/** Returns true when the invite has not expired and the expiry timestamp has not passed. */
-export function isInviteActive(invite: AdminInvite, now: number): boolean {
-  return !(invite.expired || invite.expiresAt < now);
+/**
+ * Returns true when the invite is not expired. Uses the server-computed
+ * `expired` flag which encodes expiresAt < now, exhaustion, and revocation.
+ */
+export function isInviteActive(invite: AdminInvite): boolean {
+  return !invite.expired;
 }
 
 /** Returns true when the user holds the admin role. */
@@ -14,11 +17,10 @@ export function isAdmin(user: AdminUserSummary): boolean {
 export function deriveUserCounts(
   users: AdminUserSummary[],
   invites: AdminInvite[],
-  now: number,
 ): { active: number; admins: number; pending: number } {
   return {
     active: users.length,
     admins: users.filter(isAdmin).length,
-    pending: invites.filter((i) => isInviteActive(i, now)).length,
+    pending: invites.filter(isInviteActive).length,
   };
 }

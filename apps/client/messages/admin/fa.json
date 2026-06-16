@@ -81,7 +81,7 @@
       }
     }
   ],
-  "admin_users_invite_toast_resent": "Invite resent",
+  "admin_users_invite_toast_extended": "Invite extended",
   "admin_users_invite_toast_revoked": "Invite revoked",
   "admin_users_invite_toast_copied": "Invite link copied",
   "admin_users_invite_expires_1d": "1 day",
@@ -101,7 +101,7 @@
   "admin_users_invite_expired": "Expired",
   "admin_users_invite_expires_in": "expires {time}",
   "admin_users_invite_copy": "Copy",
-  "admin_users_invite_resend": "Resend",
+  "admin_users_invite_extend": "Extend",
   "admin_users_invite_revoke": "Revoke",
 
   "admin_users_detail_back": "All users",

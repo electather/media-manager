@@ -64,5 +64,15 @@
         "status=*": "Send reset link"
       }
     }
-  ]
+  ],
+  "auth_invite_loading": "Loading invite…",
+  "auth_invite_title": "Accept your invitation",
+  "auth_invite_subtitle": "You've been invited as {roleName}. Create an account to get started.",
+  "auth_invite_invalid_title": "Invite not found",
+  "auth_invite_expired_body": "This invite link has expired or already been used. Ask your administrator for a new one.",
+  "auth_invite_error_body": "Something went wrong loading this invite. Please try again or contact your administrator.",
+  "auth_invite_submit": "Create account",
+  "auth_invite_account_created_title": "Account created",
+  "auth_invite_signin_failed_body": "Your account was created. Sign-in failed — go to login to continue.",
+  "auth_invite_email_taken": "An account with this email already exists. Log in instead."
 }

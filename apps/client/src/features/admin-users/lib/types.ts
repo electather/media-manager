@@ -33,20 +33,22 @@ export function isAdminUserRoleId(id: string | null | undefined): id is AdminUse
   return ADMIN_USER_ROLE_IDS.includes(id as AdminUserRoleId);
 }
 
-export type AdminInviteKind = "email" | "link";
-
+/** Matches the AdminInviteDTO shape returned by the server. */
 export interface AdminInvite {
   id: string;
-  email: string | null;
+  /** The invite code (bearer token). Always present for link invites. */
+  code: string;
+  /** Full invite URL constructed server-side. */
+  url: string;
   roleId: string;
-  invitedBy: string;
+  /** User ID of the creating admin. Null when the admin has been deleted. */
+  invitedBy: string | null;
   createdAt: number;
   expiresAt: number;
-  kind: AdminInviteKind;
-  code?: string;
-  uses?: number;
-  maxUses?: number;
-  expired?: boolean;
+  maxUses: number;
+  uses: number;
+  /** Server-computed: true when expired, exhausted, or revoked. */
+  expired: boolean;
 }
 
 // AdminUsersApiError carries status/body/code for mutation error toasts

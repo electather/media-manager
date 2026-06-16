@@ -23,6 +23,7 @@
     "./plugins/library": "./src/plugins/library.ts",
     "./preferences": "./src/preferences/index.ts",
     "./search": "./src/search/index.ts",
+    "./invites": "./src/invites/index.ts",
     "./users": "./src/users/index.ts",
     "./watchlist": "./src/watchlist/index.ts"
   },
