@@ -3,13 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 // The `watchlist_items` write events live in media (design §M.2). Watchlist can
 // only reach them through the media barrel, which would drag the full media
 // module graph (db/client → env) into this isolated registration unit test, so
-// stub the barrel down to the two constants + schemas the handlers subscribe to.
+// stub the barrel down to the constant + schema this handler subscribes to.
 vi.mock("../../media", () => ({
   WATCHLIST_EVENTS: {
     ITEM_ADDED: "watchlist.itemAdded",
     ITEM_REMOVED: "watchlist.itemRemoved",
   },
-  watchlistItemAddedSchema: {},
   watchlistItemRemovedSchema: {},
 }));
 
