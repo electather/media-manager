@@ -175,8 +175,8 @@ export function NameRow({
 
   const discard = useCallback(() => setDraft(currentName), [currentName]);
 
-  // Wrap in useCallback so useSettingsDirty's effect only re-runs when dirty
-  // or label changes, not on every keystroke.
+  // Stable reference for useSettingsDirty so its effect doesn't re-run on
+  // unrelated parent re-renders; save itself already tracks dirty and trimmed.
   const handleSave = useCallback(() => void save(), [save]);
 
   useSettingsDirty("profile-name", dirty, {
