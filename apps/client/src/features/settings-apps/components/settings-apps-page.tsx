@@ -6,7 +6,7 @@ import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { m } from "@/paraglide/messages";
 
 import { useAuthorizedApps } from "../hooks/use-authorized-apps";
-import { usePublicConfig } from "../hooks/use-public-config";
+import { usePublicConfig } from "@/features/settings";
 import { useRevokeAllAuthorizedApps } from "../hooks/use-revoke-all-authorized-apps";
 import { useRevokeAuthorizedApp } from "../hooks/use-revoke-authorized-app";
 import type { AuthorizedAppsFilter } from "../lib/types";
