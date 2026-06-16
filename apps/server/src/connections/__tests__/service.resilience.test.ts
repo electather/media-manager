@@ -239,6 +239,9 @@ describe("updateDisplayName guard (finding 2)", () => {
     // empty. Seeding any row would make the mock return it and bypass the guard,
     // silently turning this into a false pass.
     installPlugin();
+    // Sentinel: if a shared fixture pre-seeds connections this test would pass
+    // for the wrong reason (WHERE is ignored by the mock).
+    expect(state.connections).toHaveLength(0);
 
     await expect(
       connectionsService.updateDisplayName({
