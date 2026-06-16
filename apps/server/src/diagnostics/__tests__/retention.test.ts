@@ -21,8 +21,14 @@ vi.mock("../../db/client", () => ({
   getDb: () => db,
 }));
 
-const { sweepDiagnostics, setErrorRetentionDays, setPerfRetentionDays, getAppConfig } =
-  await import("../retention");
+const {
+  sweepDiagnostics,
+  setErrorRetentionDays,
+  setPerfRetentionDays,
+  getAppConfig,
+  getNotificationRetention,
+  setNotificationRetention,
+} = await import("../retention");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -131,6 +137,42 @@ describe("retention sweep", () => {
 
     const result = await sweepDiagnostics();
     expect(result).toEqual({ errors: 0, perf: 0, sourcemaps: 0 });
+  });
+});
+
+describe("notification retention", () => {
+  it("seeds defaults on first read without an existing config row", async () => {
+    expect(await getNotificationRetention()).toEqual({
+      inboxRetentionDays: 90,
+      deliveryRetentionDays: 30,
+    });
+  });
+
+  it("clamps each window to the documented bounds", async () => {
+    expect(await setNotificationRetention({ inboxRetentionDays: 0 })).toMatchObject({
+      inboxRetentionDays: 1,
+    });
+    expect(await setNotificationRetention({ deliveryRetentionDays: 99_999 })).toMatchObject({
+      deliveryRetentionDays: 3650,
+    });
+  });
+
+  // The previous read-then-update implementation wrote BOTH columns from a stale
+  // snapshot, so a PATCH of one window silently reset the other to whatever the
+  // reader last saw. The onConflictDoUpdate set must touch only the field passed.
+  it("updates only the field passed and leaves the sibling window untouched", async () => {
+    await setNotificationRetention({ inboxRetentionDays: 120, deliveryRetentionDays: 45 });
+
+    const afterInbox = await setNotificationRetention({ inboxRetentionDays: 200 });
+    expect(afterInbox).toEqual({ inboxRetentionDays: 200, deliveryRetentionDays: 45 });
+
+    const afterDelivery = await setNotificationRetention({ deliveryRetentionDays: 10 });
+    expect(afterDelivery).toEqual({ inboxRetentionDays: 200, deliveryRetentionDays: 10 });
+
+    // Errors/perf windows are owned by separate setters and must not be disturbed.
+    const cfg = await db.select().from(appConfig).where(eq(appConfig.id, "global")).get();
+    expect(cfg?.errorRetentionDays).toBe(30);
+    expect(cfg?.perfRetentionDays).toBe(7);
   });
 });
 

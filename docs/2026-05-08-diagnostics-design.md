@@ -251,9 +251,19 @@ INDEX(request_id)                          -- chain w/ errors
 
 ```
 app_config (existing row)
-├── error_retention_days   int   default 30
-├── perf_retention_days    int   default 7      ← new
+├── error_retention_days     int   default 30
+├── perf_retention_days      int   default 7
+├── inbox_retention_days     int   default 90    (notification inbox window, clamp 1-3650d)
+└── delivery_retention_days  int   default 30    (notification delivery window, clamp 1-3650d)
 ```
+
+Diagnostics owns the single-row `app_config` contract: every reader/writer goes
+through `retention.ts` so concurrent writes serialize on the row's primary key.
+The notification windows are read/written via `getNotificationRetention` /
+`setNotificationRetention`; the notifications module routes all its `app_config`
+access through those accessors rather than touching the table directly. These are
+module-internal deep imports (not re-exported from the diagnostics barrel), matching
+the existing `getAppConfig` / `setErrorRetentionDays` accessors.
 
 ### §DM.Ctx Context blob + free-text scrubbing (errors only)
 

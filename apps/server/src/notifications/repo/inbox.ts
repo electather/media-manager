@@ -51,11 +51,6 @@ export async function insertInboxItem(input: InsertInboxItemInput): Promise<void
   });
 }
 
-export async function getInboxItem(id: string) {
-  const db = getDb();
-  return db.select().from(notificationsInbox).where(eq(notificationsInbox.id, id)).get();
-}
-
 export async function markInboxRead(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const db = getDb();

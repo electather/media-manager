@@ -1,68 +1,21 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "../../db/client";
-import { appConfig } from "../../db/schema/infra/diagnostics";
+import { getNotificationRetention, setNotificationRetention } from "../../diagnostics/retention";
 import type { NotificationSettings } from "../types";
 
-const APP_CONFIG_ID = "global";
-
-const DEFAULT_INBOX_RETENTION_DAYS = 90;
-const DEFAULT_DELIVERY_RETENTION_DAYS = 30;
-const MIN_RETENTION_DAYS = 1;
-const MAX_RETENTION_DAYS = 3650;
-
-function clamp(days: number): number {
-  return Math.max(MIN_RETENTION_DAYS, Math.min(MAX_RETENTION_DAYS, Math.floor(days)));
-}
-
+/**
+ * Reads the current notification retention settings via the diagnostics module's
+ * accessor, which owns the single-row app_config contract.
+ */
 export async function getSettings(): Promise<NotificationSettings> {
-  const db = getDb();
-  const now = Date.now();
-  const row = await db.select().from(appConfig).get();
-  if (row) {
-    return {
-      inboxRetentionDays: row.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
-      deliveryRetentionDays: row.deliveryRetentionDays ?? DEFAULT_DELIVERY_RETENTION_DAYS,
-    };
-  }
-  await db
-    .insert(appConfig)
-    .values({
-      id: APP_CONFIG_ID,
-      errorRetentionDays: 30,
-      inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
-      deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
-      updatedAt: now,
-    })
-    .onConflictDoNothing();
-  return {
-    inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
-    deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
-  };
+  return getNotificationRetention();
 }
 
+/**
+ * Updates notification retention settings via the diagnostics module's
+ * accessor so all writes to app_config are serialized through a single owner.
+ */
 export async function updateSettings(input: {
   inboxRetentionDays?: number;
   deliveryRetentionDays?: number;
 }): Promise<NotificationSettings> {
-  const db = getDb();
-  const current = await getSettings();
-  const next: NotificationSettings = {
-    inboxRetentionDays:
-      input.inboxRetentionDays !== undefined
-        ? clamp(input.inboxRetentionDays)
-        : current.inboxRetentionDays,
-    deliveryRetentionDays:
-      input.deliveryRetentionDays !== undefined
-        ? clamp(input.deliveryRetentionDays)
-        : current.deliveryRetentionDays,
-  };
-  await db
-    .update(appConfig)
-    .set({
-      inboxRetentionDays: next.inboxRetentionDays,
-      deliveryRetentionDays: next.deliveryRetentionDays,
-      updatedAt: Date.now(),
-    })
-    .where(eq(appConfig.id, APP_CONFIG_ID));
-  return next;
+  return setNotificationRetention(input);
 }
