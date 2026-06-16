@@ -5,8 +5,20 @@
 // harmless to carry through. Imported (not just re-exported) so the local
 // `AuthKind` alias below can index into it.
 import type { PluginSummary } from "@nama/shared/connections";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 
 export type { PluginSummary };
+
+// Typed error thrown by the connections fetchers on a non-OK response, per
+// the frontend-feature-architecture hard rule 3. Carries `status` / `body` /
+// `code` so callers can branch on the wire envelope instead of string
+// matching on `err.message`.
+export class ConnectionsApiError extends BaseApiError {
+  constructor(status: number, body: ApiErrorBody | null) {
+    super("ConnectionsApiError", status, body, `connections request failed (${status})`);
+  }
+}
 
 export interface ExistingConnection {
   id: string;

@@ -363,6 +363,31 @@ describe("composeDetails", () => {
     expect(res.details?.seasons).toBeUndefined();
   });
 
+  it("400s a non-numeric tmdbId before any catalog read, fetch, or write", async () => {
+    // The cache-miss path fetches live metadata and persists it, so an opaque
+    // tmdbId is an unbounded write/cache-growth vector. The guard sits at
+    // function entry, so an invalid id never even touches the catalog read —
+    // it rejects before `getMetadata`, the plugin fetch, and the write.
+    const getMetadataCatalog = vi.fn().mockResolvedValue(null);
+    const getMetadataPlugin = vi.fn();
+    const writeMetadata = vi.fn();
+    const ctx = makeRowCtx({
+      catalog: {
+        getMetadata: getMetadataCatalog,
+        writeMetadata,
+      } as never,
+      mediaService: { getMetadata: getMetadataPlugin, getDetails: vi.fn() } as never,
+      statusBatch: { get: vi.fn().mockResolvedValue({}) } as never,
+    });
+    await expect(orchestrator.composeDetails(ctx, "__proto__", "movie")).rejects.toMatchObject({
+      status: 400,
+      code: "home.bad_input",
+    });
+    expect(getMetadataCatalog).not.toHaveBeenCalled();
+    expect(getMetadataPlugin).not.toHaveBeenCalled();
+    expect(writeMetadata).not.toHaveBeenCalled();
+  });
+
   it("throws 404 when cold-fill plugin returns nothing", async () => {
     const ctx = makeRowCtx({
       catalog: {

@@ -494,7 +494,7 @@ The current `admin/plugins.tsx` is ~948 lines. Lifting the shared-credentials ta
 - Segmented fallback control uses `<RadioGroup>` semantics. Active state has `aria-checked`.
 - Shared credential status pill (`Retry in mm:ss`) has `aria-live="polite"` on the containing row so cooldown changes are announced.
 - All new dialogs trap focus and return focus on close (shadcn default).
-- Device-code panel's `userCode` `aria-label` unchanged from current implementation.
+- Device-code panel's `userCode` is exposed via `select-all` text plus the adjacent `CopyButton`; it carries no `aria-label`. The earlier pointer-only click-to-select handler with an `aria-label` on the non-interactive `<span>` was removed: it was keyboard-unreachable and dropped by many assistive technologies, so the ARIA label was misleading. The copy button is the accessible affordance.
 
 ## States and feedback
 

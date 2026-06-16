@@ -13,6 +13,7 @@
   "diagnostics_retention_perf_label": "Performance",
   "diagnostics_retention_perf_helper": "Higher volume — short windows keep storage tame.",
   "diagnostics_retention_value_days": "{value} days",
+  "diagnostics_retention_update_failed": "Couldn't update retention: {message}",
 
   "diagnostics_severity_error": "Error",
   "diagnostics_severity_warning": "Warning",
@@ -96,6 +97,7 @@
   "diagnostics_perf_unit_ms": "ms",
   "diagnostics_perf_hint_last_hour": "last hour",
   "diagnostics_perf_hint_24h": "24h",
+  "diagnostics_perf_minispark_aria": "24-hour trend",
 
   "diagnostics_perf_detail_distribution": "Distribution · last 24h",
   "diagnostics_perf_detail_about_row": "About this row",

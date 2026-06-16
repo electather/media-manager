@@ -329,5 +329,7 @@
   "settings_danger_dialog_cancel": "انصراف",
   "settings_danger_toast_export_started": "برون‌بری شروع شد — دانلودها را بررسی کنید",
   "settings_danger_toast_account_deleted": "حساب حذف شد — در حال خروج",
-  "settings_danger_delete_failed": "حذف حساب انجام نشد."
+  "settings_danger_delete_failed": "حذف حساب انجام نشد.",
+  "settings_danger_reauth_password_show": "نمایش گذرواژه",
+  "settings_danger_reauth_password_hide": "پنهان‌سازی گذرواژه"
 }

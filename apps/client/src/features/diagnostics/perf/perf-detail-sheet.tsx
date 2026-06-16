@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import { m } from "@/paraglide/messages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -9,6 +9,7 @@ import { cn } from "@/shared/lib/utils";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchPerfDetail } from "../shared/fetchers";
 import { ThreadChip } from "../thread-chip";
+import { PERF_LABELS } from "../shared/types";
 import type { PerfAggregateGroup } from "../shared/types";
 
 interface Props {
@@ -27,9 +28,12 @@ interface Props {
 // fallow-ignore-next-line complexity
 export function PerfDetailSheet({ group, detailId, onClose, onJumpThread }: Props) {
   const detail = useQuery({
-    queryKey: detailId ? diagnosticsKeys.perf.detail(detailId) : ["disabled"],
-    queryFn: () => fetchPerfDetail(detailId!),
-    enabled: Boolean(detailId),
+    queryKey: detailId
+      ? diagnosticsKeys.perf.detail(detailId)
+      : diagnosticsKeys.perf.detailDisabled(),
+    // `skipToken` disables the query when there is no id, so the fetcher never
+    // runs with a null id and no non-null assertion is needed.
+    queryFn: detailId ? () => fetchPerfDetail(detailId) : skipToken,
   });
 
   const open = Boolean(group ?? detailId);
@@ -220,13 +224,6 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
     </div>
   );
 }
-
-const PERF_LABELS: Record<"p50" | "p95" | "p99" | "max", () => string> = {
-  p50: () => m.diagnostics_perf_label_p50(),
-  p95: () => m.diagnostics_perf_label_p95(),
-  p99: () => m.diagnostics_perf_label_p99(),
-  max: () => m.diagnostics_perf_label_max(),
-};
 
 function Stat({
   labelKey,

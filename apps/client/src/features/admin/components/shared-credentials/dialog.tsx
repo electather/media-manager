@@ -25,15 +25,21 @@ import {
 } from "@/shared/components/schema-form";
 import { api } from "@/shared/lib/api";
 import {
-  parseFormErrorResponse,
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
 } from "@/shared/lib/diagnostics/form-errors";
-import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@nama/shared";
 import { m } from "@/paraglide/messages";
+
+import {
+  fetchCreateSharedCredential,
+  fetchPatchSharedCredential,
+  fetchTestSharedCredentialEphemeral,
+  fetchTestSharedCredentialPersisted,
+} from "../../lib/fetchers";
+import { AdminApiError } from "../../lib/types";
 
 type SharedCredentialEntry = InferResponseType<
   (typeof api.plugins)[":id"]["shared-credentials"]["$get"]
@@ -131,21 +137,27 @@ export function SharedCredentialDialog({
     if (routed.fieldErrors.label) setLabelError(routed.fieldErrors.label);
   };
 
+  // Routes a thrown `AdminApiError` (non-2xx test response) into the same
+  // `{ ok: false, message, routed }` shape the success path uses, so the
+  // caller handles transport errors and `{ ok: false }` bodies uniformly.
+  const toTestFailure = (err: unknown) => {
+    if (err instanceof AdminApiError) {
+      const routed = splitFormError(err.body, schemaFieldNames, "Test failed.");
+      return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+    }
+    throw err;
+  };
+
   const ephemeralTest = useMutation({
-    // fallow-ignore-next-line complexity
     mutationFn: async () => {
-      const res = await api.plugins[":id"]["shared-credentials"]["test-ephemeral"].$post({
-        param: { id: pluginId },
-        json: { value: credentialValue },
-      });
-      if (!res.ok) {
-        const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
-        return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+      try {
+        const body = await fetchTestSharedCredentialEphemeral({ pluginId, value: credentialValue });
+        return body.ok
+          ? { ok: true as const, message: body.message }
+          : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
+      } catch (err) {
+        return toTestFailure(err);
       }
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      return body.ok
-        ? { ok: true as const, message: body.message }
-        : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
     },
   });
 
@@ -153,50 +165,46 @@ export function SharedCredentialDialog({
     // fallow-ignore-next-line complexity
     mutationFn: async () => {
       if (!existing) throw new Error("Missing shared credential.");
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
-        param: { id: pluginId, credId: existing.id },
-      });
-      if (!res.ok) {
-        const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
-        return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+      try {
+        const body = await fetchTestSharedCredentialPersisted({ pluginId, credId: existing.id });
+        return body.ok
+          ? { ok: true as const, message: body.message }
+          : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
+      } catch (err) {
+        return toTestFailure(err);
       }
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      return body.ok
-        ? { ok: true as const, message: body.message }
-        : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
     },
   });
 
   const saveMutation = useMutation({
     // fallow-ignore-next-line complexity
     mutationFn: async () => {
-      // On edit, only send fields the admin actually changed.
-      if (isEdit && existing) {
-        const patch: { label?: string; value?: unknown; enabled?: boolean } = {};
-        if (label.trim() !== existing.label) patch.label = label.trim();
-        if (hasFilledCredentialValues) patch.value = credentialValue;
-        const enabledChanged = enabled !== existing.enabled;
-        if (enabledChanged) patch.enabled = enabled;
-        const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-          param: { id: pluginId, credId: existing.id },
-          json: patch,
-        });
-        if (!res.ok) {
-          const body = (await safeJson(res)) as FormErrorBody | null;
-          return { ok: false as const, body };
+      try {
+        // On edit, only send fields the admin actually changed.
+        if (isEdit && existing) {
+          const patch: { label?: string; value?: unknown; enabled?: boolean } = {};
+          if (label.trim() !== existing.label) patch.label = label.trim();
+          if (hasFilledCredentialValues) patch.value = credentialValue;
+          const enabledChanged = enabled !== existing.enabled;
+          if (enabledChanged) patch.enabled = enabled;
+          await fetchPatchSharedCredential({ pluginId, credId: existing.id, patch });
+          return { ok: true as const, affectsPoolCounts: enabledChanged };
         }
-        return { ok: true as const, affectsPoolCounts: enabledChanged };
+        await fetchCreateSharedCredential({
+          pluginId,
+          label: label.trim(),
+          value: stripEmptySecrets(schema, values),
+        });
+        // Adding a new credential always shifts the pool-count meta line.
+        return { ok: true as const, affectsPoolCounts: true };
+      } catch (err) {
+        // The typed error carries the parsed server body, which the form-error
+        // splitter routes to per-field messages or a top-level banner.
+        if (err instanceof AdminApiError) {
+          return { ok: false as const, body: err.body as FormErrorBody | null };
+        }
+        throw err;
       }
-      const res = await api.plugins[":id"]["shared-credentials"].$post({
-        param: { id: pluginId },
-        json: { label: label.trim(), value: stripEmptySecrets(schema, values) },
-      });
-      if (!res.ok) {
-        const body = (await safeJson(res)) as FormErrorBody | null;
-        return { ok: false as const, body };
-      }
-      // Adding a new credential always shifts the pool-count meta line.
-      return { ok: true as const, affectsPoolCounts: true };
     },
     onSuccess: (result) => {
       if (result.ok) {

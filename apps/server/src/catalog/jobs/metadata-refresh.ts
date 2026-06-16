@@ -47,33 +47,54 @@ export async function runCatalogMetadataRefresh(
   }
   const media = new MediaService(SYSTEM_USER_ID);
   let refreshed = 0;
+  let notFound = 0;
   let failures = 0;
 
   for (let i = 0; i < stale.length; i += BATCH_SIZE) {
     ctx.abortSignal.throwIfAborted();
     const slice = stale.slice(i, i + BATCH_SIZE);
     const results = await Promise.allSettled(slice.map((key) => fetchOne(media, key)));
-    const fresh = collectFresh(slice, results, ctx);
-    if (fresh.length > 0) {
-      await deps.catalog.writeMetadata(fresh);
-      refreshed += fresh.length;
+    const counts = collectFresh(slice, results, ctx);
+    if (counts.fresh.length > 0) {
+      await deps.catalog.writeMetadata(counts.fresh);
+      refreshed += counts.fresh.length;
     }
-    failures += results.length - fresh.length;
+    notFound += counts.notFound;
+    failures += counts.failures;
   }
 
   ctx.logger.info(
-    `[catalog:metadata-refresh] processed ${stale.length} keys (${refreshed} refreshed, ${failures} failed)`,
+    `[catalog:metadata-refresh] processed ${stale.length} keys (${refreshed} refreshed, ${notFound} not-found, ${failures} failed)`,
   );
 }
 
 interface FetchResult {
   key: MetadataKey;
   data: RawCanonicalSource | null;
+  /**
+   * True only when a provider was actually queried and reported the title is
+   * gone: at least one provider was contacted (`attempted > 0`), none errored
+   * (`errors` empty), yet no data came back. This is the genuine upstream
+   * removal. Every other no-data shape — every provider errored (outage or
+   * rate-limit storm) or no provider was contacted at all (`attempted === 0`,
+   * e.g. the metadata capability has no configured provider) — is treated as a
+   * failure, because the title was never confirmed absent and so must not be
+   * logged as a removal.
+   */
+  notFound: boolean;
 }
 
 async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchResult> {
-  const data = await media.getMetadata(key.tmdbId, key.type);
-  return { key, data };
+  const result = await media.getMetadataResult(key.tmdbId, key.type);
+  const data = result.data ?? null;
+  const notFound = data === null && result.attempted > 0 && result.errors.length === 0;
+  return { key, data, notFound };
+}
+
+interface CollectResult {
+  fresh: CanonicalMetadata[];
+  notFound: number;
+  failures: number;
 }
 
 // fallow-ignore-next-line complexity
@@ -81,8 +102,10 @@ function collectFresh(
   slice: MetadataKey[],
   results: PromiseSettledResult<FetchResult>[],
   ctx: JobRunContext,
-): CanonicalMetadata[] {
-  const out: CanonicalMetadata[] = [];
+): CollectResult {
+  const fresh: CanonicalMetadata[] = [];
+  let notFound = 0;
+  let failures = 0;
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     const key = slice[i];
@@ -91,11 +114,29 @@ function collectFresh(
       ctx.logger.debug(
         `[catalog:metadata-refresh] dispatch rejected for ${key.type}:${key.tmdbId}`,
       );
+      failures += 1;
       continue;
     }
-    const data = result.value.data;
-    if (!data) continue;
-    out.push(toCanonicalRow(key, data));
+    const { data } = result.value;
+    if (!data) {
+      if (result.value.notFound) {
+        // A provider answered and the title is genuinely gone upstream. This
+        // is a normal expected outcome and must not be conflated with a
+        // dispatch failure so operators can track genuine plugin errors.
+        notFound += 1;
+        continue;
+      }
+      // No data, but the title was never confirmed absent: either every
+      // provider errored (outage / rate-limit storm) or no provider was
+      // contacted at all. Count it as a failure so these never masquerade as
+      // upstream removals in the summary log.
+      ctx.logger.debug(
+        `[catalog:metadata-refresh] no data and not confirmed absent for ${key.type}:${key.tmdbId}`,
+      );
+      failures += 1;
+      continue;
+    }
+    fresh.push(toCanonicalRow(key, data));
   }
-  return out;
+  return { fresh, notFound, failures };
 }

@@ -38,6 +38,24 @@ describe("defineMediaSource fetchPage", () => {
     });
   });
 
+  it("forwards a string[] param as-is (repeated params) and drops an empty array", async () => {
+    // The library lens filters arrive as `string[]` axes; a non-empty one must
+    // ride to the resolver as repeated params (`?genres=Drama&genres=Crime`),
+    // while an empty axis is dropped like an unset param.
+    $get.mockResolvedValueOnce({ ok: true, json: async () => PAGE });
+    const source = defineMediaSource<{ genres: string[]; servers: string[]; limit: number }>({
+      sourceId: "library-az",
+      params: { genres: ["Drama", "Crime"], servers: [], limit: 60 },
+      mode: "infinite",
+      cursorOnNull: "firstPage",
+    });
+    await source.fetchPage(source.params, null);
+    expect($get).toHaveBeenCalledWith({
+      param: { sourceId: "library-az" },
+      query: { genres: ["Drama", "Crime"], limit: "60" },
+    });
+  });
+
   it("omits the cursor query key on the first page", async () => {
     $get.mockResolvedValueOnce({ ok: true, json: async () => PAGE });
     const source = defineMediaSource<{ limit: number }>({

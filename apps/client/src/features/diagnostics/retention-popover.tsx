@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { SettingsIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
@@ -8,7 +9,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { diagnosticsKeys } from "./shared/query-keys";
 import { fetchDiagnosticsConfig, fetchUpdateDiagnosticsConfig } from "./shared/fetchers";
-import type { DiagnosticsConfig } from "./shared/types";
+import { diagnosticsErrorMessage, type DiagnosticsConfig } from "./shared/types";
 
 const ERROR_OPTIONS = [7, 14, 30, 60, 90] as const;
 const PERF_OPTIONS = [1, 3, 7, 14, 30] as const;
@@ -23,8 +24,29 @@ export function RetentionPopover() {
   });
   const mutation = useMutation({
     mutationFn: fetchUpdateDiagnosticsConfig,
-    onSuccess: (next) => {
-      queryClient.setQueryData<DiagnosticsConfig>(diagnosticsKeys.config(), next);
+    // Optimistic: patch the active pill immediately so the click does not wait
+    // on the round trip, then reconcile on settle.
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey: diagnosticsKeys.config() });
+      const snapshot = queryClient.getQueryData<DiagnosticsConfig>(diagnosticsKeys.config());
+      if (snapshot) {
+        queryClient.setQueryData<DiagnosticsConfig>(diagnosticsKeys.config(), {
+          ...snapshot,
+          ...body,
+        });
+      }
+      return { snapshot };
+    },
+    onError: (error, _body, ctx) => {
+      if (ctx?.snapshot) {
+        queryClient.setQueryData<DiagnosticsConfig>(diagnosticsKeys.config(), ctx.snapshot);
+      }
+      toast.error(
+        m.diagnostics_retention_update_failed({ message: diagnosticsErrorMessage(error) }),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: diagnosticsKeys.config() });
     },
   });
   const cfg = cfgQuery.data;

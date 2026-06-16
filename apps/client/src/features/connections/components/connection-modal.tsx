@@ -1,8 +1,7 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
-import { api } from "@/shared/lib/api";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/shared/ui/drawer";
 import { Field, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -30,6 +29,17 @@ import { ConnectionModalDone } from "./connection-modal-done";
 import { ConnectionModalFooter } from "./connection-modal-footer";
 import { ConnectionModalHeader } from "./connection-modal-header";
 import { readErrorBody, readErrorMessage, routeFormError } from "../lib/form-errors";
+import {
+  createConnection,
+  getUserConfig,
+  patchDisplayName,
+  patchUserConfig,
+  pollDeviceAuth,
+  startDeviceAuth,
+  startRedirectAuth,
+  verifyConfig,
+} from "../lib/fetchers";
+import { isSafeAuthUrl } from "../lib/url";
 import type {
   DeviceState,
   ExistingConnection,
@@ -87,6 +97,14 @@ export function ConnectionModal({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [stage, setStage] = useState<Stage>("configure");
 
+  // Generation counter for the verify-config round-trip. Every edit bumps it;
+  // a `runTest` call captures the generation at dispatch and discards its
+  // result if the values changed while the request was in flight. Without this
+  // a slow verification could resolve and stamp "verified" / "failed" onto a
+  // config the user has since edited. A ref (not state) because changing it
+  // must not trigger a render and the in-flight closure reads the latest value.
+  const testRunRef = useRef(0);
+
   const isMobile = useIsMobile();
 
   // fallow-ignore-next-line complexity
@@ -94,6 +112,9 @@ export function ConnectionModal({
     if (!open) return;
     setDisplayName(existing?.displayName ?? "");
     setServerErrors({});
+    // Invalidate any verify-config request left in flight from a prior open so
+    // its result can't apply to this fresh session.
+    testRunRef.current += 1;
     setTest({ kind: "idle" });
     setSaving(false);
     setTopError(null);
@@ -120,9 +141,7 @@ export function ConnectionModal({
     // fallow-ignore-next-line complexity
     void (async () => {
       try {
-        const res = await api.connections[":id"]["user-config"].$get({
-          param: { id: existing.id },
-        });
+        const res = await getUserConfig(existing.id);
         if (!res.ok || cancelled) return;
         const body = await res.json();
         if (cancelled) return;
@@ -143,27 +162,30 @@ export function ConnectionModal({
   // Countdown tick for the device code panel.
   useInterval(() => setNow(Date.now()), device.kind === "waiting" ? 1000 : null);
 
-  // Poll the device auth endpoint while the device panel is live.
+  // Poll the device auth endpoint while the device panel is live. The poll is
+  // a self-scheduling setTimeout recursion rather than setInterval: the next
+  // tick is only scheduled after the previous round-trip settles, so a slow
+  // response can never overlap with a fresh request (device-code endpoints
+  // enforce a minimum interval and return slow_down/429 under overlap).
   useEffect(() => {
     if (device.kind !== "waiting") return;
     const { nonce, intervalSec } = device;
     let cancelled = false;
+    let timer: number | undefined;
     // fallow-ignore-next-line complexity
-    const id = window.setInterval(async () => {
-      if (cancelled) return;
+    const tick = async () => {
       try {
-        const res = await api.connections.oauth.device.poll.$post({ json: { nonce } });
-        const body = (await res.json()) as
-          | { status: "pending" }
-          | { status: "completed"; connectionId: string }
-          | { status: "error"; message: string };
+        const body = await pollDeviceAuth(nonce);
         if (cancelled) return;
         if (body.status === "completed") {
           onSuccess();
           setStage("done");
           setDevice({ kind: "idle" });
-        } else if (body.status === "error") {
+          return;
+        }
+        if (body.status === "error") {
           setDevice({ kind: "err", message: body.message });
+          return;
         }
       } catch (err) {
         if (cancelled) return;
@@ -174,11 +196,14 @@ export function ConnectionModal({
               ? err.message
               : m.settings_connections_modal_error_polling_failed(),
         });
+        return;
       }
-    }, intervalSec * 1000);
+      timer = window.setTimeout(() => void tick(), intervalSec * 1000);
+    };
+    timer = window.setTimeout(() => void tick(), intervalSec * 1000);
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      window.clearTimeout(timer);
     };
   }, [device, onSuccess]);
 
@@ -221,6 +246,18 @@ export function ConnectionModal({
     setTopError(null);
   };
 
+  // Editing any field invalidates the test result — the config that was tested
+  // is no longer the one on screen. Reset any non-idle badge (verified, failed,
+  // or in-flight) back to idle so it never claims an untested change passed or
+  // failed. Bumping the generation also discards a verify-config request still
+  // in flight: when it resolves, `runTest` sees a stale generation and drops
+  // the result instead of stamping "verified" / "failed" onto the new values.
+  const handleValuesChange = (next: Record<string, unknown>) => {
+    setValues(next);
+    testRunRef.current += 1;
+    setTest((prev) => (prev.kind === "idle" ? prev : { kind: "idle" }));
+  };
+
   // fallow-ignore-next-line complexity
   const runTest = async () => {
     clearPendingErrors();
@@ -233,12 +270,15 @@ export function ConnectionModal({
         return;
       }
     }
+    // Capture the generation this run belongs to. If the values change (or the
+    // modal re-opens) while the request is in flight, the generation moves on
+    // and we drop this stale result rather than stamping it onto the new config.
+    const runGeneration = testRunRef.current;
     setTest({ kind: "testing" });
     try {
-      const res = await api.connections["verify-config"].$post({
-        json: { pluginId: plugin.id, userConfig: values },
-      });
+      const res = await verifyConfig({ pluginId: plugin.id, userConfig: values });
       const body = (await res.json()) as FormErrorBody & { ok?: boolean };
+      if (testRunRef.current !== runGeneration) return;
       if (body.ok) {
         setTest({ kind: "ok" });
       } else {
@@ -253,6 +293,7 @@ export function ConnectionModal({
         );
       }
     } catch (err) {
+      if (testRunRef.current !== runGeneration) return;
       setTest({ kind: "err" });
       setTopError(
         err instanceof Error ? err.message : m.settings_connections_modal_error_test_failed(),
@@ -310,23 +351,15 @@ export function ConnectionModal({
     connectionId: string,
     submission: Record<string, unknown>,
   ): Promise<Response> => {
-    await api.connections[":id"]["display-name"].$patch({
-      param: { id: connectionId },
-      json: { displayName: displayName || plugin.name },
-    });
-    return api.connections[":id"]["user-config"].$patch({
-      param: { id: connectionId },
-      json: { userConfig: submission },
-    });
+    await patchDisplayName({ id: connectionId, displayName: displayName || plugin.name });
+    return patchUserConfig({ id: connectionId, userConfig: submission });
   };
 
   const createNewConnection = (submission: Record<string, unknown>): Promise<Response> =>
-    api.connections.$post({
-      json: {
-        pluginId: plugin.id,
-        userConfig: submission,
-        displayName: displayName || undefined,
-      },
+    createConnection({
+      pluginId: plugin.id,
+      userConfig: submission,
+      displayName: displayName || undefined,
     });
 
   const handleSaveOauthEdit = async () => {
@@ -334,10 +367,7 @@ export function ConnectionModal({
     setSaving(true);
     setTopError(null);
     try {
-      await api.connections[":id"]["display-name"].$patch({
-        param: { id: existing.id },
-        json: { displayName: displayName || plugin.name },
-      });
+      await patchDisplayName({ id: existing.id, displayName: displayName || plugin.name });
       onSuccess();
       onOpenChange(false);
     } catch (err) {
@@ -351,9 +381,7 @@ export function ConnectionModal({
   const handleStartDevice = async () => {
     setDevice({ kind: "starting" });
     try {
-      const res = await api.connections.oauth.device.start.$post({
-        json: { pluginId: plugin.id },
-      });
+      const res = await startDeviceAuth(plugin.id);
       if (!res.ok)
         throw new Error(
           await readErrorMessage(res, m.settings_connections_modal_error_device_start_failed()),
@@ -383,14 +411,18 @@ export function ConnectionModal({
     setSaving(true);
     setTopError(null);
     try {
-      const res = await api.connections.oauth.redirect.start.$post({
-        json: { pluginId: plugin.id },
-      });
+      const res = await startRedirectAuth(plugin.id);
       if (!res.ok)
         throw new Error(
           await readErrorMessage(res, m.settings_connections_modal_error_authorize_failed()),
         );
       const body = (await res.json()) as { redirectUrl: string; nonce: string };
+      // Guard against navigating to a non-https scheme or malformed value:
+      // `redirectUrl` is server-controlled, but a buggy or compromised plugin
+      // response (e.g. `javascript:` or an http downgrade) must not become an
+      // unconditional navigation. Reject with the standard authorize error.
+      if (!isSafeAuthUrl(body.redirectUrl))
+        throw new Error(m.settings_connections_modal_error_authorize_failed());
       // Stash the nonce + plugin name so the callback route can resume the
       // flow and show a clean return-destination toast. sessionStorage is
       // safe here — the callback runs in the same tab.
@@ -483,7 +515,7 @@ export function ConnectionModal({
               hasUserConfigFields={hasUserConfigFields}
               userConfigSchema={userConfigSchema}
               values={values}
-              setValues={setValues}
+              setValues={handleValuesChange}
               serverErrors={serverErrors}
               submitAttempted={submitAttempted}
               plugin={plugin}

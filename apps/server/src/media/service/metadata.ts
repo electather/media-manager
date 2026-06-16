@@ -7,6 +7,7 @@ import type { SeasonInfo } from "@nama/shared/home";
 import { isNil } from "es-toolkit/predicate";
 import type { RawCanonicalSource } from "../../catalog";
 import { badRequest } from "../../diagnostics/http-errors";
+import type { AggregateResult } from "../types";
 import { dispatchPrimary } from "./dispatch";
 
 const COMBINED_ID_KINDS = new Set(["movie", "tv"] as const);
@@ -111,7 +112,25 @@ export async function getMetadata(
   type: "movie" | "tv",
   opts: { deadlineMs?: number } = {},
 ): Promise<RawCanonicalSource | null> {
-  const result = await dispatchPrimary<RawCanonicalSource>({
+  const result = await getMetadataResult(userId, tmdbId, type, opts);
+  return result.data ?? null;
+}
+
+/**
+ * Same dispatch as `getMetadata` but returns the full `AggregateResult` so the
+ * caller can inspect `errors`/`attempted` rather than only the data. The
+ * nightly metadata-refresh job needs this to tell a genuine upstream removal
+ * (`data: null` with no errors) apart from a total provider outage (`data:
+ * null` with every provider in `errors`), which would otherwise both collapse
+ * to `null` and be miscounted as not-found.
+ */
+export async function getMetadataResult(
+  userId: string,
+  tmdbId: string,
+  type: "movie" | "tv",
+  opts: { deadlineMs?: number } = {},
+): Promise<AggregateResult<RawCanonicalSource>> {
+  return dispatchPrimary<RawCanonicalSource>({
     userId,
     capability: "metadata",
     version: "v1",
@@ -120,7 +139,6 @@ export async function getMetadata(
     mediaType: type,
     deadlineMs: opts.deadlineMs,
   });
-  return result.data ?? null;
 }
 
 /**
