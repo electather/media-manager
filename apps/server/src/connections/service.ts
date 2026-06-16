@@ -1,7 +1,7 @@
 import { and, desc, eq, lt } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
-import { selectEnabledPlugins } from "../db/queries";
+import { parseUserConfig, selectEnabledPlugins } from "../db/queries";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { pluginRuntime, capabilityRegistry, sharedCredentialsService } from "../plugin-runtime";
@@ -18,7 +18,6 @@ import { decryptField, encryptJson } from "../crypto/helpers";
 import {
   computeDisplayFields,
   fetchConnectionByOwner,
-  parseUserConfig,
   promoteToDefault,
   requireConnection,
   stripRequestFields,

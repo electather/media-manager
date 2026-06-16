@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { queryEnabledConnectionsForPlugin } from "../db/queries";
+import { parseUserConfig, queryEnabledConnectionsForPlugin } from "../db/queries";
 import { serviceConnections } from "../db/schema";
 import { decryptField } from "../crypto/helpers";
 import { pluginRuntime } from "../plugin-runtime";
@@ -76,7 +76,7 @@ export async function callExtension<T = unknown>(req: ExtensionCallRequest): Pro
   if (!chosen) throw notConnected(req.pluginId);
 
   const credentials = await decryptField(chosen.credentialsIv, chosen.encryptedCredentials);
-  const userConfig = chosen.userConfig ? (JSON.parse(chosen.userConfig) as unknown) : null;
+  const userConfig = parseUserConfig(chosen.userConfig);
 
   return pluginRuntime.invokeMcpTool<T>({
     pluginId: req.pluginId,

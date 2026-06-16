@@ -133,6 +133,14 @@ let pluginRows: PluginRow[] = defaultPluginRows;
 
 vi.mock("../../db/queries", () => ({
   selectEnabledPlugins: async () => pluginRows,
+  parseUserConfig: (raw: string | null | undefined) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  },
 }));
 
 const { invokePerConnectionHandler, registerAllPluginJobs } = await import("../plugin-jobs");

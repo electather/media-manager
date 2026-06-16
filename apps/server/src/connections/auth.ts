@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { JSONSchema } from "@nama/shared";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
+import { parseUserConfig } from "../db/queries";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
@@ -10,7 +11,6 @@ import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors"
 import { decryptField, encryptJson } from "../crypto/helpers";
 import {
   findConnectionForPlugin,
-  parseUserConfig,
   reconnectConnection,
   stripRequestFields,
   writeConnection,

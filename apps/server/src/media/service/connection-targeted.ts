@@ -3,6 +3,7 @@ import { getDb } from "../../db/client";
 // TASK-047: media reads serviceConnections via plugin-runtime barrel (deferred).
 // fallow-ignore-next-line boundary-violation
 import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
+import { parseUserConfig } from "../../db/queries";
 import { decryptField } from "../../crypto/helpers";
 import { capabilityRegistry, pluginRuntime } from "../../plugin-runtime";
 import { getCapability } from "@nama/plugin-sdk";
@@ -78,7 +79,7 @@ async function loadConnectionById(
     connectionId: row.id,
     isDefault: row.isDefault === 1,
     credentials,
-    userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
+    userConfig: parseUserConfig(row.userConfig),
   };
 }
 

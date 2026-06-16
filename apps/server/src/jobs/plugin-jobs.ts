@@ -3,7 +3,7 @@ import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
-import { markConnectionExhausted, selectEnabledPlugins } from "../db/queries";
+import { markConnectionExhausted, parseUserConfig, selectEnabledPlugins } from "../db/queries";
 import { decryptJson } from "../crypto/helpers";
 import { captureError } from "../diagnostics/capture";
 // fallow-allow: phase-2 infra-to-module decoupling
@@ -226,7 +226,7 @@ export async function invokePerConnectionHandler(args: {
       });
       return;
     }
-    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+    const userConfig = parseUserConfig(row.userConfig);
     const ctx = await pluginRuntime.buildJobContext(
       job.pluginId,
       row.userId,

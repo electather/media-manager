@@ -193,21 +193,6 @@ function stringifyDisplayValue(v: unknown): string {
   return "";
 }
 
-/**
- * Parses a stored userConfig JSON blob. Returns null on parse failure rather
- * than propagating a raw SyntaxError as a 500. A null result is safe to use in
- * display-field computation and config merges — both callers already handle the
- * null case for rows where userConfig was never set.
- */
-export function parseUserConfig(raw: string | null | undefined): unknown {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    return null;
-  }
-}
-
 /** Promotes the given connection id to default within its plugin; demotes the rest. */
 export async function promoteToDefault(
   userId: string,

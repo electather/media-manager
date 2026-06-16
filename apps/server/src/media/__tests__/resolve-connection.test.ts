@@ -19,6 +19,14 @@ vi.mock("../../db/client", () => ({ getDb: () => ({}) }));
 vi.mock("../../db/queries", () => ({
   queryEnabledConnectionsForPlugin: (...args: unknown[]) =>
     queryEnabledConnectionsForPluginMock(...args),
+  parseUserConfig: (raw: string | null | undefined) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  },
 }));
 vi.mock("../../crypto/helpers", () => ({
   decryptField: (...args: unknown[]) => decryptFieldMock(...args),

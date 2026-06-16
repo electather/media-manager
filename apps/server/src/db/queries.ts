@@ -1,3 +1,4 @@
+import { consola } from "consola";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb, type Db } from "./client";
 import { plugins, serviceConnections } from "./schema";
@@ -5,6 +6,29 @@ import { plugins, serviceConnections } from "./schema";
 export async function selectEnabledPlugins() {
   const db = getDb();
   return db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
+}
+
+/**
+ * Parses the stored `serviceConnections.userConfig` JSON text column. Returns
+ * `null` on a missing value or malformed JSON rather than propagating a raw
+ * `SyntaxError`, so a single corrupt row degrades to "no user config" instead
+ * of throwing a 500 across every read path (connections list, media dispatch,
+ * targeted dispatch, plugin jobs, MCP calls). `null` is already a valid value
+ * for these callers — a row that never had a userConfig produces the same
+ * result — so degrading to it is safe.
+ */
+export function parseUserConfig(raw: string | null | undefined): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (err) {
+    // A corrupt row is a real data-integrity signal — degrade to null so reads
+    // don't 500, but surface the failure so operators can locate the bad row.
+    consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 export async function queryEnabledConnectionsForPlugin(db: Db, userId: string, pluginId: string) {
