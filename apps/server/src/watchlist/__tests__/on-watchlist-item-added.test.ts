@@ -12,7 +12,7 @@ vi.mock("../../media", () => ({
   watchlistItemAddedSchema: {},
 }));
 
-const { WATCHLIST_EVENTS } = await import("../../media");
+const { WATCHLIST_EVENTS, watchlistItemAddedSchema } = await import("../../media");
 
 vi.mock("../../jobs/events", () => ({
   on: vi.fn(),
@@ -42,7 +42,7 @@ describe("on-watchlist-item-added", () => {
     expect(on).toHaveBeenCalledTimes(1);
     expect(on).toHaveBeenCalledWith(
       WATCHLIST_EVENTS.ITEM_ADDED,
-      expect.anything(),
+      watchlistItemAddedSchema,
       expect.any(Function),
     );
   });
