@@ -83,7 +83,7 @@ export function useRecentItems(): {
     // one that wrote the value, so recents added elsewhere become visible
     // immediately without requiring a reload.
     function onStorage(event: StorageEvent): void {
-      if (event.key === STORAGE_KEY) {
+      if (event.key === STORAGE_KEY && event.storageArea === window.localStorage) {
         setRecents(readStorage());
       }
     }

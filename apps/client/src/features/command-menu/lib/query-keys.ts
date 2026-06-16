@@ -8,3 +8,10 @@ export const commandMenuKeys = {
   trending: (mediaType: TrendingScope) =>
     [...commandMenuKeys.all, "trending", { mediaType }] as const,
 } as const;
+
+/** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */
+export function isSearchKey(
+  key: readonly unknown[],
+): key is ReturnType<typeof commandMenuKeys.search> {
+  return key[0] === "command-menu" && key[1] === "search" && typeof key[2] === "object";
+}
