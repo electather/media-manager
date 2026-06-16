@@ -96,7 +96,7 @@ The server generates the code from `crypto.getRandomValues` over an 18-char
 Crockford base32 alphabet (`0-9A-HJKMNP-TV-Z`, 32 symbols) → ~90 bits, keeping the
 familiar grouped (`XXXXXX-XXXXXX-XXXXXX`) shape while raising entropy and dropping
 ambiguous characters. The `code` column is unique; on the astronomically unlikely
-collision the insert retries.
+collision the insert retries up to 3 times before throwing a 500.
 
 ## 3. Shared schemas (`packages/shared/src/invites/`)
 
@@ -249,7 +249,9 @@ keyed by `clientIp`.
 - `lib/query-keys.ts` — add `adminInvitesKeys` (`all` / `list`).
 - `lib/fetchers.ts` — `fetchInvites`, `createInvite`, `extendInvite`,
   `revokeInvite` (admin, typed `hc`), plus `fetchInvitePreview` and `acceptInvite`
-  for the accept page.
+  for the accept page. **Coerce string → number:** the drawer keeps `maxUses` as
+  `useState<string>`; `createInvite` must send `maxUses: Number(maxUses)` (not the
+  raw string) so the `z.number()` schema accepts it.
 - `hooks/` — `use-admin-invites.ts` (`useSuspenseQuery`), `use-create-invite.ts`,
   `use-extend-invite.ts`, `use-revoke-invite.ts` (mutations that invalidate
   `adminInvitesKeys` and the user-count query).
@@ -327,6 +329,7 @@ NEW  apps/server/src/api/procedures/invites.ts           (adminInvitesApp + invi
 NEW  apps/server/src/api/procedures/__tests__/invites.test.ts
 NEW  packages/shared/src/invites/schemas.ts
 NEW  packages/shared/src/invites/index.ts
+EDIT packages/shared/package.json                        (add "./invites": "./src/invites/index.ts" to exports)
 EDIT apps/server/src/api/procedures/users.ts             (import guard from new module below)
 NEW  apps/server/src/api/procedures/assignable-role.ts   (shared role guard: requireRole + requireAssignableRole)
 EDIT apps/server/src/api/router.ts                       (register both subapps)
