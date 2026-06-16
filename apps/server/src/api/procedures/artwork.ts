@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { artworkGetInputSchema, type ArtworkRequestItem } from "@nama/shared/artwork";
+import { artworkGetInputSchema, countCanonicalArtwork } from "@nama/shared/artwork";
 import { requireSession, sessionUserId } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 import { ArtworkService } from "../../artwork";
@@ -26,7 +26,7 @@ export const artworkApp = new Hono()
     const { items, languages } = c.req.valid("json");
     // Charge the bucket by the number of unique canonical lookups so batched
     // requests cost what they actually cost downstream.
-    const uniqueLookups = countCanonical(items);
+    const uniqueLookups = countCanonicalArtwork(items);
     const limited = artworkLimiter.check(userId, uniqueLookups);
     if (limited !== null) {
       const retryAfter = (limited.details as { retry_after: number } | undefined)?.retry_after ?? 1;
@@ -36,16 +36,3 @@ export const artworkApp = new Hono()
     const result = await service.getArtwork(items, languages);
     return c.json(result);
   });
-
-function countCanonical(items: readonly ArtworkRequestItem[]): number {
-  const seen = new Set<string>();
-  for (const item of items) {
-    const parts: string[] = [item.type];
-    for (const k of ["tmdb", "imdb", "tvdb"] as const) {
-      const value = item.ids[k];
-      if (value) parts.push(`${k}:${value}`);
-    }
-    seen.add(parts.join("|"));
-  }
-  return Math.max(1, seen.size);
-}

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Bookmark, Check, Eye, Film, MoreHorizontal, Play } from "lucide-react";
+import { Bookmark, Eye, Film, MoreHorizontal, Play } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { MovieRequestAction } from "@/features/request-flow";
 import { Button } from "@/shared/ui/button";
@@ -16,7 +15,6 @@ function isPlayable(url: string | undefined): url is string {
 }
 
 export function DetailHeroActions({ item, inWatchlist, onToggleWatchlist }: Props) {
-  const [watched, setWatched] = useState(false);
   const trailerUrl = item.trailerUrl;
   const trailerPlayable = isPlayable(trailerUrl);
 
@@ -48,19 +46,11 @@ export function DetailHeroActions({ item, inWatchlist, onToggleWatchlist }: Prop
         <Bookmark aria-hidden="true" className={inWatchlist ? "size-4 fill-current" : "size-4"} />
         {inWatchlist ? m.home_detail_watchlist_remove() : m.home_detail_watchlist_add()}
       </Button>
-      <Button
-        size="lg"
-        variant="outline"
-        className="gap-2"
-        aria-pressed={watched}
-        onClick={() => setWatched((prev) => !prev)}
-      >
-        {watched ? (
-          <Check aria-hidden="true" className="size-4" />
-        ) : (
-          <Eye aria-hidden="true" className="size-4" />
-        )}
-        {watched ? m.media_detail_watched() : m.media_detail_mark_watched()}
+      {/* Mark-watched is not yet wired to persistence; disabled to avoid
+          misleading users into believing the toggle was saved. */}
+      <Button size="lg" variant="outline" className="gap-2" disabled aria-pressed={false}>
+        <Eye aria-hidden="true" className="size-4" />
+        {m.media_detail_mark_watched()}
       </Button>
       <Button
         size="icon-lg"
@@ -79,8 +69,10 @@ function renderPrimary(item: HomeMediaItem) {
   if (item.mediaType === "tv") return null;
 
   if (item.status === "available") {
+    // Playback is not yet wired; disabling prevents a silent no-op while
+    // keeping the button visible so users understand the intent.
     return (
-      <Button size="lg" className="gap-2">
+      <Button size="lg" className="gap-2" disabled>
         <Play aria-hidden="true" className="size-4 fill-current" />
         {m.home_detail_watch()}
       </Button>

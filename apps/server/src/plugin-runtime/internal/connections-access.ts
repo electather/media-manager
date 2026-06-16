@@ -19,8 +19,20 @@ export interface ConnectionRow {
   credentialsIv: string | null;
 }
 
-/** Returns a single connection by id, or `null` if not found. */
-export async function getConnectionById(id: string): Promise<ConnectionRow | null> {
+/**
+ * Returns a single connection by id, or `null` if not found.
+ *
+ * The unscoped form (omitting `userId`) returns any user's row including
+ * encrypted-credential handles and is intended for trusted server-side callers
+ * that have already resolved the id internally (e.g. notification delivery
+ * jobs). Any path where the id can originate from request input MUST pass the
+ * authenticated `userId` so the lookup is scoped to the caller's own rows and
+ * cannot leak cross-user connections (IDOR).
+ */
+export async function getConnectionById(
+  id: string,
+  userId?: string,
+): Promise<ConnectionRow | null> {
   const db = getDb();
   const row = await db
     .select({
@@ -32,7 +44,11 @@ export async function getConnectionById(id: string): Promise<ConnectionRow | nul
       credentialsIv: serviceConnections.credentialsIv,
     })
     .from(serviceConnections)
-    .where(eq(serviceConnections.id, id))
+    .where(
+      userId === undefined
+        ? eq(serviceConnections.id, id)
+        : and(eq(serviceConnections.id, id), eq(serviceConnections.userId, userId)),
+    )
     .get();
   return row ?? null;
 }

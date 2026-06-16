@@ -22,7 +22,14 @@ export interface RecommendedKey extends MediaKey {
 export const recommendedForYouSource: MediaSource<MediaType, RecommendedKey> = {
   sourceId: "recommendedForYou",
   async fetchRawSet(ctx, mediaType) {
-    const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
+    // Read through the request-scoped memo when the consumer injected it (home
+    // shares one rec-list fetch across both partitions + eligibility); fall
+    // back to a direct fetch when it is absent. The fallback arm only fires for
+    // a memo-less `RowContext` (tests / manual construction) — `buildContext`
+    // always injects the memo.
+    const rec = await (ctx.recommendations
+      ? ctx.recommendations()
+      : ctx.catalog.getRecommendations(ctx.userId, "default"));
     if (!rec) return { rows: [], partial: false };
     const pool = rec.items.filter((item) => item.mediaType === mediaType);
     if (pool.length === 0) return { rows: [], partial: false };

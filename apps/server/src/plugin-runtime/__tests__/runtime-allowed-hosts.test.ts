@@ -727,3 +727,63 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     expect(verifyShared).not.toHaveBeenCalled();
   });
 });
+
+// A stored `globalConfig` column is JSON-parsed on read. A corrupt value (manual
+// DB edit, partial write, migration bug) must surface as a typed
+// `PluginError("plugin.input_invalid")` so it funnels through the plugin-error
+// boundary instead of escaping as a raw `SyntaxError` and 500-ing the request.
+describe("runtime parses stored globalConfig defensively", () => {
+  beforeEach(() => {
+    pluginRows.clear();
+  });
+
+  it("throws plugin.input_invalid when the stored globalConfig JSON is corrupt", async () => {
+    pluginRows.set("cfg-plugin", {
+      id: "cfg-plugin",
+      globalConfig: "{not valid json",
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).rejects.toMatchObject({
+      code: "plugin.input_invalid",
+    });
+  });
+
+  it("returns the parsed object for valid stored globalConfig", async () => {
+    pluginRows.set("cfg-plugin", {
+      id: "cfg-plugin",
+      globalConfig: JSON.stringify({ baseUrl: "https://requests.example.com" }),
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).resolves.toEqual({
+      baseUrl: "https://requests.example.com",
+    });
+  });
+
+  it("returns null when no globalConfig is stored", async () => {
+    pluginRows.set("cfg-plugin", {
+      id: "cfg-plugin",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).resolves.toBeNull();
+  });
+
+  it("throws plugin.input_invalid for an empty-string globalConfig (not silently null)", async () => {
+    // An empty string is not "no config" — only an absent column is. `""` can
+    // only land via a manual edit or migration bug, exactly the corruption the
+    // defensive parse exists to surface, so it must throw rather than be
+    // swallowed as null.
+    pluginRows.set("cfg-plugin", {
+      id: "cfg-plugin",
+      globalConfig: "",
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    await expect(pluginRuntime.getGlobalConfig("cfg-plugin")).rejects.toMatchObject({
+      code: "plugin.input_invalid",
+    });
+  });
+});

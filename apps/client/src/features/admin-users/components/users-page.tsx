@@ -9,6 +9,7 @@ import { authClient } from "@/shared/lib/auth";
 import { useAdminUsers } from "../hooks/use-admin-users";
 import { useInvitesMock } from "../lib/invites-mock";
 import type { AdminUsersFilter } from "../lib/types";
+import { deriveUserCounts } from "../lib/user-predicates";
 import { InviteDrawer } from "./invite-drawer";
 import { UserDetailRoute } from "./user-detail";
 import { UsersList } from "./users-list";
@@ -35,9 +36,11 @@ export function UsersPage({ selectedUserId, onSelectUser }: UsersPageProps) {
     );
   }
 
-  const activeCount = users.length;
-  const adminCount = users.filter((u) => u.role?.id === "role_admin").length;
-  const pendingCount = invites.filter((i) => !(i.expired || i.expiresAt < Date.now())).length;
+  const {
+    active: activeCount,
+    admins: adminCount,
+    pending: pendingCount,
+  } = deriveUserCounts(users, invites, Date.now());
 
   return (
     <div className="flex flex-col gap-6">

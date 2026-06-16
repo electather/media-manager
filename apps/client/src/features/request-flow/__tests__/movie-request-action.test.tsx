@@ -12,7 +12,7 @@ const apiMock = vi.hoisted(() => ({
   cancel: vi.fn(),
 }));
 
-vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+vi.mock("../lib/fetchers", () => ({ requestsApi: apiMock }));
 
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
@@ -22,7 +22,7 @@ const toastMock = vi.hoisted(() => ({
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), toastMock) }));
 
 import { MovieRequestAction } from "../components/movie-request-action";
-import { RequestError } from "../api/errors";
+import { RequestError } from "../lib/types";
 
 const TARGETS: RequestTarget[] = [
   {

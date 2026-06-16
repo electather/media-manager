@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../recommended-for-you-tv";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
+import type { RowContext } from "../../internal/types";
 import type { CanonicalMetadata } from "@nama/shared/catalog";
 
 vi.mock("../../../env", () => ({
@@ -77,6 +78,27 @@ describe("rows/recommended-for-you-tv", () => {
     expect(await provider.eligibility(ctx)).toBe(true);
     const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1"]);
+  });
+
+  it("eligibility reads the rec list through the injected memo, not the catalog", async () => {
+    // `buildContext` injects a request-scoped `recommendations` memo so the two
+    // partition rows + the source + hero share one rec-list fetch. The
+    // eligibility branch must read through it (sharing the result) rather than
+    // hitting `catalog.getRecommendations` itself — symmetric with the source's
+    // memo test in `sources/__tests__/recommended-for-you.test.ts`.
+    const recommendations = vi.fn().mockResolvedValue({
+      items: [{ tmdbId: "1", mediaType: "tv", matchReason: null, topContributors: [], score: 0.9 }],
+      profileVersion: 1,
+      generatedAt: 0,
+    });
+    const ctx = makeRowCtx({ recommendations: recommendations as RowContext["recommendations"] });
+
+    expect(await provider.eligibility(ctx)).toBe(true);
+    expect(recommendations).toHaveBeenCalledTimes(1);
+    expect(
+      (ctx.catalog as unknown as { getRecommendations: { mock: { calls: unknown[] } } })
+        .getRecommendations.mock.calls,
+    ).toHaveLength(0);
   });
 
   it("carries topContributors through to enrichment via __topContributors", async () => {

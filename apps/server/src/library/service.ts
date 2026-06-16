@@ -11,6 +11,7 @@ import { asLibraryContext } from "./internal/context";
 import { buildEnrichRows } from "./internal/enrich";
 import { bustFacets, readFacets, writeFacets } from "./internal/facets-cache";
 import { hydrate, type HydrateOptions, type HydrateResult } from "./internal/hydrate";
+import { toLensFilters } from "./internal/lens-filters";
 import { ensureSeeded } from "./internal/reads";
 import {
   allKnownKeys,
@@ -20,7 +21,6 @@ import {
   tombstoneMissing,
   upsertOwned,
   type CollectionGroup,
-  type LensFilters,
   type OwnedRowInput,
 } from "./repo";
 import type { LibraryContext, MaybeLibraryContext } from "./types";
@@ -153,7 +153,7 @@ export async function listCollections(
   // sources: a paged-into read already saw a seeded library, so it skips the
   // seed-lock round trip.
   if (!decoded) await ensureSeeded(c);
-  const page = await selectCollections(c.userId, toFilters(query), decoded, query.limit);
+  const page = await selectCollections(c.userId, toLensFilters(query), decoded, query.limit);
   const previews = await enrichPreviews(c, page.groups);
   const collections = page.groups.map((group) => toLibraryCollection(group, previews));
   const cursor = page.nextGroup ? encodeCollectionsCursor(page.nextGroup) : null;
@@ -199,21 +199,6 @@ function toLibraryCollection(
     count: group.count,
     preview,
   };
-}
-
-/**
- * Projects the parsed wire query onto the repo `LensFilters` shape, dropping
- * omitted axes so the repo applies no filter for them. Mirrors the item lenses'
- * `toLensParams` so the filter axes behave identically across every lens.
- */
-function toFilters(query: LibraryCollectionsQueryParsed): LensFilters {
-  const filters: LensFilters = {};
-  if (query.kinds) filters.kinds = query.kinds;
-  if (query.genres) filters.genres = query.genres;
-  if (query.qualities) filters.qualities = query.qualities;
-  if (query.servers) filters.servers = query.servers;
-  if (query.watched) filters.watched = query.watched;
-  return filters;
 }
 
 /**

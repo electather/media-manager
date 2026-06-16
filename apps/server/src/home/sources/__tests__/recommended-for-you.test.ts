@@ -9,12 +9,16 @@ import { recommendedForYouSource } from "../recommended-for-you";
 function makeCtx(opts: {
   getRecommendations: ReturnType<typeof vi.fn>;
   get: ReturnType<typeof vi.fn>;
+  recommendations?: ReturnType<typeof vi.fn>;
 }): SourceContext {
   return {
     userId: "u1",
     mediaService: {} as SourceContext["mediaService"],
     catalog: { getRecommendations: opts.getRecommendations } as unknown as SourceContext["catalog"],
     statusBatch: { get: opts.get } as unknown as SourceContext["statusBatch"],
+    ...(opts.recommendations
+      ? { recommendations: opts.recommendations as SourceContext["recommendations"] }
+      : {}),
     logger: consola.withTag("rec-source-test"),
   };
 }
@@ -73,6 +77,25 @@ describe("home recommended-for-you source", () => {
     });
     const { rows } = await recommendedForYouSource.fetchRawSet(ctx, "tv", null);
     expect(rows[0]?.topContributors).toEqual(contributors);
+  });
+
+  it("reads the rec list through the request-scoped memo when present, not the catalog", async () => {
+    // A single layout compose reads the rec list from both partitions plus
+    // eligibility; the memo collapses those to one fetch. When the consumer
+    // injects it, the source must read through it (sharing the result) instead
+    // of hitting the catalog itself.
+    const getRecommendations = vi.fn();
+    const recommendations = vi.fn().mockResolvedValue(RECOMMENDATIONS);
+    const ctx = makeCtx({
+      getRecommendations,
+      recommendations,
+      get: vi.fn().mockResolvedValue({}),
+    });
+    await recommendedForYouSource.fetchRawSet(ctx, "movie", null);
+    await recommendedForYouSource.fetchRawSet(ctx, "tv", null);
+    expect(recommendations).toHaveBeenCalledTimes(2);
+    // The source never reaches past the memo to the catalog directly.
+    expect(getRecommendations).not.toHaveBeenCalled();
   });
 
   it("yields zero rows when the user has no rec list", async () => {
