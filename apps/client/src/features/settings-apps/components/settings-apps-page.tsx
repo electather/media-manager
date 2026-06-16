@@ -59,7 +59,7 @@ function SettingsAppsPage() {
         }
         if (failed > 0) {
           // Partial success: surface how many succeeded and how many remain.
-          toast.error(
+          toast.warning(
             m.settings_apps_toast_revoke_all_partial({ revoked: count - failed, count, failed }),
           );
           return;
