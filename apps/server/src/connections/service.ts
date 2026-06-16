@@ -219,7 +219,7 @@ export const connectionsService = {
       if (!pluginRow) continue;
       if (pluginRow.enabled !== 1) continue;
       const manifest = parseManifest(pluginRow.manifest);
-      const userConfig = parseUserConfig(row.userConfig);
+      const userConfig = parseUserConfig(row.userConfig, row.id);
       const adminSharedAvailable = await fetchAdminShared(pluginRow.id);
       result.push({
         id: row.id,
@@ -250,7 +250,7 @@ export const connectionsService = {
     // Surface the inconsistency instead — the caller should reconnect or the
     // operator should delete the row.
     if (!pluginRow) throw notFound("connection.plugin_missing", "plugin not installed");
-    const userConfig = parseUserConfig(row.userConfig);
+    const userConfig = parseUserConfig(row.userConfig, row.id);
     const schema = parseManifest(pluginRow.manifest).userConfigSchema;
     return stripResponseFields(schema, userConfig);
   },
@@ -309,7 +309,7 @@ export const connectionsService = {
     // merge so a client cannot overwrite a plugin-owned field; the prior
     // stored value (resolved by the plugin on the last auth round-trip) is
     // what ends up in `merged`.
-    const prior = (parseUserConfig(row.userConfig) as Record<string, unknown> | null) ?? {};
+    const prior = (parseUserConfig(row.userConfig, row.id) as Record<string, unknown> | null) ?? {};
     const sanitizedIncoming = (stripRequestFields(manifest.userConfigSchema, args.userConfig) ??
       {}) as Record<string, unknown>;
     const merged = { ...prior, ...sanitizedIncoming };
@@ -396,7 +396,7 @@ export const connectionsService = {
     const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return { ok: false, message: "connection not found" };
     const credentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
-    const userConfig = parseUserConfig(row.userConfig);
+    const userConfig = parseUserConfig(row.userConfig, row.id);
     const result = await pluginRuntime.testConnection(
       row.pluginId,
       args.userId,

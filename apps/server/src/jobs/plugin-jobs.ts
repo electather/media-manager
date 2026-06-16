@@ -226,7 +226,7 @@ export async function invokePerConnectionHandler(args: {
       });
       return;
     }
-    const userConfig = parseUserConfig(row.userConfig);
+    const userConfig = parseUserConfig(row.userConfig, row.id);
     const ctx = await pluginRuntime.buildJobContext(
       job.pluginId,
       row.userId,

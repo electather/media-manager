@@ -79,7 +79,7 @@ async function loadConnectionById(
     connectionId: row.id,
     isDefault: row.isDefault === 1,
     credentials,
-    userConfig: parseUserConfig(row.userConfig),
+    userConfig: parseUserConfig(row.userConfig, row.id),
   };
 }
 

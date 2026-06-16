@@ -17,23 +17,25 @@ export async function selectEnabledPlugins() {
  * for these callers — a row that never had a userConfig produces the same
  * result — so degrading to it is safe.
  */
-export function parseUserConfig(raw: string | null | undefined): unknown {
+export function parseUserConfig(raw: string | null | undefined, connectionId?: string): unknown {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as unknown;
   } catch (err) {
-    warnCorruptUserConfig(raw, err);
+    warnCorruptUserConfig(raw, err, connectionId);
     return null;
   }
 }
 
 /**
- * Surfaces a corrupt `userConfig` row so operators can locate it. A truncated
- * excerpt of the raw value (capped to avoid log bloat on a large column)
- * identifies the offending row without dumping the full blob.
+ * Surfaces a corrupt `userConfig` row so operators can locate it. Logs the
+ * owning connection id (when the caller has it) plus a truncated excerpt of the
+ * raw value (capped to avoid log bloat on a large column) so the offending row
+ * is directly identifiable without scanning the table for a substring.
  */
-function warnCorruptUserConfig(raw: string, err: unknown): void {
+function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
+    connectionId,
     raw: raw.slice(0, 120),
     error: err instanceof Error ? err.message : String(err),
   });

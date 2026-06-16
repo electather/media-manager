@@ -58,7 +58,15 @@ vi.mock("../../db/client", () => {
   }
 
   // The where() predicate is ignored — the full rowset is returned. These tests
-  // exercise parse-error resilience and mutation guard semantics, not auth predicates.
+  // exercise parse-error resilience and mutation guard semantics, not auth
+  // predicates. Two consequences a future author must keep in mind:
+  //   - The `connection.not_found` assertions pass because `state.connections`
+  //     is empty after beforeEach, NOT because the WHERE was evaluated. Seeding a
+  //     row with a different id before a 404 assertion would make the mock return
+  //     it and the test would pass for the wrong reason.
+  //   - The foreign-connection case (row exists but belongs to another user)
+  //     cannot be exercised here. `requireConnection`'s ownership predicate is
+  //     covered by its own tests against the real DB.
   const dbMock = {
     select() {
       return {

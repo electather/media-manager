@@ -310,7 +310,7 @@ async function persistConnectionFromAuth(
     const existing = await findConnectionForPlugin(db, userId, pluginId);
     if (existing) {
       // Use a guarded parse: a malformed row must not block the reconnect path.
-      const priorConfig = parseUserConfig(existing.userConfig);
+      const priorConfig = parseUserConfig(existing.userConfig, existing.id);
       await reconnectConnection({
         connectionId: existing.id,
         userId,

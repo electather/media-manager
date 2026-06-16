@@ -76,7 +76,7 @@ export async function callExtension<T = unknown>(req: ExtensionCallRequest): Pro
   if (!chosen) throw notConnected(req.pluginId);
 
   const credentials = await decryptField(chosen.credentialsIv, chosen.encryptedCredentials);
-  const userConfig = parseUserConfig(chosen.userConfig);
+  const userConfig = parseUserConfig(chosen.userConfig, chosen.id);
 
   return pluginRuntime.invokeMcpTool<T>({
     pluginId: req.pluginId,

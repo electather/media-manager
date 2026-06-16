@@ -45,4 +45,17 @@ describe("parseUserConfig", () => {
       warn.mockRestore();
     }
   });
+
+  it("logs the owning connection id so operators can locate the corrupt row", () => {
+    const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
+    try {
+      parseUserConfig("{not valid json", "conn-123");
+      expect(warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectionId: "conn-123" }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

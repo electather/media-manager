@@ -60,7 +60,7 @@ export async function resolveConnections(
       connectionId: row.id,
       isDefault: row.isDefault === 1,
       credentials: await decryptField(row.credentialsIv, row.encryptedCredentials),
-      userConfig: parseUserConfig(row.userConfig),
+      userConfig: parseUserConfig(row.userConfig, row.id),
     });
   }
   if (userConnections.length > 0) return userConnections;
