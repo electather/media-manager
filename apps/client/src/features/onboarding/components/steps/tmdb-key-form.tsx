@@ -101,7 +101,9 @@ function TestResult({
     return (
       <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
         <XCircleIcon className="size-4" aria-hidden="true" />
-        {result?.message ?? m.onboarding_tmdb_test_failed()}
+        {failed
+          ? m.onboarding_tmdb_test_failed()
+          : (result?.message ?? m.onboarding_tmdb_test_failed())}
       </p>
     );
   }
