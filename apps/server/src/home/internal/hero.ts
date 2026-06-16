@@ -146,7 +146,10 @@ async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInter
 
 async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
   // Share the request-scoped rec-list fetch with the recommendedForYou rows
-  // when the memo is present; fall back to a direct fetch otherwise.
+  // when the memo is present; fall back to a direct fetch otherwise. The
+  // fallback arm only fires for a memo-less `RowContext` (tests / manual
+  // construction) — `buildContext` always injects the memo, so no real request
+  // path reaches it.
   const rec = await (ctx.recommendations
     ? ctx.recommendations()
     : ctx.catalog.getRecommendations(ctx.userId, "default"));

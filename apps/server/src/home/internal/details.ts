@@ -24,8 +24,9 @@ export async function composeDetailsResponse(
   // entry — before any DB read — so invalid input never touches the catalog and
   // the write-on-read path cannot be driven by opaque input. The adapter route
   // validates the same shape, but the guard lives here too so the composer is
-  // safe regardless of caller. Static message — the raw `tmdbId` is echoed into
-  // the response body as `devMessage`, so don't reflect arbitrary caller input back.
+  // safe regardless of caller. Static message — `tmdbId` is caller-controlled
+  // URL input and is echoed into the response body as `devMessage`, so echoing
+  // it back would make this a reflected-input vector; keep the message constant.
   if (!/^\d+$/u.test(tmdbId)) {
     throw new HttpError(400, "home.bad_input", "tmdbId must be a numeric string");
   }
