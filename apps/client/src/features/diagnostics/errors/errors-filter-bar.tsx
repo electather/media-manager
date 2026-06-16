@@ -7,6 +7,7 @@ import { Input } from "@/shared/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { SeverityDot } from "@/shared/components/severity-dot";
 import { cn } from "@/shared/lib/utils";
+import { ERRORS_DEFAULT_FILTERS, SOURCE_LABELS } from "../shared/types";
 import type { ErrorsFilters } from "../shared/types";
 
 interface Props {
@@ -27,13 +28,6 @@ const SEVERITY_LABELS: Record<ErrorSeverity, () => string> = {
   info: () => m.diagnostics_severity_info(),
 };
 
-const SOURCE_LABELS: Record<ErrorSource, () => string> = {
-  frontend: () => m.diagnostics_source_frontend(),
-  backend: () => m.diagnostics_source_backend(),
-  plugin: () => m.diagnostics_source_plugin(),
-  cron: () => m.diagnostics_source_cron(),
-};
-
 const RANGE_LABELS: Record<ErrorsFilters["range"], () => string> = {
   "24h": () => m.diagnostics_filter_range_24h(),
   "7d": () => m.diagnostics_filter_range_7d(),
@@ -41,15 +35,6 @@ const RANGE_LABELS: Record<ErrorsFilters["range"], () => string> = {
 };
 
 const RANGES: ReadonlyArray<ErrorsFilters["range"]> = ["24h", "7d", "30d"];
-
-const DEFAULT_FILTERS: ErrorsFilters = {
-  severity: ["error", "warning", "info"],
-  source: ["frontend", "backend", "plugin", "cron"],
-  pluginId: null,
-  range: "24h",
-  requestId: "",
-  search: "",
-};
 
 // Short-circuit dirty check across each independent filter slot.
 // fallow-ignore-next-line complexity
@@ -106,7 +91,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onChange(DEFAULT_FILTERS)}
+            onClick={() => onChange(ERRORS_DEFAULT_FILTERS)}
             className="ms-auto text-xs"
           >
             <XIcon className="size-3.5" />
@@ -159,5 +144,3 @@ function FilterLabel({ children }: { children: React.ReactNode }) {
     </span>
   );
 }
-
-export const ERRORS_DEFAULT_FILTERS = DEFAULT_FILTERS;
