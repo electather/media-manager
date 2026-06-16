@@ -1,4 +1,4 @@
-import { eq, lt, max, notInArray, sql } from "drizzle-orm";
+import { lt, max, notInArray, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { appConfig, errorRecords, perfRecords, sourcemaps } from "../db/schema/infra/diagnostics";
 
@@ -151,6 +151,22 @@ function clampNotificationRetention(days: number): number {
   );
 }
 
+/** Clamps each provided window and drops the ones the caller omitted, so the
+ *  upsert's `set` touches only the columns actually being changed. */
+function clampNotificationPatch(input: {
+  inboxRetentionDays?: number;
+  deliveryRetentionDays?: number;
+}): { inboxRetentionDays?: number; deliveryRetentionDays?: number } {
+  const patch: { inboxRetentionDays?: number; deliveryRetentionDays?: number } = {};
+  if (input.inboxRetentionDays !== undefined) {
+    patch.inboxRetentionDays = clampNotificationRetention(input.inboxRetentionDays);
+  }
+  if (input.deliveryRetentionDays !== undefined) {
+    patch.deliveryRetentionDays = clampNotificationRetention(input.deliveryRetentionDays);
+  }
+  return patch;
+}
+
 /**
  * Reads (and if missing, seeds) the notification retention columns from the
  * global app_config row. The notifications module routes all app_config access
@@ -186,34 +202,42 @@ export async function getNotificationRetention(): Promise<NotificationRetentionR
 /**
  * Updates the notification inbox and/or delivery retention windows, clamped to
  * [1, 3650] days each. The seed + update pair is combined into a single
- * onConflictDoUpdate so concurrent admin PUTs serialize correctly on the
- * single-row primary key.
+ * `onConflictDoUpdate` whose `set` touches only the columns the caller actually
+ * passed, so concurrent admin PUTs serialize on the single-row primary key and a
+ * PATCH of one window never clobbers the other from a stale snapshot.
  */
 export async function setNotificationRetention(input: {
   inboxRetentionDays?: number;
   deliveryRetentionDays?: number;
 }): Promise<NotificationRetentionRow> {
   const db = getDb();
-  const current = await getNotificationRetention();
-  const next: NotificationRetentionRow = {
-    inboxRetentionDays:
-      input.inboxRetentionDays !== undefined
-        ? clampNotificationRetention(input.inboxRetentionDays)
-        : current.inboxRetentionDays,
-    deliveryRetentionDays:
-      input.deliveryRetentionDays !== undefined
-        ? clampNotificationRetention(input.deliveryRetentionDays)
-        : current.deliveryRetentionDays,
-  };
-  await db
-    .update(appConfig)
-    .set({
-      inboxRetentionDays: next.inboxRetentionDays,
-      deliveryRetentionDays: next.deliveryRetentionDays,
-      updatedAt: Date.now(),
+  const now = Date.now();
+  const patch = clampNotificationPatch(input);
+  const [row] = await db
+    .insert(appConfig)
+    .values({
+      id: APP_CONFIG_ID,
+      errorRetentionDays: DEFAULT_ERROR_RETENTION_DAYS,
+      perfRetentionDays: DEFAULT_PERF_RETENTION_DAYS,
+      inboxRetentionDays: patch.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: patch.deliveryRetentionDays ?? DEFAULT_DELIVERY_RETENTION_DAYS,
+      updatedAt: now,
     })
-    .where(eq(appConfig.id, APP_CONFIG_ID));
-  return next;
+    .onConflictDoUpdate({
+      target: appConfig.id,
+      set: { ...patch, updatedAt: now },
+    })
+    .returning({
+      inboxRetentionDays: appConfig.inboxRetentionDays,
+      deliveryRetentionDays: appConfig.deliveryRetentionDays,
+    });
+  // A single-row upsert always returns exactly one row; guard so a silent schema
+  // or driver change surfaces loudly instead of returning stale defaults.
+  if (!row) throw new Error("setNotificationRetention: upsert returned no row");
+  return {
+    inboxRetentionDays: row.inboxRetentionDays,
+    deliveryRetentionDays: row.deliveryRetentionDays,
+  };
 }
 
 /** Deletes diagnostic records older than the configured retention windows and

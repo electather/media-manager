@@ -186,13 +186,13 @@ export class NotificationsService {
         triggerApi({ deliveryId }, { triggeredBy: "cron", requestId: newRequestId() }),
       ),
     );
-    for (const result of results) {
+    results.forEach((result, i) => {
       if (result.status === "rejected") {
         consola.warn(
-          `notifications: delivery trigger failed (sweep will retry): ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+          `notifications: delivery trigger failed for ${deliveryIds[i]} (sweep will retry): ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
         );
       }
-    }
+    });
   }
 }
 
