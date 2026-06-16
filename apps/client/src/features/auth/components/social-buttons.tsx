@@ -36,10 +36,16 @@ const PROVIDER_LABELS: Record<SocialProvider, () => string> = {
 
 interface SocialButtonsProps {
   redirectTo?: string;
+  /**
+   * URL the auth provider should redirect to on error. Pass the current page
+   * URL so post-redirect OAuth failures can be surfaced to the user — the
+   * in-component mutation error cannot capture them after a full-page redirect.
+   */
+  errorCallbackURL?: string;
 }
 
-export function SocialButtons({ redirectTo }: SocialButtonsProps) {
-  const socialMutation = useSocialSignIn(redirectTo);
+export function SocialButtons({ redirectTo, errorCallbackURL }: SocialButtonsProps) {
+  const socialMutation = useSocialSignIn({ callbackURL: redirectTo, errorCallbackURL });
   const providers: SocialProvider[] = ["google", "apple"];
 
   return (

@@ -14,9 +14,30 @@ import { SocialButtons } from "./social-buttons";
 
 export interface LoginFormProps {
   redirectTo: string | undefined;
+  /**
+   * An error message surfaced from a failed OAuth redirect round-trip.
+   * Better Auth appends `?error=` to the `errorCallbackURL` after the IdP
+   * returns a failure; the route reads this param and passes it here so the
+   * user sees feedback even though the mutation state is long gone.
+   */
+  oauthError: string | undefined;
 }
 
-export function LoginForm({ redirectTo }: LoginFormProps) {
+// Where Better Auth sends the browser back after a failed social sign-in. We
+// only forward the current redirect target; any stale `error` params already on
+// the URL are intentionally dropped so a re-attempt starts from a clean state.
+export function buildErrorCallbackURL(redirectTo: string | undefined): string {
+  return redirectTo ? `/auth/login?redirect=${encodeURIComponent(redirectTo)}` : "/auth/login";
+}
+
+// The form stays locked from submit through the async navigate() that follows a
+// successful login, so the settling redirect cannot re-enable inputs and let a
+// duplicate request through. Treating success as busy is what closes that window.
+export function isFormBusy(isSubmitting: boolean, isPending: boolean, isSuccess: boolean): boolean {
+  return isSubmitting || isPending || isSuccess;
+}
+
+export function LoginForm({ redirectTo, oauthError }: LoginFormProps) {
   const loginMutation = useLogin(redirectTo);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -27,7 +48,11 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     },
   });
 
-  const canSubmit = !form.state.isSubmitting && !loginMutation.isPending;
+  const isBusy = isFormBusy(
+    form.state.isSubmitting,
+    loginMutation.isPending,
+    loginMutation.isSuccess,
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,7 +86,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 autoComplete="email"
-                disabled={loginMutation.status === "pending"}
+                disabled={isBusy}
               />
               <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
             </Field>
@@ -82,7 +107,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
                 id="password"
                 value={field.state.value}
                 autoComplete="current-password"
-                disabled={loginMutation.status === "pending"}
+                disabled={isBusy}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
               />
@@ -110,7 +135,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           </Link>
         </div>
 
-        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={!canSubmit}>
+        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={isBusy}>
           {m.auth_login_submit({ status: loginMutation.status })}
         </Button>
 
@@ -122,7 +147,13 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           <Separator className="h-px flex-1" />
         </div>
 
-        <SocialButtons redirectTo={redirectTo} />
+        {oauthError && (
+          <span className="text-center text-sm font-medium text-destructive">{oauthError}</span>
+        )}
+        <SocialButtons
+          redirectTo={redirectTo}
+          errorCallbackURL={buildErrorCallbackURL(redirectTo)}
+        />
         <FieldDescription className="text-center">
           {m.auth_no_account_question()}{" "}
           <Link

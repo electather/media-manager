@@ -21,14 +21,19 @@ export function RegisterForm() {
     defaultValues: { name: "", email: "", password: "", confirm: "" },
     onSubmit: async ({ value }) => {
       await registerMutation.mutateAsync({
-        name: value.name,
+        // Trim so the validated value and the submitted value agree — validators
+        // accept trimmed-only content but the raw field value may have whitespace.
+        name: value.name.trim(),
         email: value.email,
         password: value.password,
       });
     },
   });
 
-  const canSubmit = !form.state.isSubmitting && !registerMutation.isPending;
+  // Keep the form locked once the mutation succeeds so the async navigation
+  // settling cannot re-enable inputs and allow a duplicate submit.
+  const isBusy =
+    form.state.isSubmitting || registerMutation.isPending || registerMutation.isSuccess;
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,7 +78,7 @@ export function RegisterForm() {
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 autoComplete="name"
-                disabled={registerMutation.status === "pending"}
+                disabled={isBusy}
               />
               <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
             </Field>
@@ -98,7 +103,7 @@ export function RegisterForm() {
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 autoComplete="email"
-                disabled={registerMutation.status === "pending"}
+                disabled={isBusy}
               />
               <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
             </Field>
@@ -119,7 +124,7 @@ export function RegisterForm() {
                 id="password"
                 value={field.state.value}
                 autoComplete="new-password"
-                disabled={registerMutation.status === "pending"}
+                disabled={isBusy}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
               />
@@ -148,7 +153,7 @@ export function RegisterForm() {
                 id="confirm"
                 value={field.state.value}
                 autoComplete="new-password"
-                disabled={registerMutation.status === "pending"}
+                disabled={isBusy}
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
               />
@@ -163,7 +168,7 @@ export function RegisterForm() {
           </span>
         )}
 
-        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={!canSubmit}>
+        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={isBusy}>
           {m.auth_register_submit({ status: registerMutation.status })}
         </Button>
 

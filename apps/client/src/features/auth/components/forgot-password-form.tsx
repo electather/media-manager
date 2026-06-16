@@ -17,7 +17,9 @@ export function ForgotPasswordForm() {
     },
   });
 
-  const canSubmit = !form.state.isSubmitting && !resetMutation.isPending;
+  // Keep the form locked once the mutation succeeds so the async navigation
+  // settling cannot re-enable inputs and allow a duplicate submit.
+  const isBusy = form.state.isSubmitting || resetMutation.isPending || resetMutation.isSuccess;
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,7 +53,7 @@ export function ForgotPasswordForm() {
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
                 autoComplete="email"
-                disabled={resetMutation.isPending}
+                disabled={isBusy}
               />
               <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
             </Field>
@@ -64,7 +66,7 @@ export function ForgotPasswordForm() {
           </span>
         )}
 
-        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={!canSubmit}>
+        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={isBusy}>
           {m.auth_reset_submit({ status: resetMutation.status })}
         </Button>
 
