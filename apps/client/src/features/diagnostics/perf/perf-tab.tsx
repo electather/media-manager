@@ -51,6 +51,9 @@ export function PerfTab({
         onClose={() => {
           setSelectedKey(null);
           setSelectedGroup(null);
+          // Always call onCloseDetail so that closing after a row-click also
+          // clears any ?pid deep link from the URL. Row-click supersedes the
+          // deep link; closing either path must leave no stale param behind.
           onCloseDetail();
         }}
         onJumpThread={onJumpThread}
