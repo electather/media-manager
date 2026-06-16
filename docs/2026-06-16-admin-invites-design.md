@@ -94,7 +94,7 @@ invites
 **Code entropy:** the mock's `generateInviteCode` emits 18 hex chars (~72 bits).
 The server generates the code from `crypto.getRandomValues` over an 18-char
 Crockford base32 alphabet (`0-9A-HJKMNP-TV-Z`, 32 symbols) → ~90 bits, keeping the
-familiar grouped (`XXXXX-XXXXXX-XXXXXX`) shape while raising entropy and dropping
+familiar grouped (`XXXXXX-XXXXXX-XXXXXX`) shape while raising entropy and dropping
 ambiguous characters. The `code` column is unique; on the astronomically unlikely
 collision the insert retries.
 
@@ -131,9 +131,13 @@ acceptInviteSchema = z.object({
 
 DTOs:
 
-- `AdminInviteDTO` — mirrors the client `AdminInvite` type, plus a server-built
-  `url` (`/auth/invite/<code>`) and computed `expired`. `revokedAt` is **not**
-  exposed (the list already excludes revoked rows).
+- `AdminInviteDTO` — the server-side source of truth. Fields: `id`, `code`,
+  `url` (`/auth/invite/<code>`), `roleId`, `invitedBy: string | null` (null when
+  the creating admin has been deleted), `createdAt`, `expiresAt`, `maxUses`,
+  `uses`, `expired` (computed). `revokedAt` is **not** exposed (list excludes
+  revoked rows). `lib/types.ts::AdminInvite` must be updated to match: make
+  `code` required (link invites always have one), add `url: string`, and widen
+  `invitedBy` to `string | null`.
 - `InvitePreviewDTO` — `{ roleName, expiresAt }` only. Returned to the
   unauthenticated accepter; it must not leak `invitedBy`, `code` internals, or
   other invites.
@@ -163,15 +167,16 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
   - Generate an 18-char code, insert the row, return `AdminInviteDTO` with `url`.
 - `GET /admin/invites`
   - List non-revoked invites, newest first, with computed `expired`/`uses`.
-- `POST /admin/invites/:id/resend`
-  - Reset `expiresAt` to `now + TTL`; clear nothing else. (Link invites have no
-    email to re-send; this extends a still-shareable link.)
+- `POST /admin/invites/:id/extend`
+  - Reset `expiresAt` to `now + TTL`; clear nothing else. (Named `extend` because
+    nothing is sent or re-sent — the link already exists and the admin shares it
+    manually. When the email-invite path lands, a separate `resend` endpoint
+    handles re-delivery for `kind = 'email'` invites.)
   - **Exhausted guard:** if `uses >= maxUses` (and `maxUses != 0`) at the time of
-    the resend call, the invite is fully consumed — extending the expiry alone
-    would be useless. Reject with `409 Conflict` and body
-    `{ code: "INVITE_EXHAUSTED" }` so the admin knows to create a new invite
-    rather than extend the existing one. (An exhausted invite with `maxUses = 0`
-    is impossible by definition.)
+    the call, the invite is fully consumed — extending the expiry alone would be
+    useless. Reject with `409 Conflict` and body `{ code: "INVITE_EXHAUSTED" }`
+    so the admin knows to create a new invite. (An exhausted invite with
+    `maxUses = 0` is impossible by definition.)
 - `DELETE /admin/invites/:id`
   - Set `revokedAt = now` (soft revoke). List excludes revoked rows.
 
@@ -232,11 +237,11 @@ alongside `publicIpRateLimit`, keyed by `clientIp`.
 ## 5. Client — replace the mock
 
 - `lib/query-keys.ts` — add `adminInvitesKeys` (`all` / `list`).
-- `lib/fetchers.ts` — `fetchInvites`, `createInvite`, `resendInvite`,
+- `lib/fetchers.ts` — `fetchInvites`, `createInvite`, `extendInvite`,
   `revokeInvite` (admin, typed `hc`), plus `fetchInvitePreview` and `acceptInvite`
   for the accept page.
 - `hooks/` — `use-admin-invites.ts` (`useSuspenseQuery`), `use-create-invite.ts`,
-  `use-resend-invite.ts`, `use-revoke-invite.ts` (mutations that invalidate
+  `use-extend-invite.ts`, `use-revoke-invite.ts` (mutations that invalidate
   `adminInvitesKeys` and the user-count query).
 - Update consumers:
   - `components/invite-drawer.tsx` — call `useCreateInvite`; **hide the email
@@ -244,8 +249,11 @@ alongside `publicIpRateLimit`, keyed by `clientIp`.
   - `components/invite-row.tsx` — resend/revoke via mutations; copy the
     server-returned `url`.
   - `components/users-page.tsx` — `useInvitesMock` → `useAdminInvites`.
-  - `lib/user-predicates.ts` — pending count derived from the real invite list
-    (active = not expired, not exhausted, not revoked).
+  - `lib/user-predicates.ts` — pending count derived from the real invite list.
+    Update `isInviteActive` to:
+    `!invite.expired && invite.expiresAt >= Date.now() && (invite.maxUses === 0 || invite.uses < invite.maxUses)`
+    (`maxUses === 0` = unlimited; the current predicate only checks `expired` and
+    `expiresAt` — exhaustion is a new condition).
 - `inviteUrl` now resolves to `/auth/invite/<code>`.
 - **Delete `lib/invites-mock.ts`.**
 
@@ -283,7 +291,10 @@ Vitest + in-memory SQLite, mirroring
 - Accept on expired / exhausted (`uses >= maxUses`) / revoked ⇒ 410.
 - Accept with an already-registered email ⇒ 409, and `uses` is **not** consumed
   (transaction rollback — assert the row's `uses` is unchanged).
-- Concurrent accept respects `maxUses` (atomic guard — only `maxUses` succeed).
+- Sequential double-accept respects `maxUses` (atomic guard — second request
+  returns 410 after first saturates the cap). In-memory SQLite is single-writer,
+  so true concurrent writes are not testable here; the sequential form still
+  exercises the atomic guard logic correctly.
 - `GET /admin/invites` excludes revoked rows and reports computed `expired`.
 
 The cited harness **mocks** `requireSession`/`requirePermission` to pass through,
@@ -305,13 +316,15 @@ NEW  packages/shared/src/invites/schemas.ts
 NEW  packages/shared/src/invites/index.ts
 EDIT apps/server/src/api/procedures/users.ts             (import guard from new module below)
 NEW  apps/server/src/api/procedures/assignable-role.ts   (shared role guard: requireRole + requireAssignableRole)
-EDIT apps/server/src/api/router.ts                       (register both subapps; wrap /invites in publicIpRateLimit)
+EDIT apps/server/src/api/router.ts                       (register both subapps)
+EDIT apps/server/src/api/rate-limit.ts                   (add acceptIpLimiter + acceptIpRateLimit middleware)
 NEW  apps/client/src/features/admin-users/hooks/use-admin-invites.ts
 NEW  apps/client/src/features/admin-users/hooks/use-create-invite.ts
-NEW  apps/client/src/features/admin-users/hooks/use-resend-invite.ts
+NEW  apps/client/src/features/admin-users/hooks/use-extend-invite.ts
 NEW  apps/client/src/features/admin-users/hooks/use-revoke-invite.ts
 EDIT apps/client/src/features/admin-users/lib/query-keys.ts
 EDIT apps/client/src/features/admin-users/lib/fetchers.ts
+EDIT apps/client/src/features/admin-users/lib/types.ts                  (AdminInvite: code required, add url, invitedBy nullable)
 EDIT apps/client/src/features/admin-users/lib/user-predicates.ts
 EDIT apps/client/src/features/admin-users/components/invite-drawer.tsx
 EDIT apps/client/src/features/admin-users/components/invite-row.tsx
