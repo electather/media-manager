@@ -440,35 +440,8 @@ function RoleRow() {
 
 // ─── Verify banner ──────────────────────────────────────────────────────────
 
+// Cooldown is per-session only (no persistence) per design doc §Profile tab.
 const VERIFICATION_COOLDOWN_SECONDS = 60;
-const COOLDOWN_STORAGE_PREFIX = "nama:verify-cooldown:";
-
-/**
- * Returns the remaining cooldown seconds for the given email by reading the
- * persisted deadline from localStorage. Returns 0 when no deadline is stored
- * or the deadline has already passed.
- */
-function readPersistedCooldown(email: string): number {
-  try {
-    const raw = window.localStorage.getItem(COOLDOWN_STORAGE_PREFIX + email);
-    if (!raw) return 0;
-    const deadline = parseInt(raw, 10);
-    return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-  } catch {
-    return 0;
-  }
-}
-
-function writePersistedCooldown(email: string, seconds: number): void {
-  try {
-    window.localStorage.setItem(
-      COOLDOWN_STORAGE_PREFIX + email,
-      String(Date.now() + seconds * 1000),
-    );
-  } catch {
-    // localStorage may be unavailable (private mode, storage quota, etc.).
-  }
-}
 
 export function VerifyBanner({
   email,
@@ -478,15 +451,8 @@ export function VerifyBanner({
   /** Optional override used by tests; default path calls Better Auth. */
   onResend?: () => Promise<void> | void;
 }) {
-  // Initialise from localStorage so the cooldown survives page reloads.
-  const [cooldown, setCooldown] = useState(() => readPersistedCooldown(email));
+  const [cooldown, setCooldown] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-
-  // Re-read the persisted deadline whenever the email prop changes (e.g. the
-  // user navigates between accounts in the same session).
-  useEffect(() => {
-    setCooldown(readPersistedCooldown(email));
-  }, [email]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -504,7 +470,6 @@ export function VerifyBanner({
         if (result.error)
           throw new Error(result.error.message ?? m.settings_profile_toast_verification_failed());
       }
-      writePersistedCooldown(email, VERIFICATION_COOLDOWN_SECONDS);
       setCooldown(VERIFICATION_COOLDOWN_SECONDS);
       toast.success(m.settings_profile_toast_verification_sent());
     } catch (err) {
