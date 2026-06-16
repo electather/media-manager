@@ -9,15 +9,13 @@ export const commandMenuKeys = {
     [...commandMenuKeys.all, "trending", { mediaType }] as const,
 } as const;
 
+function hasKindParam(value: unknown): value is { kind: string } {
+  return value !== null && typeof value === "object" && "kind" in (value as object);
+}
+
 /** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */
 export function isSearchKey(
   key: readonly unknown[],
 ): key is ReturnType<typeof commandMenuKeys.search> {
-  return (
-    key[0] === "command-menu" &&
-    key[1] === "search" &&
-    key[2] !== null &&
-    typeof key[2] === "object" &&
-    "kind" in (key[2] as object)
-  );
+  return key[0] === "command-menu" && key[1] === "search" && hasKindParam(key[2]);
 }
