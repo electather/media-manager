@@ -47,6 +47,9 @@ export type MediaSourceSpec<P> = Omit<ClientMediaSource<P>, "fetchPage">;
 function serializeParam(value: unknown): string | string[] | undefined {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
+  // The `defineMediaSource<P>` param type constrains every axis element to a
+  // string, so a non-empty array is a `string[]`; the cast records that the
+  // element type is a caller guarantee, not a runtime check.
   if (Array.isArray(value) && value.length > 0) return value as string[];
   return undefined;
 }
