@@ -32,7 +32,7 @@ vi.mock("../../db/client", async () => {
 // mocking either would defeat the very invariants these tests guard — that the
 // orchestrator folds the stubbed sources into the projection columns and that
 // `staleOrNew` selects exactly the missing/stale rows.
-const { hydrate } = await import("../internal/hydrate");
+const { hydrate, HYDRATE_CONCURRENCY } = await import("../internal/hydrate");
 const { staleOrNew, writeHydration, upsertOwned, __resetLibraryForTests } = await import("../repo");
 const { asLibraryContext } = await import("../internal/context");
 
@@ -240,6 +240,105 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     // Once `now` advances past the TTL the row is stale again and IS selected.
     const pastWindow = await staleOrNew(USER_ID, TTL, T + TTL + 1, testDb);
     expect(pastWindow.map((t) => t.id)).toEqual(["movie:550"]);
+  });
+
+  // CONCURRENCY CAP — the hydrate pass must process all rows and write every
+  // projection even when the stale-row set exceeds HYDRATE_CONCURRENCY (25).
+  // This guards the chunked fan-out: if a chunk boundary accidentally dropped
+  // rows, `considered` would equal `targets.length` but `hydrated` would be
+  // fewer, or some rows would remain un-stamped (`hydratedAt = null`).
+  it("hydrates all rows when the stale set exceeds HYDRATE_CONCURRENCY", async () => {
+    const COUNT = HYDRATE_CONCURRENCY + 5; // Deliberately larger than HYDRATE_CONCURRENCY.
+    for (let i = 0; i < COUNT; i++) {
+      await seedOwned(String(1000 + i));
+    }
+
+    const { ctx } = makeCtx({});
+    const result = await hydrate(ctx, { staleTtlMs: 1000 });
+    expect(result.considered).toBe(COUNT);
+    expect(result.hydrated).toBe(COUNT);
+
+    // Every row must have been stamped — no row should still have a null hydratedAt.
+    for (let i = 0; i < COUNT; i++) {
+      const row = await rowById(`movie:${1000 + i}`);
+      expect(row?.hydratedAt).not.toBeNull();
+    }
+  });
+
+  // PER-CHUNK PERSISTENCE — the pass writes each chunk's projection as it
+  // resolves rather than buffering every update for one write after the loop.
+  // This matters because the scheduled jobs cap a user row at a wall-clock
+  // timeout (`runRowWithTimeout` races the handler against 30s/60s) and abandon
+  // the row's in-flight work when it fires, while the availability probes run
+  // unbounded. If the pass only wrote after the loop, a row that stalled in a
+  // later chunk would discard every earlier chunk's completed work and the next
+  // run would redo it. Here a never-resolving probe stalls the SECOND chunk
+  // (rows 25+), modelling that abandoned-on-timeout row. The gate is
+  // deterministic, not wall-clock: chunk 2's first probe only runs once the loop
+  // has fully awaited chunk 1's `Promise.all` AND its `writeHydration`, so when
+  // that probe fires we KNOW chunk 1 is persisted — no `setTimeout` race that
+  // could flake on a loaded runner. We assert the FIRST chunk (rows 0–24) is
+  // already stamped (so `staleOrNew` skips it next run) while the stalled
+  // second-chunk rows stay un-stamped and are retried. Under a
+  // single-write-after-loop design every row would be un-stamped here, failing
+  // the first assertion.
+  it("persists completed chunks before a later chunk stalls", async () => {
+    // One full chunk (HYDRATE_CONCURRENCY rows) plus a partial second chunk, so
+    // the loop spans exactly two chunks regardless of the constant's value.
+    const COUNT = HYDRATE_CONCURRENCY + 5;
+    // Suffixes are zero-padded to a fixed width (mirroring sync.test.ts) so they
+    // sort lexicographically == numerically for any COUNT, independent of digit
+    // count. `staleOrNew` orders by composite id, so the chunk boundary is then
+    // deterministic: the first HYDRATE_CONCURRENCY ids are chunk 1, the rest
+    // chunk 2. The per-id assertions below depend on that explicit ordering, not
+    // on SQLite's incidental PK order.
+    const seedId = (i: number) => `p${String(i).padStart(6, "0")}`;
+    for (let i = 0; i < COUNT; i++) {
+      await seedOwned(seedId(i));
+    }
+
+    // A deferred resolved by chunk 2's first probe. Awaiting it is the
+    // deterministic signal that the loop advanced past chunk 1 — i.e. chunk 1's
+    // `writeHydration` already committed — so the assertions never race a timer.
+    let reachedChunkTwo!: () => void;
+    const chunkTwoStarted = new Promise<void>((resolve) => {
+      reachedChunkTwo = resolve;
+    });
+
+    // The probes resolve normally for chunk 1's HYDRATE_CONCURRENCY rows then hang
+    // on the first chunk-2 call, modelling a slow provider that blows the row
+    // timeout. `loadAvailability` fires `getMatchingServers` + `getAvailabilityQuality`
+    // per row, so the (HYDRATE_CONCURRENCY + 1)-th `getMatchingServers` call is the
+    // first row of chunk 2.
+    let serverCalls = 0;
+    const { ctx } = makeCtx({});
+    ctx.mediaService.getMatchingServers = vi.fn().mockImplementation(() => {
+      serverCalls += 1;
+      if (serverCalls > HYDRATE_CONCURRENCY) {
+        reachedChunkTwo();
+        return new Promise(() => {}); // Never resolves — stalls chunk 2 forever.
+      }
+      return Promise.resolve([]);
+    }) as typeof ctx.mediaService.getMatchingServers;
+
+    // Kick off the pass but never await it: chunk 2 hangs, so it never resolves,
+    // exactly as the job runner abandons a row that blows its wall-clock timeout.
+    void hydrate(ctx, { staleTtlMs: 1000 });
+    // Block until chunk 2's probe runs — proof chunk 1 fully persisted first.
+    await chunkTwoStarted;
+
+    // Chunk 1 finished before the stall, so its writes are durable — proving each
+    // chunk persists as it resolves, not after the whole loop.
+    for (let i = 0; i < HYDRATE_CONCURRENCY; i++) {
+      const row = await rowById(`movie:${seedId(i)}`);
+      expect(row?.hydratedAt).not.toBeNull();
+    }
+    // Chunk 2 never resolved, so those rows are still un-stamped and a later run
+    // re-selects them.
+    for (let i = HYDRATE_CONCURRENCY; i < COUNT; i++) {
+      const row = await rowById(`movie:${seedId(i)}`);
+      expect(row?.hydratedAt).toBeNull();
+    }
   });
 
   // NULL-SAFE — a row whose metadata batch is missing (the catalog has no

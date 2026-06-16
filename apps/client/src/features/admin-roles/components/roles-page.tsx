@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,12 +22,21 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
   const roles = useRolesMock();
   const usersQuery = useAdminUsers();
 
-  const memberCount = (id: string) => usersQuery.data.users.filter((u) => u.role?.id === id).length;
+  // Precompute a map from role id to members so each row lookup is O(1) instead
+  // of re-filtering the full user list on every render.
+  const membersByRole = useMemo(() => {
+    const map = new Map<string, RoleMember[]>();
+    for (const u of usersQuery.data.users) {
+      if (!u.role) continue;
+      const list = map.get(u.role.id) ?? [];
+      list.push({ id: u.id, name: u.name, email: u.email });
+      map.set(u.role.id, list);
+    }
+    return map;
+  }, [usersQuery.data.users]);
 
-  const membersFor = (id: string): RoleMember[] =>
-    usersQuery.data.users
-      .filter((u) => u.role?.id === id)
-      .map((u) => ({ id: u.id, name: u.name, email: u.email }));
+  const memberCount = (id: string) => membersByRole.get(id)?.length ?? 0;
+  const membersFor = (id: string): RoleMember[] => membersByRole.get(id) ?? [];
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;
 

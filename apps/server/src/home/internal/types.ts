@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem, RowKind } from "@nama/shared/home";
-import type { TopContributor } from "@nama/shared/catalog";
+import type { RecommendationList, TopContributor } from "@nama/shared/catalog";
 import type { CatalogService } from "../../catalog";
 import type {
   BuiltMediaSource,
@@ -42,6 +42,14 @@ export interface RowContext {
   deadlineMs?: number;
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
+  /**
+   * Request-scoped memo for the user's `"default"` recommendation list. The
+   * `recommendedForYou-*` rows (eligibility + source) and the hero cascade all
+   * read it, across the tv + movies partitions, so a single compose fetches it
+   * once instead of up to four times. Built once in `buildContext`; callers
+   * fall back to `catalog.getRecommendations` when it is unset.
+   */
+  recommendations?: () => Promise<RecommendationList | null>;
   logger: ConsolaInstance;
   /** Filled by `becauseYouWatched` and `similarTo` from their cursor seed; consumed by match-reason. */
   seedTitle?: string;

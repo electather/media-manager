@@ -3,6 +3,7 @@ import { ClockIcon, ExternalLinkIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { CopyButton } from "@/shared/components/copy-button";
 
+import { isSafeAuthUrl } from "../lib/url";
 import type { DeviceState } from "../lib/types";
 
 interface Props {
@@ -14,35 +15,35 @@ export function DeviceCodePanel({ device, now }: Props) {
   const remaining = Math.max(0, Math.floor((device.expiresAt - now) / 1000));
   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
   const ss = String(remaining % 60).padStart(2, "0");
-  const host = new URL(device.verifyUrl).hostname;
+  // Only render the verification URL as a link when it is a safe https URL —
+  // it is server-controlled, but rendering an unvalidated `href` would let a
+  // buggy or compromised plugin response inject a `javascript:` navigation.
+  const safeVerifyUrl = isSafeAuthUrl(device.verifyUrl);
+  const host = safeVerifyUrl ? new URL(device.verifyUrl).hostname : "";
 
   return (
     <div className="flex flex-col gap-4">
-      <a
-        href={device.verifyUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-      >
-        <ExternalLinkIcon className="size-3.5" />
-        {m.settings_connections_modal_device_open({ host })}
-      </a>
+      {safeVerifyUrl ? (
+        <a
+          href={device.verifyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <ExternalLinkIcon className="size-3.5" />
+          {m.settings_connections_modal_device_open({ host })}
+        </a>
+      ) : null}
       <div className="flex items-center gap-4 rounded-lg border border-dashed border-input bg-background px-4 py-3.5">
         <div className="flex flex-1 flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             {m.settings_connections_modal_device_enter_code()}
           </span>
-          <span
-            className="cursor-pointer font-mono text-2xl tracking-[0.2em] tabular-nums select-all"
-            aria-label={m.settings_connections_modal_device_code_aria({ code: device.userCode })}
-            onClick={(e) => {
-              const range = document.createRange();
-              range.selectNodeContents(e.currentTarget);
-              const selection = window.getSelection();
-              selection?.removeAllRanges();
-              selection?.addRange(range);
-            }}
-          >
+          {/* `select-all` plus the adjacent CopyButton provide the real
+              affordances. A pointer-only click-to-select handler with an
+              aria-label on a non-interactive span was unreachable by keyboard
+              and dropped by many assistive technologies, so it was removed. */}
+          <span className="font-mono text-2xl tracking-[0.2em] tabular-nums select-all">
             {device.userCode}
           </span>
         </div>

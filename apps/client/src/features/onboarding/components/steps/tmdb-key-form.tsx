@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2Icon, ExternalLinkIcon, XCircleIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { saveTmdbKey, testTmdbKey } from "../../lib/fetchers";
-import { onboardingKeys } from "../../lib/query-keys";
+import { useSaveTmdbKey } from "../../hooks/use-save-tmdb-key";
+import { useTestTmdbKey } from "../../hooks/use-test-tmdb-key";
 
 const TMDB_API_KEY_URL = "https://www.themoviedb.org/settings/api";
 
@@ -19,14 +18,10 @@ const TMDB_API_KEY_URL = "https://www.themoviedb.org/settings/api";
 // coverage-estimated in CI and the behavior is covered by onboarding-wizard.test.tsx.
 // fallow-ignore-next-line complexity
 export function TmdbKeyForm() {
-  const qc = useQueryClient();
   const [apiKey, setApiKey] = useState("");
 
-  const test = useMutation({ mutationFn: testTmdbKey });
-  const save = useMutation({
-    mutationFn: saveTmdbKey,
-    onSuccess: () => qc.invalidateQueries({ queryKey: onboardingKeys.state() }),
-  });
+  const test = useTestTmdbKey();
+  const save = useSaveTmdbKey();
 
   const trimmed = apiKey.trim();
   const busy = test.isPending || save.isPending;
@@ -39,7 +34,13 @@ export function TmdbKeyForm() {
           id="tmdb-api-key"
           value={apiKey}
           placeholder={m.onboarding_tmdb_placeholder()}
-          onChange={(e) => setApiKey(e.target.value)}
+          onChange={(e) => {
+            setApiKey(e.target.value);
+            // Clear stale test/save feedback so the badge always describes the
+            // key currently in the field, not a previously tested/saved one.
+            test.reset();
+            save.reset();
+          }}
           autoComplete="off"
           disabled={busy}
         />
@@ -89,12 +90,20 @@ export function TmdbKeyForm() {
 // Renders one of three exclusive states (failed / not-ok / ok); CRAP is
 // coverage-estimated in CI and the variants are covered by onboarding-wizard.test.tsx.
 // fallow-ignore-next-line complexity
-function TestResult({ result, failed }: { result?: { ok: boolean }; failed: boolean }) {
+function TestResult({
+  result,
+  failed,
+}: {
+  result?: { ok: boolean; message?: string };
+  failed: boolean;
+}) {
   if (failed || (result && !result.ok)) {
     return (
       <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
         <XCircleIcon className="size-4" aria-hidden="true" />
-        {m.onboarding_tmdb_test_failed()}
+        {failed
+          ? m.onboarding_tmdb_test_failed()
+          : (result?.message ?? m.onboarding_tmdb_test_failed())}
       </p>
     );
   }

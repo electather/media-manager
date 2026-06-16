@@ -5,6 +5,7 @@ import { Input } from "@/shared/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { cn } from "@/shared/lib/utils";
+import { PERF_DEFAULT_FILTERS } from "../shared/types";
 import type { PerfFilters } from "../shared/types";
 
 interface Props {
@@ -31,14 +32,6 @@ const RANGE_OPTIONS: ReadonlyArray<{ id: PerfFilters["range"]; label: () => stri
   { id: "7d", label: () => m.diagnostics_filter_range_7d() },
   { id: "30d", label: () => m.diagnostics_filter_range_30d() },
 ];
-
-export const PERF_DEFAULT_FILTERS: PerfFilters = {
-  kind: "all",
-  sort: "p95",
-  range: "24h",
-  requestId: "",
-  search: "",
-};
 
 // Short-circuit dirty check across each independent filter slot.
 // fallow-ignore-next-line complexity

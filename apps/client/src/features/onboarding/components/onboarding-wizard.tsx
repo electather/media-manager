@@ -14,29 +14,23 @@ import type { CompleteOnboardingMutation } from "../hooks/use-complete-onboardin
 import { useOnboardingState } from "../hooks/use-onboarding-state";
 import { ONBOARDING_STEP_REGISTRY } from "../lib/step-registry";
 
-/** Localized titles for known steps, keyed by the server step id. */
-const STEP_TITLES: Record<string, () => string> = {
-  welcome: () => m.onboarding_step_welcome_title(),
-  "connect-services": () => m.onboarding_step_connect_services_title(),
-};
-
 /**
- * Resolves a step's localized title, falling back to the server-supplied
- * (English) `title` when no client entry exists. In dev we warn so a new server
- * step shipped without a matching client title is caught instead of silently
- * rendering the untranslated fallback.
+ * Resolves a step's localized title from the registry, falling back to the
+ * server-supplied (English) `title` when no client entry exists. In dev we warn
+ * so a new server step shipped without a registry entry is caught instead of
+ * silently rendering the untranslated fallback.
  */
 function stepTitle(step: { id: string; title: string }): string {
-  const localized = STEP_TITLES[step.id];
-  if (!localized) {
+  const entry = ONBOARDING_STEP_REGISTRY[step.id];
+  if (!entry) {
     if (import.meta.env.DEV) {
       console.warn(
-        `OnboardingWizard: no STEP_TITLES entry for step "${step.id}"; using server title.`,
+        `OnboardingWizard: no registry entry for step "${step.id}"; using server title.`,
       );
     }
     return step.title;
   }
-  return localized();
+  return entry.title();
 }
 
 /**

@@ -43,7 +43,7 @@ export function PermissionGroup({
           <RadioGroup
             value={allOn ? "all" : noneOn ? "none" : "partial"}
             onValueChange={(v) => onToggleScope(group.scope, v === "all")}
-            aria-label={`${group.label()} scope permissions`}
+            aria-label={m.admin_roles_perm_group_scope_aria({ scope: group.label() })}
             disabled={readOnly}
           >
             <RadioGroupItem value="none">{m.admin_roles_perm_group_none()}</RadioGroupItem>
@@ -70,7 +70,7 @@ export function PermissionGroup({
                 checked={on}
                 disabled={readOnly}
                 onCheckedChange={(v) => onTogglePermission(p.key, v)}
-                aria-label={`Grant ${p.key}`}
+                aria-label={m.admin_roles_perm_grant_aria({ key: p.key })}
               />
             </li>
           );

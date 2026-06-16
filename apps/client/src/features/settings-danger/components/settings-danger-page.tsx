@@ -11,7 +11,6 @@ import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { triggerAnchorDownload } from "@/shared/lib/anchor-download";
-import { api } from "@/shared/lib/api";
 import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
@@ -36,30 +35,10 @@ function DangerPage() {
 
   const startExport = async () => {
     setExportLocked(true);
-    try {
-      // Fetch the export through the typed API client so a non-2xx response
-      // (e.g. 401, 429, 500) surfaces as an error toast instead of a silent
-      // no-op from the fire-and-forget anchor approach.
-      const res = await api.me.export.$get();
-      if (!res.ok) {
-        toast.error(m.settings_danger_delete_failed());
-        return;
-      }
-      // Derive the filename from the Content-Disposition header when present,
-      // falling back to a generic name so the blob URL download is labelled.
-      const disposition = res.headers.get("content-disposition") ?? "";
-      const nameMatch = /filename="([^"]+)"/.exec(disposition);
-      const filename = nameMatch?.[1] ?? "export.zip";
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      triggerAnchorDownload(objectUrl, filename);
-      URL.revokeObjectURL(objectUrl);
-      toast.success(m.settings_danger_toast_export_started());
-    } catch {
-      toast.error(m.settings_danger_delete_failed());
-    } finally {
-      setExportLocked(false);
-    }
+    // Anchor-nav, not fetch: browser streams the ZIP. Silent failure by design — see design doc L312.
+    triggerAnchorDownload("/api/me/export");
+    toast.success(m.settings_danger_toast_export_started());
+    window.setTimeout(() => setExportLocked(false), 1000);
   };
 
   const onDeleted = async () => {

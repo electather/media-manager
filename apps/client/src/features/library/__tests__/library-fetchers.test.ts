@@ -63,7 +63,7 @@ describe("defineLensSource", () => {
     expect(defineLensSource("quality", EMPTY_FILTERS).sourceId).toBe("library-quality");
   });
 
-  it("threads the active filters (first value per axis) into the request and folds the cursor", async () => {
+  it("threads the full filter arrays into the request and folds the cursor", async () => {
     apiMock.sourceGet.mockResolvedValueOnce({ ok: true, json: async () => PAGE });
     const source = defineLensSource("az", {
       ...EMPTY_FILTERS,
@@ -72,11 +72,18 @@ describe("defineLensSource", () => {
       watched: ["partial"],
     });
     await source.fetchPage(source.params, "cursor-2");
-    // The unified resolver collapses repeated params to one, so each axis is sent
-    // as its FIRST selected value; the cursor rides as a query param.
+    // Multi-value axes ride as repeated params (the resolver reads them
+    // multi-value), so a two-genre selection sends BOTH, not just the first; a
+    // single-value axis sends a one-element array. The cursor rides as a query
+    // param. An empty axis is dropped entirely.
     expect(apiMock.sourceGet).toHaveBeenCalledWith({
       param: { sourceId: "library-az" },
-      query: { kinds: "movie", genres: "Drama", watched: "partial", cursor: "cursor-2" },
+      query: {
+        kinds: ["movie"],
+        genres: ["Drama", "Crime"],
+        watched: ["partial"],
+        cursor: "cursor-2",
+      },
     });
   });
 

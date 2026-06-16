@@ -57,6 +57,25 @@ describe("deriveFacetValues", () => {
     // is still undefined; it must show no options rather than throw.
     expect(deriveFacetValues(undefined)).toEqual({ genres: [], qualities: [], servers: [] });
   });
+
+  // Quality tiers are an ordered fidelity scale, not an alphabet: scanning by
+  // quality only makes sense hi→lo, and it must agree with the descending order
+  // the Quality lens uses server-side. An alphabetical sort would render
+  // "1080p" before "4K HDR", which is meaningless to the user.
+  it("sorts qualities by descending fidelity, not alphabetically", () => {
+    const values = deriveFacetValues(
+      counts({ qualities: { "1080p": 1, "4K HDR": 1, HDR: 1, "720p": 1 } }),
+    );
+    expect(values.qualities).toEqual(["4K HDR", "HDR", "1080p", "720p"]);
+  });
+
+  it("sinks free-form quality labels below every ranked tier, alphabetical among themselves", () => {
+    // Plugin labels are free-form, so a label outside QUALITY_TIERS (e.g.
+    // "Atmos") ranks below every listed tier; two such labels break ties
+    // alphabetically so the order stays stable.
+    const values = deriveFacetValues(counts({ qualities: { Atmos: 1, "4K": 1, Remux: 1 } }));
+    expect(values.qualities).toEqual(["4K", "Atmos", "Remux"]);
+  });
 });
 
 describe("libraryOwnedTotal", () => {

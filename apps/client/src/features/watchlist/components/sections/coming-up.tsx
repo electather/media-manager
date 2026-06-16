@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import { WatchlistCard } from "../watchlist-card";
 import {
@@ -11,21 +9,11 @@ import {
 } from "@/shared/components/section-head";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { useComingUp } from "../../hooks/use-coming-up";
+import { useWatchlistPeek } from "../../hooks/use-watchlist-peek";
 
 export function ComingUp() {
   const { items } = useComingUp();
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   if (items.length === 0) return null;
   return (
     <section className="mb-14">

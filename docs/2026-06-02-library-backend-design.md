@@ -121,6 +121,7 @@ sync(userId):
   #   server id   ← getMatchingServers/probeServer (existing path)
   #   quality     ← checkAvailability PER item → items[].quality (getMatchingServers DISCARDS quality)
   #   ∴ qualityTiers hydrate = N-call fan-out (N = owned titles × providers). OK in bg job, not a free ride.
+  #   ↳ #597: fan-out now bounded — rows hydrate in chunks of HYDRATE_CONCURRENCY (25), ≤2×25 plugin calls in-flight (see ledger 12).
   servers      ← getMatchingServers(key)
   qualityTiers ← checkAvailability(key).items[].quality       # N-call fan-out
   prog = loadProgressMap(keys)             → watchedState
@@ -390,7 +391,7 @@ Deviations / fixes (adversarial verify caught 2 paging blockers + 1 facet bug, a
 - **Timeline `ORDER BY`** uses `COALESCE(year,0) DESC` to match the cursor predicate (raw `year DESC` is NULLS-last in SQLite and disagreed with the `COALESCE` predicate → dropped/duplicated undated rows at the page boundary).
 - **Facet json_each counts** use `count(DISTINCT id)` so a row with a duplicated array value (dirty metadata) counts once.
 - **`watchedState` is sparse (known limitation).** It is derived from `loadProgressMap`, which only surfaces *active, unfinished* continue-watching entries — so `partial` populates but `watched` (fully played) is unreachable and never-started maps to `null`. The `watched` facet/filter axis is therefore near-empty in phase 2. Proper fix (followup): source a played/`watchHistory@v1` signal to populate the full three-way axis. Surfaced rather than silently shipped.
-- **Multi-value filter axes** (`?genres=A&genres=B`) collapse to the first value through the unified `c.req.query()` resolver; encoding (comma-join vs `c.req.queries()`) is settled in the phase-4 FE rewire.
+- **Multi-value filter axes** (`?genres=A&genres=B`) were collapsed to the first value through the unified `c.req.query()` resolver; the encoding is repeated params, resolved in the §E parity followup (ledger entry 15) — the resolver reads the multi-value-flattened map via `c.req.valid("query")` and the lens schema's array axes accept the repeated values.
 - **`getAvailabilityQuality`** added to `MediaService` (the one media touch) — `getMatchingServers` discards `items[].quality`, so the quality fan-out needed its own public method.
 
 ### Phase 3 — done (✓ shippable)
@@ -421,7 +422,7 @@ Deviations / fixes (adversarial verify + tests caught a functional filter bug + 
 - **Servers filter alignment.** The `servers` facet keys on the human `label`, but the lens + collections filter predicates matched on the connection `id` — so any server filter matched nothing. Fixed: the filter predicates now match on `value ->> 'label'` (facet key == popover value == filter value); the server lens still *sections* by `id`. Regression-tested.
 - **Timeline `unknown` localized.** `section-groups` now emits a stable i18n-free key; the display label resolves at the render boundary via `timelineSectionLabel` → `m.library_timeline_unknown()` (was rendering the raw English literal in all locales).
 - **`decades` facet now consumed** — wired into a timeline decade jump-rail mirroring the A-Z letter rail (was computed by `/facets` but unused).
-- **Known limitation (carried):** multi-value filter axes (`?genres=A&genres=B`) on the *item lenses* collapse to the first value because the unified `/media/sources/:id` resolver reads `c.req.query()` (single-value); collections + facets honor multi-value via their own routes. Server-side followup: have the resolver read `c.req.queries()`.
+- **Multi-value filter axes resolved (was a carried limitation).** Multi-value filter axes (`?genres=A&genres=B`) on the *item lenses* previously collapsed to the first value because the unified `/media/sources/:id` resolver read `c.req.query()` (single-value); collections + facets already honored multi-value via their own routes. The server-side followup landed (ledger entry 15): the resolver now reads the multi-value-flattened map via `c.req.valid("query")` and the client forwards the axes as repeated params, so the item lenses honor multi-value uniformly with the collections/facets routes.
 
 ### Cross-phase bug ledger (found by adversarial verify / Rule-9 tests, all fixed + regression-guarded)
 
@@ -436,5 +437,9 @@ Deviations / fixes (adversarial verify + tests caught a functional filter bug + 
 9. `selectRowsByIds` preview hydration was unscoped (cross-tenant read) → scoped to `user_id` + `owned`.
 10. Server/quality lenses selected a drizzle column-object over a raw `json_each` FROM (libsql runtime error on every request) → table-qualified `EXPANDED_ROW_COLUMNS`.
 11. Servers filter matched `id` while the facet/popover used `label` → matched on `label`.
+12. **#597 — hydrate availability fan-out was unbounded.** The §Sync+hydrate N-call fan-out fired `Promise.all` over the entire stale set, so a large library could launch unbounded concurrent plugin requests (provider rate-limit bans / socket exhaustion). Now fanned out in chunks of `HYDRATE_CONCURRENCY` (25, matching the catalog metadata-refresh `BATCH_SIZE`) so ≤2×25 probes are in-flight at once, and each chunk is persisted (`writeHydration`) as it resolves so a row that blows its scheduled wall-clock timeout keeps the chunks already finished and the next run resumes from where it stopped.
+13. **#597 — tombstone sweep overflowed SQLite's variable limit.** The full-sweep `tombstoneMissing` bound one parameter per kept key in a single `notInArray`, so a library with >999 kept keys blew SQLite's 999-bound-variable limit. Now: empty-keep → full sweep; ≤900 keep → single `notInArray` (≤902 bound params); >900 keep → JS set-diff then chunked `inArray` updates (read-then-update, safe only under the single-writer sync model, documented inline).
+14. **#597 — `staleOrNew` chunk order was incidental.** The hydrate target query had no `ORDER BY`, so the chunked fan-out relied on SQLite's implicit PK order for its boundaries and `writeHydration`'s "id order" claim. Added `.orderBy(libraryItems.id)` so chunk boundaries are genuinely deterministic and the partial-failure prefix is stable run-to-run.
+15. **#613 — multi-value lens filter axes collapsed to the first value.** The unified `/media/sources/:id` resolver read `c.req.query()` (single-value), so a repeated lens filter param (`?genres=A&genres=B`) lost every value but the first, while collections/facets honored multi-value via their own routes. Now the resolver reads the multi-value-flattened map via `c.req.valid("query")` (single occurrence stays a string, repeated becomes a `string[]`) and the client `toQuery` forwards a non-empty `string[]` axis as repeated params. Per-source schemas stay authoritative — single-value home/watchlist schemas see plain strings; the lens schema's array axes accept the arrays. This closed the Phase 2/4 carried limitation above.
 
 **Test totals:** server `apps/server` 648 + full monorepo 2674 passing; client library 44. `vp check` clean (1553 files); `fallow dead-code` → 0 boundary violations, baseline unchanged.

@@ -1,43 +1,36 @@
 import { MessageSquare, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useState } from "react";
 import * as m from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 
 type Props = {
   hasNote: boolean;
-  onNoteClick: () => void;
 };
 
-type Vote = "up" | "down" | null;
-
-export function ModalFeedback({ hasNote, onNoteClick }: Props) {
-  const [vote, setVote] = useState<Vote>(null);
-
-  function toggleVote(id: "up" | "down") {
-    setVote((prev) => (prev === id ? null : id));
-  }
-
+export function ModalFeedback({ hasNote }: Props) {
   return (
     <div className="flex flex-col gap-2 px-6 sm:px-10">
       <span className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
         {m.home_detail_feedback_label()}
       </span>
       <div className="flex flex-wrap items-center gap-2">
+        {/* Vote and note persistence is not yet wired; buttons are disabled to
+            avoid misleading users into believing their input was saved. */}
+        {/* restore active={computed} + onClick when vote persistence lands */}
         <VoteButton
-          active={vote === "up"}
-          onClick={() => toggleVote("up")}
+          active={false}
+          disabled
           tone="up"
           label={m.home_detail_feedback_like()}
           icon={<ThumbsUp className="size-3.5" />}
         />
         <VoteButton
-          active={vote === "down"}
-          onClick={() => toggleVote("down")}
+          active={false}
+          disabled
           tone="down"
           label={m.home_detail_feedback_dislike()}
           icon={<ThumbsDown className="size-3.5" />}
         />
-        <NoteButton hasNote={hasNote} onClick={onNoteClick} />
+        <NoteButton hasNote={hasNote} />
         <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground/60">
           <Sparkles className="size-2.5" aria-hidden="true" />
           {m.home_detail_feedback_tagline()}
@@ -49,13 +42,13 @@ export function ModalFeedback({ hasNote, onNoteClick }: Props) {
 
 function VoteButton({
   active,
-  onClick,
+  disabled,
   tone,
   label,
   icon,
 }: {
   active: boolean;
-  onClick: () => void;
+  disabled?: boolean;
   tone: "up" | "down";
   label: string;
   icon: React.ReactNode;
@@ -68,13 +61,16 @@ function VoteButton({
   return (
     <button
       type="button"
-      onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         active
           ? activeClass
-          : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+          : // hover:* is inert on disabled buttons (pointer-events:none); kept
+            // for when vote persistence is wired and the button is re-enabled.
+            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+        disabled && "cursor-not-allowed opacity-50",
       )}
     >
       {icon}
@@ -83,11 +79,14 @@ function VoteButton({
   );
 }
 
-function NoteButton({ hasNote, onClick }: { hasNote: boolean; onClick: () => void }) {
+function NoteButton({ hasNote }: { hasNote: boolean }) {
   return (
+    // Note persistence is not yet wired; disabled to avoid misleading users
+    // into believing their input was saved across sessions.
+    // onClick omitted — disabled buttons never fire; restore when persistence lands.
     <button
       type="button"
-      onClick={onClick}
+      disabled
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
@@ -95,7 +94,10 @@ function NoteButton({ hasNote, onClick }: { hasNote: boolean; onClick: () => voi
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         hasNote
           ? "border-primary/55 bg-primary/10 text-primary"
-          : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+          : // hover:* is inert on disabled buttons (pointer-events:none); kept
+            // for when note persistence is wired and the button is re-enabled.
+            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+        "cursor-not-allowed opacity-50",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />

@@ -169,3 +169,18 @@ describe("admin plugins list — query state coverage", () => {
     expect(screen.queryByText(/no plugins installed/i)).toBeNull();
   });
 });
+
+describe("admin plugins list — install CTA visibility", () => {
+  it("hides the Install plugin button when canInstall is false", async () => {
+    // canInstall is hard-coded to false in PluginsListPage (install UI is a
+    // non-goal per plugin-advanced-admin-design.md §1). This test locks that in.
+    fetchersMock.fetchPluginsList.mockResolvedValue({
+      plugins: [makePlugin({ id: "tmdb", name: "TMDB" })],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("TMDB")).toBeTruthy();
+    });
+    expect(screen.queryByRole("button", { name: /install plugin/i })).toBeNull();
+  });
+});
