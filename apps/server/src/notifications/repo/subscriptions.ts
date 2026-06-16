@@ -3,22 +3,6 @@ import { getDb } from "../../db/client";
 import { notificationSubscriptions } from "../../db/schema/notifications";
 import type { NotificationCategory } from "@nama/shared/notifications";
 
-export async function getSubscriptions(connectionId: string): Promise<
-  Array<{
-    connectionId: string;
-    category: NotificationCategory;
-    enabled: boolean;
-  }>
-> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(notificationSubscriptions)
-    .where(eq(notificationSubscriptions.connectionId, connectionId))
-    .all();
-  return rows.map((row) => ({ ...row, enabled: row.enabled === 1 }));
-}
-
 export async function upsertSubscription(
   connectionId: string,
   category: NotificationCategory,
@@ -32,21 +16,6 @@ export async function upsertSubscription(
       target: [notificationSubscriptions.connectionId, notificationSubscriptions.category],
       set: { enabled: enabled ? 1 : 0 },
     });
-}
-
-export async function deleteSubscription(
-  connectionId: string,
-  category: NotificationCategory,
-): Promise<void> {
-  const db = getDb();
-  await db
-    .delete(notificationSubscriptions)
-    .where(
-      and(
-        eq(notificationSubscriptions.connectionId, connectionId),
-        eq(notificationSubscriptions.category, category),
-      ),
-    );
 }
 
 export async function listSubscriptionsForConnections(

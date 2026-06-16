@@ -99,6 +99,30 @@ vi.mock("../../../home", async () => {
           enrichRows: vi.fn(),
         })),
       },
+      // A multi-value source: its `genres` axis mirrors the library lens
+      // `arrayParam` (a lone value coerces to a one-element array, a repeated
+      // one stays an array), so the resolver must feed it the multi-value query
+      // rather than a single collapsed value.
+      fakeHomeMulti: {
+        sourceId: "fakeHomeMulti",
+        rateLimit: undefined,
+        paramSchema: z.object({
+          genres: z
+            .preprocess(
+              (v) => (v == null ? undefined : Array.isArray(v) ? v : [v]),
+              z.array(z.string()).optional(),
+            )
+            .catch(undefined),
+        }),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        eligibility: vi.fn(async () => true),
+        build: vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
+          source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
+          cfg: { params: {}, cursor, limit: 10 },
+          enrichRows: vi.fn(),
+        })),
+      },
     },
   };
 });
@@ -164,7 +188,7 @@ beforeEach(() => {
   mockUserId = "u1";
   vi.mocked(media.listRows).mockClear();
   vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
-  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded"]) {
+  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded", "fakeHomeMulti"]) {
     homeReg(id).build.mockClear();
     homeReg(id).eligibility?.mockClear();
   }
@@ -229,6 +253,44 @@ describe("media source resolver (US-003, design §A3)", () => {
     const res = await buildApp().request("/media/sources/fakeWatchlistParams");
     expect(res.status).toBe(400);
     expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+  });
+
+  it("feeds a repeated query param to the source schema as an array (multi-value)", async () => {
+    // The library lens filters arrive as repeated params (?genres=Drama&genres=
+    // Crime); the resolver must parse them multi-value so both reach the source,
+    // not just the first.
+    const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama&genres=Crime");
+    expect(res.status).toBe(200);
+    expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({
+      genres: ["Drama", "Crime"],
+    });
+  });
+
+  it("coerces a lone occurrence to a one-element array for a tolerant array schema", async () => {
+    // `c.req.valid("query")` hands a lone occurrence to the schema as a plain
+    // string (`{ genres: "Drama" }`); the lens's tolerant `arrayParam`
+    // (`Array.isArray(v) ? v : [v]`) then coerces it to `["Drama"]`. So a
+    // single-value selection reaches the source as a one-element array — the
+    // same axis shape a multi-value selection takes. (The strict single-value
+    // parity delta is pinned by the RISK-202 case below.)
+    const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama");
+    expect(res.status).toBe(200);
+    expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({ genres: ["Drama"] });
+  });
+
+  it("400s a repeated param against a strict single-value schema (RISK-202 delta)", async () => {
+    // Reading `c.req.valid("query")` surfaces a repeated param as a `string[]`.
+    // A strict single-value schema (`z.string()`) rejects the array → 400, where
+    // the old `c.req.query()` read would have silently taken the first value.
+    // This is the intended, more-correct behavior: home/watchlist sources never
+    // emit repeated params, so a repeated one is a malformed request, not a
+    // value to quietly truncate. Pinned so the parity delta stays deliberate.
+    const res = await buildApp().request(
+      "/media/sources/fakeWatchlistParams?required=a&required=b",
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+    expect(watchlistReg("fakeWatchlistParams").build).not.toHaveBeenCalled();
   });
 
   it("400s an undecodable cursor on a home source (cursorOnNull '400')", async () => {

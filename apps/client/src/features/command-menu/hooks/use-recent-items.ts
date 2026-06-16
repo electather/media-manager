@@ -49,7 +49,6 @@ function snapshotRecent(item: MediaItem): MediaItem {
       title: item.title,
       year: item.year,
       genres: item.genres,
-      runtime: item.runtime,
       poster: item.poster,
       backdrop: item.backdrop,
     },
@@ -76,10 +75,23 @@ export function useRecentItems(): {
 } {
   const [recents, setRecents] = useState<MediaItem[]>([]);
 
-  // TODO(cross-tab-sync): listen on `window.addEventListener("storage", ...)`
-  // so a recent added in another tab shows up here without requiring a reload.
   useEffect(() => {
+    // Load persisted recents on mount.
     setRecents(readStorage());
+
+    // Sync with other tabs: the `storage` event fires in every tab except the
+    // one that wrote the value, so recents added elsewhere become visible
+    // immediately without requiring a reload.
+    function onStorage(event: StorageEvent): void {
+      if (event.key === STORAGE_KEY && event.storageArea === window.localStorage) {
+        setRecents(readStorage());
+      }
+    }
+
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const pushRecent = useCallback((item: MediaItem) => {

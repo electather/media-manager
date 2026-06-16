@@ -479,6 +479,7 @@ Top frame → which content renders:
 | RTL query (Persian/Arabic) | `dir="auto"` on input. Already handled; preserve. |
 | Menu opens during sequence | Sequences disabled when `open` (commonOptions). |
 | Esc inside drill input | Pops frame, doesn't close. |
+| Recents updated in another tab | `storage` event listener in `useRecentItems` picks up the change; same-tab writes do not echo (browser `storage` event fires only in other tabs). |
 
 ## 12. Testing
 
@@ -528,8 +529,11 @@ Pre-stable → breaking OK. One step per PR. Each PR own changeset.
 ## 15. Non-goals (explicit)
 
 - Server-side recents.
-- Cross-tab recents sync (TODO already present).
 - Voice / NL input.
 - Density toggle, notification-pref drill.
 - Plugin-pkg contributions.
 - Search relevance tuning beyond catalog-service default.
+
+> **Note:** Cross-tab recents sync was previously listed here as a non-goal.
+> It was implemented via a `storage` event listener in `useRecentItems`
+> (client-only, zero backend cost) and is now in scope (see §11).

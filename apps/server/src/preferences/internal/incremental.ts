@@ -57,7 +57,12 @@ export async function applyIncrementalUpdate(
     );
     if (!contribution) continue;
     const weight = recordWeight(record);
-    if (weight === 0 && (record.noteKeywords?.length ?? 0) === 0) continue;
+    // Skip zero-weight records entirely: even when noteKeywords are present
+    // applyToProfile multiplies every keyword boost by weight (0), producing
+    // no net change while still inflating sampleSize and the applied counter.
+    // The only weight-0 signal today is `SIGNAL_WEIGHTS.noteNeutral` (rebuild.ts);
+    // the incremental.test.ts neutral-note case locks in that this skip holds.
+    if (weight === 0) continue;
     applied += applyRecordToPartitions(record, contribution, weight, partitions, existing);
   }
 

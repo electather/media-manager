@@ -8,7 +8,6 @@ import { useOptimisticArrayMutation } from "@/shared/hooks/use-optimistic-array-
 import { fetchRevokeOtherSessions, fetchRevokeSession, fetchSessions } from "../lib/fetchers";
 import { settingsSecurityKeys } from "../lib/query-keys";
 import type { AuthSession } from "../lib/types";
-export type { AuthSession } from "../lib/types";
 
 export function useSessions(): UseSuspenseQueryResult<AuthSession[]> {
   return useSuspenseQuery({
