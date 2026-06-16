@@ -123,6 +123,25 @@ describe("useRecentItems", () => {
     expect(result.current.recents.map((r) => r.id)).toEqual(["tv:cross-tab"]);
   });
 
+  it("ignores storage events from sessionStorage even when the key matches", () => {
+    // The guard checks both key and storageArea so extensions or other code
+    // writing to sessionStorage with the same key cannot corrupt recents.
+    const { result } = renderHook(() => useRecentItems());
+    act(() => result.current.pushRecent(makeItem("movie:a")));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: STORAGE_KEY,
+          newValue: JSON.stringify([makeItem("tv:b", "tv")]),
+          storageArea: window.sessionStorage,
+        }),
+      );
+    });
+
+    expect(result.current.recents.map((r) => r.id)).toEqual(["movie:a"]);
+  });
+
   it("ignores storage events for unrelated keys", () => {
     const { result } = renderHook(() => useRecentItems());
     act(() => result.current.pushRecent(makeItem("movie:a")));

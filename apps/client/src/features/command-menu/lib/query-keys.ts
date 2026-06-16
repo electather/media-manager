@@ -17,6 +17,7 @@ export function isSearchKey(
     key[0] === "command-menu" &&
     key[1] === "search" &&
     key[2] !== null &&
-    typeof key[2] === "object"
+    typeof key[2] === "object" &&
+    "kind" in (key[2] as object)
   );
 }
