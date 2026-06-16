@@ -135,6 +135,17 @@ describe("media title resource (US-004, design §A2/§A6)", () => {
     expect(home.composeDetails).not.toHaveBeenCalled();
   });
 
+  it("rejects a non-numeric :tmdbId with 400 before reaching the composer", async () => {
+    // The details composer fetches-and-persists a canonical row on a cache miss,
+    // so an unbounded tmdbId is a write/cache-growth vector. The route bounds it
+    // to a numeric tmdb id (parity with the watchlist write) and never calls the
+    // composer for an opaque id.
+    const res = await buildApp().request("/media/movie/__proto__/details");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+    expect(home.composeDetails).not.toHaveBeenCalled();
+  });
+
   it("forwards a 404 from the composer (unknown title) unchanged", async () => {
     vi.mocked(home.composeDetails).mockRejectedValueOnce(
       new HttpError(404, "http.not_found", "media not found"),

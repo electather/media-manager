@@ -29,6 +29,7 @@ import {
 import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./jobs/ids";
 import { triggerIncremental } from "./jobs/incremental-handle";
 import type { PreferenceDataProvider, RankedCandidate, UserItemFeedback } from "./types";
+import { JobNotRegisteredError, JobNotTriggerableError } from "./errors";
 
 /**
  * Public sync surface for `preferences/`. Other modules call methods on the
@@ -180,10 +181,10 @@ export class PreferencesService {
   ): Promise<{ runId: string; result: unknown }> {
     const entry = findJobEntry(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     if (!entry || entry.kind !== "triggerable") {
-      throw new Error(`job ${PREFERENCE_MANUAL_REBUILD_JOB_ID} is not registered`);
+      throw new JobNotRegisteredError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
     if (!entry.triggerFromApi) {
-      throw new Error(`job ${PREFERENCE_MANUAL_REBUILD_JOB_ID} has no triggerFromApi handler`);
+      throw new JobNotTriggerableError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
     return entry.triggerFromApi(input, meta);
   }

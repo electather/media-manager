@@ -83,7 +83,7 @@ resolver(c):
   applyRateLimit(reg.rateLimit, c)               // §A7
   ctx = buildSourceContext(sessionUserId(c))     // requireSession is global on /api/media
   if reg.eligibility && ⊥ await reg.eligibility(ctx): throw 404 media.source_ineligible
-  params = reg.paramSchema.parse(c.req.query)     // zValidator → 400 http.invalid_input on fail
+  params = reg.paramSchema.safeParse(c.req.valid("query"))  // multi-value-flattened map (single→string, repeated→string[]); → 400 http.invalid_input on fail
   cursor = decode(rawCursor, reg.cursorMode)      // shared codec; never throws → Cursor|null
   if cursor === null ∧ rawCursor present:
      reg.cursorOnNull === "400" ? throw 400 media.cursor_invalid : cursor = null   // V.CU1

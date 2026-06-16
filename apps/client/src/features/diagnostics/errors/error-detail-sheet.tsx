@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet"
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Separator } from "@/shared/ui/separator";
 import { absoluteDateTime } from "@/shared/lib/time-format";
+import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchErrorDetail } from "../shared/fetchers";
 import { ThreadChip } from "../thread-chip";
@@ -24,9 +25,11 @@ export function ErrorDetailSheet({ selectedId, onClose, onJumpThread }: Props) {
     <Sheet open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <SheetContent side="right" className="w-full max-w-xl gap-0 sm:max-w-xl">
         {selectedId ? (
-          <Suspense fallback={<DetailSkeleton />}>
-            <ErrorDetailContent id={selectedId} onJumpThread={onJumpThread} />
-          </Suspense>
+          <DiagnosticsErrorBoundary>
+            <Suspense fallback={<DetailSkeleton />}>
+              <ErrorDetailContent id={selectedId} onJumpThread={onJumpThread} />
+            </Suspense>
+          </DiagnosticsErrorBoundary>
         ) : (
           <DetailEmpty />
         )}
@@ -46,7 +49,7 @@ function ErrorDetailContent({
     queryKey: diagnosticsKeys.errors.detail(id),
     queryFn: () => fetchErrorDetail(id),
   });
-  const detail = data.record as ErrorDetail;
+  const detail: ErrorDetail = data.record;
 
   return (
     <>

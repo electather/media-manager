@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 8)
-**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25; rev 8: 2026-05-25)
+**Status:** design (rev 12)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25; rev 8: 2026-05-25; rev 9: 2026-05-26; rev 10: 2026-06-01; rev 11: 2026-06-16; rev 12: 2026-06-16)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -12,10 +12,12 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 12 (2026-06-16)** — Mutation-listener registration aligned with the canonical notifications convention (issue #602). The single `watchlist/jobs/on-watchlist-mutation.ts` (one `register()` for both events) split into one file per event — `on-watchlist-item-added.ts` / `on-watchlist-item-removed.ts`, each a single `register*()` export calling `on(...)` directly, exactly like `notifications/jobs/on-*.ts`. The rev 7 module-level idempotency guard (`registered` state) and its `beforeEach` reset are dropped: `registerJobs()` runs once at server bootstrap, and that single registration site — not a per-module guard — is what prevents duplicate subscriptions, so the guard was redundant. Tests split to match (`__tests__/on-watchlist-item-added.test.ts` / `on-watchlist-item-removed.test.ts`). Supersedes the rev 7 "reset module-level idempotency state before each run" note. Also pinned the `sort=alpha` comparator locale (§S, `sources/items.ts`): `localeCompare(_, "en", { sensitivity: "accent" })` with no host-default `toLocaleLowerCase()` pre-pass, so ordering is reproducible across dev / CI / server (was ICU host-default → diverged on e.g. Turkish locales). `"accent"` is case-insensitive + accent-sensitive, exactly reproducing the pre-fix net collation — a pure locale pin, no semantic change.
+- **rev 11 (2026-06-16)** — Document `MoodMosaic` per-cluster `WatchlistErrorFallback` wire site. Finding #2 of review issue #627 replaced the old `() => null` cluster fallback with a scoped `<ErrorBoundary>` passing `watchlistKeys.moodItems(c.moodId)`. The rev 5 passage in the error-fallback description enumerated the curated `SectionFrame` keys (`tonight()`, `items({ bucket })`, `moods()`, `recently()`) and the flat + mood page keys (`items({ sort, bucket })`, `moodItems(moodId)`); `MoodMosaic` now adds a second `moodItems(moodId)` consumer site — per-cluster, not per-page. The root-key fallback in `WatchlistErrorFallback` still applies when no `queryKey` is passed (e.g. `WatchlistRouteError`). No surface extension: `moodItems` already existed in §C.3; this revision records an additional call site.
 - **rev 10 (2026-06-01)** — Client counts removed. The header bucket filter (§C) is now a shared segmented `RouteTabs` (title + subtitle, ⊥ count) reused with the library lens switcher; the `<Header counts/>` prop, the `useCounts` hook, the `/watchlist` route-loader counts prefetch, the client `fetchCounts` aggregate, and the `watchlistKeys.counts` alias are deleted. Server: the `GET /media/counts` route, `watchlist.getCounts` (+ its 30 s cache + `invalidateCounts`), media's count-mode `countBuckets` (consolidation §G), and the shared `WatchlistCounts` wire type are all deleted (§I.api); the `/moods` aggregate + `?bucket=` classification stay. V.WL8 amended: default header mode = segmented bucket tabs (no per-bucket count); mood-detail mode unchanged.
 - **rev 9 (2026-05-26)** — Aligned with [2026-05-26-media-pipeline-consolidation-design.md](./2026-05-26-media-pipeline-consolidation-design.md). §S read path (items / mood-items / tonight / recently) routes through `media.listRows` + `MediaSource`; the four become RAW-only sources in `watchlist/sources/` (§S, §S.1, §S.2, §S.3). Cursor fork (§S.1 / V.WL1) replaced by the single `media/cursor.ts` codec (two modes, never throws); decode-fail → first-page stays consumer-side. #502 bucket fix relocated to `media/classify.ts` (§S.5). `WatchlistItem` deleted → extended `CompactMediaItem` with nullable `addedAt`/`addedSource` (§W, §I.api). counts + mood-summary become count-mode aggregates (`countBuckets` in media, `moodSummary` over `media.batchLoad`) — not sources; wire shapes unchanged (§S.3, §S.5, §W). `service.ts` monolith split per #496 into `sources/` + thin `service.ts` + `internal/` (§S). Counts/mood-summary semantics, seed, sync, events, and §C client unchanged.
 - **rev 8 (2026-05-25)** — Mood item query keys append the concrete `limit` segment without normalizing omitted limits to `null`.
-- **rev 7 (2026-05-25)** — Mood item pagination returns `cursor: null` when the empty-streak budget exits before collecting any items. Mutation listener registration tests reset module-level idempotency state before each run.
+- **rev 7 (2026-05-25)** — Mood item pagination returns `cursor: null` when the empty-streak budget exits before collecting any items. Mutation listener registration tests reset module-level idempotency state before each run. *(Superseded by rev 12: the module-level idempotency guard was removed; single-bootstrap registration prevents duplicate subscriptions on its own.)*
 - **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
   - **Chip active = pathname-only.** `BucketChips` `<Link/>` → `activeOptions={{ exact: true, includeSearch: false }}`. `?sort=` flip ⊥ kill active. V.WL9.
   - **Per-route Suspense fallback resembles content.** New `WatchlistGridSkeleton` (CSS grid, `aspect-[2/3]` placeholders, `minColumnWidthPx=180`, ~12 cards) wraps `WatchlistFlatPage` + `WatchlistMoodPage`. Curated keeps `WatchlistSkeleton`. V.WL10.
@@ -57,7 +59,7 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
   - Mood `/moods/:moodId/items` default `limit=60` (max 200) + cluster threshold `MIN_CLUSTER_SIZE=3` for `/moods` filtering pinned (§I.api, §S.3).
   - Alpha sort dropped from keyset → in-memory join w/ catalog title (no `title_norm` column, no backfill). Only `recent` uses keyset; alpha/runtime/status all use offset-snapshot cursors (§S.1, V.WL1).
   - Pre-stable break: added explicit grep step over `packages/plugins/*` + `packages/plugin-sdk/` before `WatchlistListFilter` rename (§M Phase 1 prelude).
-  - Cache invalidation listeners moved to `watchlist/jobs/on-watchlist-mutation.ts`, registered via `registerJobs()` mirror of notifications pattern (§S.4).
+  - Cache invalidation listeners moved to `watchlist/jobs/` (rev 12: one file per event — `on-watchlist-item-added.ts` / `on-watchlist-item-removed.ts`), registered via `registerJobs()` mirror of notifications pattern (§S.4).
   - Empty-hop overshoot factored into reusable helper, reused by `listMoodItems` (§S.3).
   - Route loader hits `/counts` only; Tonight becomes first below-loader Suspense child instead of loader payload (§C.1, §C.5).
   - Component layout flattened: single-file sections sit directly in `components/sections/<name>.tsx`; only `mood-mosaic/` keeps a folder (§C.4).
@@ -216,9 +218,11 @@ apps/server/src/watchlist/                  THIN product shell (rev 9; consolida
                       hero/alternate SHAPE split is now an envelope concern (service.ts), ⊥ in the source.
 
   jobs/
-    on-watchlist-mutation.ts  listener — on("watchlist.itemAdded"|"watchlist.itemRemoved")
-                              → invalidate(tonight, mood-summary) caches.
-                              Registered via registerJobs() (notifications-pattern).
+    on-watchlist-item-added.ts    listener — on("watchlist.itemAdded")
+    on-watchlist-item-removed.ts  listener — on("watchlist.itemRemoved")
+                              each → invalidate(tonight, mood-summary) caches.
+                              Registered via registerJobs() (notifications-pattern,
+                              one file per event, no module guard — rev 12).
 
 apps/server/src/media/                      OWNS the shared row pipeline (consolidation §A)
   source.ts         MediaSource<P> contract.  service/list-rows.ts  listRows(source,cfg)→Page (the single read path).
@@ -388,11 +392,12 @@ classifyBucket(item):                                              // rev 6: ⊥
 | `mood-summary:<userId>` | 30 s | watchlist.itemAdded, watchlist.itemRemoved |
 | availability-cache (existing) | 30 s | — |
 
-**Listener registration:** new file `watchlist/jobs/on-watchlist-mutation.ts` mirrors notifications-pattern (`notifications/jobs/on-*.ts`). Exports a `register()` function called from `watchlist/index.ts::registerJobs()`. `register()` is idempotent via module-level registration state; `on-watchlist-mutation.test.ts` resets that state in `beforeEach()` so each test verifies fresh subscriptions. `registerJobs()` invoked once at server bootstrap (`apps/server/src/index.ts`) — single registration site → ⊥ production duplicate subscriptions. Pattern:
+**Listener registration (rev 12):** one file per event — `watchlist/jobs/on-watchlist-item-added.ts` and `on-watchlist-item-removed.ts` — exactly mirroring the canonical notifications-pattern (`notifications/jobs/on-*.ts`: one `register*()` export per file, direct `on(...)`, no module guard). Each exports `registerOnWatchlistItem{Added,Removed}()`, both called from `watchlist/jobs/index.ts::registerJobs()`. No module-level idempotency state: `registerJobs()` is invoked exactly once at server bootstrap (`apps/server/src/index.ts`) — that single registration site is what guarantees ⊥ production duplicate subscriptions, so a per-module `registered` guard is redundant (it was dropped in rev 12 to align with notifications). Tests live in `__tests__/on-watchlist-item-added.test.ts` / `on-watchlist-item-removed.test.ts`, one per handler, each asserting a fresh subscription + the invalidation fan-out. Pattern:
 
 ```
-register():
+registerOnWatchlistItemAdded():
   on("watchlist.itemAdded",   watchlistItemAddedSchema,   ({userId}) => invalidate(userId))
+registerOnWatchlistItemRemoved():
   on("watchlist.itemRemoved", watchlistItemRemovedSchema, ({userId}) => invalidate(userId))
 
 invalidate(userId):
@@ -662,7 +667,7 @@ Phased; each phase shippable on its own. Pre-stable.
 - Add new service functions (listItems, getTonightSection, getRecentlyAdded, getMoodSummary, listMoodItems).
 - Add new routes in `api/procedures/watchlist.ts`.
 - Add `moods/` + `tonight/` sub-folders w/ pure logic + tests.
-- Add `jobs/on-watchlist-mutation.ts` + wire `registerJobs()` from `index.ts`.
+- Add `jobs/on-watchlist-item-added.ts` + `jobs/on-watchlist-item-removed.ts` (rev 12: one file per event) + wire `registerJobs()` from `index.ts`.
 - Existing `getItems(opts.filter)` path kept temporarily, marked deprecated in service.
 
 **Phase 2 — Client routes + hooks.**
@@ -741,7 +746,7 @@ Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must
 
 ## §R — Risks
 
-- **R1.** Cache invalidation race. Watchlist mutation emits event; tonight/mood-summary cache listens via `on()`. If listener registration occurs after first mutation, stale data returned. Mitigation: register listeners at module init (server bootstrap), assert fresh listener registration in `on-watchlist-mutation.test.ts`.
+- **R1.** Cache invalidation race. Watchlist mutation emits event; tonight/mood-summary cache listens via `on()`. If listener registration occurs after first mutation, stale data returned. Mitigation: register listeners at module init (server bootstrap), assert fresh listener registration in `on-watchlist-item-added.test.ts` / `on-watchlist-item-removed.test.ts` (rev 12).
 - **R2.** Alpha / runtime / status sort cost. Each request sweeps full active set (≤ ~1000 typical) + joins catalog metadata batch. No new index, no migration. Server cost ≈ same as `/counts` already pays. Mitigation: rely on existing `catalogService.getMetadataBatch` cache; benchmark at 2× typical active-set size before ship.
 - **R3.** Tonight scoring weights cosmetic but visible. Iteration risk. Mitigation: weights centralized in `score.ts`, snapshot test on a stable fixture so changes are intentional.
 - **R4.** Mood heuristics English-locale-bound (matches genre name strings via `derive`). Prior doc R1 still applies — same caveat carries over.

@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import { ModalFeedback } from "../modal-feedback";
 import { ModalMatchReason } from "../modal-match-reason";
 import { ModalNote } from "../modal-note";
@@ -119,30 +119,28 @@ describe("ModalSeasons", () => {
 });
 
 describe("ModalFeedback", () => {
-  it("toggles a single active vote (like/dislike are mutually exclusive)", () => {
-    render(<ModalFeedback hasNote={false} onNoteClick={vi.fn()} />);
+  it("renders like/dislike vote buttons in disabled state (persistence not yet wired)", () => {
+    render(<ModalFeedback hasNote={false} />);
     const like = screen.getByRole("button", { name: /^like$/i });
     const dislike = screen.getByRole("button", { name: /^dislike$/i });
+    // Buttons must remain disabled until vote persistence is implemented to
+    // prevent users from believing their input was saved.
+    expect((like as HTMLButtonElement).disabled).toBe(true);
+    expect((dislike as HTMLButtonElement).disabled).toBe(true);
     expect(like.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(like);
-    expect(like.getAttribute("aria-pressed")).toBe("true");
-    expect(dislike.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(dislike);
-    expect(like.getAttribute("aria-pressed")).toBe("false");
-    expect(dislike.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(dislike);
     expect(dislike.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("invokes onNoteClick when the note pill is clicked", () => {
-    const onNoteClick = vi.fn();
-    render(<ModalFeedback hasNote={false} onNoteClick={onNoteClick} />);
-    fireEvent.click(screen.getByRole("button", { name: /add a note/i }));
-    expect(onNoteClick).toHaveBeenCalledOnce();
+  it("renders note pill in disabled state (persistence not yet wired)", () => {
+    render(<ModalFeedback hasNote={false} />);
+    const noteBtn = screen.getByRole("button", { name: /add a note/i });
+    // The note button must be disabled until note persistence is implemented;
+    // no onClick is wired since disabled buttons never fire.
+    expect((noteBtn as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("switches the note pill label when a note is present", () => {
-    render(<ModalFeedback hasNote onNoteClick={vi.fn()} />);
+    render(<ModalFeedback hasNote />);
     expect(screen.getByRole("button", { name: /edit your note/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /add a note/i })).toBeNull();
   });

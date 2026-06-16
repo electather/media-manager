@@ -416,7 +416,7 @@ Unchanged from prev doc. Widget last-24h count + sparkline. Filters: severity, s
 
 ### §Adm.P Performance tab
 
-Top widget: 4 stat cards (req/min, p50, p95, p99 — last 24h). Trend sparkline.
+Top widget: 4 stat cards (req/min, p50, p95, p99 — last 24h). Trend sparkline on req/min, p50, p95. p99 ships without a sparkline because the summary endpoint does not bucket a p99 hourly series; add server-side p99 buckets to enable it.
 
 Filter bar: kind (http|plugin), route/method (autocomplete from distinct), plugin (dropdown), range (24h|7d|30d|custom), req-id (exact).
 

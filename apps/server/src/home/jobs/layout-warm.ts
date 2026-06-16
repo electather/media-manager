@@ -55,8 +55,8 @@ export class CircuitBreaker {
 /**
  * Per-row handler exported so the regression test can drive it without spinning
  * up the scheduler. Reproduces the spec rev 6 invariant: every warm-job compose
- * runs under a 45s deadline budget, partial layouts are written back, and a
- * single slow plugin must not surface as a per-row timeout.
+ * runs under the `WARM_COMPOSE_BUDGET_MS` deadline budget, partial layouts are
+ * written back, and a single slow plugin must not surface as a per-row timeout.
  */
 export async function runWarmComposeForUser(userId: string): Promise<void> {
   const ctx = buildContext(userId, consola, {

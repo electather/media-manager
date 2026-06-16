@@ -27,7 +27,13 @@ export function makeRecommendedForYou(config: {
     source: recommendedForYouSource,
     params: config.mediaType,
     async eligibility(ctx) {
-      const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
+      // Share the request-scoped rec-list fetch with the source and the other
+      // partition's row when the memo is present; fall back otherwise. The
+      // fallback arm only fires for a memo-less `RowContext` (tests / manual
+      // construction) — `buildContext` always injects the memo.
+      const rec = await (ctx.recommendations
+        ? ctx.recommendations()
+        : ctx.catalog.getRecommendations(ctx.userId, "default"));
       if (!rec) return false;
       return rec.items.some((item) => item.mediaType === config.mediaType);
     },

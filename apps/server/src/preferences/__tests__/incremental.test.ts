@@ -275,6 +275,29 @@ describe("recordWeight signal mapping", () => {
       .find((p) => p.mediaType === "movie");
     expect(movieProfile?.features.genres["Action"] ?? 0).toBe(0);
   });
+
+  it("skips a neutral note even when it carries keywords (weight=0 multiplies all boosts to zero)", async () => {
+    // A neutral note has weight 0. Even though keywords are present, applying
+    // them would produce NOTE_KEYWORD_BOOST * 0 = 0 for every keyword, so the
+    // record must be skipped rather than inflating sampleSize with no effect.
+    feedbackLogReadSinceMock.mockResolvedValue([
+      makeFeedbackRecord({
+        action: "note",
+        rating: null,
+        noteSentiment: "neutral",
+        noteKeywords: ["heist", "dystopia"],
+        createdAt: 2000,
+      }),
+    ]);
+    await applyIncrementalUpdate({ provider: new FakeProvider() }, "u1", NOW);
+    const movieProfile = profileWriteMock.mock.calls
+      .map((c) => c[0] as StoredPreferenceProfile)
+      .find((p) => p.mediaType === "movie");
+    // Keywords must not be boosted and sampleSize must not grow.
+    expect(movieProfile?.features.keywords["heist"] ?? 0).toBe(0);
+    expect(movieProfile?.features.keywords["dystopia"] ?? 0).toBe(0);
+    expect(movieProfile?.sampleSize).toBe(1); // Unchanged from makeProfile baseline.
+  });
 });
 
 // ─── applyToProfile (via applyIncrementalUpdate) ──────────────────────────────

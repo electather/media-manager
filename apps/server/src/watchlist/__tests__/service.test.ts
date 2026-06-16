@@ -374,6 +374,28 @@ describe("watchlist/service v2 (pagination + filter)", () => {
     expect(page.items.map((i) => i.tmdbId)).toEqual(["a2", "a3", "a1"]);
   });
 
+  // V.WL1 — the alpha comparator pins `localeCompare(_, "en", { sensitivity:
+  // "accent" })`. That collation is case-INsensitive (so "amelie" interleaves
+  // with capitalised titles by letter, not by ASCII case) but accent-SENSITIVE
+  // (so "Amelie" sorts before "Amélie"). This is the pre-fix net behaviour with
+  // the host locale pinned; the test fails if anyone widens it to accent-
+  // insensitive (`sensitivity: "base"`) or makes it case-sensitive.
+  it("listItems sort=alpha is case-insensitive and accent-sensitive", async () => {
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "a1", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a2", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a3", mediaType: "movie" }, "manual", ctx);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:a1": { tmdbId: "a1", mediaType: "movie", title: "Amélie", genres: [] },
+      "movie:a2": { tmdbId: "a2", mediaType: "movie", title: "amber", genres: [] },
+      "movie:a3": { tmdbId: "a3", mediaType: "movie", title: "Amelie", genres: [] },
+    });
+
+    const page = await listItems(ctx, { sort: "alpha", limit: 10 });
+    // "amber" < "Amelie" (case ignored, by letter) < "Amélie" (accent breaks tie).
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["a2", "a3", "a1"]);
+  });
+
   // V.WL2 — when most rows in the offset window are dropped by the bucket
   // filter, the next cursor MUST still advance past the scanned rows; an
   // earlier cursor that advanced by `slice.length` produced a load-more

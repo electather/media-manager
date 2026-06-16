@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isNil } from "es-toolkit/predicate";
 import { CircleCheckIcon, PlayIcon, RefreshCwIcon } from "lucide-react";
-import { api } from "@/shared/lib/api";
+import { m } from "@/paraglide/messages";
 import {
   Dialog,
   DialogContent,
@@ -17,15 +16,9 @@ import { Input } from "@/shared/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@nama/shared/jobs";
-
-function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
-      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
-      <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
-    </div>
-  );
-}
+import { useTriggerJob } from "../hooks/use-trigger-job";
+import { MetaRow } from "./meta-row";
+import type { FormFieldValue, JSONSchemaProperty } from "../lib/types";
 
 interface EnumOption {
   value: string;
@@ -36,26 +29,46 @@ function isMissing(value: unknown): boolean {
   return isNil(value) || value === "";
 }
 
-function readEnumOptions(schema: any): EnumOption[] | null {
+function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
   if (!Array.isArray(schema?.enum) || schema.enum.length === 0) return null;
   const labels = schema["x-enum-labels"];
   return schema.enum.map((v: unknown) => {
     const value = String(v);
     const label =
-      labels && typeof labels === "object" && labels !== null && value in labels
-        ? String((labels as Record<string, unknown>)[value])
-        : value;
+      labels && typeof labels === "object" && value in labels ? String(labels[value]) : value;
     return { value, label };
   });
 }
 
 interface FieldItemProps {
   fieldKey: string;
-  schema: any;
-  value: any;
+  schema: JSONSchemaProperty;
+  value: FormFieldValue;
   required: boolean;
   invalid: boolean;
-  onChange: (v: any) => void;
+  onChange: (v: FormFieldValue) => void;
+}
+
+/** JSON Schema numeric types whose form input is coerced to a `number`. */
+const NUMERIC_SCHEMA_TYPES = ["number", "integer"];
+
+function isNumericSchema(schema: JSONSchemaProperty): boolean {
+  return schema.type != null && NUMERIC_SCHEMA_TYPES.includes(schema.type);
+}
+
+/** Coerces a raw input value to the appropriate type for a schema field.
+ *
+ * Numeric fields (`number` and `integer`) receive a numeric conversion so the
+ * POSTed payload matches the server's JSON-schema type declaration rather than
+ * sending a string the server-side AJV validator would reject.
+ */
+function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
+  if (isNumericSchema(schema)) {
+    if (raw === "") return null;
+    const n = Number(raw);
+    return Number.isNaN(n) ? null : n;
+  }
+  return raw;
 }
 
 // fallow-ignore-next-line complexity
@@ -76,11 +89,11 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         </FieldLabel>
       </FieldContent>
       {schema["x-picker"] === "user" ? (
-        <UserPicker value={value} onChange={onChange} />
+        <UserPicker value={value as string} onChange={onChange} />
       ) : schema["x-picker"] === "connection" ? (
-        <ConnectionPicker value={value} onChange={onChange} />
+        <ConnectionPicker value={value as string} onChange={onChange} />
       ) : enumOptions ? (
-        <Select value={value ?? ""} onValueChange={(v) => onChange(v)}>
+        <Select value={typeof value === "string" ? value : ""} onValueChange={(v) => onChange(v)}>
           <SelectTrigger
             id={fieldKey}
             aria-invalid={invalid || undefined}
@@ -104,15 +117,17 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
       ) : (
         <Input
           id={fieldKey}
-          type={schema.type === "number" ? "number" : "text"}
+          type={isNumericSchema(schema) ? "number" : "text"}
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
+          value={value == null ? "" : String(value)}
+          onChange={(e) => onChange(coerceValue(schema, e.target.value))}
         />
       )}
-      {invalid && <FieldError id={errorId}>This field is required</FieldError>}
+      {invalid && (
+        <FieldError id={errorId}>{m.admin_jobs_trigger_field_required_error()}</FieldError>
+      )}
     </Field>
   );
 }
@@ -127,9 +142,8 @@ export function DynamicTriggerDialog({
   job: JobHandle | null;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [runId, setRunId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, FormFieldValue>>({});
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -150,24 +164,7 @@ export function DynamicTriggerDialog({
     [required, formData],
   );
 
-  const triggerMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.admin.jobs[":id"].trigger.$post({
-        param: { id: job!.id },
-        json: Object.keys(formData).length > 0 ? formData : null,
-      });
-      if (!res.ok) throw new Error("trigger failed");
-      return res.json() as Promise<{ runId?: string }>;
-    },
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] });
-      if (data && "runId" in data && data.runId) {
-        setRunId(data.runId);
-      } else {
-        onClose();
-      }
-    },
-  });
+  const triggerMutation = useTriggerJob();
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,11 +172,25 @@ export function DynamicTriggerDialog({
       setShowErrors(true);
       return;
     }
-    triggerMutation.mutate();
+    triggerMutation.mutate(
+      {
+        jobId: job!.id,
+        input: Object.keys(formData).length > 0 ? formData : null,
+      },
+      {
+        onSuccess: (data) => {
+          if (data && "runId" in data && data.runId) {
+            setRunId(data.runId);
+          } else {
+            onClose();
+          }
+        },
+      },
+    );
   };
 
   const hasResult = !!runId;
-  const properties = job?.inputSchema?.properties || {};
+  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
   const hasForm = Object.keys(properties).length > 0;
   const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
 
@@ -187,7 +198,11 @@ export function DynamicTriggerDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{hasResult ? "Job started" : "Run job"}</DialogTitle>
+          <DialogTitle>
+            {hasResult
+              ? m.admin_jobs_trigger_dialog_title_result()
+              : m.admin_jobs_trigger_dialog_title_run()}
+          </DialogTitle>
           <DialogDescription className="font-mono text-xs">{job?.id}</DialogDescription>
         </DialogHeader>
 
@@ -196,11 +211,11 @@ export function DynamicTriggerDialog({
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
               <CircleCheckIcon className="size-4 shrink-0 text-emerald-500" />
               <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                Job dispatched successfully.
+                {m.admin_jobs_trigger_dialog_dispatched()}
               </span>
             </div>
             <div className="overflow-hidden rounded-lg border border-border text-xs">
-              <MetaRow label="Run ID" value={runId!} mono />
+              <MetaRow label={m.admin_jobs_run_detail_meta_run_id()} value={runId!} mono />
             </div>
           </div>
         ) : (
@@ -213,7 +228,7 @@ export function DynamicTriggerDialog({
                       key={key}
                       fieldKey={key}
                       schema={schema}
-                      value={formData[key]}
+                      value={formData[key] ?? null}
                       required={required.includes(key)}
                       invalid={showErrors && required.includes(key) && isMissing(formData[key])}
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
@@ -222,27 +237,25 @@ export function DynamicTriggerDialog({
                 </FieldGroup>
               ) : (
                 <div className="text-sm text-muted-foreground">
-                  This will immediately start a new run of{" "}
-                  <span className="font-mono text-foreground">{job?.id}</span>, bypassing its
-                  schedule.
+                  {m.admin_jobs_trigger_dialog_schedule_bypass({ jobId: job?.id ?? "" })}
                 </div>
               )}
             </div>
 
             <DialogFooter>
               <Button variant="outline" type="button" onClick={onClose}>
-                Cancel
+                {m.admin_jobs_trigger_dialog_cancel()}
               </Button>
               <Button type="submit" disabled={triggerMutation.isPending} aria-disabled={!canSubmit}>
                 {triggerMutation.isPending ? (
                   <>
                     <RefreshCwIcon className="size-3.5 animate-spin" />
-                    Starting…
+                    {m.admin_jobs_trigger_dialog_starting()}
                   </>
                 ) : (
                   <>
                     <PlayIcon className="size-3.5" />
-                    Run now
+                    {m.admin_jobs_trigger_dialog_run_now()}
                   </>
                 )}
               </Button>
@@ -252,7 +265,7 @@ export function DynamicTriggerDialog({
 
         {hasResult && (
           <DialogFooter>
-            <Button onClick={onClose}>Done</Button>
+            <Button onClick={onClose}>{m.admin_jobs_trigger_dialog_done()}</Button>
           </DialogFooter>
         )}
       </DialogContent>

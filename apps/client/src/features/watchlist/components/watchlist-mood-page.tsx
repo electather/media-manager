@@ -1,11 +1,12 @@
 import { Suspense, useCallback } from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import type { MoodId } from "@nama/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { GridSkeleton } from "@/shared/components/grid-skeleton";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
+import { useWatchlistPeek } from "../hooks/use-watchlist-peek";
 import { watchlistKeys } from "../lib/query-keys";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
@@ -43,18 +44,7 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     moodId,
     MOOD_PAGE_LIMIT,
   );
-  const navigate = useNavigate();
-  const onPeek = useCallback(
-    (id: string) => {
-      void navigate({
-        to: ".",
-        search: (prev) => ({ ...prev, peek: id }),
-        replace: false,
-        resetScroll: false,
-      });
-    },
-    [navigate],
-  );
+  const onPeek = useWatchlistPeek();
   const onEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);

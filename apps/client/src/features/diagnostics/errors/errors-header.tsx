@@ -25,10 +25,12 @@ export function ErrorsHeader() {
   const summary = useQuery({
     queryKey: diagnosticsKeys.errors.summary(),
     queryFn: fetchErrorSummary,
+    // Polls every 60s. Shorter staleTime than the interval avoids serving a
+    // full poll-interval of stale counts on a reopened tab; skip polling while
+    // the tab is hidden or the client is offline.
     refetchInterval: 60_000,
-    // Shorter than the 60s default: this is a live monitoring view, so it stays
-    // tighter than the 60s poll to avoid serving a full poll-interval of stale
-    // counts when the admin reopens the tab.
+    refetchIntervalInBackground: false,
+    networkMode: "online",
     staleTime: 30_000,
   });
 

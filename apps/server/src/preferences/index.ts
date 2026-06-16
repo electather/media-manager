@@ -17,7 +17,7 @@ export {
   type WriteProfileOptions,
 } from "./service";
 export { PREFERENCES_EVENTS } from "./events";
-export { PreferencesError } from "./errors";
+export { PreferencesError, JobNotRegisteredError, JobNotTriggerableError } from "./errors";
 export type {
   CandidateFeatures,
   CommentSignal,
