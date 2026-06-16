@@ -1,3 +1,5 @@
+import { m } from "@/paraglide/messages";
+
 interface Props {
   data: number[];
   width?: number;
@@ -30,7 +32,13 @@ export function MiniLineSpark({
     .join(" ");
   const area = `2,${height - 2} ${points} ${(width - 2).toFixed(1)},${height - 2}`;
   return (
-    <svg width={width} height={height} role="img" aria-label="24-hour trend" className="block">
+    <svg
+      width={width}
+      height={height}
+      role="img"
+      aria-label={m.diagnostics_perf_minispark_aria()}
+      className="block"
+    >
       <polygon points={area} fill={accent} fillOpacity={0.15} />
       <polyline
         points={points}

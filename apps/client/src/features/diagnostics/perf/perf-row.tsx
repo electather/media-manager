@@ -2,6 +2,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { compactRelativeTime, formatDuration } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
+import { PERF_LABELS } from "../shared/types";
 import type { PerfAggregateGroup } from "../shared/types";
 
 interface Props {
@@ -9,13 +10,6 @@ interface Props {
   isOpen: boolean;
   onOpen: () => void;
 }
-
-const PERF_LABELS: Record<"p50" | "p95" | "p99" | "max", () => string> = {
-  p50: () => m.diagnostics_perf_label_p50(),
-  p95: () => m.diagnostics_perf_label_p95(),
-  p99: () => m.diagnostics_perf_label_p99(),
-  max: () => m.diagnostics_perf_label_max(),
-};
 
 /** Per-route or per-plugin aggregate row. The latency cells colour-code off
  *  the row's own distribution — p99 is "warn" tone, max is "danger" tone —

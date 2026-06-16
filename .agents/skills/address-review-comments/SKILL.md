@@ -7,6 +7,18 @@ description: Read reviewer comments on a PR, verify each one against the actual 
 
 Reviewers catch real issues — and sometimes they are wrong, working from an older version, or missing context. Treat every comment as a hypothesis: verify against the current code, then either fix or push back with evidence. Never blindly apply suggestions.
 
+## Scripts
+
+Use the scripts in `.agents/skills/address-review-comments/scripts/` — they output only what you need. Prefer them over raw `gh api` calls.
+
+| Script | Usage |
+|--------|-------|
+| `review-summary.sh <PR>` | Reviewer verdicts + unresolved thread count. Run first. |
+| `list-comments.sh <PR>` | All inline, review-level, and issue-level comments with IDs. |
+| `reply-to-comment.sh <PR> <comment_id>` | Post inline reply — body read from stdin. |
+| `get-threads.sh <PR>` | Unresolved thread node IDs paired with comment IDs. |
+| `resolve-thread.sh <thread_node_id>` | Mark thread resolved. |
+
 ## 0. Set up an isolated worktree and sync with `origin/main`
 
 Always work in a fresh worktree branched from `origin/main` so the current checkout stays untouched and the PR branch is verified against the latest base.
@@ -28,10 +40,7 @@ Always work in a fresh worktree branched from `origin/main` so the current check
 
 ## 1. Gather the comments
 
-- If the user named a PR, fetch everything:
-  - `gh pr view <num> --comments` (issue-level comments and review summaries).
-  - `gh api repos/<owner>/<repo>/pulls/<num>/comments` (line-anchored review comments, including threads).
-  - `gh pr view <num> --json reviews` (overall review states).
+- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs. This covers inline diff threads, review-body comments, and top-level PR conversation comments. Resolved threads are excluded automatically — only act on what's listed.
 - If no PR was named, infer from the current branch: `gh pr view --json number,url`. Confirm with the user if ambiguous.
 - List the distinct concerns so you can address them one by one. Don't batch-respond blindly — each concern needs its own verification.
 
@@ -48,6 +57,7 @@ Do this before changing code or replying:
    - "We already have a helper for this" → find it. If you can't find it, say so.
    - "This isn't tested" → check the test files; maybe it is.
 4. **Classify**: valid / partially valid / invalid / unsure.
+5. **Out-of-scope finding.** If during verification you discover a real issue unrelated to this PR (different file, different feature, not caused by this change): create a GH issue (`gh issue create --title "<short title>" --body "<description with file:line context>"`), note the issue number in your reply, and move on. Do not fix it here.
 
 Do not skip verification because the reviewer is senior, confident, or has been right before. One wrong fix on a public branch costs more than a minute of checking.
 
@@ -55,14 +65,13 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 
 - Make the **minimum change** that addresses the concern. No drive-by refactors.
 - Add or update a test if the comment was about behavior.
-- After fixing, reply on the thread with a short note: what changed and where (commit SHA, or `file.ts:42`).
-- Use `gh pr comment` for issue-level replies; for line-anchored threads, reply via:
-  `gh api -X POST repos/<owner>/<repo>/pulls/<num>/comments/<comment_id>/replies -f body="..."`.
-- **Mark the inline thread as resolved** once the fix is pushed. Use the GraphQL mutation:
-  ```bash
-  gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<thread_node_id>
-  ```
-  Get `<thread_node_id>` from `gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){nodes{id isResolved comments(first:1){nodes{databaseId}}}}}}}' -f o=<owner> -f r=<repo> -F n=<num>`. Only resolve threads where you applied the fix — leave pushback threads for the reviewer.
+- After fixing, reply on the thread: what changed and where (commit SHA, or `file.ts:42`).
+- For inline threads: `echo "<body>" | scripts/reply-to-comment.sh <num> <comment_id>` (body via stdin handles spaces and newlines).
+- For issue-level comments: `gh pr comment <num> --body "<body>"`.
+- **Mark the inline thread resolved** once the fix is pushed:
+  1. `scripts/get-threads.sh <num>` — find the `thread=` ID matching the `comment_id`.
+  2. `scripts/resolve-thread.sh <thread_node_id>`.
+  - Only resolve threads where you applied the fix — leave pushback threads for the reviewer.
 
 ## 4. If invalid or partially valid → push back
 
@@ -87,8 +96,15 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 
 - Group fixes into focused commits with imperative-mood messages. Reference the thread if useful (`fix: null-check user in summary — addresses review`).
 - If fixes change user-visible behavior, update the changeset.
+- **Run fallow** before pushing. For each flag:
+  - Valid (dead code, boundary violation, real issue) → fix it in this PR.
+  - Invalid (false positive, intentional pattern) → add an inline ignore with a one-line reason:
+    ```ts
+    // fallow-ignore-next-line <rule> — <reason why this is not a real issue>
+    ```
+  - Never add to `.fallow/dead-code-baseline.json`. Baseline entries are permanent noise; inline ignores are self-documenting.
 - Run the project's checks/tests before pushing (`vp check && vp test`, `make lint test`, etc. — check `CLAUDE.md`).
-- Push. Resolve threads you fully addressed with a fix (see §3 for the GraphQL mutation). Leave pushback threads unresolved — the reviewer resolves those.
+- Push. Resolve threads you fully addressed with a fix (see §3). Leave pushback threads unresolved — the reviewer resolves those.
 - When everything is handled, request a re-review: `gh pr edit <num> --add-reviewer <handle>` or via the GitHub UI prompt.
 
 ## 7. Wait, recheck, loop
@@ -102,6 +118,10 @@ After pushing the round of fixes:
    - No new comments after the wait and CI is green.
    - The user explicitly stops the loop.
    - You hit an unsure case from §5 — surface to the user before continuing.
+5. **Loop cap — 2 iterations.** After 2 complete iterations, if unresolved threads remain:
+   - **Breaking threads** (correctness, security, behaviour change, API): surface to the user and block merge. Do not convert to issues.
+   - **Non-breaking threads** (nits, naming, style, docs, suggestions): surface the list to the user and ask whether to convert them to GH issues and proceed with merge. Only create issues and resolve threads after explicit confirmation. Use `gh issue create --title "<short title>" --body "Raised in PR #<num>: <comment_body>"`, then `scripts/resolve-thread.sh`. Reply on each thread with the issue link.
+   - Once all non-breaking threads are converted and resolved (with user confirmation), and **zero breaking threads remain**, proceed to §8 if the PR is marked mergeable (`gh pr view <num> --json mergeable -q .mergeable` returns `MERGEABLE`).
 
 Always re-sync with `origin/main` at the start of each loop iteration — base may have advanced.
 

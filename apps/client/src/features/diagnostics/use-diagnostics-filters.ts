@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ERROR_SEVERITIES, ERROR_SOURCES } from "@nama/shared/diagnostics";
-import { ERRORS_DEFAULT_FILTERS } from "./errors/errors-filter-bar";
-import { PERF_DEFAULT_FILTERS } from "./perf/perf-filter-bar";
+import { ERRORS_DEFAULT_FILTERS, PERF_DEFAULT_FILTERS } from "./shared/types";
 import type { ErrorsFilters, PerfFilters } from "./shared/types";
 
 interface DiagnosticsFiltersOptions {

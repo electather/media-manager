@@ -25,14 +25,21 @@ import {
 } from "@/shared/components/schema-form";
 import { api } from "@/shared/lib/api";
 import {
-  parseFormErrorResponse,
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
 } from "@/shared/lib/diagnostics/form-errors";
-import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@nama/shared";
+import { m } from "@/paraglide/messages";
+
+import {
+  fetchCreateSharedCredential,
+  fetchPatchSharedCredential,
+  fetchTestSharedCredentialEphemeral,
+  fetchTestSharedCredentialPersisted,
+} from "../../lib/fetchers";
+import { AdminApiError } from "../../lib/types";
 
 type SharedCredentialEntry = InferResponseType<
   (typeof api.plugins)[":id"]["shared-credentials"]["$get"]
@@ -130,21 +137,27 @@ export function SharedCredentialDialog({
     if (routed.fieldErrors.label) setLabelError(routed.fieldErrors.label);
   };
 
+  // Routes a thrown `AdminApiError` (non-2xx test response) into the same
+  // `{ ok: false, message, routed }` shape the success path uses, so the
+  // caller handles transport errors and `{ ok: false }` bodies uniformly.
+  const toTestFailure = (err: unknown) => {
+    if (err instanceof AdminApiError) {
+      const routed = splitFormError(err.body, schemaFieldNames, "Test failed.");
+      return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+    }
+    throw err;
+  };
+
   const ephemeralTest = useMutation({
-    // fallow-ignore-next-line complexity
     mutationFn: async () => {
-      const res = await api.plugins[":id"]["shared-credentials"]["test-ephemeral"].$post({
-        param: { id: pluginId },
-        json: { value: credentialValue },
-      });
-      if (!res.ok) {
-        const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
-        return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+      try {
+        const body = await fetchTestSharedCredentialEphemeral({ pluginId, value: credentialValue });
+        return body.ok
+          ? { ok: true as const, message: body.message }
+          : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
+      } catch (err) {
+        return toTestFailure(err);
       }
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      return body.ok
-        ? { ok: true as const, message: body.message }
-        : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
     },
   });
 
@@ -152,54 +165,54 @@ export function SharedCredentialDialog({
     // fallow-ignore-next-line complexity
     mutationFn: async () => {
       if (!existing) throw new Error("Missing shared credential.");
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
-        param: { id: pluginId, credId: existing.id },
-      });
-      if (!res.ok) {
-        const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
-        return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+      try {
+        const body = await fetchTestSharedCredentialPersisted({ pluginId, credId: existing.id });
+        return body.ok
+          ? { ok: true as const, message: body.message }
+          : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
+      } catch (err) {
+        return toTestFailure(err);
       }
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      return body.ok
-        ? { ok: true as const, message: body.message }
-        : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
     },
   });
 
   const saveMutation = useMutation({
     // fallow-ignore-next-line complexity
     mutationFn: async () => {
-      // On edit, only send fields the admin actually changed.
-      if (isEdit && existing) {
-        const patch: { label?: string; value?: unknown; enabled?: boolean } = {};
-        if (label.trim() !== existing.label) patch.label = label.trim();
-        if (hasFilledCredentialValues) patch.value = credentialValue;
-        const enabledChanged = enabled !== existing.enabled;
-        if (enabledChanged) patch.enabled = enabled;
-        const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-          param: { id: pluginId, credId: existing.id },
-          json: patch,
-        });
-        if (!res.ok) {
-          const body = (await safeJson(res)) as FormErrorBody | null;
-          return { ok: false as const, body };
+      try {
+        // On edit, only send fields the admin actually changed.
+        if (isEdit && existing) {
+          const patch: { label?: string; value?: unknown; enabled?: boolean } = {};
+          if (label.trim() !== existing.label) patch.label = label.trim();
+          if (hasFilledCredentialValues) patch.value = credentialValue;
+          const enabledChanged = enabled !== existing.enabled;
+          if (enabledChanged) patch.enabled = enabled;
+          await fetchPatchSharedCredential({ pluginId, credId: existing.id, patch });
+          return { ok: true as const, affectsPoolCounts: enabledChanged };
         }
-        return { ok: true as const, affectsPoolCounts: enabledChanged };
+        await fetchCreateSharedCredential({
+          pluginId,
+          label: label.trim(),
+          value: stripEmptySecrets(schema, values),
+        });
+        // Adding a new credential always shifts the pool-count meta line.
+        return { ok: true as const, affectsPoolCounts: true };
+      } catch (err) {
+        // The typed error carries the parsed server body, which the form-error
+        // splitter routes to per-field messages or a top-level banner.
+        if (err instanceof AdminApiError) {
+          return { ok: false as const, body: err.body as FormErrorBody | null };
+        }
+        throw err;
       }
-      const res = await api.plugins[":id"]["shared-credentials"].$post({
-        param: { id: pluginId },
-        json: { label: label.trim(), value: stripEmptySecrets(schema, values) },
-      });
-      if (!res.ok) {
-        const body = (await safeJson(res)) as FormErrorBody | null;
-        return { ok: false as const, body };
-      }
-      // Adding a new credential always shifts the pool-count meta line.
-      return { ok: true as const, affectsPoolCounts: true };
     },
     onSuccess: (result) => {
       if (result.ok) {
-        toast.success(isEdit ? "Shared credential updated." : "Shared credential saved.");
+        toast.success(
+          isEdit
+            ? m.admin_plugins_shared_creds_toast_updated()
+            : m.admin_plugins_shared_creds_toast_saved(),
+        );
         onSaved(result.affectsPoolCounts);
         onOpenChange(false);
       } else {
@@ -216,7 +229,7 @@ export function SharedCredentialDialog({
     setSubmitAttempted(true);
     setLabelError(null);
     if (label.trim() === "") {
-      setLabelError("Label is required.");
+      setLabelError(m.admin_plugins_shared_creds_dialog_label_required());
       return false;
     }
     // On edit we only validate the form when the admin actually filled in
@@ -269,18 +282,25 @@ export function SharedCredentialDialog({
       <DialogContent className="gap-0 p-0 sm:max-w-130" showCloseButton={!testing && !saving}>
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4">
           <DialogTitle>
-            {isEdit ? "Edit shared credential" : `Add shared credential for ${pluginName}`}
+            {isEdit
+              ? m.admin_plugins_shared_creds_dialog_title_edit()
+              : m.admin_plugins_shared_creds_dialog_title_add({ name: pluginName })}
           </DialogTitle>
           <DialogDescription>
-            Stored encrypted on the server and never returned. Use <strong>Test &amp; save</strong>{" "}
-            to verify before persisting.
+            {m.admin_plugins_shared_creds_dialog_description()}{" "}
+            {/* The "Use Test & save to verify" hint is intentionally kept inline
+                rather than in a message key because it references a button label
+                that has its own key. Embedding button-label references in prose
+                messages creates coupling that makes translation harder. */}
+            Use <strong>{m.admin_plugins_shared_creds_dialog_test_and_save()}</strong> to verify
+            before persisting.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 px-6 py-5">
           <Field data-invalid={labelError ? true : undefined}>
             <FieldTitle>
-              Label
+              {m.admin_plugins_shared_creds_dialog_label_title()}
               <span className="text-destructive" aria-hidden="true">
                 *
               </span>
@@ -292,30 +312,36 @@ export function SharedCredentialDialog({
                 if (labelError) setLabelError(null);
                 if (serverErrors.label) setServerErrors(omit(serverErrors, ["label"]));
               }}
-              placeholder="e.g. Primary key"
+              placeholder={m.admin_plugins_shared_creds_dialog_label_placeholder()}
               disabled={saving || testing}
               aria-invalid={labelError ? true : undefined}
             />
             {labelError ? <FieldError>{labelError}</FieldError> : null}
             {!labelError ? (
               <FieldDescription>
-                A short name so you can identify this entry in the pool.
+                {m.admin_plugins_shared_creds_dialog_label_hint()}
               </FieldDescription>
             ) : null}
           </Field>
 
           <Field>
             <div className="flex items-center justify-between gap-2">
-              <FieldTitle className="m-0">Enabled</FieldTitle>
+              <FieldTitle className="m-0">
+                {m.admin_plugins_shared_creds_dialog_enabled_title()}
+              </FieldTitle>
               <Switch
                 checked={enabled}
                 onCheckedChange={(next) => setEnabled(Boolean(next))}
                 disabled={saving || testing}
-                aria-label={enabled ? "Disable credential" : "Enable credential"}
+                aria-label={
+                  enabled
+                    ? m.admin_plugins_shared_creds_row_disable_aria()
+                    : m.admin_plugins_shared_creds_row_enable_aria()
+                }
               />
             </div>
             <FieldDescription>
-              Disabled entries stay in the pool but are skipped during rotation.
+              {m.admin_plugins_shared_creds_dialog_enabled_hint()}
             </FieldDescription>
           </Field>
 
@@ -330,7 +356,7 @@ export function SharedCredentialDialog({
           />
           {isEdit ? (
             <p className="text-xs text-muted-foreground">
-              Leave secret fields empty to keep their existing value.
+              {m.admin_plugins_shared_creds_dialog_keep_secret_hint()}
             </p>
           ) : null}
 
@@ -356,7 +382,7 @@ export function SharedCredentialDialog({
 
         <DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onClose} disabled={saving || testing}>
-            Cancel
+            {m.admin_plugins_shared_creds_dialog_cancel()}
           </Button>
           {/* `Test & save` is the primary action by default. Once an
               ephemeral test has failed, `Save without test` promotes to the
@@ -371,7 +397,7 @@ export function SharedCredentialDialog({
             disabled={saving || testing}
           >
             {saving && testFailed ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Save without test
+            {m.admin_plugins_shared_creds_dialog_save_without_test()}
           </Button>
           <Button
             type="button"
@@ -382,7 +408,9 @@ export function SharedCredentialDialog({
             {testing || (saving && !testFailed) ? (
               <LoaderCircleIcon className="animate-spin" />
             ) : null}
-            {testing ? "Testing…" : "Test & save"}
+            {testing
+              ? m.admin_plugins_shared_creds_dialog_testing()
+              : m.admin_plugins_shared_creds_dialog_test_and_save()}
           </Button>
         </DialogFooter>
       </DialogContent>

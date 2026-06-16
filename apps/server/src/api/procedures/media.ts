@@ -9,7 +9,7 @@ import {
 } from "@nama/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
 import { ArtworkService } from "../../artwork";
-import { getCatalogService, toCanonicalRow } from "../../catalog";
+import { getCatalogService, toCanonicalRow, type CatalogService } from "../../catalog";
 import {
   addItem,
   decode,
@@ -63,13 +63,15 @@ const REQUEST_DEADLINE_MS = 8000;
 /**
  * Path params for the title resource endpoints (design §A6). `:type` is the
  * media type (`movie`/`tv`) lifted out of today's `/home/details?mediaType=…`
- * query; `:tmdbId` is the catalog id. Invalid values fail the same
- * `http.invalid_input` 400 the old query validation raised.
+ * query; `:tmdbId` is the catalog id, constrained to a numeric tmdb id (parity
+ * with `watchlistWriteParamSchema`) so the details write-on-read path cannot be
+ * driven by an opaque id. Invalid values fail the same `http.invalid_input` 400
+ * the old query validation raised.
  */
 const titleParamSchema = z
   .object({
     type: mediaTypeSchema,
-    tmdbId: z.string().min(1),
+    tmdbId: z.string().regex(/^\d+$/u, "tmdbId must be a numeric string"),
   })
   .strict();
 
@@ -92,11 +94,12 @@ const watchlistWriteParamSchema = z
  * parsed against `reg.paramSchema` inside the handler — so the route cannot
  * statically validate the query. This static schema exists only so the typed
  * Hono RPC client can send `?<source params>&cursor` through
- * `api.media.sources[":sourceId"].$get({ query })`; query values are always
- * strings, so it accepts any string map and adds no behavioral validation
- * (the handler's `reg.paramSchema.safeParse(c.req.query())` is authoritative).
+ * `api.media.sources[":sourceId"].$get({ query })`; a value may be a string or
+ * a `string[]` (a multi-value axis emitted as repeated params), so it accepts
+ * either and adds no behavioral validation (the handler's per-source
+ * `reg.paramSchema.safeParse(c.req.valid("query"))` is authoritative).
  */
-const sourceQuerySchema = z.record(z.string(), z.string());
+const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
@@ -130,11 +133,21 @@ const WATCHLIST_REQUEST_DEADLINE_MS = 5000;
 function buildSourceContext(userId: string): SourceContext {
   const mediaService = new MediaService(userId);
   const catalog = getCatalogService();
+  // Memoize the user's default rec list for this request so the home
+  // `recommendedForYou-*` registrations read it once across their eligibility
+  // gate and source `fetchRawSet`, rather than once per pass. This is the
+  // sibling of `home/internal/recommendations-memo.ts`'s `makeRecommendationsMemo`
+  // (same in-flight-promise semantics); it is inlined rather than reused because
+  // that helper is internal to `home` and the `home` barrel deliberately does
+  // not re-export `internal/**`, so this adapter cannot import it across the
+  // module boundary. Keep the two in sync if the memo semantics change.
+  let recsPending: ReturnType<CatalogService["getRecommendations"]> | undefined;
   return {
     userId,
     mediaService,
     catalog,
     statusBatch: new StatusBatchMemo(mediaService),
+    recommendations: () => (recsPending ??= catalog.getRecommendations(userId, "default")),
     logger: consola,
     deadlineMs: Date.now() + REQUEST_DEADLINE_MS,
     getArtwork: (requests) => new ArtworkService(userId, catalog).getArtwork(requests),
@@ -215,7 +228,13 @@ export const mediaApp = new Hono()
       }
     }
 
-    const parsed = reg.paramSchema.safeParse(c.req.query());
+    // `c.req.valid("query")` is the multi-value-flattened map Hono's query
+    // validator builds (a single occurrence stays a string, a repeated one
+    // becomes a `string[]`) — the same shape the collections route honors. The
+    // per-source schema is authoritative: single-value schemas (home/watchlist)
+    // see plain strings, while the library lens schema's tolerant array params
+    // accept the arrays, so multi-value filters work uniformly.
+    const parsed = reg.paramSchema.safeParse(c.req.valid("query"));
     if (!parsed.success) {
       throw badRequest("http.invalid_input", parsed.error.message, { target: "query" });
     }
