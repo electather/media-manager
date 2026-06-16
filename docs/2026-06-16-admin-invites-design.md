@@ -36,7 +36,7 @@ Closes #659 (and the duplicate #658).
 - Audit logging beyond the `revokedAt` soft-delete column.
 
 The public preview/accept endpoints **do** get the standard `publicIpRateLimit`
-wrapper (in-scope, §4.2). Code entropy (~93 bits) defends against *guessing* a
+wrapper (in-scope, §4.2). Code entropy (~90 bits, see §2) defends against *guessing* a
 code; the rate limiter defends against hammering a *known* code and against
 scrypt / mass-user-creation abuse, which entropy does not.
 
@@ -72,7 +72,7 @@ generated name is not meaningful.)
 ```
 invites
   id          text pk
-  code        text not null unique          -- bearer token + URL token (~93 bits)
+  code        text not null unique          -- bearer token + URL token (see §2 entropy note)
   roleId      text not null -> roles.id      -- role granted on accept
   invitedBy   text not null -> user.id       -- admin who created it
   createdAt   int  timestamp_ms not null
@@ -86,6 +86,13 @@ invites
 
 `expired` is **not stored** — it is computed at read time:
 `expiresAt < now OR uses >= maxUses OR revokedAt != null`.
+
+**Code entropy:** the mock's `generateInviteCode` emits 18 hex chars (~72 bits).
+The server generates the code from `crypto.getRandomValues` over an 18-char
+Crockford base32 alphabet (`0-9A-HJKMNP-TV-Z`, 32 symbols) → ~90 bits, keeping the
+familiar grouped (`XXXXX-XXXXXX-XXXXXX`) shape while raising entropy and dropping
+ambiguous characters. The `code` column is unique; on the astronomically unlikely
+collision the insert retries.
 
 ## 3. Shared schemas (`packages/shared/src/invites/`)
 
@@ -128,8 +135,12 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
     permission (#576) — guarding on capability, not just slug. An invite must not
     become a privilege-escalation hole that the `users` endpoints already close,
     so it must run the *full* guard, not a slug-only copy. Extract
-    `requireAssignableRole` (and its helper `requireRole`) into a shared module so
-    both `users.ts` and `invites.ts` import one implementation (see §8).
+    `requireAssignableRole` (and its helper `requireRole`) into
+    `apps/server/src/api/procedures/assignable-role.ts` so both `users.ts` and
+    `invites.ts` import one implementation. It lives under `api/procedures/` (not
+    `auth/`): it imports `roleHasAdminTierPermission` from the auth barrel, and the
+    barrel deliberately does not re-export `auth/internal/**`, so the guard stays
+    on the API side of that boundary (see §8).
   - Generate an 18-char code, insert the row, return `AdminInviteDTO` with `url`.
 - `GET /admin/invites`
   - List non-revoked invites, newest first, with computed `expired`/`uses`.
@@ -250,8 +261,8 @@ NEW  apps/server/src/api/procedures/invites.ts           (adminInvitesApp + invi
 NEW  apps/server/src/api/procedures/__tests__/invites.test.ts
 NEW  packages/shared/src/invites/schemas.ts
 NEW  packages/shared/src/invites/index.ts
-EDIT apps/server/src/api/procedures/users.ts             (extract requireAssignableRole/requireRole to shared)
-NEW  apps/server/src/api/procedures/<shared>/assignable-role.ts  (shared role guard; exact path per repo convention)
+EDIT apps/server/src/api/procedures/users.ts             (import guard from new module below)
+NEW  apps/server/src/api/procedures/assignable-role.ts   (shared role guard: requireRole + requireAssignableRole)
 EDIT apps/server/src/api/router.ts                       (register both subapps; wrap /invites in publicIpRateLimit)
 NEW  apps/client/src/features/admin-users/hooks/use-admin-invites.ts
 NEW  apps/client/src/features/admin-users/hooks/use-create-invite.ts
