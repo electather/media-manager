@@ -33,9 +33,12 @@ Closes #659 (and the duplicate #658).
 - Hashed one-time tokens. Link invites are deliberately re-displayable, so the
   code is stored in plaintext (see §3). Hashed tokens are appropriate for future
   email invites, which are never re-displayed.
-- Rate limiting on the public accept endpoint. The 18-char (~93-bit) code makes
-  guessing infeasible; this is noted, not implemented.
 - Audit logging beyond the `revokedAt` soft-delete column.
+
+The public preview/accept endpoints **do** get the standard `publicIpRateLimit`
+wrapper (in-scope, §4.2). Code entropy (~93 bits) defends against *guessing* a
+code; the rate limiter defends against hammering a *known* code and against
+scrypt / mass-user-creation abuse, which entropy does not.
 
 ---
 
@@ -62,7 +65,9 @@ Closes #659 (and the duplicate #658).
 
 New table `invites` (`apps/server/src/db/schema/auth/invites.ts`), migration
 `apps/server/drizzle/0008_*.sql` generated via `bun run db:generate` and applied
-with `bun run db:migrate`.
+with `bun run db:migrate`. (`db:generate` emits a random slug; rename to match the
+descriptive convention used by `0005`–`0007`, e.g. `0008_invites.sql`, if the
+generated name is not meaningful.)
 
 ```
 invites
@@ -101,7 +106,8 @@ acceptInviteSchema = z.object({
 DTOs:
 
 - `AdminInviteDTO` — mirrors the client `AdminInvite` type, plus a server-built
-  `url` (`/auth/invite/<code>`) and computed `expired`.
+  `url` (`/auth/invite/<code>`) and computed `expired`. `revokedAt` is **not**
+  exposed (the list already excludes revoked rows).
 - `InvitePreviewDTO` — `{ roleName, expiresAt }` only. Returned to the
   unauthenticated accepter; it must not leak `invitedBy`, `code` internals, or
   other invites.
@@ -117,9 +123,13 @@ Middleware: `requireSession` + `requirePermission(PERMISSIONS.ADMIN_USERS)`.
 Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
 
 - `POST /admin/invites` (`zValidator("json", createInviteSchema)`)
-  - Reject assigning the system Admin role — mirror the existing role-guard in
-    `users.ts` that returns 403 when `roleId` resolves to `systemSlug = 'admin'`.
-  - Validate the role is assignable (exists).
+  - **Reuse `requireAssignableRole`** (currently module-private in `users.ts`).
+    It rejects the system Admin slug **and** any role holding an admin-tier
+    permission (#576) — guarding on capability, not just slug. An invite must not
+    become a privilege-escalation hole that the `users` endpoints already close,
+    so it must run the *full* guard, not a slug-only copy. Extract
+    `requireAssignableRole` (and its helper `requireRole`) into a shared module so
+    both `users.ts` and `invites.ts` import one implementation (see §8).
   - Generate an 18-char code, insert the row, return `AdminInviteDTO` with `url`.
 - `GET /admin/invites`
   - List non-revoked invites, newest first, with computed `expired`/`uses`.
@@ -131,34 +141,47 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
 
 ### 4.2 Public subapp — `invitesApp` at `/invites`
 
-No admin middleware — accepters are unauthenticated. Registered in `router.ts`.
+No admin/session middleware — accepters are unauthenticated. Wrapped in
+`publicIpRateLimit`, matching every other public group in `router.ts`
+(`/bootstrap/*`, `/public/*`, `/config/public/*`). Registered in `router.ts`.
 
 - `GET /invites/:code`
   - Look up by code. Return `InvitePreviewDTO` when active; `404` when missing;
     `410` when expired / exhausted / revoked.
 - `POST /invites/:code/accept` (`zValidator("json", acceptInviteSchema)`)
-  - **Atomic use guard** (single statement, race-safe under SQLite):
-    ```
-    UPDATE invites
-       SET uses = uses + 1
-     WHERE code = ?
-       AND uses < maxUses
-       AND expiresAt > now
-       AND revokedAt IS NULL
-    ```
-    0 rows affected ⇒ `410 Gone` (consumed/expired/revoked between preview and
-    accept).
-  - Create the account via `createUserWithRole(name, email, password, roleId)`
-    from `apps/server/src/auth/internal/create-user.ts` — a direct internal call
-    that bypasses `disableSignUp`. Duplicate email (unique violation) ⇒ `409` with
-    an "account exists — log in" body.
-  - Establish a session the same way `/api/bootstrap/claim` does (mark email
-    verified, create the Better Auth session). Return the session so the client
-    redirects to `/setup`.
-  - **Ordering note:** the use-count increment precedes user creation so a
-    duplicate-email failure does not silently burn a use without surfacing — on
-    `409` the increment is rolled back (wrap accept in a transaction; the `UPDATE`
-    and `createUserWithRole` share one transaction, rolled back on any error).
+  - Runs entirely inside **one `db.transaction`** so a later failure rolls back
+    the use-count increment (no silently-burned use):
+    1. **Atomic use guard** (single statement, race-safe under SQLite's
+       single-writer snapshot isolation):
+       ```
+       UPDATE invites
+          SET uses = uses + 1
+        WHERE code = ?
+          AND uses < maxUses
+          AND expiresAt > now
+          AND revokedAt IS NULL
+       ```
+       0 rows changed ⇒ throw → `410 Gone` (consumed/expired/revoked between
+       preview and accept).
+    2. **Unique-email check** within the txn (mirror `requireUniqueEmail` in
+       `users.ts`): duplicate ⇒ throw → `409` with an "account exists — log in"
+       body. (Checked before the insert so the failure is a clean 409, not a raw
+       UNIQUE-constraint error; the txn rolls back the increment from step 1.)
+    3. **Create the account** via `insertCredentialUserTx(tx, { email, password,`
+       `name, roleId, emailVerified: true })` from
+       `apps/server/src/auth/internal/create-user.ts`. This is the same primitive
+       `claimBootstrap` uses inside its own transaction, so it composes with our
+       `tx`. It writes the `user` + credential `account` rows directly (bypassing
+       the disabled public sign-up endpoint) in the exact shape Better Auth's
+       `sign-in/email` reads. `emailVerified: true` because holding a valid invite
+       link is the proof of access (note: `createUserWithRole` is **not** used —
+       it opens its own transaction and cannot set `emailVerified`).
+  - Returns `{ ok: true, userId }` — **no server-side session** (none of the
+    existing creators, including `claimBootstrap`, mint one).
+  - **Sign-in is client-side.** On a successful accept the client immediately
+    calls Better Auth email sign-in with the just-submitted email + password
+    (the credential `account` row was written precisely for `sign-in/email` to
+    look up), then redirects to `/setup`. See §6.
 
 ## 5. Client — replace the mock
 
@@ -188,8 +211,10 @@ Replace the stub:
 - Invalid/expired ⇒ error state ("This invite is no longer valid").
 - Valid ⇒ registration form (name / email / password), reusing the auth form
   primitives from the login/register routes.
-- Submit ⇒ `acceptInvite` ⇒ on success redirect to `/setup`; surface `409`
-  (account exists) and `410` (invite consumed) inline.
+- Submit ⇒ `acceptInvite` (creates the account). On success, **sign in** with the
+  same email + password via Better Auth email sign-in (the server minted no
+  session), then redirect to `/setup`. Surface `409` (account exists — link to
+  login) and `410` (invite consumed/expired) inline.
 
 ## 7. Tests
 
@@ -197,14 +222,24 @@ Vitest + in-memory SQLite, mirroring
 `apps/server/src/api/procedures/__tests__/users.role-guard.test.ts`
 (`buildApp().request(...)`, seed in `beforeEach`):
 
-- `POST /admin/invites` requires `ADMIN_USERS` permission (403 without).
-- `POST /admin/invites` rejects the system Admin role (403).
-- Accept happy path: user created, role assigned, `uses` incremented by 1.
+- `POST /admin/invites` rejects the system Admin role (403) **and** a non-system
+  role that grants an admin-tier permission (403) — exercising both arms of
+  `requireAssignableRole` (#576 escalation guard).
+- Accept happy path: user + credential account created with `emailVerified=true`,
+  role assigned, `uses` incremented by 1.
 - Accept on expired / exhausted (`uses >= maxUses`) / revoked ⇒ 410.
 - Accept with an already-registered email ⇒ 409, and `uses` is **not** consumed
-  (transaction rollback).
+  (transaction rollback — assert the row's `uses` is unchanged).
 - Concurrent accept respects `maxUses` (atomic guard — only `maxUses` succeed).
 - `GET /admin/invites` excludes revoked rows and reports computed `expired`.
+
+The cited harness **mocks** `requireSession`/`requirePermission` to pass through,
+so a real "403 without `ADMIN_USERS`" assertion can't be exercised there. The
+admin subapp composes the *same* shared middleware as `adminUsersApp` (identical
+`.use("*", requireSession).use("*", requirePermission(ADMIN_USERS))`); the guard
+is covered by the existing users tests and is not re-tested here. The
+invite-specific authorization logic that *is* re-tested is the role-assignability
+rejection above.
 
 ## 8. File map
 
@@ -215,7 +250,9 @@ NEW  apps/server/src/api/procedures/invites.ts           (adminInvitesApp + invi
 NEW  apps/server/src/api/procedures/__tests__/invites.test.ts
 NEW  packages/shared/src/invites/schemas.ts
 NEW  packages/shared/src/invites/index.ts
-EDIT apps/server/src/api/router.ts                       (register both subapps)
+EDIT apps/server/src/api/procedures/users.ts             (extract requireAssignableRole/requireRole to shared)
+NEW  apps/server/src/api/procedures/<shared>/assignable-role.ts  (shared role guard; exact path per repo convention)
+EDIT apps/server/src/api/router.ts                       (register both subapps; wrap /invites in publicIpRateLimit)
 NEW  apps/client/src/features/admin-users/hooks/use-admin-invites.ts
 NEW  apps/client/src/features/admin-users/hooks/use-create-invite.ts
 NEW  apps/client/src/features/admin-users/hooks/use-resend-invite.ts
