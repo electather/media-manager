@@ -219,7 +219,7 @@ keyed by `clientIp`.
           SET uses = uses + 1
         WHERE code = ?
           AND (maxUses = 0 OR uses < maxUses)
-          AND expiresAt > now
+          AND expiresAt > ?        -- bind Date.now() ms; SQLite has no now() or CURRENT_TIMESTAMP in ms
           AND revokedAt IS NULL
        ```
        0 rows changed ⇒ throw → `410 Gone` (consumed/expired/revoked between
@@ -266,15 +266,15 @@ keyed by `clientIp`.
     (success toast) with new `admin_users_invite_extend` / `admin_users_invite_toast_extended`
     keys in `apps/client/messages/admin/en.json` and `fa.json`.
   - `components/users-list.tsx` — update the `isInviteActive(i, now)` call to
-    `isInviteActive(i)` (the `now` param is removed when the predicate simplifies
-    to `!invite.expired`).
+    `isInviteActive(i)` and remove the `const now = Date.now()` line (dead code
+    after the callsite change).
   - `components/users-page.tsx` — `useInvitesMock` → `useAdminInvites`.
   - `lib/user-predicates.ts` — pending count derived from the real invite list.
-    Update `isInviteActive` to `!invite.expired` — the server-computed `expired`
-    flag already encodes `expiresAt < now OR uses >= maxUses OR revokedAt != null`,
-    so no extra client-side checks are needed. (Previous draft included redundant
-    `expiresAt` and `maxUses` guards; those are correct only as stale-cache defense
-    but add confusion and the invite list is always fresh via React Query.)
+    Update `isInviteActive` signature to `(invite: AdminInvite): boolean` returning
+    `!invite.expired`. Update `deriveUserCounts` to call `isInviteActive(i)` (drop
+    the `now` arg it currently passes). The server-computed `expired` flag encodes
+    `expiresAt < now OR uses >= maxUses OR revokedAt != null` — no client-side
+    recomputation needed.
 - `inviteUrl` now resolves to `/auth/invite/<code>`.
 - **Delete `lib/invites-mock.ts`.**
 
