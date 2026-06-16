@@ -233,7 +233,7 @@ describe("corrupt userConfig resilience (finding 1)", () => {
 });
 
 describe("updateDisplayName guard (finding 2)", () => {
-  it("throws connection.not_found when no connection exists", async () => {
+  it("throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
     // DO NOT seed state.connections before this assertion: the db mock ignores
     // the WHERE predicate, so the guard fires here only because the rowset is
     // empty. Seeding any row would make the mock return it and bypass the guard,
