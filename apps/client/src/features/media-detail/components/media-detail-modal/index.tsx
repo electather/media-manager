@@ -96,6 +96,8 @@ function ModalBody({
   onToggleWatchlist: () => void;
   onViewFullPage?: () => void;
 }) {
+  // Note/edit state — persistence not yet wired; all entry-points are disabled.
+  // Restore jumpToNote + re-wire ModalFeedback when persistence lands.
   const [note, setNote] = useState("");
   const [noteEditing, setNoteEditing] = useState(false);
   const noteSectionRef = useRef<HTMLDivElement>(null);
@@ -118,19 +120,6 @@ function ModalBody({
     };
   }, []);
 
-  function jumpToNote() {
-    noteSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    setNoteEditing(true);
-    // Double-rAF: the first frame applies the `editing` state, the second
-    // waits for the textarea to be in the layout tree before we focus it.
-    // Avoids a hardcoded ms timer racing the smooth-scroll on slow devices.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        noteTaRef.current?.focus();
-      });
-    });
-  }
-
   return (
     <div className="modal-backdrop-timeline-scope relative isolate flex flex-1 min-h-0 flex-col overflow-hidden">
       {item.backdrop ? <ModalBackdrop src={item.backdrop} /> : null}
@@ -145,7 +134,7 @@ function ModalBody({
         <div aria-hidden="true" className="h-28 shrink-0 sm:h-40" />
         <div className="relative flex flex-col gap-5 bg-linear-to-b from-transparent via-card/90 to-card pb-10 pt-6 sm:gap-6 sm:pt-8">
           <ModalHeader item={item} titleId={titleId} />
-          <ModalFeedback hasNote={!!note} onNoteClick={jumpToNote} />
+          <ModalFeedback hasNote={!!note} />
           <ModalActions
             item={item}
             inWatchlist={inWatchlist}

@@ -383,6 +383,8 @@ feedback_log
 
 **Sentiment & keywords extracted at write time.** Stored in row. Rebuild reads structured fields ⊥ re-running classification on every rebuild.
 
+**`note` ⊥ length-bounded; classification input is.** Full note persisted verbatim — no truncation of user-authored text. Sentiment & keyword passes are O(n) on note length, so `feedback_log.record` feeds them only the first `NOTE_CLASSIFY_MAX_CHARS` (4096) characters; the persisted `note`, `note_sentiment`, and `note_keywords` columns are unaffected beyond that cap. Bounds rebuild CPU on pathological input ⊥ losing content.
+
 **`tmdb_id` + `media_type`, ⊥ `connection_id`.** Feedback about item, ⊥ where rating written. `ent_feedback` rating fan-out to `ratings@v1` plugins separate concern, outside this table.
 
 ### Indexes
@@ -512,6 +514,7 @@ All through job service error-management integration:
 - **Incremental update, ⊥ existing profile.** Bail; daily rebuild creates baseline. ⊥ error.
 - **2 coalesced updates same user overlap.** Job service scope-key handling prevents — same scopeKey while running extends debounce ⊥ starts second run.
 - **Note keyword extraction silently returns empty.** Write-time extractor in `feedback_log.record` may return `[]` — benign (note has ⊥ TMDB-matching keywords) or silent bug. Rebuild ⊥ distinguish. To make detectable: `feedback_log.record` logs warning when note > 20 chars but `note_keywords` empty. Future admin view aggregates by comparing note count vs non-empty `note_keywords` count.
+- **Pathologically long note.** Classification cost is O(n) on note length. `feedback_log.record` bounds the sentiment/keyword input to the first `NOTE_CLASSIFY_MAX_CHARS` (4096) chars & logs a warning when it clips; the full note is still persisted. Sentiment/keywords for the clipped tail are simply not considered — acceptable since a note's signal lives in its opening, ⊥ user-visible.
 
 ## Integration points
 
