@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,11 +35,7 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
     return map;
   }, [usersQuery.data.users]);
 
-  const memberCount = useCallback(
-    (id: string) => membersByRole.get(id)?.length ?? 0,
-    [membersByRole],
-  );
-  // membersFor is only called inline (never passed as a prop), so plain function is fine.
+  const memberCount = (id: string) => membersByRole.get(id)?.length ?? 0;
   const membersFor = (id: string): RoleMember[] => membersByRole.get(id) ?? [];
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;

@@ -70,17 +70,19 @@ describe("HeaderDialog — add mode validation", () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it("submits with the raw value without trimming whitespace", async () => {
-    // Secrets are opaque; leading/trailing whitespace must be preserved as-is.
+  it("submits with the raw value preserving leading/trailing whitespace", async () => {
+    // Secrets are opaque; leading/trailing whitespace must NOT be stripped.
+    // If trimmedValue were passed instead of the raw value this assertion would fail.
     const user = userEvent.setup();
     renderAdd();
 
     await user.type(screen.getByPlaceholderText("X-Corp-Key"), "X-Corp-Key");
-    await user.type(getValueInput(), "secret-token");
+    // Type a value with a trailing space — the input element captures each keystroke.
+    await user.type(getValueInput(), "secret-token ");
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     expect(mutate).toHaveBeenCalledWith(
-      { name: "X-Corp-Key", value: "secret-token" },
+      { name: "X-Corp-Key", value: "secret-token " },
       expect.any(Object),
     );
   });
