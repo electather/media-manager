@@ -16,7 +16,7 @@ export interface LibraryFacetValues {
  * agree value-for-value without a duplicate rank definition.
  */
 function rankQualityTier(label: string): number {
-  const index = QUALITY_TIERS.indexOf(label as (typeof QUALITY_TIERS)[number]);
+  const index = (QUALITY_TIERS as readonly string[]).indexOf(label);
   return index === -1 ? QUALITY_TIERS.length : index;
 }
 
