@@ -5,6 +5,7 @@ import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { relativeTime } from "@/shared/lib/time-format";
 import { parseUserAgent } from "@/shared/lib/user-agent";
+import { m } from "@/paraglide/messages";
 
 export interface SessionListItem {
   id: string;
@@ -41,8 +42,8 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
   // separators ("Unknown device, ").
   const meta: string[] = [];
   if (showIp) meta.push(ip!);
-  meta.push(`Signed in ${relativeTime(created)}`);
-  meta.push(`Last active ${relativeTime(updated)}`);
+  meta.push(m.settings_security_sessions_signed_in({ time: relativeTime(created) }));
+  meta.push(m.settings_security_sessions_last_active({ time: relativeTime(updated) }));
 
   return (
     <div
@@ -57,7 +58,9 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
                 render={
                   <span
                     className="text-sm font-medium"
-                    aria-label={`User agent: ${session.userAgent}`}
+                    aria-label={m.settings_security_sessions_user_agent({
+                      agent: session.userAgent,
+                    })}
                   >
                     {ua.label}
                   </span>
@@ -70,7 +73,9 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
           ) : (
             <span className="text-sm font-medium">{ua.label}</span>
           )}
-          {isCurrent ? <Badge variant="secondary">This device</Badge> : null}
+          {isCurrent ? (
+            <Badge variant="secondary">{m.settings_security_sessions_this_device()}</Badge>
+          ) : null}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">{meta.join(" · ")}</p>
       </div>
@@ -83,7 +88,7 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
           disabled={pending}
         >
           {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Revoke
+          {m.settings_security_sessions_revoke()}
         </Button>
       ) : null}
     </div>

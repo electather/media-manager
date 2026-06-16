@@ -15,9 +15,9 @@ export {
 export {
   settingsKeys,
   SettingsApiError,
-  deleteAccount,
   fetchPublicConfig,
   fetchRole,
   usePublicConfig,
   useRole,
+  useDeleteAccount,
 } from "./shared";

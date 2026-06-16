@@ -6,7 +6,9 @@ export function useTestConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fetchTestConnection,
-    onSuccess: () => {
+    // Invalidate on settled rather than success so the row reflects the
+    // server-side status update even when the test reports ok: false.
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: settingsConnectionsKeys.connections() });
     },
   });

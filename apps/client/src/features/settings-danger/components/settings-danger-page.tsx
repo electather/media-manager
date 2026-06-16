@@ -15,7 +15,7 @@ import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/shared/components/settings-page-header";
-import { SettingsActionRow, SettingsCard, deleteAccount } from "@/features/settings";
+import { SettingsActionRow, SettingsCard, useDeleteAccount } from "@/features/settings";
 
 export function SettingsDangerRoute() {
   return (
@@ -125,37 +125,35 @@ function DeleteAccountDialog({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const deleteAccount = useDeleteAccount();
   const [typed, setTyped] = useState("");
   const [pw, setPw] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setTyped("");
       setPw("");
       setError(null);
-      setSubmitting(false);
     }
   }, [open]);
 
   const trimmedEmail = trim(typed);
   const emailMatches = trimmedEmail.toLowerCase() === email.toLowerCase();
-  const canSubmit = emailMatches && pw.length > 0 && !submitting && email.length > 0;
+  const canSubmit = emailMatches && pw.length > 0 && !deleteAccount.isPending && email.length > 0;
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    setSubmitting(true);
     setError(null);
-    try {
-      await deleteAccount({ confirmEmail: trimmedEmail, currentPassword: pw });
-      onDeleted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : m.settings_danger_delete_failed());
-    } finally {
-      setSubmitting(false);
-    }
+    deleteAccount.mutate(
+      { confirmEmail: trimmedEmail, currentPassword: pw },
+      {
+        onSuccess: onDeleted,
+        onError: (err) =>
+          setError(err instanceof Error ? err.message : m.settings_danger_delete_failed()),
+      },
+    );
   };
 
   return (
@@ -169,7 +167,7 @@ function DeleteAccountDialog({
             <DialogTitle>{m.settings_danger_delete_title()}</DialogTitle>
           </div>
         </DialogHeader>
-        <form id="delete-form" onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
+        <form id="delete-form" onSubmit={(e) => submit(e)} className="flex flex-col gap-3">
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-relaxed text-destructive">
             {m.settings_danger_delete_dialog_warning()}
           </p>
@@ -213,7 +211,7 @@ function DeleteAccountDialog({
             disabled={!canSubmit}
             data-testid="confirm-delete"
           >
-            {submitting
+            {deleteAccount.isPending
               ? m.settings_danger_delete_dialog_deleting()
               : m.settings_danger_delete_action()}
           </Button>

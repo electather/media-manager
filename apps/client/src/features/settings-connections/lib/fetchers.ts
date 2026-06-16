@@ -7,7 +7,6 @@ import type { MediaType } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { SettingsConnectionsApiError } from "./types";
-import { invariant } from "es-toolkit";
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, SettingsConnectionsApiError);
 
@@ -22,9 +21,12 @@ export async function fetchAvailablePlugins(): Promise<PluginSummary[]> {
 }
 
 export async function fetchTestConnection(id: string): Promise<{ ok: boolean; message?: string }> {
-  const body = await readJson(await api.connections[":id"].test.$post({ param: { id } }));
-  invariant(body.ok, body.message ?? "Test failed");
-  return body;
+  // Return the full { ok, message } result so that callers can distinguish
+  // between a successful test, a failed test (ok: false), and a transport
+  // error (thrown by readJson). This avoids embedding English fallback strings
+  // in the data layer and lets the mutation hook decide how to surface the
+  // connection's updated status regardless of the test outcome.
+  return readJson(await api.connections[":id"].test.$post({ param: { id } }));
 }
 
 export async function fetchToggleConnectionEnabled(input: {
