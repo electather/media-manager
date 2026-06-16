@@ -261,7 +261,13 @@ keyed by `clientIp`.
   - `components/invite-row.tsx` — extend/revoke via mutations; copy the
     server-returned `url`. The "resend" button label becomes "extend" — consistent
     with the backend endpoint name and avoids future confusion when email resend
-    lands (§9).
+    lands (§9). **Rename Paraglide message keys:** replace
+    `m.admin_users_invite_resend()` (button) and `m.admin_users_invite_toast_resented()`
+    (success toast) with new `admin_users_invite_extend` / `admin_users_invite_toast_extended`
+    keys in `apps/client/messages/admin/en.json` and `fa.json`.
+  - `components/users-list.tsx` — update the `isInviteActive(i, now)` call to
+    `isInviteActive(i)` (the `now` param is removed when the predicate simplifies
+    to `!invite.expired`).
   - `components/users-page.tsx` — `useInvitesMock` → `useAdminInvites`.
   - `lib/user-predicates.ts` — pending count derived from the real invite list.
     Update `isInviteActive` to `!invite.expired` — the server-computed `expired`
@@ -344,7 +350,10 @@ EDIT apps/client/src/features/admin-users/lib/types.ts                  (AdminIn
 EDIT apps/client/src/features/admin-users/lib/user-predicates.ts
 EDIT apps/client/src/features/admin-users/components/invite-drawer.tsx
 EDIT apps/client/src/features/admin-users/components/invite-row.tsx
+EDIT apps/client/src/features/admin-users/components/users-list.tsx        (isInviteActive call-site: drop now param)
 EDIT apps/client/src/features/admin-users/components/users-page.tsx
+EDIT apps/client/messages/admin/en.json                                    (rename resend→extend message keys)
+EDIT apps/client/messages/admin/fa.json                                    (rename resend→extend message keys)
 EDIT apps/client/src/routes/auth/invite.$token.tsx
 DEL  apps/client/src/features/admin-users/lib/invites-mock.ts
 ```
