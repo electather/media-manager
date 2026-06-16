@@ -23,18 +23,6 @@ export type CommandScope = null | "tv" | "movie";
  */
 export type PageRoute = "/" | "/library" | "/watchlist" | "/settings" | "/settings/connections";
 
-/**
- * Media item shape the command menu fuzzy-matches and renders. Layered on
- * top of the wire `CompactMediaItem` with optional client-side fields the
- * mock feed already supplies (tags, runtime, director, cast).
- */
-export type CommandMenuMediaItem = CompactMediaItem & {
-  tags?: string[];
-  runtime?: string;
-  director?: string;
-  cast?: string[];
-};
-
 export type ContributionKind = "page" | "action" | "search-mode" | "setting";
 
 type Base = {
@@ -101,7 +89,14 @@ export type ActionContext = {
   close: () => void;
 };
 
-export type MediaItem = CommandMenuMediaItem;
+/**
+ * Media item shape the command menu fuzzy-matches and renders. The wire
+ * `CompactMediaItem` provides all required fields including `tags?: string[]`.
+ * Fields like `runtime`, `director`, and `cast` are not returned by any live
+ * endpoint and were removed so the match function does not silently no-op on
+ * them in production.
+ */
+export type MediaItem = CompactMediaItem;
 
 /**
  * Typed error thrown by command-menu fetchers on non-2xx responses. Lets the

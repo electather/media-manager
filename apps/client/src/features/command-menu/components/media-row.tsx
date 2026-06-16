@@ -15,9 +15,7 @@ function mediaGenresLabel(item: MediaItem): string {
 }
 
 function mediaSubtitle(item: MediaItem): string {
-  return compact([item.year ? String(item.year) : null, mediaGenresLabel(item), item.runtime]).join(
-    " · ",
-  );
+  return compact([item.year ? String(item.year) : null, mediaGenresLabel(item)]).join(" · ");
 }
 
 function MediaThumb({ item }: { item: MediaItem }) {
