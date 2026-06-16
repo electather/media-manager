@@ -87,8 +87,8 @@ export function saveRoleMock(updated: RoleRecord) {
 export function createRoleMock(template?: Partial<RoleRecord>): RoleRecord {
   const next: RoleRecord = {
     id: randomId(),
-    name: template?.name ?? "New role",
-    description: template?.description ?? "Custom role.",
+    name: template?.name ?? m.admin_roles_default_new_name(),
+    description: template?.description ?? m.admin_roles_default_new_description(),
     isSystem: false,
     permissions: template?.permissions ?? [],
   };

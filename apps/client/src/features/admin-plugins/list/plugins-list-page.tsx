@@ -68,6 +68,9 @@ export function PluginsListPage() {
         query={query}
         onQueryChange={setQuery}
         counts={counts}
+        // Third-party plugin install requires the QuickJS sandbox, which is not
+        // yet available. Hide the CTA until the capability lands.
+        canInstall={false}
         onInstall={() => setInstallOpen(true)}
       />
 
