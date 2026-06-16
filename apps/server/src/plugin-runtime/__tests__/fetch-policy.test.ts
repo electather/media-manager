@@ -49,6 +49,36 @@ describe("buildFetch — static + dynamic allowlist", () => {
     const fetch = buildFetch("plug-case", [], new Set(["my.plex.box"]));
     await expect(fetch("https://My.Plex.Box/status")).resolves.toBeInstanceOf(Response);
   });
+
+  // The hard SSRF reject is the security fix of this PR: a blocked host must be
+  // rejected even when it appears in the static manifest allowlist (or a `*`
+  // allow-all), so the manifest can never opt out of the blocklist. Without
+  // these a future refactor silently reopens the loopback / IMDS hole.
+  it.each([
+    ["localhost", "http://localhost:8080/admin"],
+    ["169.254.169.254", "http://169.254.169.254/latest/meta-data/"],
+    // WHATWG URL normalisation turns these IPv4-mapped IPv6 hosts into their
+    // hex spelling (`[::ffff:7f00:1]`, `[::ffff:a9fe:a9fe]`); the blocklist
+    // must still catch them after the rewrite.
+    ["[::ffff:127.0.0.1]", "http://[::ffff:127.0.0.1]/"],
+    ["[::ffff:169.254.169.254]", "http://[::ffff:169.254.169.254]/latest"],
+  ])("rejects blocked host %s even when the static allowlist permits it", async (host, url) => {
+    const blockedFetch = buildFetch(`plug-block-${host}`, [host]);
+    await expect(blockedFetch(url)).rejects.toMatchObject({ code: "plugin.upstream_error" });
+    // A `*` allow-all manifest must not bypass the blocklist either.
+    const wildcardFetch = buildFetch(`plug-wild-${host}`, ["*"]);
+    await expect(wildcardFetch(url)).rejects.toMatchObject({ code: "plugin.upstream_error" });
+  });
+
+  it("never reaches the network for a blocked host (hard reject precedes fetch)", async () => {
+    const fetchSpy = vi.fn(async () => new Response("ok"));
+    vi.stubGlobal("fetch", fetchSpy);
+    const blockedFetch = buildFetch("plug-no-network", ["*"]);
+    await expect(blockedFetch("http://[::ffff:127.0.0.1]/")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("buildFetch — admin allowlist + headers", () => {
@@ -412,17 +442,53 @@ describe("isBlockedHostname", () => {
   });
 
   // Loopback: both IPv4 and IPv6, including the less-obvious IPv4-mapped
-  // IPv6 form that a naive string comparison would miss.
+  // IPv6 form that a naive string comparison would miss. The hex spelling
+  // (`::ffff:7f00:1`) is what WHATWG URL parsing actually emits from
+  // `http://[::ffff:127.0.0.1]/`, so it must block alongside the dotted form.
   it.each([
     ["localhost"],
     ["127.0.0.1"],
     ["127.1.2.3"],
     ["::1"],
     ["::ffff:127.0.0.1"],
+    ["::ffff:7f00:1"],
+    ["[::ffff:7f00:1]"],
     ["0.0.0.0"],
   ])("blocks loopback / unspecified %s", (hostname) => {
     expect(isBlockedHostname(hostname)).toBe(true);
   });
+
+  // IPv4-mapped IPv6 link-local in hex form — the IMDS endpoint
+  // `http://[::ffff:169.254.169.254]/` normalises to `[::ffff:a9fe:a9fe]`,
+  // which the embedded-IPv4 decode must route back through the link-local
+  // block (otherwise a `*` manifest reaches cloud metadata).
+  it.each([["::ffff:a9fe:a9fe"], ["::ffff:169.254.169.254"], ["[::ffff:a9fe:a9fe]"]])(
+    "blocks IPv4-mapped IPv6 link-local %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
+  // The embedded-IPv4 decode must also honour the exact-match blocklist:
+  // `::ffff:0.0.0.0` normalises to `[::ffff:0:0]` → `0.0.0.0`, which neither
+  // the loopback nor link-local predicate catches but BLOCKED_EXACT_HOSTNAMES
+  // does.
+  it.each([["::ffff:0:0"], ["::ffff:0.0.0.0"], ["[::ffff:0:0]"]])(
+    "blocks IPv4-mapped IPv6 unspecified %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
+  // Public and private addresses tunnelled through IPv4-mapped IPv6 must NOT
+  // be over-blocked — only loopback/link-local/unspecified octets are
+  // rejected. `8.8.8.8` → `::ffff:808:808`, `192.168.1.1` → `::ffff:c0a8:101`.
+  it.each([["::ffff:808:808"], ["::ffff:c0a8:101"]])(
+    "allows non-loopback IPv4-mapped IPv6 %s (by design)",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(false);
+    },
+  );
 
   // Link-local ranges outside the metadata block.
   it.each([["169.254.0.1"], ["169.254.200.200"], ["fe80::1"], ["fe80:0:0:0:0:0:0:1"]])(

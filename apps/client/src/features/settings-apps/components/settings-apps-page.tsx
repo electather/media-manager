@@ -6,7 +6,7 @@ import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { m } from "@/paraglide/messages";
 
 import { useAuthorizedApps } from "../hooks/use-authorized-apps";
-import { usePublicConfig } from "../hooks/use-public-config";
+import { usePublicConfig } from "@/features/settings";
 import { useRevokeAllAuthorizedApps } from "../hooks/use-revoke-all-authorized-apps";
 import { useRevokeAuthorizedApp } from "../hooks/use-revoke-authorized-app";
 import type { AuthorizedAppsFilter } from "../lib/types";
@@ -52,8 +52,16 @@ function SettingsAppsPage() {
     setConfirmRevokeAll(false);
     revokeAll.mutate(targets, {
       onSuccess: ({ count, failed }) => {
-        if (failed > 0) {
+        if (failed === count) {
+          // Every revoke failed — treat as a total failure.
           toast.error(m.settings_apps_toast_revoke_all_failed());
+          return;
+        }
+        if (failed > 0) {
+          // Partial success: surface how many succeeded and how many remain.
+          toast.warning(
+            m.settings_apps_toast_revoke_all_partial({ revoked: count - failed, count, failed }),
+          );
           return;
         }
         toast.success(m.settings_apps_toast_revoked_all({ count }));

@@ -5,13 +5,18 @@ vi.mock("../../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-const getMetadataMock = vi.fn();
+const getMetadataResultMock = vi.fn();
 class FakeMediaService {
-  async getMetadata(...args: unknown[]) {
-    return getMetadataMock(...args);
+  async getMetadataResult(...args: unknown[]) {
+    return getMetadataResultMock(...args);
   }
 }
 vi.mock("../../../media/service", () => ({ MediaService: FakeMediaService }));
+
+/** Wraps raw canonical data in the `AggregateResult` shape the job consumes. */
+function ok(data: unknown) {
+  return { data, errors: [], attempted: 1 };
+}
 
 const { cleanupInMemoryDbs, createInMemoryDb } =
   await import("../../../__tests__/helpers/in-memory-db");
@@ -38,11 +43,11 @@ function buildJobCtx(overrides: Partial<JobRunContext> = {}): JobRunContext {
 describe("host.catalog.metadata_refresh handler", () => {
   it("returns early when no rows are stale", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
-    getMetadataMock.mockReset();
+    getMetadataResultMock.mockReset();
 
     await runCatalogMetadataRefresh({ catalog }, buildJobCtx());
 
-    expect(getMetadataMock).not.toHaveBeenCalled();
+    expect(getMetadataResultMock).not.toHaveBeenCalled();
   });
 
   it("dispatches stale rows in batches and writes refreshed payloads back", async () => {
@@ -55,23 +60,25 @@ describe("host.catalog.metadata_refresh handler", () => {
     );
     await catalog.writeMetadata([stale]);
 
-    getMetadataMock.mockReset().mockResolvedValueOnce({
-      title: "Fight Club (refreshed)",
-      type: "movie",
-      year: 1999,
-      runtime: 139,
-      genres: ["Drama"],
-      keywords: ["dark"],
-      cast: ["Edward Norton"],
-      director: "David Fincher",
-      writers: ["Jim Uhls"],
-      ids: { tmdb_id: "550" },
-    });
+    getMetadataResultMock.mockReset().mockResolvedValueOnce(
+      ok({
+        title: "Fight Club (refreshed)",
+        type: "movie",
+        year: 1999,
+        runtime: 139,
+        genres: ["Drama"],
+        keywords: ["dark"],
+        cast: ["Edward Norton"],
+        director: "David Fincher",
+        writers: ["Jim Uhls"],
+        ids: { tmdb_id: "550" },
+      }),
+    );
 
     await runCatalogMetadataRefresh({ catalog }, buildJobCtx());
 
-    expect(getMetadataMock).toHaveBeenCalledOnce();
-    expect(getMetadataMock).toHaveBeenCalledWith("550", "movie");
+    expect(getMetadataResultMock).toHaveBeenCalledOnce();
+    expect(getMetadataResultMock).toHaveBeenCalledWith("550", "movie");
 
     const persisted = await catalog.getMetadata("550", "movie");
     expect(persisted?.title).toBe("Fight Club (refreshed)");
@@ -94,13 +101,13 @@ describe("host.catalog.metadata_refresh handler", () => {
 
     const aborter = new AbortController();
     aborter.abort(new Error("cancelled"));
-    getMetadataMock.mockReset().mockResolvedValue(null);
+    getMetadataResultMock.mockReset().mockResolvedValue(ok(null));
 
     await expect(
       runCatalogMetadataRefresh({ catalog }, buildJobCtx({ abortSignal: aborter.signal })),
     ).rejects.toThrow();
     // The signal is aborted before the loop runs, so `throwIfAborted` fires
     // on the first iteration before any dispatch can be issued.
-    expect(getMetadataMock).not.toHaveBeenCalled();
+    expect(getMetadataResultMock).not.toHaveBeenCalled();
   });
 });

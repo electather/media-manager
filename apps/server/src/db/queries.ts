@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { consola } from "consola";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb, type Db } from "./client";
 import { plugins, serviceConnections } from "./schema";
@@ -5,6 +7,44 @@ import { plugins, serviceConnections } from "./schema";
 export async function selectEnabledPlugins() {
   const db = getDb();
   return db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
+}
+
+/**
+ * Parses the stored `serviceConnections.userConfig` JSON text column. Returns
+ * `null` on a missing value or malformed JSON rather than propagating a raw
+ * `SyntaxError`, so a single corrupt row degrades to "no user config" instead
+ * of throwing a 500 across every read path (connections list, media dispatch,
+ * targeted dispatch, plugin jobs, MCP calls). `null` is already a valid value
+ * for these callers — a row that never had a userConfig produces the same
+ * result — so degrading to it is safe.
+ */
+export function parseUserConfig(raw: string | null | undefined, connectionId?: string): unknown {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (err) {
+    warnCorruptUserConfig(raw, err, connectionId);
+    return null;
+  }
+}
+
+/**
+ * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
+ * connection id pinpoints the row; we deliberately do NOT log the raw value
+ * because `x-private` fields live in `userConfig` as plaintext and an excerpt
+ * could leak one into the logs. A length + short content hash is enough to tell
+ * corrupt rows apart and confirm a re-occurrence without exposing any content.
+ */
+function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
+  const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")
+    .update(raw)
+    .digest("hex")
+    .slice(0, 8)}`;
+  consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
+    connectionId,
+    fingerprint,
+    error: err instanceof Error ? err.message : String(err),
+  });
 }
 
 export async function queryEnabledConnectionsForPlugin(db: Db, userId: string, pluginId: string) {

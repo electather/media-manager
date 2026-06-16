@@ -5,7 +5,7 @@ import type { ContinueWatchingEntry } from "@nama/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime";
 import type { RawCanonicalSource } from "../../catalog";
 import { resolveConnections } from "../internal/resolve-connection";
-import type { MatchingServer } from "../types";
+import type { AggregateResult, MatchingServer } from "../types";
 import * as aggregateReads from "./aggregate-reads";
 import * as homeFeeds from "./home-feeds";
 import type { DiscoverFeedFilters, RankedFeedOptions, SimilarFeedInput } from "./home-feeds";
@@ -85,6 +85,19 @@ export class MediaService {
     opts: { deadlineMs?: number } = {},
   ): Promise<RawCanonicalSource | null> {
     return metadata.getMetadata(this.userId, tmdbId, type, opts);
+  }
+
+  /**
+   * Same as `getMetadata` but returns the full `AggregateResult` so callers can
+   * distinguish a genuine upstream removal from a total provider outage — see
+   * `./metadata.ts`. Used by the nightly catalog metadata-refresh job.
+   */
+  async getMetadataResult(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts: { deadlineMs?: number } = {},
+  ): Promise<AggregateResult<RawCanonicalSource>> {
+    return metadata.getMetadataResult(this.userId, tmdbId, type, opts);
   }
 
   /** Typed `metadata@v1.getShowSeasons` wrapper — see `./metadata.ts`. */

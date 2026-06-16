@@ -266,11 +266,13 @@ Each row:
 
 ### Error states
 
-| Failure                          | Surface                                       |
-| -------------------------------- | --------------------------------------------- |
-| Fetch failure                    | Standard retry surface                        |
-| Revoke failure                   | Toast error; row stays. Tx = all-or-nothing   |
-| Concurrent revoke (already gone) | 404 → toast "Already revoked", list refetches |
+| Failure                          | Surface                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------- |
+| Fetch failure                    | Standard retry surface                                                           |
+| Revoke failure                   | Toast error; row stays. Tx = all-or-nothing                                      |
+| Bulk revoke — partial failure    | Toast warning: "Revoked {revoked} of {count} ({failed} failed)"; list refetches  |
+| Bulk revoke — total failure      | Toast error: "Failed to revoke all apps"                                         |
+| Concurrent revoke (already gone) | 404 → toast "Already revoked", list refetches                                    |
 
 ## Danger zone tab (`/settings/danger`)
 

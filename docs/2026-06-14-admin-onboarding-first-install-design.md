@@ -294,7 +294,7 @@ evaluates every descriptor, and returns the resolved list:
              { "id": "connect-services", "title": "Connect services", "applies": true, "required": true, "complete": false } ] }
 ```
 
-The **client** keeps only a presentational map `id → { Component }`
+The **client** keeps only a presentational map `id → { Component, title }`
 (`step-registry.ts`), renders the steps the server marked `applies`, and disables
 **Finish** while any server-marked `required && !complete` step remains. The client
 never evaluates role logic. Adding a member-facing step later means appending a
@@ -413,7 +413,7 @@ New feature folder `apps/client/src/features/onboarding/` (per
 - `components/` — `bootstrap-page.tsx`, `onboarding-wizard.tsx` (shell + stepper),
   `steps/welcome-step.tsx`, `steps/connect-services-step.tsx`,
   `steps/tmdb-key-form.tsx`.
-- `lib/` — `step-registry.ts` (presentational only: `id → { Component }`; the
+- `lib/` — `step-registry.ts` (presentational only: `id → { Component, title }`; the
   authoritative descriptor list + predicates live server-side), `fetchers.ts`,
   `query-keys.ts`, `types.ts`.
 - `hooks/` — `use-needs-bootstrap.ts` (reads `needsBootstrap` off the

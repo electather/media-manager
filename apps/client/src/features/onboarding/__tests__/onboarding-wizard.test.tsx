@@ -24,8 +24,11 @@ vi.mock("@/shared/lib/auth", () => ({ authClient: auth }));
 // boundary or the TMDB fetchers — those are not what this test asserts.
 vi.mock("../lib/step-registry", () => ({
   ONBOARDING_STEP_REGISTRY: {
-    welcome: { Component: () => <div data-testid="step-welcome" /> },
-    "connect-services": { Component: () => <div data-testid="step-connect" /> },
+    welcome: { Component: () => <div data-testid="step-welcome" />, title: () => "Welcome" },
+    "connect-services": {
+      Component: () => <div data-testid="step-connect" />,
+      title: () => "Connect services",
+    },
   },
 }));
 

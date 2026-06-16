@@ -177,10 +177,17 @@ function ConnectionsPage() {
   const onTest = (conn: ConnectionListItem) => {
     toast.message(m.settings_connections_toast_testing());
     test.mutate(conn.id, {
-      onSuccess: () =>
+      onSuccess: (result) => {
+        if (!result.ok) {
+          // The test ran but the connection reported unhealthy; the row will
+          // reconcile from the invalidation in onSettled.
+          toast.error(result.message ?? m.settings_connections_toast_test_failed());
+          return;
+        }
         toast.success(
           m.settings_connections_toast_test_ok({ name: conn.plugin.name ?? conn.plugin.id }),
-        ),
+        );
+      },
       onError: (err) => toast.error(err.message),
     });
   };
@@ -252,7 +259,7 @@ function ConnectionsPage() {
       </SettingsErrorBoundary>
       <ConnectionsListCard
         conns={conns}
-        plugins={plugins}
+        pluginsById={pluginsById}
         filtered={filtered}
         issueCount={issueCount}
         disabledCount={disabledCount}
@@ -290,7 +297,7 @@ function ConnectionsPage() {
 
 function ConnectionsListCard({
   conns,
-  plugins,
+  pluginsById,
   filtered,
   issueCount,
   disabledCount,
@@ -304,7 +311,7 @@ function ConnectionsListCard({
   onDisconnect,
 }: {
   conns: ReadonlyArray<ConnectionListItem>;
-  plugins: ReadonlyArray<PluginSummary>;
+  pluginsById: Record<string, PluginSummary>;
   filtered: ReadonlyArray<ConnectionListItem>;
   issueCount: number;
   disabledCount: number;
@@ -317,6 +324,16 @@ function ConnectionsListCard({
   onReconnect: (conn: ConnectionListItem) => void;
   onDisconnect: (conn: ConnectionListItem) => void;
 }) {
+  // Pre-compute sibling counts once per render instead of scanning the full
+  // list for every row — O(connections) total vs O(connections²).
+  const siblingCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const conn of conns) {
+      counts[conn.pluginId] = (counts[conn.pluginId] ?? 0) + 1;
+    }
+    return counts;
+  }, [conns]);
+
   return (
     <SettingsCard>
       <SettingsCardHeader
@@ -346,14 +363,13 @@ function ConnectionsListCard({
       ) : (
         <ul role="list" className="flex flex-col">
           {filtered.map((conn, i) => {
-            const plugin = plugins.find((p) => p.id === conn.pluginId) ?? conn.plugin;
-            const siblings = conns.filter((c) => c.pluginId === plugin.id);
+            const plugin = pluginsById[conn.pluginId] ?? conn.plugin;
             return (
               <ConnectionRow
                 key={conn.id}
                 conn={conn}
                 plugin={plugin}
-                hasSiblings={siblings.length > 1}
+                hasSiblings={(siblingCounts[conn.pluginId] ?? 0) > 1}
                 isFirst={i === 0}
                 onTest={() => onTest(conn)}
                 onSetDefault={() => onSetDefault(conn)}
@@ -651,6 +667,13 @@ function CatalogCard({
   connections: ReadonlyArray<ConnectionListItem>;
   onAdd: (plugin: PluginSummary) => void;
 }) {
+  // Precompute the set of connected plugin IDs so the map below is O(plugins)
+  // instead of O(plugins * connections).
+  const connectedPluginIds = useMemo(
+    () => new Set(connections.map((c) => c.pluginId)),
+    [connections],
+  );
+
   return (
     <SettingsCard>
       <SettingsCardHeader
@@ -659,7 +682,7 @@ function CatalogCard({
       />
       <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
         {plugins.map((plugin) => {
-          const hasInstance = connections.some((c) => c.pluginId === plugin.id);
+          const hasInstance = connectedPluginIds.has(plugin.id);
           const canAdd = !hasInstance || plugin.poolable;
           const cta = !canAdd
             ? m.settings_connections_catalog_connected()
@@ -676,7 +699,9 @@ function CatalogCard({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{plugin.name}</p>
                   <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80">
-                    {plugin.poolable ? "Multi" : "Single"}
+                    {plugin.poolable
+                      ? m.settings_connections_catalog_multi()
+                      : m.settings_connections_catalog_single()}
                   </p>
                 </div>
               </div>

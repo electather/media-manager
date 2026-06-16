@@ -4,6 +4,7 @@ import { getCatalogService } from "../catalog";
 import { MediaService, StatusBatchMemo } from "../media";
 import * as layoutCache from "./internal/layout-cache";
 import { composeLayoutLive } from "./internal/layout";
+import { makeRecommendationsMemo } from "./internal/recommendations-memo";
 import type { RowContext } from "./internal/types";
 
 export { composeSeasonAvailability } from "./internal/season-availability";
@@ -33,11 +34,13 @@ export function buildContext(
   opts: { deadlineMs?: number } = {},
 ): RowContext {
   const mediaService = new MediaService(userId);
+  const catalog = getCatalogService();
   return {
     userId,
     mediaService,
-    catalog: getCatalogService(),
+    catalog,
     statusBatch: new StatusBatchMemo(mediaService),
+    recommendations: makeRecommendationsMemo(catalog, userId),
     logger,
     deadlineMs: opts.deadlineMs ?? Date.now() + DEFAULT_DEADLINE_MS,
   };

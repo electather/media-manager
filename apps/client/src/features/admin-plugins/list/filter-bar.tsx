@@ -22,6 +22,8 @@ interface FilterBarProps {
   query: string;
   onQueryChange: (value: string) => void;
   counts: FilterCounts;
+  /** When false the Install CTA is hidden — third-party install requires the sandbox. */
+  canInstall: boolean;
   onInstall: () => void;
 }
 
@@ -31,6 +33,7 @@ export function FilterBar({
   query,
   onQueryChange,
   counts,
+  canInstall,
   onInstall,
 }: FilterBarProps) {
   const chips: ReadonlyArray<{ id: PluginListFilter; label: string }> = [
@@ -85,9 +88,11 @@ export function FilterBar({
           />
         </InputGroup>
       </div>
-      <Button size="sm" onClick={onInstall}>
-        <PlusIcon /> {m.admin_plugins_install_cta()}
-      </Button>
+      {canInstall ? (
+        <Button size="sm" onClick={onInstall}>
+          <PlusIcon /> {m.admin_plugins_install_cta()}
+        </Button>
+      ) : null}
     </div>
   );
 }

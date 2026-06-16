@@ -1,6 +1,6 @@
 import type { ResolvedCapabilityScope } from "@nama/plugin-sdk";
 import { getDb } from "../../db/client";
-import { queryEnabledConnectionsForPlugin } from "../../db/queries";
+import { parseUserConfig, queryEnabledConnectionsForPlugin } from "../../db/queries";
 import { decryptField } from "../../crypto/helpers";
 import { sharedCredentialsService } from "../../plugin-runtime";
 
@@ -60,7 +60,7 @@ export async function resolveConnections(
       connectionId: row.id,
       isDefault: row.isDefault === 1,
       credentials: await decryptField(row.credentialsIv, row.encryptedCredentials),
-      userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
+      userConfig: parseUserConfig(row.userConfig, row.id),
     });
   }
   if (userConnections.length > 0) return userConnections;

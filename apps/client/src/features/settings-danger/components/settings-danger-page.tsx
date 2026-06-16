@@ -15,7 +15,7 @@ import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/shared/components/settings-page-header";
-import { SettingsActionRow, SettingsCard, deleteAccount } from "@/features/settings";
+import { SettingsActionRow, SettingsCard, useDeleteAccount } from "@/features/settings";
 
 export function SettingsDangerRoute() {
   return (
@@ -35,6 +35,7 @@ function DangerPage() {
 
   const startExport = () => {
     setExportLocked(true);
+    // Anchor-nav, not fetch: browser streams the ZIP. Silent failure by design — see design doc L312.
     triggerAnchorDownload("/api/me/export");
     toast.success(m.settings_danger_toast_export_started());
     window.setTimeout(() => setExportLocked(false), 1000);
@@ -118,51 +119,41 @@ function DeleteAccountDialog({
   email,
   onClose,
   onDeleted,
-  onSubmit,
 }: {
   open: boolean;
   email: string;
   onClose: () => void;
   onDeleted: () => void;
-  /** Optional override used by tests; default path calls the API. */
-  onSubmit?: (input: { confirmEmail: string; currentPassword: string }) => Promise<void>;
 }) {
+  const deleteAccount = useDeleteAccount();
   const [typed, setTyped] = useState("");
   const [pw, setPw] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setTyped("");
       setPw("");
       setError(null);
-      setSubmitting(false);
     }
   }, [open]);
 
   const trimmedEmail = trim(typed);
   const emailMatches = trimmedEmail.toLowerCase() === email.toLowerCase();
-  const canSubmit = emailMatches && pw.length > 0 && !submitting && email.length > 0;
+  const canSubmit = emailMatches && pw.length > 0 && !deleteAccount.isPending && email.length > 0;
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    setSubmitting(true);
     setError(null);
-    try {
-      const body = { confirmEmail: trimmedEmail, currentPassword: pw };
-      if (onSubmit) {
-        await onSubmit(body);
-      } else {
-        await deleteAccount(body);
-      }
-      onDeleted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : m.settings_danger_delete_failed());
-    } finally {
-      setSubmitting(false);
-    }
+    deleteAccount.mutate(
+      { confirmEmail: trimmedEmail, currentPassword: pw },
+      {
+        onSuccess: onDeleted,
+        onError: (err) =>
+          setError(err instanceof Error ? err.message : m.settings_danger_delete_failed()),
+      },
+    );
   };
 
   return (
@@ -176,7 +167,7 @@ function DeleteAccountDialog({
             <DialogTitle>{m.settings_danger_delete_title()}</DialogTitle>
           </div>
         </DialogHeader>
-        <form id="delete-form" onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
+        <form id="delete-form" onSubmit={(e) => submit(e)} className="flex flex-col gap-3">
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-relaxed text-destructive">
             {m.settings_danger_delete_dialog_warning()}
           </p>
@@ -220,7 +211,7 @@ function DeleteAccountDialog({
             disabled={!canSubmit}
             data-testid="confirm-delete"
           >
-            {submitting
+            {deleteAccount.isPending
               ? m.settings_danger_delete_dialog_deleting()
               : m.settings_danger_delete_action()}
           </Button>
@@ -239,7 +230,6 @@ interface RevealInputProps {
   onChange: (next: string) => void;
   placeholder?: string;
   autoComplete?: string;
-  autoFocus?: boolean;
   ariaInvalid?: boolean;
   "data-testid"?: string;
 }
@@ -254,7 +244,6 @@ function RevealInput(props: RevealInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={rest.autoComplete}
-        autoFocus={rest.autoFocus}
         placeholder={rest.placeholder}
         aria-invalid={rest.ariaInvalid ? true : undefined}
         data-testid={rest["data-testid"]}
@@ -263,7 +252,11 @@ function RevealInput(props: RevealInputProps) {
       <button
         type="button"
         onClick={() => setShown((s) => !s)}
-        aria-label={shown ? "Hide password" : "Show password"}
+        aria-label={
+          shown
+            ? m.settings_danger_reauth_password_hide()
+            : m.settings_danger_reauth_password_show()
+        }
         className="absolute inset-y-0 right-1 flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
       >
         {shown ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}

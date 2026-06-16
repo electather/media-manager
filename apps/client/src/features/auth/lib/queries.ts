@@ -17,4 +17,8 @@ export const trendingPostersQueryOptions = (limit: number) =>
     // Decorative background art with a placeholder fallback, so a slow or failing
     // feed never matters — one retry is plenty, rather than ~30s of default retries.
     retry: 1,
+    // Suppress background refetches for purely decorative data to avoid unnecessary
+    // load on the public endpoint when the user returns to or reconnects on the page.
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });

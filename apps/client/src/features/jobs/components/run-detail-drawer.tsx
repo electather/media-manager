@@ -4,9 +4,11 @@ import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/shared/ui/alert";
 import { TriangleAlertIcon, Logs } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import type { JobRunSummary, JobHandle } from "@nama/shared/jobs";
 import { LogViewerFilterable, type LogEntry } from "@/shared/components/log-viewer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
+import { MetaRow } from "./meta-row";
 
 const RAW_LOG_CLASS =
   "bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border";
@@ -19,8 +21,8 @@ function RunLogs({ run }: { run: JobRunSummary }) {
           <EmptyMedia variant="icon">
             <Logs />
           </EmptyMedia>
-          <EmptyTitle>No Logs captured</EmptyTitle>
-          <EmptyDescription>This job run has no logs.</EmptyDescription>
+          <EmptyTitle>{m.admin_jobs_run_detail_logs_empty_title()}</EmptyTitle>
+          <EmptyDescription>{m.admin_jobs_run_detail_logs_empty_description()}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -48,15 +50,6 @@ function RunLogs({ run }: { run: JobRunSummary }) {
   }
 
   return <pre className={RAW_LOG_CLASS}>{run.logs}</pre>;
-}
-
-function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
-      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
-      <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
-    </div>
-  );
 }
 
 // fallow-ignore-next-line complexity
@@ -88,8 +81,8 @@ export function RunDetailDrawer({
           <Tabs defaultValue="details" className="flex flex-col flex-1 min-h-0">
             <div className="px-6 py-2 border-b border-border shrink-0">
               <TabsList>
-                <TabsTrigger value="details">Details</TabsTrigger>
-                <TabsTrigger value="logs">Logs</TabsTrigger>
+                <TabsTrigger value="details">{m.admin_jobs_run_detail_tab_details()}</TabsTrigger>
+                <TabsTrigger value="logs">{m.admin_jobs_run_detail_tab_logs()}</TabsTrigger>
               </TabsList>
             </div>
 
@@ -97,27 +90,52 @@ export function RunDetailDrawer({
               <TabsContent value="details" className="p-6 m-0 outline-none">
                 <div className="flex flex-col gap-4">
                   <div className="overflow-hidden rounded-lg border border-border text-xs">
-                    <MetaRow label="Status" value={run.status} />
-                    <MetaRow label="Triggered by" value={run.triggeredBy} />
-                    <MetaRow label="Request ID" value={run.requestId} mono />
-                    {run.scopeKey && <MetaRow label="Target (Scope)" value={run.scopeKey} mono />}
-                    <MetaRow label="Started at" value={new Date(run.startedAt).toLocaleString()} />
+                    <MetaRow label={m.admin_jobs_run_detail_meta_status()} value={run.status} />
+                    <MetaRow
+                      label={m.admin_jobs_run_detail_meta_triggered_by()}
+                      value={run.triggeredBy}
+                    />
+                    <MetaRow
+                      label={m.admin_jobs_run_detail_meta_request_id()}
+                      value={run.requestId}
+                      mono
+                    />
+                    {run.scopeKey && (
+                      <MetaRow
+                        label={m.admin_jobs_run_detail_meta_target()}
+                        value={run.scopeKey}
+                        mono
+                      />
+                    )}
+                    <MetaRow
+                      label={m.admin_jobs_run_detail_meta_started_at()}
+                      value={new Date(run.startedAt).toLocaleString()}
+                    />
                     {run.finishedAt && (
                       <MetaRow
-                        label="Finished at"
+                        label={m.admin_jobs_run_detail_meta_finished_at()}
                         value={new Date(run.finishedAt).toLocaleString()}
                       />
                     )}
                     {run.durationMs != null && (
-                      <MetaRow label="Duration" value={`${run.durationMs}ms`} />
+                      <MetaRow
+                        label={m.admin_jobs_run_detail_meta_duration()}
+                        value={`${run.durationMs}ms`}
+                      />
                     )}
                     {run.errorRecordId && (
-                      <MetaRow label="Error Record ID" value={run.errorRecordId} mono />
+                      <MetaRow
+                        label={m.admin_jobs_run_detail_meta_error_record_id()}
+                        value={run.errorRecordId}
+                        mono
+                      />
                     )}
                   </div>
                   {run.result && (
                     <div className="flex flex-col gap-2">
-                      <h4 className="text-sm font-medium">Result</h4>
+                      <h4 className="text-sm font-medium">
+                        {m.admin_jobs_run_detail_result_heading()}
+                      </h4>
                       <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border">
                         {run.result}
                       </pre>
@@ -130,10 +148,11 @@ export function RunDetailDrawer({
                 {run.logsTruncated && run.logsTruncated > 0 ? (
                   <Alert variant="destructive">
                     <TriangleAlertIcon className="size-4" />
-                    <AlertTitle>Logs Truncated</AlertTitle>
+                    <AlertTitle>{m.admin_jobs_run_detail_logs_truncated_title()}</AlertTitle>
                     <AlertDescription>
-                      {run.logsTruncated} log entries were truncated because the buffer exceeded its
-                      limits.
+                      {m.admin_jobs_run_detail_logs_truncated_description({
+                        count: run.logsTruncated,
+                      })}
                     </AlertDescription>
                   </Alert>
                 ) : null}

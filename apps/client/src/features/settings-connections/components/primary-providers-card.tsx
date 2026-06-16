@@ -175,9 +175,11 @@ function PrimaryProviderRow({
     return conn ? connectionLabel(conn) : m.settings_connections_primary_auto_option();
   };
 
+  const mutating = setPrimary.isPending || clearPrimary.isPending;
+
   return (
     <SettingsCardRow label={row.labelMessage()} borderTop={borderTop}>
-      <Select value={selectValue} onValueChange={onValueChange}>
+      <Select value={selectValue} onValueChange={onValueChange} disabled={mutating}>
         <SelectTrigger size="sm" aria-label={row.labelMessage()} className="w-full sm:w-72">
           <SelectValue>{(value: string) => renderTriggerLabel(value)}</SelectValue>
         </SelectTrigger>

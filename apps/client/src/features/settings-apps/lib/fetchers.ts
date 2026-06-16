@@ -7,8 +7,6 @@ import { SettingsAppsApiError } from "./types";
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, SettingsAppsApiError);
 
-export { fetchPublicConfig } from "@/features/settings/shared/fetchers";
-
 export async function fetchAuthorizedApps(): Promise<AuthorizedApp[]> {
   return await readJson(await api.me.apps.$get());
 }

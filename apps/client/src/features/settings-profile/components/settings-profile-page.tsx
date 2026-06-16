@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { trim } from "es-toolkit/string";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -148,7 +149,7 @@ export function NameRow({
   const trimmed = trim(draft);
   const dirty = trimmed.length > 0 && trimmed !== currentName;
 
-  const save = async () => {
+  const save = useCallback(async () => {
     if (!dirty) return;
     setSubmitting(true);
     try {
@@ -156,7 +157,8 @@ export function NameRow({
         await onSave(trimmed);
       } else {
         const result = await authClient.updateUser({ name: trimmed });
-        if (result.error) throw new Error(result.error.message ?? "Update failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_name_failed());
       }
       // Better Auth's `useSession` is reactive and refreshes on its own after
       // `updateUser`, so the only React Query data tied to the user identity
@@ -169,12 +171,17 @@ export function NameRow({
     } finally {
       setSubmitting(false);
     }
-  };
-  const discard = () => setDraft(currentName);
+  }, [dirty, trimmed, onSave, qc]);
+
+  const discard = useCallback(() => setDraft(currentName), [currentName]);
+
+  // Stable reference for useSettingsDirty so its effect doesn't re-run on
+  // unrelated parent re-renders; save itself already tracks dirty and trimmed.
+  const handleSave = useCallback(() => void save(), [save]);
 
   useSettingsDirty("profile-name", dirty, {
     label: m.settings_profile_dirty_name(),
-    onSave: () => void save(),
+    onSave: handleSave,
     onDiscard: discard,
   });
 
@@ -237,6 +244,14 @@ export function EmailRow({
 
   const submit = () => {
     if (!dirty) return;
+    // Validate the draft email format on the client before opening the confirm
+    // dialog so the user sees an error immediately rather than after a round
+    // trip. z.email() reuses the same pattern as the shared DeleteAccountBody
+    // schema, keeping validation consistent across the app.
+    if (!z.email().safeParse(trimmedDraft).success) {
+      setError(m.settings_profile_email_invalid());
+      return;
+    }
     setError(null);
     setConfirmOpen(true);
   };
@@ -251,7 +266,8 @@ export function EmailRow({
         const result = await authClient.changeEmail(
           emailEnabled ? { newEmail: next, callbackURL: "/settings/profile" } : { newEmail: next },
         );
-        if (result.error) throw new Error(result.error.message ?? "Email change failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_email_failed());
       }
       setConfirmOpen(false);
       // Better Auth refreshes the active session reactively; nothing in the
@@ -263,7 +279,7 @@ export function EmailRow({
           : m.settings_profile_toast_email_updated(),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      setError(err instanceof Error ? err.message : m.settings_profile_toast_email_failed());
     } finally {
       setSubmitting(false);
     }
@@ -424,6 +440,7 @@ function RoleRow() {
 
 // ─── Verify banner ──────────────────────────────────────────────────────────
 
+// Cooldown is per-session only (no persistence) per design doc §Profile tab.
 const VERIFICATION_COOLDOWN_SECONDS = 60;
 
 export function VerifyBanner({
@@ -450,12 +467,15 @@ export function VerifyBanner({
         await onResend();
       } else {
         const result = await authClient.sendVerificationEmail({ email });
-        if (result.error) throw new Error(result.error.message ?? "Send failed");
+        if (result.error)
+          throw new Error(result.error.message ?? m.settings_profile_toast_verification_failed());
       }
       setCooldown(VERIFICATION_COOLDOWN_SECONDS);
       toast.success(m.settings_profile_toast_verification_sent());
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(
+        err instanceof Error ? err.message : m.settings_profile_toast_verification_failed(),
+      );
     } finally {
       setSubmitting(false);
     }

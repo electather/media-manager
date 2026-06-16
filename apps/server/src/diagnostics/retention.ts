@@ -22,6 +22,11 @@ export interface AppConfigRow {
   perfRetentionDays: number;
 }
 
+export interface NotificationRetentionRow {
+  inboxRetentionDays: number;
+  deliveryRetentionDays: number;
+}
+
 export interface SweepResult {
   errors: number;
   perf: number;
@@ -132,6 +137,107 @@ async function pruneSourcemaps(): Promise<number> {
     .where(notInArray(sourcemaps.buildId, keepIds))
     .returning({ id: sourcemaps.id });
   return deleted.length;
+}
+
+const DEFAULT_INBOX_RETENTION_DAYS = 90;
+const DEFAULT_DELIVERY_RETENTION_DAYS = 30;
+const MIN_NOTIFICATION_RETENTION_DAYS = 1;
+const MAX_NOTIFICATION_RETENTION_DAYS = 3650;
+
+function clampNotificationRetention(days: number): number {
+  return Math.max(
+    MIN_NOTIFICATION_RETENTION_DAYS,
+    Math.min(MAX_NOTIFICATION_RETENTION_DAYS, Math.floor(days)),
+  );
+}
+
+/** Clamps each provided window and drops the ones the caller omitted, so the
+ *  upsert's `set` touches only the columns actually being changed. */
+function clampNotificationPatch(input: {
+  inboxRetentionDays?: number;
+  deliveryRetentionDays?: number;
+}): { inboxRetentionDays?: number; deliveryRetentionDays?: number } {
+  const patch: { inboxRetentionDays?: number; deliveryRetentionDays?: number } = {};
+  if (input.inboxRetentionDays !== undefined) {
+    patch.inboxRetentionDays = clampNotificationRetention(input.inboxRetentionDays);
+  }
+  if (input.deliveryRetentionDays !== undefined) {
+    patch.deliveryRetentionDays = clampNotificationRetention(input.deliveryRetentionDays);
+  }
+  return patch;
+}
+
+/**
+ * Reads (and if missing, seeds) the notification retention columns from the
+ * global app_config row. The notifications module routes all app_config access
+ * through this function so diagnostics owns the single-row contract.
+ */
+export async function getNotificationRetention(): Promise<NotificationRetentionRow> {
+  const db = getDb();
+  const now = Date.now();
+  const row = await db.select().from(appConfig).get();
+  if (row) {
+    return {
+      inboxRetentionDays: row.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: row.deliveryRetentionDays ?? DEFAULT_DELIVERY_RETENTION_DAYS,
+    };
+  }
+  await db
+    .insert(appConfig)
+    .values({
+      id: APP_CONFIG_ID,
+      errorRetentionDays: DEFAULT_ERROR_RETENTION_DAYS,
+      perfRetentionDays: DEFAULT_PERF_RETENTION_DAYS,
+      inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  return {
+    inboxRetentionDays: DEFAULT_INBOX_RETENTION_DAYS,
+    deliveryRetentionDays: DEFAULT_DELIVERY_RETENTION_DAYS,
+  };
+}
+
+/**
+ * Updates the notification inbox and/or delivery retention windows, clamped to
+ * [1, 3650] days each. The seed + update pair is combined into a single
+ * `onConflictDoUpdate` whose `set` touches only the columns the caller actually
+ * passed, so concurrent admin PUTs serialize on the single-row primary key and a
+ * PATCH of one window never clobbers the other from a stale snapshot.
+ */
+export async function setNotificationRetention(input: {
+  inboxRetentionDays?: number;
+  deliveryRetentionDays?: number;
+}): Promise<NotificationRetentionRow> {
+  const db = getDb();
+  const now = Date.now();
+  const patch = clampNotificationPatch(input);
+  const [row] = await db
+    .insert(appConfig)
+    .values({
+      id: APP_CONFIG_ID,
+      errorRetentionDays: DEFAULT_ERROR_RETENTION_DAYS,
+      perfRetentionDays: DEFAULT_PERF_RETENTION_DAYS,
+      inboxRetentionDays: patch.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
+      deliveryRetentionDays: patch.deliveryRetentionDays ?? DEFAULT_DELIVERY_RETENTION_DAYS,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: appConfig.id,
+      set: { ...patch, updatedAt: now },
+    })
+    .returning({
+      inboxRetentionDays: appConfig.inboxRetentionDays,
+      deliveryRetentionDays: appConfig.deliveryRetentionDays,
+    });
+  // A single-row upsert always returns exactly one row; guard so a silent schema
+  // or driver change surfaces loudly instead of returning stale defaults.
+  if (!row) throw new Error("setNotificationRetention: upsert returned no row");
+  return {
+    inboxRetentionDays: row.inboxRetentionDays,
+    deliveryRetentionDays: row.deliveryRetentionDays,
+  };
 }
 
 /** Deletes diagnostic records older than the configured retention windows and

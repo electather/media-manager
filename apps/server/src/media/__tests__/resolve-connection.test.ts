@@ -16,10 +16,18 @@ const decryptFieldMock = vi.fn();
 const listDecryptedActiveMock = vi.fn();
 
 vi.mock("../../db/client", () => ({ getDb: () => ({}) }));
-vi.mock("../../db/queries", () => ({
-  queryEnabledConnectionsForPlugin: (...args: unknown[]) =>
-    queryEnabledConnectionsForPluginMock(...args),
-}));
+vi.mock("../../db/queries", async (importActual) => {
+  // Re-use the real parseUserConfig so this integration test never drifts from
+  // the helper's edge-case behavior (its own contract is unit-tested in
+  // db/__tests__/parse-user-config.test.ts). `db/client` is mocked above, so
+  // importing the real module does not pull in env validation.
+  const actual = await importActual<typeof import("../../db/queries")>();
+  return {
+    parseUserConfig: actual.parseUserConfig,
+    queryEnabledConnectionsForPlugin: (...args: unknown[]) =>
+      queryEnabledConnectionsForPluginMock(...args),
+  };
+});
 vi.mock("../../crypto/helpers", () => ({
   decryptField: (...args: unknown[]) => decryptFieldMock(...args),
 }));

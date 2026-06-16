@@ -1,15 +1,15 @@
+import type { AuthorizedAppStatus } from "@nama/shared/users";
+
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-export type AppStatus = "active" | "idle" | "new";
-
 interface ActivityPillProps {
-  status: AppStatus;
+  status: AuthorizedAppStatus;
   className?: string;
 }
 
 const TONE: Record<
-  AppStatus,
+  AuthorizedAppStatus,
   { dot: string; bg: string; text: string; border: string; pulse: boolean }
 > = {
   active: {

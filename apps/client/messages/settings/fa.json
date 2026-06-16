@@ -90,7 +90,10 @@
   "settings_profile_toast_name_failed": "به‌روزرسانی نام انجام نشد",
   "settings_profile_toast_email_verification_sent": "پیوند تأیید به آدرس جدید ارسال شد",
   "settings_profile_toast_email_updated": "ایمیل به‌روزرسانی شد",
+  "settings_profile_toast_email_failed": "تغییر ایمیل انجام نشد",
   "settings_profile_toast_verification_sent": "ایمیل تأیید ارسال شد",
+  "settings_profile_toast_verification_failed": "ارسال ایمیل تأیید انجام نشد",
+  "settings_profile_email_invalid": "یک آدرس ایمیل معتبر وارد کنید.",
 
   "settings_security_title": "امنیت",
   "settings_security_description": "گذرواژه و نشست‌های فعال.",
@@ -124,6 +127,7 @@
   "settings_security_sessions_revoke": "لغو",
   "settings_security_sessions_signed_in": "ورود {time}",
   "settings_security_sessions_last_active": "آخرین فعالیت {time}",
+  "settings_security_sessions_user_agent": "عامل کاربر: {agent}",
   "settings_security_sessions_empty": "نشست فعالی یافت نشد.",
   "settings_security_revoke_dialog_title": "این نشست را لغو می‌کنید؟",
   "settings_security_revoke_dialog_body": "دستگاه {device} بلافاصله خارج می‌شود.",
@@ -174,6 +178,8 @@
   "settings_connections_empty_description": "سرورهای رسانه و منابع متادیتای خود را در زیر متصل کنید.",
   "settings_connections_catalog_title": "آماده برای افزودن",
   "settings_connections_catalog_description": "این اتصال‌ها خصوصی هستند. کانال‌های اعلان در صفحه دیگری قرار دارند.",
+  "settings_connections_catalog_multi": "چندگانه",
+  "settings_connections_catalog_single": "تکی",
   "settings_connections_catalog_connect": "اتصال",
   "settings_connections_catalog_connected": "متصل",
   "settings_connections_catalog_add_another": "افزودن یکی دیگر",
@@ -186,6 +192,7 @@
   "settings_connections_toast_enabled": "اتصال فعال شد",
   "settings_connections_toast_testing": "در حال تست اتصال…",
   "settings_connections_toast_test_ok": "{name} · موفق",
+  "settings_connections_toast_test_failed": "تست اتصال ناموفق بود.",
   "settings_connections_primary_section_title": "ارائه‌دهنده اصلی فراداده",
   "settings_connections_primary_section_description": "انتخاب کنید کدام اتصال جزئیات هر نوع رسانه را تأمین کند. اتصال‌های دیگر فقط فیلدهای جاافتاده را پر می‌کنند.",
   "settings_connections_primary_movies_label": "فیلم‌ها",
@@ -310,6 +317,7 @@
   "settings_apps_revoke_all_dialog_confirm": "لغو همه",
   "settings_apps_toast_revoked": "دسترسی برای {name} لغو شد.",
   "settings_apps_toast_revoked_all": "{count} کلاینت لغو شد",
+  "settings_apps_toast_revoke_all_partial": "{revoked} از {count} کلاینت لغو شد؛ {failed} لغو نشد.",
   "settings_apps_toast_revoke_all_failed": "لغو همهٔ کلاینت‌ها انجام نشد؛ ممکن است برخی باقی بمانند.",
 
   "settings_danger_title": "منطقه خطر",
@@ -329,5 +337,7 @@
   "settings_danger_dialog_cancel": "انصراف",
   "settings_danger_toast_export_started": "برون‌بری شروع شد — دانلودها را بررسی کنید",
   "settings_danger_toast_account_deleted": "حساب حذف شد — در حال خروج",
-  "settings_danger_delete_failed": "حذف حساب انجام نشد."
+  "settings_danger_delete_failed": "حذف حساب انجام نشد.",
+  "settings_danger_reauth_password_show": "نمایش گذرواژه",
+  "settings_danger_reauth_password_hide": "پنهان‌سازی گذرواژه"
 }

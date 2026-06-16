@@ -165,6 +165,18 @@
   ],
   "admin_roles_badge_system": "System",
   "admin_roles_badge_all_perms": "All permissions",
+  "admin_roles_row_perms_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} permission",
+        "countPlural=other": "{count} permissions"
+      }
+    }
+  ],
+  "admin_roles_default_new_name": "New role",
+  "admin_roles_default_new_description": "Custom role.",
   "admin_roles_seed_admin_name": "Admin",
   "admin_roles_seed_admin_description": "Full server access. Bypasses every permission check.",
   "admin_roles_seed_member_name": "Member",
@@ -195,6 +207,8 @@
   "admin_roles_detail_label_description": "Description",
   "admin_roles_perm_group_none": "None",
   "admin_roles_perm_group_all": "All",
+  "admin_roles_perm_group_scope_aria": "{scope} scope permissions",
+  "admin_roles_perm_grant_aria": "Grant {key}",
   "admin_roles_detail_members_section_title": "Members ({count})",
   "admin_roles_detail_members_section_empty": "No users currently have this role.",
   "admin_roles_detail_members_section_subtitle": "Users with this role today.",
@@ -484,5 +498,34 @@
   "admin_plugins_toast_config_error": "Couldn't save configuration",
   "admin_plugins_toast_fallback_saved": "Fallback policy updated",
   "admin_plugins_toast_fallback_error": "Couldn't update fallback policy",
-  "admin_plugins_toast_toggle_error": "Couldn't update plugin"
+  "admin_plugins_toast_toggle_error": "Couldn't update plugin",
+
+  "admin_jobs_trigger_dialog_title_result": "Job started",
+  "admin_jobs_trigger_dialog_title_run": "Run job",
+  "admin_jobs_trigger_dialog_dispatched": "Job dispatched successfully.",
+  "admin_jobs_trigger_dialog_schedule_bypass": "This will immediately start a new run of {jobId}, bypassing its schedule.",
+  "admin_jobs_trigger_dialog_starting": "Starting…",
+  "admin_jobs_trigger_dialog_run_now": "Run now",
+  "admin_jobs_trigger_dialog_done": "Done",
+  "admin_jobs_trigger_dialog_cancel": "Cancel",
+  "admin_jobs_trigger_field_required_error": "This field is required",
+
+  "admin_jobs_run_detail_tab_details": "Details",
+  "admin_jobs_run_detail_tab_logs": "Logs",
+  "admin_jobs_run_detail_result_heading": "Result",
+  "admin_jobs_run_detail_meta_status": "Status",
+  "admin_jobs_run_detail_meta_triggered_by": "Triggered by",
+  "admin_jobs_run_detail_meta_request_id": "Request ID",
+  "admin_jobs_run_detail_meta_target": "Target (Scope)",
+  "admin_jobs_run_detail_meta_started_at": "Started at",
+  "admin_jobs_run_detail_meta_finished_at": "Finished at",
+  "admin_jobs_run_detail_meta_duration": "Duration",
+  "admin_jobs_run_detail_meta_error_record_id": "Error Record ID",
+  "admin_jobs_run_detail_meta_run_id": "Run ID",
+  "admin_jobs_run_detail_logs_empty_title": "No logs captured",
+  "admin_jobs_run_detail_logs_empty_description": "This job run has no logs.",
+  "admin_jobs_run_detail_logs_truncated_title": "Logs truncated",
+  "admin_jobs_run_detail_logs_truncated_description": "{count} log entries were truncated because the buffer exceeded its limits.",
+
+  "jobs_trigger_error_generic": "Job trigger failed."
 }

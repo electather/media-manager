@@ -62,15 +62,14 @@ describe("useRecentItems", () => {
   });
 
   it("persists a minimal versioned snapshot", () => {
+    // Verifies that only the fields the snapshot function whitelists are stored —
+    // extra properties (tags, non-snapshot fields) are silently dropped.
     const { result } = renderHook(() => useRecentItems());
     act(() =>
       result.current.pushRecent({
         ...makeItem("movie:a"),
         backdrop: "https://example.test/backdrop.jpg",
-        cast: ["Actor"],
-        director: "Director",
         poster: "https://example.test/poster.jpg",
-        runtime: "120 min",
         tags: ["tag"],
         year: 2026,
       }),
@@ -83,7 +82,6 @@ describe("useRecentItems", () => {
         title: "Title movie:a",
         backdrop: "https://example.test/backdrop.jpg",
         poster: "https://example.test/poster.jpg",
-        runtime: "120 min",
         year: 2026,
       },
     ]);
@@ -100,5 +98,65 @@ describe("useRecentItems", () => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(["movie:a", { not: "an item" }]));
     const { result } = renderHook(() => useRecentItems());
     expect(result.current.recents).toEqual([]);
+  });
+
+  it("re-reads storage when another tab writes to the same key", () => {
+    // The `storage` event fires in every tab except the writer, so cross-tab
+    // recents become visible without a reload.
+    const { result } = renderHook(() => useRecentItems());
+    expect(result.current.recents).toEqual([]);
+
+    const newRecents = [makeItem("tv:cross-tab", "tv")];
+    act(() => {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newRecents));
+      // Simulate the browser firing the `storage` event in this tab (as though
+      // a different tab was the writer).
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: STORAGE_KEY,
+          newValue: JSON.stringify(newRecents),
+          storageArea: window.localStorage,
+        }),
+      );
+    });
+
+    expect(result.current.recents.map((r) => r.id)).toEqual(["tv:cross-tab"]);
+  });
+
+  it("ignores storage events from sessionStorage even when the key matches", () => {
+    // The guard checks both key and storageArea so extensions or other code
+    // writing to sessionStorage with the same key cannot corrupt recents.
+    const { result } = renderHook(() => useRecentItems());
+    act(() => result.current.pushRecent(makeItem("movie:a")));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: STORAGE_KEY,
+          newValue: JSON.stringify([makeItem("tv:b", "tv")]),
+          storageArea: window.sessionStorage,
+        }),
+      );
+    });
+
+    expect(result.current.recents.map((r) => r.id)).toEqual(["movie:a"]);
+  });
+
+  it("ignores storage events for unrelated keys", () => {
+    const { result } = renderHook(() => useRecentItems());
+    act(() => result.current.pushRecent(makeItem("movie:a")));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "some-other-key",
+          newValue: JSON.stringify([makeItem("tv:b", "tv")]),
+          storageArea: window.localStorage,
+        }),
+      );
+    });
+
+    // The unrelated storage event must not change the current recents.
+    expect(result.current.recents.map((r) => r.id)).toEqual(["movie:a"]);
   });
 });
