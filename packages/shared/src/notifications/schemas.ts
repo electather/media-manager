@@ -142,7 +142,10 @@ export const adminSettingsBodySchema = z
     inboxRetentionDays: z.number().int().min(1).max(3650).optional(),
     deliveryRetentionDays: z.number().int().min(1).max(3650).optional(),
   })
-  .strict();
+  .strict()
+  .refine((b) => b.inboxRetentionDays !== undefined || b.deliveryRetentionDays !== undefined, {
+    message: "at_least_one_field_required",
+  });
 
 export const adminSettingsResponseSchema = z.object({
   inboxRetentionDays: z.number().int(),

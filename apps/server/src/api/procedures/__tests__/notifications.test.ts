@@ -664,6 +664,20 @@ describe("notifications HTTP — admin settings persistence", () => {
       deliveryRetentionDays: 14,
     });
   });
+
+  it("rejects an empty body with 400 instead of silently no-oping", async () => {
+    // An empty PATCH body would previously succeed (200) without changing any
+    // value — only bumping updatedAt. The refine guard makes this a 400 so
+    // clients get explicit feedback that they must supply at least one field.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("notifications HTTP — inbox ?after forward cursor", () => {
