@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { sourcemapUploadSchema } from "../schemas";
+import { errorListQuerySchema, sourcemapUploadSchema } from "../schemas";
 
 const valid = { buildId: "build-1", map: '{"version":3,"mappings":"AAAA"}' };
 
@@ -26,5 +26,20 @@ describe("diagnostics schemas — sourcemapUploadSchema fileName", () => {
     ]) {
       expect(sourcemapUploadSchema.safeParse({ ...valid, fileName }).success).toBe(false);
     }
+  });
+});
+
+describe("diagnostics schemas — errorListQuerySchema search filter", () => {
+  it("accepts a search string within the 200-char cap", () => {
+    expect(errorListQuerySchema.safeParse({ search: "TypeError" }).success).toBe(true);
+    expect(errorListQuerySchema.safeParse({ search: "x".repeat(200) }).success).toBe(true);
+  });
+
+  it("accepts an omitted search filter", () => {
+    expect(errorListQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("rejects a search string over the 200-char cap so a scripted caller cannot pass an unbounded string into the server-side query", () => {
+    expect(errorListQuerySchema.safeParse({ search: "x".repeat(201) }).success).toBe(false);
   });
 });
