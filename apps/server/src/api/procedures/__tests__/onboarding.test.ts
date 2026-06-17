@@ -72,10 +72,11 @@ beforeEach(async () => {
 afterAll(() => cleanupInMemoryDbs());
 
 describe("resolveOnboardingSteps", () => {
-  // For an admin both steps apply. `welcome` is informational (not required,
+  // For an admin all three steps apply. `welcome` is informational (not required,
   // always complete); `connect-services` is required and its completion tracks
-  // whether TMDB is configured — the "app is functional" guarantee.
-  it("resolves both admin steps with TMDB-driven completion when admin and TMDB unconfigured", () => {
+  // whether TMDB is configured — the "app is functional" guarantee; `mcp-setup`
+  // is optional and always complete (informational guide to connecting AI clients).
+  it("resolves all admin steps with TMDB-driven completion when admin and TMDB unconfigured", () => {
     const steps = resolveOnboardingSteps({ role: ADMIN_ROLE, tmdbConfigured: false });
 
     const welcome = steps.find((s) => s.id === "welcome");
@@ -83,6 +84,10 @@ describe("resolveOnboardingSteps", () => {
 
     const connect = steps.find((s) => s.id === "connect-services");
     expect(connect).toMatchObject({ applies: true, required: true, complete: false });
+
+    // `mcp-setup` is always complete and not required — it never blocks Finish.
+    const mcpSetup = steps.find((s) => s.id === "mcp-setup");
+    expect(mcpSetup).toMatchObject({ applies: true, required: false, complete: true });
   });
 
   // Completion of the required step must follow `tmdbConfigured` exactly — this
@@ -93,17 +98,26 @@ describe("resolveOnboardingSteps", () => {
     expect(connect?.complete).toBe(true);
   });
 
-  // The role-aware reuse contract: a non-admin role sees neither step as
-  // applicable. This locks in the framework's role filtering before any
-  // member-facing onboarding step exists, so adding one later is purely
-  // additive and never accidentally exposes the admin steps.
-  it("omits both steps (applies:false) for a member-role context", () => {
+  // `mcp-setup` must never become required: it is an informational guide step
+  // that must not block the admin from completing onboarding.
+  it("mcp-setup is never required regardless of tmdbConfigured", () => {
+    const stepsUnconfigured = resolveOnboardingSteps({ role: ADMIN_ROLE, tmdbConfigured: false });
+    const stepsConfigured = resolveOnboardingSteps({ role: ADMIN_ROLE, tmdbConfigured: true });
+    expect(stepsUnconfigured.find((s) => s.id === "mcp-setup")?.required).toBe(false);
+    expect(stepsConfigured.find((s) => s.id === "mcp-setup")?.required).toBe(false);
+  });
+
+  // The role-aware reuse contract: a non-admin role sees no applicable steps.
+  // This locks in the framework's role filtering before any member-facing
+  // onboarding step exists, so adding one later is purely additive and never
+  // accidentally exposes the admin steps.
+  it("omits all steps (applies:false) for a member-role context", () => {
     const steps = resolveOnboardingSteps({ role: MEMBER_ROLE, tmdbConfigured: true });
     expect(steps.every((s) => s.applies === false)).toBe(true);
   });
 
   // A user with no role at all must also see no applicable steps.
-  it("omits both steps for a null role", () => {
+  it("omits all steps for a null role", () => {
     const steps = resolveOnboardingSteps({ role: null, tmdbConfigured: true });
     expect(steps.every((s) => s.applies === false)).toBe(true);
   });
