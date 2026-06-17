@@ -125,4 +125,21 @@ describe("PreferencesService.triggerManualRebuild guard clauses", () => {
     expect(triggerFromApi).toHaveBeenCalledWith({ userId: "u1" }, meta);
     expect(result).toEqual({ runId: "run-1", result: {} });
   });
+
+  it("propagates rejection from triggerFromApi", async () => {
+    const boom = new Error("downstream failure");
+    findJobEntryMock.mockReturnValue({
+      id: "feature.preference.rebuild",
+      name: "Preference rebuild",
+      kind: "triggerable",
+      dispose: vi.fn(),
+      triggerFromApi: vi.fn(async () => {
+        throw boom;
+      }),
+    });
+
+    await expect(
+      getPreferencesService().triggerManualRebuild({ userId: "u1" }, meta),
+    ).rejects.toThrow(boom);
+  });
 });
