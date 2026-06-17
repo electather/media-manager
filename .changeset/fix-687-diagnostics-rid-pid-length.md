@@ -2,4 +2,4 @@
 "@nama/client": patch
 ---
 
-Capped the `rid` and `pid` admin diagnostics search parameters to 128 characters to avoid unnecessary round trips to the server.
+Capped `rid` to 64 characters and `pid` to 128 characters in the admin diagnostics search params to reject oversized values before they reach the server.
