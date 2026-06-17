@@ -112,7 +112,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
     await resolveDispatchPreamble<AggregateResult<T>>(req);
   if (cached !== undefined) return cached;
   if (providers.length === 0) {
-    return { data: null as T, errors: [], attempted: 0 };
+    return { data: null, errors: [], attempted: 0 };
   }
 
   const primary = await getPrimaryConnection({
@@ -130,7 +130,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const errors = collectErrors(outcomes);
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
-    const empty: AggregateResult<T> = { data: null as T, errors, attempted: outcomes.length };
+    const empty: AggregateResult<T> = { data: null, errors, attempted: outcomes.length };
     // Distinguish two no-data cases. All-fail (every provider errored) is
     // transient — a TMDB rate-limit storm should not poison the 24h positive
     // cache. All-succeed-with-no-data is a stable absence and uses the
