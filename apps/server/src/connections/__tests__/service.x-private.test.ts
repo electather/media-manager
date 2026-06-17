@@ -199,12 +199,19 @@ const PRIVATE_PLUGIN_MANIFEST = {
   poolable: false,
 };
 
-function installPlugin(opts: { enabled?: 0 | 1 } = {}) {
+// A non-form-auth variant so the updateUserConfig verification takes the
+// verifyNonFormAuthConfig (testConnection) branch instead of the form branch.
+const NON_FORM_PLUGIN_MANIFEST = {
+  ...PRIVATE_PLUGIN_MANIFEST,
+  auth: { kind: "oauth_redirect" },
+};
+
+function installPlugin(opts: { enabled?: 0 | 1; manifest?: unknown } = {}) {
   state.plugins = [
     {
       id: "plex",
       enabled: opts.enabled ?? 1,
-      manifest: JSON.stringify(PRIVATE_PLUGIN_MANIFEST),
+      manifest: JSON.stringify(opts.manifest ?? PRIVATE_PLUGIN_MANIFEST),
     },
   ];
 }
@@ -392,6 +399,28 @@ describe("connectionsService — x-private stripping", () => {
         userId: "user-1",
         connectionId: "conn-1",
         userConfig: { externalUrl: "https://plex.example.com", apiKey: "new" },
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("throws connection.not_found on the non-form-auth path when the row is deleted mid-flight", async () => {
+    // Parallel to the form-auth TOCTOU test, but for the verifyNonFormAuthConfig
+    // branch (testConnection). Both branches converge on the same .returning()
+    // guard; this guards against a future refactor skipping the check on the
+    // non-form path. The mid-flight delete is injected inside testConnection,
+    // which fires between requireConnection and the final UPDATE here.
+    installPlugin({ manifest: NON_FORM_PLUGIN_MANIFEST });
+    seedConnection({ externalUrl: "https://plex.example.com" });
+    testConnectionMock.mockImplementation(() => {
+      state.connections = [];
+      return Promise.resolve({ ok: true });
+    });
+
+    await expect(
+      connectionsService.updateUserConfig({
+        userId: "user-1",
+        connectionId: "conn-1",
+        userConfig: { externalUrl: "https://new.example.com" },
       }),
     ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
