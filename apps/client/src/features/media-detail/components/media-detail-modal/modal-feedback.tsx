@@ -73,9 +73,8 @@ function VoteButton({
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
         // pointer-events-none blocks hover styles (hover:bg-muted/40) that would
         // otherwise fire on mouse-over and create false affordance on an unavailable button.
-        // cursor-not-allowed is a no-op while pointer-events-none is set; swap to the guard
-        // pattern (if (disabled) return in onClick) when vote persistence lands.
-        disabled && "cursor-not-allowed opacity-50 pointer-events-none",
+        // Add cursor-not-allowed alongside an onClick guard when vote persistence lands.
+        disabled && "opacity-50 pointer-events-none",
       )}
     >
       {icon}
@@ -104,9 +103,8 @@ function NoteButton({ hasNote, disabled }: { hasNote: boolean; disabled?: boolea
         //   !hasNote → same muted base + hover:bg-muted/40 hover:text-foreground
         "border-border bg-foreground/6 text-muted-foreground",
         // pointer-events-none prevents hover styles from showing on a permanently unavailable
-        // button. cursor-not-allowed is a no-op while pointer-events-none is set; both will
-        // be removed when note persistence lands and onClick is wired.
-        disabled && "cursor-not-allowed opacity-50 pointer-events-none",
+        // button. Add cursor-not-allowed alongside an onClick guard when note persistence lands.
+        disabled && "opacity-50 pointer-events-none",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
