@@ -131,9 +131,7 @@ function FieldItem({
         <Input
           id={fieldKey}
           type="text"
-          inputMode={
-            schema.type === "integer" ? "numeric" : isNumericSchema(schema) ? "decimal" : undefined
-          }
+          inputMode={isNumericSchema(schema) ? "decimal" : undefined}
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
@@ -244,9 +242,9 @@ export function DynamicTriggerDialog({
             invalidNumericFields.includes(key))
         }
         invalidReason={
-          showErrors && invalidNumericFields.includes(key) ? "invalid-number" : "required"
+          showErrors && invalidNumericFields.includes(key) ? "invalid-number" : undefined
         }
-        onChange={(v) => setFormData({ ...formData, [key]: v })}
+        onChange={(v) => setFormData((prev) => ({ ...prev, [key]: v }))}
       />
     );
   }

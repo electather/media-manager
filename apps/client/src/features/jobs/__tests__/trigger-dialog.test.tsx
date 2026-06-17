@@ -246,6 +246,36 @@ describe("DynamicTriggerDialog number coercion", () => {
     });
   });
 
+  it("accepts negative integer input and submits the signed value", async () => {
+    // inputMode="numeric" on iOS shows a numpad without a minus key, so negative
+    // integers become untypable. Using inputMode="decimal" surfaces the minus key
+    // on every platform. This test confirms "-" can be entered and that the
+    // resulting negative value reaches the fetcher unchanged (Math.trunc(-3) = -3).
+    const integerJob = {
+      ...numberJob,
+      inputSchema: {
+        type: "object",
+        properties: { count: { type: "integer", description: "How many items" } },
+        required: ["count"],
+      },
+    } as unknown as JobHandle;
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i }) as HTMLInputElement;
+    await user.type(input, "-3");
+    expect(input.value).toBe("-3");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        integerJob.id,
+        expect.objectContaining({ count: -3 }),
+      );
+    });
+  });
+
   it("blocks submit and shows a format error when non-numeric text is typed in a number field", async () => {
     // After switching to type="text", the browser no longer blocks "abc".
     // The client must validate and reject non-parseable input before posting.
