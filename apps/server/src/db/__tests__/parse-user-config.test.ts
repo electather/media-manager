@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vite-plus/test";
+import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { consola } from "consola";
 
 // `../queries` pulls in `../client` -> `../env`, which validates real env vars
@@ -12,7 +12,7 @@ vi.mock("../../env", () => ({
   },
 }));
 
-const { parseUserConfig } = await import("../queries");
+const { parseUserConfig, _testOnly_clearWarnedFingerprints } = await import("../queries");
 
 // `serviceConnections.userConfig` is read by five production paths: the
 // connections list/get, media dispatch, targeted dispatch, plugin jobs, and MCP
@@ -21,6 +21,13 @@ const { parseUserConfig } = await import("../queries");
 // yields) while still surfacing the data-integrity signal to operators.
 
 describe("parseUserConfig", () => {
+  // The dedupe Set is module-level state shared across tests. Clear it before
+  // each test so warning-count assertions do not depend on blob uniqueness or
+  // execution order.
+  beforeEach(() => {
+    _testOnly_clearWarnedFingerprints();
+  });
+
   it("returns null for missing values so unset configs behave the same as empty", () => {
     expect(parseUserConfig(null)).toBeNull();
     expect(parseUserConfig(undefined)).toBeNull();
@@ -37,7 +44,6 @@ describe("parseUserConfig", () => {
   it("degrades a corrupt row to null instead of throwing", () => {
     const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
     try {
-      // Use a distinct blob so the dedupe Set does not suppress this warning.
       expect(() => parseUserConfig("{corrupt:a")).not.toThrow();
       expect(parseUserConfig("{corrupt:a")).toBeNull();
       // The corrupt row must be logged so operators can locate it.
@@ -50,7 +56,6 @@ describe("parseUserConfig", () => {
   it("logs the owning connection id so operators can locate the corrupt row", () => {
     const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
     try {
-      // Use a distinct blob so the dedupe Set does not suppress this warning.
       parseUserConfig("{corrupt:b", "conn-123");
       expect(warn).toHaveBeenCalledWith(
         expect.any(String),
@@ -67,7 +72,7 @@ describe("parseUserConfig", () => {
       // A plaintext x-private secret embedded in a corrupt blob must not leak.
       // Use a distinct blob so the dedupe Set does not suppress this warning.
       const secret = "super-secret-internal-api-key";
-      parseUserConfig(`{${secret}-c`, "conn-123");
+      parseUserConfig(`{${secret}`, "conn-123");
       const logged = JSON.stringify(warn.mock.calls);
       expect(logged).not.toContain(secret);
       // A length + content hash is logged instead, enough to tell rows apart.
@@ -86,12 +91,35 @@ describe("parseUserConfig", () => {
     // the operator log with identical entries.
     const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
     try {
-      // Use a distinct blob so earlier tests do not interfere with the count.
       const blob = "{corrupt:dedupe-unique-sentinel";
-      parseUserConfig(blob);
-      parseUserConfig(blob);
-      parseUserConfig(blob);
+      parseUserConfig(blob, "conn-a");
+      parseUserConfig(blob, "conn-a");
+      parseUserConfig(blob, "conn-a");
       expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("warns once per connection even when two rows share an identical corrupt blob", () => {
+    // Dedupe is keyed by connectionId plus content, not content alone, so a
+    // second corrupt row is never silently swallowed — operators must be able to
+    // locate every distinct affected connection.
+    const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
+    try {
+      const blob = "{corrupt:shared-blob";
+      parseUserConfig(blob, "conn-a");
+      parseUserConfig(blob, "conn-a");
+      parseUserConfig(blob, "conn-b");
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectionId: "conn-a" }),
+      );
+      expect(warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ connectionId: "conn-b" }),
+      );
     } finally {
       warn.mockRestore();
     }
