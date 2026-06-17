@@ -9,6 +9,6 @@ export const bootstrapClaimSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   email: z.email(),
   password: passwordSchema,
-  name: z.string().min(1),
+  name: z.string().min(1).max(100),
 });
 export type BootstrapClaimBody = z.infer<typeof bootstrapClaimSchema>;

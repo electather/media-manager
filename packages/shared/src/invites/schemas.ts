@@ -26,7 +26,7 @@ export const extendInviteSchema = z.object({
  * the invite's role.
  */
 export const acceptInviteSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).max(100),
   email: z.string().email(),
   password: passwordSchema,
 });

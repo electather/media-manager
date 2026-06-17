@@ -3,7 +3,7 @@ import { passwordSchema } from "../auth";
 
 /** Body for `POST /admin/users`. */
 export const createUserSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1).max(100),
   email: z.email(),
   password: passwordSchema,
   roleId: z.string().optional(),
@@ -12,7 +12,7 @@ export type CreateUserBody = z.infer<typeof createUserSchema>;
 
 /** Body for `PATCH /admin/users/:id`. */
 export const updateUserSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).max(100).optional(),
   email: z.email().optional(),
 });
 export type UpdateUserBody = z.infer<typeof updateUserSchema>;
