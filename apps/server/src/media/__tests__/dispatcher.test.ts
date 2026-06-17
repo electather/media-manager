@@ -364,9 +364,10 @@ describe("dispatchPrimary", () => {
       mediaType: "movie",
     });
 
-    expect(result.data.title).toBe("Matrix");
-    expect(result.data.overview).toBe("A classic");
-    expect(result.data.ids).toEqual({ trakt_id: "42", tmdb_id: "603" });
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("Matrix");
+    expect(result.data!.overview).toBe("A classic");
+    expect(result.data!.ids).toEqual({ trakt_id: "42", tmdb_id: "603" });
   });
 
   it("defaults to first provider when no primary is set", async () => {
@@ -388,7 +389,8 @@ describe("dispatchPrimary", () => {
       input: { id: "1", type: "movie" },
       mediaType: "movie",
     });
-    expect(result.data.title).toBe("From TMDB");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("From TMDB");
   });
 
   it("returns data:null and collected errors when every provider fails", async () => {

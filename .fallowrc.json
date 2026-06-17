@@ -46,7 +46,8 @@
     "**/docker/**",
     "apps/client/public/**",
     "packages/plugins/**",
-    "tools/**"
+    "tools/**",
+    "apps/client/src/shared/lib/test-utils.tsx"
   ],
   "rules": {
     "unused-files": "error",
