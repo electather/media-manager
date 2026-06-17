@@ -86,7 +86,7 @@ describe("PerfDetailSheet — group path", () => {
     expect(screen.getByText("/api/catalog")).toBeDefined();
   });
 
-  it("shows the call count and percentile stats without fetching", () => {
+  it("shows the percentile stat labels without fetching", () => {
     renderGroupSheet(makeGroup({ count: 42, p50: 80, p95: 250, p99: 500, max: 1200 }));
 
     // The distribution section heading must appear, confirming GroupBody rendered.
@@ -103,6 +103,12 @@ describe("PerfDetailSheet — group path", () => {
     renderGroupSheet(makeGroup({ route: null, pluginId: "trakt", kind: "plugin" }));
 
     expect(screen.getByText("trakt")).toBeDefined();
+  });
+
+  it("falls back to unknown label when both route and pluginId are null", () => {
+    renderGroupSheet(makeGroup({ route: null, pluginId: null, kind: "http" }));
+
+    expect(screen.getByText(m.diagnostics_errors_table_unknown())).toBeDefined();
   });
 });
 
