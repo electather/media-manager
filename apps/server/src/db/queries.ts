@@ -29,17 +29,31 @@ export function parseUserConfig(raw: string | null | undefined, connectionId?: s
 }
 
 /**
+ * Tracks fingerprints of corrupt userConfig rows that have already been logged
+ * during this process lifetime. Deduplicated so that hot read paths (e.g.
+ * media resolveConnections, MCP calls) do not flood the log with the same
+ * warning at request rate. Evicted on restart, which is fine — the goal is
+ * operator visibility, not guaranteed per-event delivery.
+ */
+const warnedFingerprints = new Set<string>();
+
+/**
  * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
  * connection id pinpoints the row; we deliberately do NOT log the raw value
  * because `x-private` fields live in `userConfig` as plaintext and an excerpt
  * could leak one into the logs. A length + short content hash is enough to tell
  * corrupt rows apart and confirm a re-occurrence without exposing any content.
+ *
+ * Each distinct fingerprint is logged at most once per process lifetime to
+ * avoid flooding the log on hot read paths.
  */
 function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
   const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")
     .update(raw)
     .digest("hex")
     .slice(0, 8)}`;
+  if (warnedFingerprints.has(fingerprint)) return;
+  warnedFingerprints.add(fingerprint);
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
     connectionId,
     fingerprint,

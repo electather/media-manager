@@ -49,7 +49,9 @@ describe("parseUserConfig", () => {
   it("logs the owning connection id so operators can locate the corrupt row", () => {
     const warn = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
     try {
-      parseUserConfig("{not valid json", "conn-123");
+      // Use a distinct corrupt string so the dedup set (which persists per
+      // process) does not suppress the warning from the previous test case.
+      parseUserConfig("{not valid json with id", "conn-123");
       expect(warn).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ connectionId: "conn-123" }),

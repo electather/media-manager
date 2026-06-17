@@ -239,6 +239,9 @@ describe("updateDisplayName guard (finding 2)", () => {
     // empty. Seeding any row would make the mock return it and bypass the guard,
     // silently turning this into a false pass.
     installPlugin();
+    // Sentinel: fail loudly if a future shared fixture pre-seeds the table and
+    // turns the WHERE-ignoring mock into a false pass.
+    expect(state.connections).toHaveLength(0);
 
     await expect(
       connectionsService.updateDisplayName({
