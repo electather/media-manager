@@ -1,4 +1,4 @@
-import { lt, max, notInArray, sql } from "drizzle-orm";
+import { eq, lt, max, notInArray, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { appConfig, errorRecords, perfRecords, sourcemaps } from "../db/schema/infra/diagnostics";
 
@@ -38,7 +38,7 @@ export interface SweepResult {
 export async function getAppConfig(): Promise<AppConfigRow> {
   const db = getDb();
   const now = Date.now();
-  const row = await db.select().from(appConfig).get();
+  const row = await db.select().from(appConfig).where(eq(appConfig.id, APP_CONFIG_ID)).get();
   if (row) {
     return {
       errorRetentionDays: row.errorRetentionDays,
@@ -175,7 +175,7 @@ function clampNotificationPatch(input: {
 export async function getNotificationRetention(): Promise<NotificationRetentionRow> {
   const db = getDb();
   const now = Date.now();
-  const row = await db.select().from(appConfig).get();
+  const row = await db.select().from(appConfig).where(eq(appConfig.id, APP_CONFIG_ID)).get();
   if (row) {
     return {
       inboxRetentionDays: row.inboxRetentionDays ?? DEFAULT_INBOX_RETENTION_DAYS,
