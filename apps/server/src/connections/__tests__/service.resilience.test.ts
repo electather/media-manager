@@ -232,6 +232,31 @@ describe("corrupt userConfig resilience (finding 1)", () => {
   });
 });
 
+describe("delete guard (issue #758)", () => {
+  it("throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
+    // DO NOT seed state.connections before this assertion: the db mock ignores
+    // the WHERE predicate, so the guard fires here only because the rowset is
+    // empty. Seeding any row would make the mock return it and bypass the guard,
+    // silently turning this into a false pass.
+    installPlugin();
+
+    await expect(
+      connectionsService.delete({ userId: "user-1", connectionId: "missing" }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("invalidates the user cache after a successful delete", async () => {
+    // Deleted connections are reflected in the connections list; the cache must
+    // be invalidated so callers get an up-to-date view.
+    installPlugin();
+    seedConnection();
+
+    await connectionsService.delete({ userId: "user-1", connectionId: "conn-1" });
+
+    expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
 describe("updateDisplayName guard (finding 2)", () => {
   it("throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
     // DO NOT seed state.connections before this assertion: the db mock ignores
