@@ -161,6 +161,33 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect("nextRaw" in res).toBe(false);
   });
 
+  // Titles that collide under accent-insensitive collation (e.g. "elite" and
+  // "élite") must still sort in a deterministic, reproducible order. Without a
+  // secondary full-collation pass the tie is decided by JS sort stability alone,
+  // which depends on input order and can differ across environments. This test
+  // asserts the specific order produced by the full-collation tie-break so that
+  // any regression removing the secondary compare is immediately caught.
+  it("alpha sort breaks ties between accent-colliding titles deterministically", async () => {
+    const rows = [row("2", 3), row("1", 2)];
+    vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
+    const ctx = makeCtx();
+    // "élite" and "elite" compare as equal under sensitivity:"accent", so the
+    // secondary full-collation pass must pick "elite" < "élite".
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:2": { tmdbId: "2", mediaType: "movie", title: "élite", genres: [] },
+      "movie:1": { tmdbId: "1", mediaType: "movie", title: "elite", genres: [] },
+    });
+
+    const res = await itemsSource(params({ sort: "alpha" })).fetchRawSet(
+      ctx,
+      params({ sort: "alpha" }),
+      null,
+    );
+
+    // "elite" should sort before "élite" regardless of the input row order.
+    expect(res.rows.map((r) => r.tmdbId)).toEqual(["1", "2"]);
+  });
+
   // The status-sort path depends on a `mediaService.getStatusBatch` fan-out.
   // When that call rejects we MUST surface `partial:true` so the envelope can
   // signal a degraded sort to the client; today every row falls back to the

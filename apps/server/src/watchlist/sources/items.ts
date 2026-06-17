@@ -246,7 +246,13 @@ function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): num
   // accent-sensitive compare) while removing the host-dependent pre-pass — that
   // step was itself locale-dependent (e.g. Turkish dotless-i). So this is a
   // pure locale pin: collation semantics are unchanged from before.
-  return at.localeCompare(bt, "en", { sensitivity: "accent" });
+  //
+  // The secondary compare (no sensitivity option, i.e. full collation) acts as a
+  // deterministic tie-break for titles that are equal under "accent" sensitivity
+  // (e.g. "elite" vs "élite" vs "ÉLITE"). Without it, JS sort stability is the
+  // only guarantee, so the same pair can appear in arbitrary relative order
+  // across environments or when the input order changes.
+  return at.localeCompare(bt, "en", { sensitivity: "accent" }) || at.localeCompare(bt, "en");
 }
 
 // fallow-ignore-next-line complexity
