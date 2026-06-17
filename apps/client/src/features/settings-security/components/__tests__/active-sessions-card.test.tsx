@@ -21,7 +21,7 @@ vi.mock("sonner", () => ({ toast: toastMock }));
 import { ActiveSessionsCard } from "@/features/settings-security";
 import { settingsSecurityKeys } from "../../lib/query-keys";
 import type { DisplaySession } from "../../lib/types";
-import { renderWithProviders } from "./test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 
 function session(over: Partial<DisplaySession> = {}): DisplaySession {
   return {

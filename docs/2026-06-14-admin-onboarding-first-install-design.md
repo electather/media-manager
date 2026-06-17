@@ -483,6 +483,18 @@ token lets a new user set their own password; replaces the neutralized
 `/auth/register`). The step registry and `createUserWithRole` helper are the
 extension points for these.
 
+### Implemented in issue #579
+
+- **MCP setup-guide step** — added as a third admin onboarding step
+  (`id: "mcp-setup"`, optional, always complete). Shows the MCP endpoint URL
+  with a copy button and a button that opens the existing `SetupGuideModal`.
+  Server descriptor in `api/procedures/onboarding.ts`; client component at
+  `features/onboarding/components/steps/mcp-setup-step.tsx`.
+- **Self-service link-invite flow** — implemented separately in issue #659
+  (`api/procedures/invites.ts`, `features/admin-users`, `routes/auth/invite.$token.tsx`).
+  History import and preference seeding remain deferred (no backend
+  infrastructure exists yet).
+
 ## Open questions
 
 1. **Token display ergonomics** — console banner only, or also write the token to
