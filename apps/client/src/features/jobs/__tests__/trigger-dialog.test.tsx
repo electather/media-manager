@@ -217,6 +217,22 @@ describe("DynamicTriggerDialog number coercion", () => {
     });
   });
 
+  it("blocks submit and shows a format error when non-numeric text is typed in a number field", async () => {
+    // After switching to type="text", the browser no longer blocks "abc".
+    // The client must validate and reject non-parseable input before posting.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i });
+    await user.type(input, "abc");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    // The fetch must not have been called — client validation should block it.
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
+    // The user must see a specific "enter a valid number" message, not "required".
+    expect(screen.getByText(/enter a valid number/i)).toBeTruthy();
+  });
+
   it("treats a cleared number input as null (not 0)", async () => {
     // Number("") === 0 in JavaScript, so an explicit empty-string guard is
     // needed to prevent clearing a field from snapping its value to 0.

@@ -26,7 +26,7 @@ interface EnumOption {
 }
 
 function isMissing(value: unknown): boolean {
-  return isNil(value) || value === "";
+  return isNil(value) || value === "" || (typeof value === "string" && value.trim() === "");
 }
 
 function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
@@ -47,6 +47,8 @@ interface FieldItemProps {
   value: string;
   required: boolean;
   invalid: boolean;
+  /** Distinguishes which type of validation error to display. */
+  invalidReason?: "required" | "invalid-number";
   onChange: (v: string) => void;
 }
 
@@ -66,7 +68,7 @@ function isNumericSchema(schema: JSONSchemaProperty): boolean {
  * sending a string the server-side AJV validator would reject.
  * An `integer` field is additionally truncated toward zero to strip any fractional part.
  */
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line high-crap-score
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
     if (raw === "" || raw.trim() === "") return null;
@@ -77,8 +79,16 @@ function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   return raw;
 }
 
-// fallow-ignore-next-line complexity
-function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: FieldItemProps) {
+// fallow-ignore-next-line high-crap-score
+function FieldItem({
+  fieldKey,
+  schema,
+  value,
+  required,
+  invalid,
+  invalidReason,
+  onChange,
+}: FieldItemProps) {
   const enumOptions = readEnumOptions(schema);
   const labelText = fieldKey.replace(/([A-Z])/g, " $1").trim();
   const errorId = invalid ? `${fieldKey}-error` : undefined;
@@ -132,13 +142,17 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         />
       )}
       {invalid && (
-        <FieldError id={errorId}>{m.admin_jobs_trigger_field_required_error()}</FieldError>
+        <FieldError id={errorId}>
+          {invalidReason === "invalid-number"
+            ? m.admin_jobs_trigger_field_invalid_number_error()
+            : m.admin_jobs_trigger_field_required_error()}
+        </FieldError>
       )}
     </Field>
   );
 }
 
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line high-crap-score
 export function DynamicTriggerDialog({
   open,
   job,
@@ -172,13 +186,16 @@ export function DynamicTriggerDialog({
   );
 
   const triggerMutation = useTriggerJob();
-  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
+  const properties = useMemo(
+    () => (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {},
+    [job?.inputSchema?.properties],
+  );
 
-  // fallow-ignore-next-line complexity
+  // fallow-ignore-next-line high-crap-score
   const invalidNumericFields = useMemo(
     () =>
       Object.entries(properties)
-        // fallow-ignore-next-line complexity
+        // fallow-ignore-next-line high-crap-score
         .filter(([key, schema]) => {
           const raw = formData[key] ?? "";
           return (
@@ -249,7 +266,6 @@ export function DynamicTriggerDialog({
             <div className="py-2">
               {hasForm ? (
                 <FieldGroup className="gap-4">
-                  {/* fallow-ignore-next-line complexity */}
                   {Object.entries(properties).map(([key, schema]) => (
                     <FieldItem
                       key={key}
@@ -261,6 +277,11 @@ export function DynamicTriggerDialog({
                         showErrors &&
                         ((required.includes(key) && isMissing(formData[key])) ||
                           invalidNumericFields.includes(key))
+                      }
+                      invalidReason={
+                        showErrors && invalidNumericFields.includes(key)
+                          ? "invalid-number"
+                          : "required"
                       }
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
                     />
