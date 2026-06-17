@@ -23,7 +23,7 @@ const searchSchema = z.object({
   // cuid2 default output is 24 chars; 128 gives headroom for future ID format changes.
   pid: z
     .string()
-    .regex(/^[a-zA-Z0-9_-]+$/)
+    .regex(/^[0-9a-zA-Z_-]+$/)
     .max(128)
     .optional(),
 });
