@@ -666,9 +666,7 @@ describe("notifications HTTP — admin settings persistence", () => {
   });
 
   it("returns 400 for an empty body — a no-op retention update must be rejected", async () => {
-    // An empty {} body passes schema validation without the refine, silently
-    // bumping only updatedAt and returning 200 with unchanged values. The
-    // refine ensures clients get an explicit 400 instead.
+    // Without refine, {} passes validation and silently bumps updatedAt, returning 200 with stale values.
     mockUserId = "admin-1";
     await seedUser("admin-1", ["admin:server"]);
     const res = await buildApp().request("/admin/notifications/settings", {
