@@ -58,8 +58,10 @@ export async function fetchInvitePreview(
   const res = await api.invites[":code"].$get({ param: { code } });
   if (res.status === 404) return null;
   if (res.status === 410) return "gone";
-  if (!res.ok) await readJson(res);
-  return res.json() as Promise<{ roleName: string; expiresAt: number }>;
+  // Route the success body through the same typed-inference helper as the other
+  // fetchers (it throws on any other non-ok status); narrow the union result to
+  // the 200 preview shape.
+  return (await readJson(res)) as { roleName: string; expiresAt: number };
 }
 
 export async function acceptInvite(

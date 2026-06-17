@@ -391,6 +391,36 @@ describe("POST /invites/:code/accept — maxUses=1 sequential double-accept", ()
   });
 });
 
+// ─── GET /invites/:code — public preview ─────────────────────────────────────
+
+describe("GET /invites/:code", () => {
+  beforeEach(seedBaseData);
+
+  it("returns the role name and expiry for an active invite", async () => {
+    const code = "PREVIEW-AAAAAA-111111";
+    await db.insert(invites).values({
+      id: "inv-preview-ok",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { roleName: string; expiresAt: number };
+    expect(body.roleName).toBe("Member");
+  });
+
+  it("returns 404 for an unknown code", async () => {
+    const res = await buildApp().request("/invites/NOPE-NOPE-NOPE");
+    expect(res.status).toBe(404);
+  });
+});
+
 // ─── GET /admin/invites — excludes revoked, reports expired ──────────────────
 
 describe("GET /admin/invites", () => {
@@ -494,6 +524,29 @@ describe("POST /admin/invites/:id/extend", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 400 when the new expiresAt is in the past", async () => {
+    await db.insert(invites).values({
+      id: "inv-extend-past",
+      code: "EXTEND-444444-DDDDDD",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const res = await buildApp().request("/admin/invites/inv-extend-past/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresAt: Date.now() - 1_000 }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.expiry_in_past");
+  });
+
   it("returns 409 and does NOT update a revoked invite", async () => {
     await db.insert(invites).values({
       id: "inv-extend-revoked",
@@ -587,5 +640,33 @@ describe("DELETE /admin/invites/:id", () => {
   it("returns 404 for an unknown invite id", async () => {
     const res = await buildApp().request("/admin/invites/nope", { method: "DELETE" });
     expect(res.status).toBe(404);
+  });
+
+  it("is idempotent: a second DELETE preserves the original revokedAt", async () => {
+    const originalRevokedAt = new Date(Date.now() - 60_000);
+    await db.insert(invites).values({
+      id: "inv-already-revoked",
+      code: "DELETE-222222-BBBBBB",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+      revokedAt: originalRevokedAt,
+    });
+
+    const res = await buildApp().request("/admin/invites/inv-already-revoked", {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+
+    // The audit timestamp must not be overwritten by the second revoke.
+    const row = await db
+      .select({ revokedAt: invites.revokedAt })
+      .from(invites)
+      .where(eq(invites.id, "inv-already-revoked"))
+      .get();
+    expect(row?.revokedAt?.getTime()).toBe(originalRevokedAt.getTime());
   });
 });

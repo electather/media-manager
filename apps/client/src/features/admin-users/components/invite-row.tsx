@@ -99,6 +99,9 @@ export function InviteRow({ invite, role, isFirst }: Props) {
             {m.admin_users_invite_copy()}
           </Button>
         ) : null}
+        {/* Extend is only offered once the invite has expired. A pre-emptive
+            extend (and a custom-expiry picker on the row) is a tracked follow-up;
+            v1 extend adds a fixed 7 days (design §4.1). */}
         {invite.expired ? (
           <Button variant="ghost" size="sm" onClick={onExtend} disabled={extendMutation.isPending}>
             <RotateCwIcon aria-hidden="true" />

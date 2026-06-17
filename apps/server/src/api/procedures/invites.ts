@@ -104,8 +104,14 @@ export const adminInvitesApp = new Hono()
           201,
         );
       } catch (err) {
-        // SQLite UNIQUE constraint violation on the code column — retry.
-        if (err instanceof Error && err.message.includes("UNIQUE")) {
+        // Retry only on a UNIQUE violation for the `code` column. Narrow the
+        // match so an unrelated constraint failure is not silently swallowed by
+        // the retry loop (driver wording varies, so accept either form).
+        const isCodeCollision =
+          err instanceof Error &&
+          (err.message.includes("UNIQUE constraint failed: invites.code") ||
+            ("code" in err && (err as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE"));
+        if (isCodeCollision) {
           lastError = err;
           continue;
         }
@@ -203,15 +209,25 @@ export const adminInvitesApp = new Hono()
     return c.json({ ok: true });
   })
 
-  /** Soft-revoke an invite (sets revokedAt = now). */
+  /** Soft-revoke an invite (sets revokedAt = now). Idempotent. */
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     const db = getDb();
 
-    const row = await db.select({ id: invites.id }).from(invites).where(eq(invites.id, id)).get();
+    const row = await db
+      .select({ id: invites.id, revokedAt: invites.revokedAt })
+      .from(invites)
+      .where(eq(invites.id, id))
+      .get();
 
     if (!row) {
       throw notFound("invites.not_found", `invite ${id} not found`, { id });
+    }
+
+    // Idempotent: a second revoke must not overwrite the original timestamp,
+    // which is kept for the audit trail.
+    if (row.revokedAt) {
+      return c.json({ ok: true });
     }
 
     await db
@@ -259,7 +275,12 @@ export const invitesApp = new Hono()
 
     if (isExpired) return c.json({ code: "invites.gone" }, 410);
 
-    return c.json({ roleName: row.roleName ?? "", expiresAt: expiresAtMs });
+    // A null roleName means the referenced role was deleted (orphaned invite).
+    // The link is no longer meaningful — treat it as gone rather than handing
+    // back a blank role and letting accept assign a ghost role.
+    if (!row.roleName) return c.json({ code: "invites.gone" }, 410);
+
+    return c.json({ roleName: row.roleName, expiresAt: expiresAtMs });
   })
 
   /**

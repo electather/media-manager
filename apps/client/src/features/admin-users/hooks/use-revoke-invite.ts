@@ -2,8 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
 import { revokeInvite } from "../lib/fetchers";
-import { adminInvitesKeys } from "../lib/query-keys";
-import { adminUsersKeys } from "../lib/query-keys";
+import { adminInvitesKeys, adminUsersKeys } from "../lib/query-keys";
 import { AdminUsersApiError } from "../lib/types";
 
 export function useRevokeInvite() {
