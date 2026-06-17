@@ -36,7 +36,8 @@ export const invites = sqliteTable(
     kind: text("kind").notNull().default("link"),
   },
   (table) => [
-    index("invites_code_idx").on(table.code),
+    // No explicit index on `code`: the `.unique()` constraint above already
+    // creates `invites_code_unique`, which SQLite uses for every seek on `code`.
     index("invites_invited_by_idx").on(table.invitedBy),
   ],
 );

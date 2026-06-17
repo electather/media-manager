@@ -1217,11 +1217,6 @@
           "columns": ["code"],
           "isUnique": true
         },
-        "invites_code_idx": {
-          "name": "invites_code_idx",
-          "columns": ["code"],
-          "isUnique": false
-        },
         "invites_invited_by_idx": {
           "name": "invites_invited_by_idx",
           "columns": ["invited_by"],

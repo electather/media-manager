@@ -9,9 +9,11 @@
  * atomic use-count increment and no use is silently burned.
  */
 import { Hono } from "hono";
-import { eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { createInviteSchema, extendInviteSchema, acceptInviteSchema } from "@nama/shared/invites";
 import { requireSession, requirePermission, PERMISSIONS, sessionUserId } from "../../auth";
+// Design §4.2 step 3 mandates this exact tx-aware primitive (the same one claimBootstrap composes with its own transaction).
+// fallow-ignore-next-line boundary-violation
 import { insertCredentialUserTx } from "../../auth/internal/create-user";
 import { getDb } from "../../db/client";
 import { user } from "../../db/schema/auth";
@@ -166,13 +168,25 @@ export const adminInvitesApp = new Hono()
     }
 
     const row = await db
-      .select({ id: invites.id, maxUses: invites.maxUses, uses: invites.uses })
+      .select({
+        id: invites.id,
+        maxUses: invites.maxUses,
+        uses: invites.uses,
+        revokedAt: invites.revokedAt,
+      })
       .from(invites)
       .where(eq(invites.id, id))
       .get();
 
     if (!row) {
       throw notFound("invites.not_found", `invite ${id} not found`, { id });
+    }
+
+    // Extending a revoked invite is meaningless — `accept` still rejects it on
+    // the `revokedAt` check, so a 200 here would leave the link permanently
+    // unusable. Reject and ask the admin to create a new one.
+    if (row.revokedAt) {
+      throw conflict("invites.revoked", "invite is already revoked; create a new one");
     }
 
     // Extending a fully-exhausted invite is pointless — the link can never
@@ -265,38 +279,27 @@ export const invitesApp = new Hono()
     let userId: string;
     try {
       userId = await db.transaction(async (tx) => {
-        // 1. Atomic use guard: read and validate, then atomically increment.
-        //    SQLite serializes all writes, so a SELECT followed immediately by
-        //    an UPDATE inside the same transaction is effectively atomic —
-        //    no concurrent writer can modify the row between the two statements.
+        // 1. Atomic use guard: a single conditional UPDATE that increments the
+        //    use counter only when the invite is still valid (design §4.2 step 1).
+        //    The guard lives entirely in the WHERE clause, so it is race-safe even
+        //    under a multi-writer backend (libSQL/Turso) — no read-then-write
+        //    window. `.returning()` hands back the role so we avoid a second read.
+        //    Zero rows returned ⇒ consumed/expired/revoked ⇒ 410 Gone.
         const nowMs = Date.now();
-        const inv = await tx
-          .select({
-            id: invites.id,
-            roleId: invites.roleId,
-            maxUses: invites.maxUses,
-            uses: invites.uses,
-            expiresAtMs: invites.expiresAt,
-            revokedAt: invites.revokedAt,
-          })
-          .from(invites)
-          .where(eq(invites.code, code))
-          .get();
-
-        if (!inv) throw new Error("INVITE_GONE");
-
-        const expiresAtMs =
-          inv.expiresAtMs instanceof Date ? inv.expiresAtMs.getTime() : (inv.expiresAtMs as number);
-        const isExhausted = inv.maxUses !== 0 && inv.uses >= inv.maxUses;
-        const isExpired = expiresAtMs < nowMs;
-        const isRevoked = inv.revokedAt !== null;
-
-        if (isExhausted || isExpired || isRevoked) throw new Error("INVITE_GONE");
-
-        await tx
+        const [inv] = await tx
           .update(invites)
           .set({ uses: sql`${invites.uses} + 1` })
-          .where(eq(invites.id, inv.id));
+          .where(
+            and(
+              eq(invites.code, code),
+              or(eq(invites.maxUses, 0), sql`${invites.uses} < ${invites.maxUses}`),
+              gt(invites.expiresAt, new Date(nowMs)),
+              isNull(invites.revokedAt),
+            ),
+          )
+          .returning({ roleId: invites.roleId });
+
+        if (!inv) throw new Error("INVITE_GONE");
 
         // 2. Unique-email check inside the transaction (not via requireUniqueEmail,
         //    which calls getDb() directly and is not tx-aware).

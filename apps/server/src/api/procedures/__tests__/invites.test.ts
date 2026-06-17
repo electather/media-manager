@@ -450,3 +450,142 @@ describe("GET /admin/invites", () => {
     expect(expired?.expired).toBe(true);
   });
 });
+
+// ─── POST /admin/invites/:id/extend ──────────────────────────────────────────
+
+describe("POST /admin/invites/:id/extend", () => {
+  beforeEach(seedBaseData);
+
+  it("updates expiresAt for an active invite", async () => {
+    await db.insert(invites).values({
+      id: "inv-extend-ok",
+      code: "EXTEND-111111-AAAAAA",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(Date.now() + 1_000),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const newExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const res = await buildApp().request("/admin/invites/inv-extend-ok/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresAt: newExpiry }),
+    });
+
+    expect(res.status).toBe(200);
+    const row = await db
+      .select({ expiresAt: invites.expiresAt })
+      .from(invites)
+      .where(eq(invites.id, "inv-extend-ok"))
+      .get();
+    expect(row?.expiresAt?.getTime()).toBe(newExpiry);
+  });
+
+  it("returns 404 for an unknown invite id", async () => {
+    const res = await buildApp().request("/admin/invites/does-not-exist/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresAt: FUTURE_EXPIRY }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 409 and does NOT update a revoked invite", async () => {
+    await db.insert(invites).values({
+      id: "inv-extend-revoked",
+      code: "EXTEND-222222-BBBBBB",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(Date.now() + 1_000),
+      maxUses: 5,
+      uses: 0,
+      revokedAt: new Date(Date.now()),
+    });
+
+    const before = await db
+      .select({ expiresAt: invites.expiresAt })
+      .from(invites)
+      .where(eq(invites.id, "inv-extend-revoked"))
+      .get();
+
+    const res = await buildApp().request("/admin/invites/inv-extend-revoked/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresAt: FUTURE_EXPIRY }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.revoked");
+
+    // The expiry must be untouched — a revoked invite stays unusable.
+    const after = await db
+      .select({ expiresAt: invites.expiresAt })
+      .from(invites)
+      .where(eq(invites.id, "inv-extend-revoked"))
+      .get();
+    expect(after?.expiresAt?.getTime()).toBe(before?.expiresAt?.getTime());
+  });
+
+  it("returns 409 for a fully-exhausted invite", async () => {
+    await db.insert(invites).values({
+      id: "inv-extend-exhausted",
+      code: "EXTEND-333333-CCCCCC",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(Date.now() + 1_000),
+      maxUses: 1,
+      uses: 1,
+    });
+
+    const res = await buildApp().request("/admin/invites/inv-extend-exhausted/extend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresAt: FUTURE_EXPIRY }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.exhausted");
+  });
+});
+
+// ─── DELETE /admin/invites/:id ───────────────────────────────────────────────
+
+describe("DELETE /admin/invites/:id", () => {
+  beforeEach(seedBaseData);
+
+  it("soft-revokes the invite and excludes it from the list", async () => {
+    await db.insert(invites).values({
+      id: "inv-to-revoke",
+      code: "DELETE-111111-AAAAAA",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const res = await buildApp().request("/admin/invites/inv-to-revoke", { method: "DELETE" });
+    expect(res.status).toBe(200);
+
+    const row = await db
+      .select({ revokedAt: invites.revokedAt })
+      .from(invites)
+      .where(eq(invites.id, "inv-to-revoke"))
+      .get();
+    expect(row?.revokedAt).not.toBeNull();
+  });
+
+  it("returns 404 for an unknown invite id", async () => {
+    const res = await buildApp().request("/admin/invites/nope", { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+});

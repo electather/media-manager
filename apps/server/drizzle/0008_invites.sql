@@ -15,5 +15,4 @@ CREATE TABLE `invites` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `invites_code_unique` ON `invites` (`code`);--> statement-breakpoint
-CREATE INDEX `invites_code_idx` ON `invites` (`code`);--> statement-breakpoint
 CREATE INDEX `invites_invited_by_idx` ON `invites` (`invited_by`);
