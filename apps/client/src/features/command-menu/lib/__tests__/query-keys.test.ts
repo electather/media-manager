@@ -11,6 +11,10 @@ describe("isSearchKey", () => {
     expect(isSearchKey(commandMenuKeys.trending("movie"))).toBe(false);
   });
 
+  it("rejects a key with wrong verb but valid params", () => {
+    expect(isSearchKey(["command-menu", "trending", { kind: "all" }])).toBe(false);
+  });
+
   it("rejects the bare namespace key", () => {
     expect(isSearchKey(commandMenuKeys.all)).toBe(false);
   });
