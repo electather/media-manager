@@ -76,7 +76,7 @@ describe("PreferencesService.triggerManualRebuild", () => {
   it("throws JobNotTriggerableError when the entry has the wrong kind", async () => {
     // The entry exists but its kind is not "triggerable" (e.g. a scheduled job
     // was mistakenly registered under this id).
-    findJobEntryMock.mockReturnValue({ kind: "scheduled", triggerFromApi: undefined });
+    findJobEntryMock.mockReturnValue({ kind: "scheduled" });
 
     await expect(service.triggerManualRebuild({ userId: "u1" }, meta)).rejects.toBeInstanceOf(
       JobNotTriggerableError,
