@@ -34,4 +34,9 @@ describe("acceptInviteSchema name field", () => {
     const result = acceptInviteSchema.safeParse({ ...base, name: "" });
     expect(result.success).toBe(false);
   });
+
+  it("rejects a whitespace-only name after trimming", () => {
+    const result = acceptInviteSchema.safeParse({ ...base, name: "   " });
+    expect(result.success).toBe(false);
+  });
 });

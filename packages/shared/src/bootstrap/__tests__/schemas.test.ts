@@ -35,4 +35,9 @@ describe("bootstrapClaimSchema name field", () => {
     const result = bootstrapClaimSchema.safeParse({ ...base, name: "" });
     expect(result.success).toBe(false);
   });
+
+  it("rejects a whitespace-only name after trimming", () => {
+    const result = bootstrapClaimSchema.safeParse({ ...base, name: "   " });
+    expect(result.success).toBe(false);
+  });
 });
