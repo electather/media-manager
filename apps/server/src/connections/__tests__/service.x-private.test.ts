@@ -115,7 +115,10 @@ vi.mock("../../db/client", () => {
               for (const row of rows) Object.assign(row, patch);
               // The UPDATE ... RETURNING chain returns the affected rows; an
               // empty rowset is how the service detects a zero-row update and
-              // throws connection.not_found.
+              // throws connection.not_found. WHERE args are ignored here — the
+              // zero-row guard fires because state.connections is empty, NOT
+              // because userId/connectionId were evaluated. A test that needs
+              // mismatched-id rejection must therefore seed no matching row.
               return {
                 returning(_fields: unknown) {
                   return Promise.resolve(rows.map((r) => ({ id: r.id })));
