@@ -25,7 +25,7 @@ interface EnumOption {
   label: string;
 }
 
-function isMissing(value: unknown): boolean {
+function isMissing(value: string | null | undefined): boolean {
   return isNil(value) || value === "";
 }
 
@@ -43,28 +43,29 @@ function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
 interface FieldItemProps {
   fieldKey: string;
   schema: JSONSchemaProperty;
-  value: FormFieldValue;
+  value: string | null;
   required: boolean;
   invalid: boolean;
-  onChange: (v: FormFieldValue) => void;
+  onChange: (v: string | null) => void;
 }
 
-/** JSON Schema numeric types whose form input is coerced to a `number`. */
+/** JSON Schema numeric types whose form input is coerced to a `number` at submit. */
 const NUMERIC_SCHEMA_TYPES = ["number", "integer"];
 
 function isNumericSchema(schema: JSONSchemaProperty): boolean {
   return schema.type != null && NUMERIC_SCHEMA_TYPES.includes(schema.type);
 }
 
-/** Coerces a raw input value to the appropriate type for a schema field.
+/** Coerces a raw string to the appropriate submit-time value for a schema field.
  *
- * Numeric fields (`number` and `integer`) receive a numeric conversion so the
- * POSTed payload matches the server's JSON-schema type declaration rather than
- * sending a string the server-side AJV validator would reject.
+ * Called once per field when building the POST payload — not on every keystroke
+ * — so intermediate input states like "1." or "-" are never truncated while the
+ * user is still typing.  Numeric fields (`number` and `integer`) are converted
+ * to a JS number so the server-side AJV validator accepts them.
  */
-function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
+function coerceForSubmit(schema: JSONSchemaProperty, raw: string | null): FormFieldValue {
+  if (raw === null || raw === "") return null;
   if (isNumericSchema(schema)) {
-    if (raw === "") return null;
     const n = Number(raw);
     return Number.isNaN(n) ? null : n;
   }
@@ -89,9 +90,9 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         </FieldLabel>
       </FieldContent>
       {schema["x-picker"] === "user" ? (
-        <UserPicker value={value as string} onChange={onChange} />
+        <UserPicker value={value ?? undefined} onChange={(v) => onChange(v)} />
       ) : schema["x-picker"] === "connection" ? (
-        <ConnectionPicker value={value as string} onChange={onChange} />
+        <ConnectionPicker value={value ?? undefined} onChange={(v) => onChange(v)} />
       ) : enumOptions ? (
         <Select value={typeof value === "string" ? value : ""} onValueChange={(v) => onChange(v)}>
           <SelectTrigger
@@ -121,8 +122,8 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
-          value={value == null ? "" : String(value)}
-          onChange={(e) => onChange(coerceValue(schema, e.target.value))}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
         />
       )}
       {invalid && (
@@ -143,7 +144,10 @@ export function DynamicTriggerDialog({
   onClose: () => void;
 }) {
   const [runId, setRunId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, FormFieldValue>>({});
+  // Raw strings are kept in formData so intermediate numeric input like "1." or
+  // "-" is never truncated during typing.  Coercion to number happens once at
+  // submit time via coerceForSubmit.
+  const [formData, setFormData] = useState<Record<string, string | null>>({});
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -166,16 +170,27 @@ export function DynamicTriggerDialog({
 
   const triggerMutation = useTriggerJob();
 
+  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
+  const hasResult = !!runId;
+  const hasForm = Object.keys(properties).length > 0;
+  const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (missingFields.length > 0) {
       setShowErrors(true);
       return;
     }
+    const coercedInput = Object.fromEntries(
+      Object.entries(formData).map(([key, raw]) => [
+        key,
+        coerceForSubmit(properties[key] ?? {}, raw),
+      ]),
+    );
     triggerMutation.mutate(
       {
         jobId: job!.id,
-        input: Object.keys(formData).length > 0 ? formData : null,
+        input: Object.keys(coercedInput).length > 0 ? coercedInput : null,
       },
       {
         onSuccess: (data) => {
@@ -188,11 +203,6 @@ export function DynamicTriggerDialog({
       },
     );
   };
-
-  const hasResult = !!runId;
-  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
-  const hasForm = Object.keys(properties).length > 0;
-  const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
