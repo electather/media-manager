@@ -175,9 +175,10 @@ describe("DynamicTriggerDialog number coercion", () => {
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
     const input = screen.getByRole("textbox", { name: /count/i }) as HTMLInputElement;
-    await user.type(input, "1.5");
-
+    await user.type(input, "1.");
     // The intermediate "1." must survive so the user can finish typing "1.5".
+    expect(input.value).toBe("1.");
+    await user.type(input, "5");
     expect(input.value).toBe("1.5");
 
     await user.click(screen.getByRole("button", { name: /run now/i }));

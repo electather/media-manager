@@ -64,7 +64,7 @@ function isNumericSchema(schema: JSONSchemaProperty): boolean {
  * Numeric fields (`number` and `integer`) are converted to `number` so the
  * POSTed payload matches the server's JSON-schema type declaration rather than
  * sending a string the server-side AJV validator would reject.
- * An `integer` field is additionally floored to strip any fractional part.
+ * An `integer` field is additionally truncated toward zero to strip any fractional part.
  */
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
@@ -120,7 +120,9 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         <Input
           id={fieldKey}
           type="text"
-          inputMode={isNumericSchema(schema) ? "decimal" : undefined}
+          inputMode={
+            schema.type === "integer" ? "numeric" : isNumericSchema(schema) ? "decimal" : undefined
+          }
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
