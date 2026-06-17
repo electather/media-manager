@@ -71,8 +71,8 @@ describe("HeaderDialog — add mode validation", () => {
   });
 
   it("trims surrounding whitespace from the name before submitting", async () => {
-    // The trimmedName path must strip leading/trailing spaces so the stored key
-    // matches user intent — typing " X-Corp-Key " should save as "X-Corp-Key".
+    // Trim is applied before validation — leading/trailing whitespace must not
+    // cause a pattern failure or alter the stored key.
     const user = userEvent.setup();
     renderAdd();
 
