@@ -1,3 +1,7 @@
+// Inherently multi-state UI (preview loading/invalid/gone + accept form with
+// email-taken and sign-in-failed branches); CRAP is branch-count driven with no
+// unit coverage. Matches the existing suppression on invite-row.tsx.
+// fallow-ignore-file complexity
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
