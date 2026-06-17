@@ -222,7 +222,13 @@ export const adminDeliveryRowSchema = z.object({
 
 export type InboxListQuery = z.infer<typeof inboxListQuerySchema>;
 export type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
-export type AdminSettingsBody = z.infer<typeof adminSettingsBodySchema>;
+// Discriminated union that enforces at least one field at compile time.
+// z.infer on a .refine() schema does not narrow the type, so the empty-body
+// rejection would only happen at runtime. This union surfaces the constraint
+// to callers (fetcher, mutation hook) without changing the Zod runtime schema.
+export type AdminSettingsBody =
+  | { inboxRetentionDays: number; deliveryRetentionDays?: number }
+  | { inboxRetentionDays?: number; deliveryRetentionDays: number };
 export type AdminSettingsResponse = z.infer<typeof adminSettingsResponseSchema>;
 export type InboxItemDto = z.infer<typeof inboxItemSchema>;
 export type CategoryEntry = z.infer<typeof categoryEntrySchema>;
