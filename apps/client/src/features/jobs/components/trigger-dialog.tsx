@@ -232,6 +232,28 @@ export function DynamicTriggerDialog({
     );
   };
 
+  // fallow-ignore-next-line complexity
+  function renderField([key, schema]: [string, JSONSchemaProperty]) {
+    return (
+      <FieldItem
+        key={key}
+        fieldKey={key}
+        schema={schema}
+        value={formData[key] ?? ""}
+        required={required.includes(key)}
+        invalid={
+          showErrors &&
+          ((required.includes(key) && isMissing(formData[key])) ||
+            invalidNumericFields.includes(key))
+        }
+        invalidReason={
+          showErrors && invalidNumericFields.includes(key) ? "invalid-number" : "required"
+        }
+        onChange={(v) => setFormData({ ...formData, [key]: v })}
+      />
+    );
+  }
+
   const hasResult = !!runId;
   const hasForm = Object.keys(properties).length > 0;
   const canSubmit =
@@ -266,26 +288,7 @@ export function DynamicTriggerDialog({
             <div className="py-2">
               {hasForm ? (
                 <FieldGroup className="gap-4">
-                  {Object.entries(properties).map(([key, schema]) => (
-                    <FieldItem
-                      key={key}
-                      fieldKey={key}
-                      schema={schema}
-                      value={formData[key] ?? ""}
-                      required={required.includes(key)}
-                      invalid={
-                        showErrors &&
-                        ((required.includes(key) && isMissing(formData[key])) ||
-                          invalidNumericFields.includes(key))
-                      }
-                      invalidReason={
-                        showErrors && invalidNumericFields.includes(key)
-                          ? "invalid-number"
-                          : "required"
-                      }
-                      onChange={(v) => setFormData({ ...formData, [key]: v })}
-                    />
-                  ))}
+                  {Object.entries(properties).map(renderField)}
                 </FieldGroup>
               ) : (
                 <div className="text-sm text-muted-foreground">
