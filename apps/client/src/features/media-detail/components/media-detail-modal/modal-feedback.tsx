@@ -93,9 +93,9 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         // Use muted style regardless of hasNote — primary accent on a disabled button
-        // looks interactive but never responds. Restore the hasNote branch with active
-        // accent colors + hover:bg-muted/40 hover:text-foreground once note persistence
-        // is wired and the button is re-enabled.
+        // looks interactive but never responds. When note persistence lands, restore:
+        //   hasNote → active accent colors + hover:bg-muted/40 hover:text-foreground
+        //   !hasNote → same muted base + hover:bg-muted/40 hover:text-foreground
         "border-border bg-foreground/6 text-muted-foreground",
         "cursor-not-allowed opacity-50",
       )}
