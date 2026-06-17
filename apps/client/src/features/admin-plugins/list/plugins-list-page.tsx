@@ -38,6 +38,7 @@ export function PluginsListPage() {
   const toggle = useTogglePlugin();
   const [filter, setFilter] = useState<PluginListFilter>("all");
   const [query, setQuery] = useState("");
+  // Dormant until canInstall is true — preserved so flipping the flag re-enables full flow.
   const [installOpen, setInstallOpen] = useState(false);
 
   const counts = useMemo(
