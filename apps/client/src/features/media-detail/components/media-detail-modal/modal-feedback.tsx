@@ -13,19 +13,20 @@ export function ModalFeedback({ hasNote }: Props) {
         {m.home_detail_feedback_label()}
       </span>
       <div className="flex flex-wrap items-center gap-2">
-        {/* Vote and note persistence is not yet wired; buttons are disabled to
-            avoid misleading users into believing their input was saved. */}
+        {/* Vote and note persistence is not yet wired; buttons use aria-disabled
+            so they stay in the tab order and are announced as unavailable.
+            No onClick is wired — activation is silently suppressed. */}
         {/* restore active={computed} + onClick when vote persistence lands */}
         <VoteButton
           active={false}
-          disabled
+          ariaDisabled
           tone="up"
           label={m.home_detail_feedback_like()}
           icon={<ThumbsUp className="size-3.5" />}
         />
         <VoteButton
           active={false}
-          disabled
+          ariaDisabled
           tone="down"
           label={m.home_detail_feedback_dislike()}
           icon={<ThumbsDown className="size-3.5" />}
@@ -42,13 +43,13 @@ export function ModalFeedback({ hasNote }: Props) {
 
 function VoteButton({
   active,
-  disabled,
+  ariaDisabled,
   tone,
   label,
   icon,
 }: {
   active: boolean;
-  disabled?: boolean;
+  ariaDisabled?: boolean;
   tone: "up" | "down";
   label: string;
   icon: React.ReactNode;
@@ -61,16 +62,15 @@ function VoteButton({
   return (
     <button
       type="button"
-      disabled={disabled}
+      aria-disabled={ariaDisabled}
       aria-pressed={active}
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         active
           ? activeClass
-          : // hover:* is inert on disabled buttons (pointer-events:none); kept
-            // for when vote persistence is wired and the button is re-enabled.
+          : // hover:* applies when vote persistence is wired and ariaDisabled is removed.
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-50",
+        ariaDisabled && "cursor-not-allowed opacity-50",
       )}
     >
       {icon}
@@ -81,12 +81,12 @@ function VoteButton({
 
 function NoteButton({ hasNote }: { hasNote: boolean }) {
   return (
-    // Note persistence is not yet wired; disabled to avoid misleading users
-    // into believing their input was saved across sessions.
-    // onClick omitted — disabled buttons never fire; restore when persistence lands.
+    // Note persistence is not yet wired; aria-disabled keeps the button in the
+    // tab order so keyboard and screen-reader users can discover it.
+    // No onClick is wired — activation is silently suppressed. Restore when persistence lands.
     <button
       type="button"
-      disabled
+      aria-disabled="true"
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
@@ -94,8 +94,7 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         hasNote
           ? "border-primary/55 bg-primary/10 text-primary"
-          : // hover:* is inert on disabled buttons (pointer-events:none); kept
-            // for when note persistence is wired and the button is re-enabled.
+          : // hover:* applies when note persistence is wired and aria-disabled is removed.
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
         "cursor-not-allowed opacity-50",
       )}
