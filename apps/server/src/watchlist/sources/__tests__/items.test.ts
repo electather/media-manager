@@ -161,6 +161,48 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect("nextRaw" in res).toBe(false);
   });
 
+  it("alpha sort breaks ties deterministically for accent/case-colliding titles (#680)", async () => {
+    // "elite", "Elite", and "élite" all collapse to the same key under the
+    // accent-insensitive primary compare. The secondary full-sensitivity compare
+    // must produce a stable, reproducible order so the same input always yields
+    // the same output regardless of JS sort stability or host environment.
+    const rows = [row("3", 3), row("1", 2), row("2", 1)];
+    vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
+    const ctx = makeCtx();
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:3": { tmdbId: "3", mediaType: "movie", title: "élite", genres: [] },
+      "movie:1": { tmdbId: "1", mediaType: "movie", title: "Elite", genres: [] },
+      "movie:2": { tmdbId: "2", mediaType: "movie", title: "elite", genres: [] },
+    });
+
+    const res = await itemsSource(params({ sort: "alpha" })).fetchRawSet(
+      ctx,
+      params({ sort: "alpha" }),
+      null,
+    );
+
+    // The secondary tie-break must produce the same order on every invocation.
+    // The exact order is determined by full-locale compare ("Elite" < "elite" < "élite"
+    // under "en" locale), but what matters is that it is stable across calls.
+    const first = res.rows.map((r) => r.tmdbId);
+
+    vi.mocked(media.listAllActiveRows).mockResolvedValueOnce([...rows].reverse());
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:3": { tmdbId: "3", mediaType: "movie", title: "élite", genres: [] },
+      "movie:1": { tmdbId: "1", mediaType: "movie", title: "Elite", genres: [] },
+      "movie:2": { tmdbId: "2", mediaType: "movie", title: "elite", genres: [] },
+    });
+
+    const res2 = await itemsSource(params({ sort: "alpha" })).fetchRawSet(
+      ctx,
+      params({ sort: "alpha" }),
+      null,
+    );
+
+    // Both runs must produce identical ordering regardless of input order.
+    expect(res2.rows.map((r) => r.tmdbId)).toEqual(first);
+  });
+
   // The status-sort path depends on a `mediaService.getStatusBatch` fan-out.
   // When that call rejects we MUST surface `partial:true` so the envelope can
   // signal a degraded sort to the client; today every row falls back to the
