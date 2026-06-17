@@ -1,6 +1,7 @@
 import { Suspense, useState } from "react";
 import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
+import { diagnosticsKeys } from "../shared/query-keys";
 import { PerfStatsCards } from "./perf-stats-cards";
 import { PerfFilterBar } from "./perf-filter-bar";
 import { PerfAggregateTable, PerfAggregateTableSkeleton } from "./perf-aggregate-table";
@@ -34,6 +35,7 @@ export function PerfTab({
       <DiagnosticsErrorBoundary
         title={m.diagnostics_perf_load_failed_title()}
         body={m.diagnostics_perf_load_failed_body()}
+        queryKey={diagnosticsKeys.perf.all()}
       >
         <Suspense fallback={<PerfAggregateTableSkeleton />}>
           <PerfAggregateTable

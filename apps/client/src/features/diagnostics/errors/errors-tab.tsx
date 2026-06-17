@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
+import { diagnosticsKeys } from "../shared/query-keys";
 import { ErrorsHeader } from "./errors-header";
 import { ErrorsFilterBar } from "./errors-filter-bar";
 import { ErrorsTable, ErrorsTableSkeleton } from "./errors-table";
@@ -19,7 +20,7 @@ export function ErrorsTab({ filters, onFiltersChange, selectedId, onSelect, onJu
     <div className="flex flex-col gap-4">
       <ErrorsHeader />
       <ErrorsFilterBar filters={filters} onChange={onFiltersChange} />
-      <DiagnosticsErrorBoundary>
+      <DiagnosticsErrorBoundary queryKey={diagnosticsKeys.errors.all()}>
         <Suspense fallback={<ErrorsTableSkeleton />}>
           <ErrorsTable
             filters={filters}
