@@ -46,7 +46,8 @@
     "**/docker/**",
     "apps/client/public/**",
     "packages/plugins/**",
-    "tools/**"
+    "tools/**",
+    "apps/client/src/shared/lib/test-utils.tsx"
   ],
   "rules": {
     "unused-files": "error",
@@ -455,6 +456,7 @@
         "allow": [
           "client-feat-auth",
           "client-feat-connections",
+          "client-feat-settings-apps",
           "client-feat-settings-connections",
           "client-shared-ui",
           "client-shared-components",

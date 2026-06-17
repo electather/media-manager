@@ -80,5 +80,12 @@
   "onboarding_tmdb_test_ok": "The key works.",
   "onboarding_tmdb_test_failed": "That key did not work. Check it and try again.",
   "onboarding_tmdb_save_failed": "Could not save the key. Please try again.",
-  "onboarding_tmdb_saved": "TMDB key saved."
+  "onboarding_tmdb_saved": "TMDB key saved.",
+  "onboarding_step_mcp_setup_title": "Connect an AI client",
+  "onboarding_mcp_setup_heading": "Connect an AI client",
+  "onboarding_mcp_setup_intro": "Point Claude Desktop, Cursor, or any MCP-compatible client at your nama instance to browse and act on your library through AI.",
+  "onboarding_mcp_setup_endpoint_label": "MCP endpoint",
+  "onboarding_mcp_setup_copy": "Copy",
+  "onboarding_mcp_setup_copied": "Copied",
+  "onboarding_mcp_setup_guide_button": "View setup guide"
 }
