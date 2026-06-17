@@ -1,5 +1,6 @@
 import { MessageSquare, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
 type Props = {
@@ -41,7 +42,6 @@ export function ModalFeedback({ hasNote }: Props) {
   );
 }
 
-// fallow-ignore-next-line complexity
 function VoteButton({
   active,
   ariaDisabled,
@@ -57,60 +57,54 @@ function VoteButton({
 }) {
   const activeClass =
     tone === "up"
-      ? "border-[oklch(0.55_0.13_155_/_0.55)] bg-[oklch(0.30_0.10_155_/_0.20)] text-[oklch(0.78_0.15_155)]"
-      : "border-[oklch(0.60_0.16_25_/_0.55)] bg-[oklch(0.30_0.10_25_/_0.20)] text-[oklch(0.78_0.15_25)]";
+      ? "border-[oklch(0.55_0.13_155_/_0.55)] bg-[oklch(0.30_0.10_155_/_0.20)] text-[oklch(0.78_0.15_155)] hover:bg-[oklch(0.30_0.10_155_/_0.20)]"
+      : "border-[oklch(0.60_0.16_25_/_0.55)] bg-[oklch(0.30_0.10_25_/_0.20)] text-[oklch(0.78_0.15_25)] hover:bg-[oklch(0.30_0.10_25_/_0.20)]";
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       aria-disabled={ariaDisabled ? "true" : undefined}
       aria-pressed={active}
       className={cn(
-        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
-        active
-          ? activeClass
-          : // hover:* applies when vote persistence is wired and ariaDisabled is removed.
-            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        // pointer-events-none blocks hover styles (hover:bg-muted/40) that would
-        // otherwise fire on mouse-over and create false affordance on an unavailable button.
-        // cursor-not-allowed is a no-op while pointer-events-none is set; swap to the guard
-        // pattern (if (ariaDisabled) return in onClick) when vote persistence lands.
-        ariaDisabled && "cursor-not-allowed opacity-50 pointer-events-none",
+        "h-[34px] rounded-full px-3 text-xs backdrop-blur-sm",
+        active ? activeClass : "text-muted-foreground",
+        // aria-disabled:pointer-events-none prevents hover styles from firing on an
+        // unavailable button. Swap to an onClick guard when vote persistence lands.
+        ariaDisabled && "aria-disabled:pointer-events-none aria-disabled:opacity-50",
       )}
     >
       {icon}
       {label}
-    </button>
+    </Button>
   );
 }
 
-// fallow-ignore-next-line complexity
 function NoteButton({ hasNote, ariaDisabled }: { hasNote: boolean; ariaDisabled?: boolean }) {
   return (
     // Note persistence is not yet wired; aria-disabled keeps the button in the
     // tab order so keyboard and screen-reader users can discover it.
     // No onClick is wired — activation is silently suppressed. Restore when persistence lands.
-    <button
+    <Button
       type="button"
+      variant="outline"
       aria-disabled={ariaDisabled ? "true" : undefined}
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
       className={cn(
-        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
+        "h-[34px] rounded-full px-3 text-xs text-muted-foreground backdrop-blur-sm",
         // Use muted style regardless of hasNote — primary accent on a disabled button
         // looks interactive but never responds. When note persistence lands, restore:
         //   hasNote → active accent colors + hover:bg-muted/40 hover:text-foreground
         //   !hasNote → same muted base + hover:bg-muted/40 hover:text-foreground
-        "border-border bg-foreground/6 text-muted-foreground",
-        // pointer-events-none prevents hover styles from showing on a permanently unavailable
-        // button. cursor-not-allowed is a no-op while pointer-events-none is set; both will
-        // be removed when note persistence lands and onClick is wired.
-        ariaDisabled && "cursor-not-allowed opacity-50 pointer-events-none",
+        // aria-disabled:pointer-events-none prevents hover styles from showing on a
+        // permanently unavailable button. Remove when persistence lands.
+        ariaDisabled && "aria-disabled:pointer-events-none aria-disabled:opacity-50",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
       {hasNote ? m.home_detail_feedback_note_added() : m.home_detail_feedback_note()}
-    </button>
+    </Button>
   );
 }
