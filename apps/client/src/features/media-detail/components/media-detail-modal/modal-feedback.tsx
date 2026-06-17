@@ -59,7 +59,7 @@ function VoteButton({
 }) {
   const activeClass =
     tone === "up"
-      ? "border-[oklch(0.55_0.13_155_/_0.55)] bg-[oklch(0.30_0.10_155_/_0.20)] text-[oklch(0.78_0.15_155)] hover:bg-[oklch(0.30_0.10_155_/_0.20)]"
+      ? "border-[oklch(0.55_0.13_155_/_0.55)] bg-[oklch(0.30_0.10_155_/_0.20)] text-[oklch(0.78_0.15_155)] hover:bg-[oklch(0.30_0.10_155_/_0.20)]" // hover:bg locks the active tint; prevents outline variant's hover:bg-muted from overriding
       : "border-[oklch(0.60_0.16_25_/_0.55)] bg-[oklch(0.30_0.10_25_/_0.20)] text-[oklch(0.78_0.15_25)] hover:bg-[oklch(0.30_0.10_25_/_0.20)]";
 
   return (
