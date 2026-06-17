@@ -70,6 +70,22 @@ describe("HeaderDialog — add mode validation", () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
+  it("trims surrounding whitespace from name before submitting", async () => {
+    // The save handler calls name.trim() before passing to mutate. If trimmedName
+    // were not used, the mutation would receive " X-Corp-Key " and this would fail.
+    const user = userEvent.setup();
+    renderAdd();
+
+    await user.type(screen.getByPlaceholderText("X-Corp-Key"), " X-Corp-Key ");
+    await user.type(getValueInput(), "secret");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      { name: "X-Corp-Key", value: "secret" },
+      expect.any(Object),
+    );
+  });
+
   it("submits with the raw value preserving leading/trailing whitespace", async () => {
     // Secrets are opaque; leading/trailing whitespace must NOT be stripped.
     // If trimmedValue were passed instead of the raw value this assertion would fail.
