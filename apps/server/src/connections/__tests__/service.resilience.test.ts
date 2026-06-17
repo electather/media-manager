@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
 // Tests for two correctness findings from issue #595:
 //   1. Corrupt userConfig rows must degrade gracefully instead of throwing 500s.
-//   2. updateDisplayName must reject missing/foreign ids and must invalidate cache.
+//   2. Mutations through updateConnectionWhere (updateDisplayName, setEnabled)
+//      must reject missing/foreign ids via its RETURNING zero-row guard — not a
+//      requireConnection pre-check — and updateDisplayName must invalidate cache.
 
 vi.mock("../../env", () => ({
   env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
