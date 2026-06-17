@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { diagnosticsKeys } from "../shared/query-keys";
@@ -27,11 +27,21 @@ export function PerfTab({
 }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<PerfAggregateGroup | null>(null);
+  const [, startTransition] = useTransition();
+
+  /** Wraps filter updates in a transition so React keeps the current
+   *  Suspense subtree alive while the new query loads, preventing the
+   *  skeleton from flashing on every keystroke. */
+  const handleFiltersChange = (next: PerfFilters) => {
+    startTransition(() => {
+      onFiltersChange(next);
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <PerfStatsCards />
-      <PerfFilterBar filters={filters} onChange={onFiltersChange} />
+      <PerfFilterBar filters={filters} onChange={handleFiltersChange} />
       <DiagnosticsErrorBoundary
         title={m.diagnostics_perf_load_failed_title()}
         body={m.diagnostics_perf_load_failed_body()}
@@ -43,7 +53,7 @@ export function PerfTab({
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             selectedGroup={setSelectedGroup}
-            onClearRequestId={() => onFiltersChange({ ...filters, requestId: "" })}
+            onClearRequestId={() => handleFiltersChange({ ...filters, requestId: "" })}
           />
         </Suspense>
       </DiagnosticsErrorBoundary>
