@@ -29,7 +29,14 @@ vi.mock("../../../auth", async () => {
   };
 });
 
-vi.mock("../../../catalog", () => ({ getCatalogService: () => ({}), toCanonicalRow: vi.fn() }));
+// Shared spy so the dedup test can assert a single call across both the
+// eligibility gate and the source read within one request.
+const getRecommendationsSpy = vi.fn().mockResolvedValue(null);
+
+vi.mock("../../../catalog", () => ({
+  getCatalogService: () => ({ getRecommendations: getRecommendationsSpy }),
+  toCanonicalRow: vi.fn(),
+}));
 vi.mock("../../../artwork", () => ({
   ArtworkService: vi.fn(function ArtworkService() {
     return { getArtwork: vi.fn(async () => ({ results: {} })) };
@@ -60,13 +67,45 @@ vi.mock("../../../media", async () => {
 // media-parity.test.ts.
 vi.mock("../../../home", async () => {
   const { z } = await import("zod");
+  // The real factory is imported directly from the internal file — safe from
+  // tests because the boundary check excludes `.test.ts` files from the walk.
+  const { makeRecommendationsMemo } = await import("../../../home/internal/recommendations-memo");
   const sentinelBuild = vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
     source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
     cfg: { params: {}, cursor, limit: 10 },
     enrichRows: vi.fn(),
   }));
   return {
+    makeRecommendationsMemo,
     homeMediaSources: {
+      // Reads ctx.recommendations() from both eligibility and build so a
+      // single request exercises the two read sites the memo must collapse.
+      fakeHomeRecs: {
+        sourceId: "fakeHomeRecs",
+        rateLimit: undefined,
+        paramSchema: z.object({}),
+        cursorMode: "keyset",
+        cursorOnNull: "400",
+        eligibility: vi.fn(async (ctx: { recommendations?: () => Promise<unknown> }) => {
+          if (ctx.recommendations) await ctx.recommendations();
+          return true;
+        }),
+        build: vi.fn(
+          (ctx: { recommendations?: () => Promise<unknown> }, _p: unknown, cursor: unknown) => ({
+            source: {
+              stages: { sort: "recentDesc", cursorMode: "keyset" },
+              // Reads ctx.recommendations() a second time, simulating the source
+              // fetchRawSet path (the eligibility gate already fired once).
+              fetchRawSet: async () => {
+                if (ctx.recommendations) await ctx.recommendations();
+                return { rows: [], nextRaw: undefined };
+              },
+            },
+            cfg: { params: {}, cursor, limit: 10 },
+            enrichRows: vi.fn(),
+          }),
+        ),
+      },
       fakeHome: {
         sourceId: "fakeHome",
         rateLimit: undefined,
@@ -188,7 +227,14 @@ beforeEach(() => {
   mockUserId = "u1";
   vi.mocked(media.listRows).mockClear();
   vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
-  for (const id of ["fakeHome", "fakeHomeIneligible", "fakeHomeSeeded", "fakeHomeMulti"]) {
+  getRecommendationsSpy.mockClear();
+  for (const id of [
+    "fakeHome",
+    "fakeHomeIneligible",
+    "fakeHomeSeeded",
+    "fakeHomeMulti",
+    "fakeHomeRecs",
+  ]) {
     homeReg(id).build.mockClear();
     homeReg(id).eligibility?.mockClear();
   }
@@ -343,5 +389,27 @@ describe("media source resolver (US-003, design §A3)", () => {
     expect(res.status).toBe(429);
     // The throttle fired before the source was built.
     expect(watchlistReg("fakeWatchlist").build).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildSourceContext recommendations memo (issue #681)", () => {
+  // The `recommendedForYou-*` rows read the user's default rec list from both
+  // their eligibility gate and their source `fetchRawSet` on each request.
+  // `buildSourceContext` must wire a `makeRecommendationsMemo`-backed accessor
+  // so those two (or more) reads collapse to a single `getRecommendations` call
+  // per request, and a second request gets its own fresh fetch.
+  it("collapses eligibility + source reads to one getRecommendations call per request", async () => {
+    // `fakeHomeRecs` reads ctx.recommendations() from eligibility and build.
+    await buildApp().request("/media/sources/fakeHomeRecs");
+    expect(getRecommendationsSpy).toHaveBeenCalledTimes(1);
+    expect(getRecommendationsSpy).toHaveBeenCalledWith("u1", "default");
+  });
+
+  it("issues a fresh getRecommendations call for each distinct request", async () => {
+    await buildApp().request("/media/sources/fakeHomeRecs");
+    await buildApp().request("/media/sources/fakeHomeRecs");
+    // Each request creates its own SourceContext (and its own memo), so two
+    // requests must each fire exactly one underlying call — two total.
+    expect(getRecommendationsSpy).toHaveBeenCalledTimes(2);
   });
 });
