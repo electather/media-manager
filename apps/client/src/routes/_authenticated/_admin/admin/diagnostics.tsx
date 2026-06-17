@@ -21,7 +21,11 @@ const searchSchema = z.object({
     .max(64)
     .optional(),
   // cuid2 default output is 24 chars; 128 gives headroom for future ID format changes.
-  pid: z.string().max(128).optional(),
+  pid: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .max(128)
+    .optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")({
