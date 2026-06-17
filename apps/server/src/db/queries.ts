@@ -29,17 +29,29 @@ export function parseUserConfig(raw: string | null | undefined, connectionId?: s
 }
 
 /**
+ * Tracks fingerprints that have already been logged so each distinct corrupt
+ * row emits exactly one warning per process lifetime. Evicted on restart,
+ * which is acceptable — operators need to see the warning at least once.
+ */
+const warnedFingerprints = new Set<string>();
+
+/**
  * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
  * connection id pinpoints the row; we deliberately do NOT log the raw value
  * because `x-private` fields live in `userConfig` as plaintext and an excerpt
  * could leak one into the logs. A length + short content hash is enough to tell
  * corrupt rows apart and confirm a re-occurrence without exposing any content.
+ *
+ * Deduplication is fingerprint-based so a single bad row on a busy instance
+ * only emits one warning regardless of how many requests hit it.
  */
 function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
   const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")
     .update(raw)
     .digest("hex")
     .slice(0, 8)}`;
+  if (warnedFingerprints.has(fingerprint)) return;
+  warnedFingerprints.add(fingerprint);
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
     connectionId,
     fingerprint,
