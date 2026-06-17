@@ -250,6 +250,7 @@ describe("updateDisplayName guard (finding 2)", () => {
     // the WHERE predicate, so the guard fires here only because the rowset is
     // empty. Seeding any row would make the mock return it and bypass the guard,
     // silently turning this into a false pass.
+    expect(state.connections).toHaveLength(0);
     installPlugin();
 
     await expect(
