@@ -48,7 +48,7 @@ Pick one or more. Required on every issue and PR.
 | `scope: ci` | CI workflows, release tooling, GitHub Actions |
 | `scope: deps` | Dependency version bumps or package changes |
 
-Apply multiple scope labels when a change genuinely spans packages (e.g. a shared type change + server consumer = `scope: shared` + `scope: server`).
+Required on PRs and issues. Used to select the right LLM for the fix — low → Haiku, medium → Sonnet, high → Opus.
 
 ---
 
