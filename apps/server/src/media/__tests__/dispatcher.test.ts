@@ -364,6 +364,7 @@ describe("dispatchPrimary", () => {
       mediaType: "movie",
     });
 
+    expect(result.data).not.toBeNull();
     expect(result.data!.title).toBe("Matrix");
     expect(result.data!.overview).toBe("A classic");
     expect(result.data!.ids).toEqual({ trakt_id: "42", tmdb_id: "603" });
@@ -388,6 +389,7 @@ describe("dispatchPrimary", () => {
       input: { id: "1", type: "movie" },
       mediaType: "movie",
     });
+    expect(result.data).not.toBeNull();
     expect(result.data!.title).toBe("From TMDB");
   });
 
