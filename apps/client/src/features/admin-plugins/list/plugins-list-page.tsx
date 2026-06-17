@@ -39,6 +39,7 @@ export function PluginsListPage() {
   const [filter, setFilter] = useState<PluginListFilter>("all");
   const [query, setQuery] = useState("");
   // Dormant: set canInstall and sandboxAvailable to true when QuickJS sandbox lands — state, handler, and dialog are intentionally preserved.
+  // sandboxAvailable={false} keeps the dialog's install action disabled in the meantime.
   const [installOpen, setInstallOpen] = useState(false);
 
   const counts = useMemo(
