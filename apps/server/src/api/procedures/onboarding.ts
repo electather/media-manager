@@ -39,6 +39,11 @@ interface OnboardingStepDescriptor {
  * role-aware, but only the admin path is wired in v1. Adding a member-facing
  * step later is purely additive: append a descriptor whose `appliesTo` matches
  * the non-admin role plus a client component keyed by its `id`.
+ *
+ * v2 additions (issue #579 deferred work):
+ * - `mcp-setup`: guides the admin through connecting an AI client to the MCP
+ *   endpoint. Optional and always complete; the setup guide is already available
+ *   in Settings → Apps so this step is informational, not a gate.
  */
 export const STEPS: OnboardingStepDescriptor[] = [
   {
@@ -54,6 +59,13 @@ export const STEPS: OnboardingStepDescriptor[] = [
     appliesTo: (ctx) => !!ctx.role?.isSystemAdmin,
     isRequired: () => true,
     isComplete: (ctx) => ctx.tmdbConfigured,
+  },
+  {
+    id: "mcp-setup",
+    title: "Connect an AI client",
+    appliesTo: (ctx) => !!ctx.role?.isSystemAdmin,
+    isRequired: () => false,
+    isComplete: () => true,
   },
 ];
 

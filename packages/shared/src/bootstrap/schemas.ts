@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { passwordSchema } from "../auth";
-import { NAME_MAX_LENGTH } from "../users/schemas";
+import { NAME_MAX_LENGTH } from "../users";
 
 /** Body for `POST /api/bootstrap/claim`. */
 export const bootstrapClaimSchema = z.object({
@@ -10,6 +10,6 @@ export const bootstrapClaimSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   email: z.email(),
   password: passwordSchema,
-  name: z.string().min(1).max(NAME_MAX_LENGTH),
+  name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
 });
 export type BootstrapClaimBody = z.infer<typeof bootstrapClaimSchema>;

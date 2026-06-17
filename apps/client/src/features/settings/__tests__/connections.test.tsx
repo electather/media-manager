@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, screen } from "@testing-library/react";
 
-import { renderWithProviders } from "./test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 
 // Smoke-level coverage: the route imports the Hono RPC client which the test
 // environment can't actually run against. We mock the api module to verify
