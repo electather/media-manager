@@ -63,7 +63,7 @@ describe("ErrorDetailSheet — boundary reset on selectedId change", () => {
 
     // Wait for the suspended query to reject and the boundary to render the fallback.
     await waitFor(() => {
-      expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeDefined();
+      expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeInTheDocument();
     });
 
     // Changing to a new ID must remount the boundary (key changes) so the error
