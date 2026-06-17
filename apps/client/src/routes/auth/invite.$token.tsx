@@ -80,6 +80,45 @@ function GoneState() {
   );
 }
 
+/** Maps TanStack Form field errors to the shape `<FieldError>` expects. */
+function fieldErrors(errors: (string | undefined)[]) {
+  return errors.map((message) => ({ message }));
+}
+
+/** Recovery banner shown when the account was created but sign-in failed. */
+function SignInFailedState() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+        {m.auth_invite_title()}
+      </h1>
+      <p className="mt-1 text-center text-sm font-medium text-destructive">
+        {m.auth_invite_account_created_signin_failed()}
+      </p>
+      <Button variant="link" size="sm" render={<Link to="/auth/login" />}>
+        {m.auth_invite_go_to_login()}
+      </Button>
+    </div>
+  );
+}
+
+function InviteHeader({ roleName }: { roleName: string }) {
+  return (
+    <div>
+      <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+        {m.auth_invite_title()}
+      </h1>
+      <p className="mt-1 text-center text-sm text-muted-foreground">{m.auth_invite_subtitle()}</p>
+      {roleName ? (
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          {m.auth_invite_role_label()}{" "}
+          <span className="font-medium text-foreground">{roleName}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
   const navigate = useNavigate();
   const [signInFailed, setSignInFailed] = useState(false);
@@ -120,37 +159,17 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
   });
 
   const isBusy = form.state.isSubmitting || acceptMutation.isPending || acceptMutation.isSuccess;
+  const showGenericError =
+    acceptMutation.error &&
+    !(acceptMutation.error instanceof AdminUsersApiError && acceptMutation.error.status === 409);
 
   if (signInFailed) {
-    return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
-          {m.auth_invite_title()}
-        </h1>
-        <p className="mt-1 text-center text-sm font-medium text-destructive">
-          {m.auth_invite_account_created_signin_failed()}
-        </p>
-        <Button variant="link" size="sm" render={<Link to="/auth/login" />}>
-          {m.auth_invite_go_to_login()}
-        </Button>
-      </div>
-    );
+    return <SignInFailedState />;
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
-          {m.auth_invite_title()}
-        </h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">{m.auth_invite_subtitle()}</p>
-        {roleName ? (
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            {m.auth_invite_role_label()}{" "}
-            <span className="font-medium text-foreground">{roleName}</span>
-          </p>
-        ) : null}
-      </div>
+      <InviteHeader roleName={roleName} />
 
       <form
         className="flex flex-col gap-4"
@@ -180,7 +199,7 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
                 autoComplete="name"
                 disabled={isBusy}
               />
-              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+              <FieldError errors={fieldErrors(field.state.meta.errors)} />
             </Field>
           )}
         </form.Field>
@@ -208,7 +227,7 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
                 autoComplete="email"
                 disabled={isBusy}
               />
-              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+              <FieldError errors={fieldErrors(field.state.meta.errors)} />
               {emailTaken ? (
                 <p className="text-sm text-destructive">
                   {m.auth_invite_email_taken()}{" "}
@@ -242,17 +261,14 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
                 onChange={field.handleChange}
                 onBlur={field.handleBlur}
               />
-              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+              <FieldError errors={fieldErrors(field.state.meta.errors)} />
             </Field>
           )}
         </form.Field>
 
-        {acceptMutation.error &&
-        !(
-          acceptMutation.error instanceof AdminUsersApiError && acceptMutation.error.status === 409
-        ) ? (
+        {showGenericError ? (
           <p className="mt-1 text-center text-sm font-medium text-destructive">
-            {acceptMutation.error.message}
+            {acceptMutation.error?.message}
           </p>
         ) : null}
 
