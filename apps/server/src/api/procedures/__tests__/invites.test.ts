@@ -193,23 +193,24 @@ describe("POST /invites/:code/accept — happy path", () => {
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; userId: string };
+    const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
-    expect(typeof body.userId).toBe("string");
 
     // User was created with emailVerified=true.
     const createdUser = await db
-      .select({ emailVerified: user.emailVerified })
+      .select({ id: user.id, emailVerified: user.emailVerified })
       .from(user)
       .where(eq(user.email, "newuser@example.com"))
       .get();
     expect(createdUser?.emailVerified).toBe(true);
 
+    const newUserId = createdUser!.id;
+
     // Role was assigned.
     const assignedRole = await db
       .select({ roleId: userRoles.roleId })
       .from(userRoles)
-      .where(eq(userRoles.userId, body.userId))
+      .where(eq(userRoles.userId, newUserId))
       .get();
     expect(assignedRole?.roleId).toBe(MEMBER_ROLE_ID);
 
@@ -217,7 +218,7 @@ describe("POST /invites/:code/accept — happy path", () => {
     const credAccount = await db
       .select({ providerId: account.providerId })
       .from(account)
-      .where(eq(account.userId, body.userId))
+      .where(eq(account.userId, newUserId))
       .get();
     expect(credAccount?.providerId).toBe("credential");
 
