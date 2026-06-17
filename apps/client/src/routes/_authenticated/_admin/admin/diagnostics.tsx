@@ -15,7 +15,7 @@ const tabSchema = z.enum(["errors", "performance"]).optional();
 
 const searchSchema = z.object({
   tab: tabSchema,
-  rid: z.string().max(128).optional(),
+  rid: z.string().max(64).optional(),
   pid: z.string().max(128).optional(),
 });
 
