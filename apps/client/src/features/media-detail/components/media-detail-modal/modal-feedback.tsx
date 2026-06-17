@@ -42,7 +42,7 @@ export function ModalFeedback({ hasNote }: Props) {
   );
 }
 
-// fallow-ignore-next-line complexity — tone branch plus aria-disabled and aria-pressed conditionals keep cyclomatic score above threshold; root cause is deferred persistence logic, not incidental complexity.
+// fallow-ignore-next-line complexity
 function VoteButton({
   active,
   ariaDisabled,
@@ -69,10 +69,12 @@ function VoteButton({
       aria-pressed={active}
       className={cn(
         "h-[34px] rounded-full px-3 text-xs backdrop-blur-sm",
-        active ? activeClass : "text-muted-foreground",
+        active
+          ? activeClass
+          : "bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
         // aria-disabled:pointer-events-none prevents hover styles from firing on an
         // unavailable button. Swap to an onClick guard when vote persistence lands.
-        ariaDisabled && "aria-disabled:pointer-events-none aria-disabled:opacity-50",
+        ariaDisabled && "pointer-events-none opacity-50",
       )}
     >
       {icon}
@@ -81,7 +83,7 @@ function VoteButton({
   );
 }
 
-// fallow-ignore-next-line complexity — hasNote branch and ariaDisabled conditional exceed threshold; root cause is deferred persistence logic, not incidental complexity.
+// fallow-ignore-next-line complexity
 function NoteButton({ hasNote, ariaDisabled }: { hasNote: boolean; ariaDisabled?: boolean }) {
   return (
     // Note persistence is not yet wired; aria-disabled keeps the button in the
@@ -102,7 +104,7 @@ function NoteButton({ hasNote, ariaDisabled }: { hasNote: boolean; ariaDisabled?
         //   !hasNote → same muted base + hover:bg-muted/40 hover:text-foreground
         // aria-disabled:pointer-events-none prevents hover styles from showing on a
         // permanently unavailable button. Remove when persistence lands.
-        ariaDisabled && "aria-disabled:pointer-events-none aria-disabled:opacity-50",
+        ariaDisabled && "pointer-events-none opacity-50",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
