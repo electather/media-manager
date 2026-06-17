@@ -83,6 +83,11 @@ export function useRecentItems(): {
     // one that wrote the value, so recents added elsewhere become visible
     // immediately without requiring a reload.
     function onStorage(event: StorageEvent): void {
+      // When another tab calls localStorage.clear(), the browser fires a
+      // `storage` event with event.key === null. The strict equality check
+      // below passes over that case intentionally: clearing all storage in
+      // another tab does not wipe the in-memory recents for this tab, which
+      // is the right UX because the user's browsing context is unchanged.
       if (event.key === STORAGE_KEY && event.storageArea === window.localStorage) {
         setRecents(readStorage());
       }

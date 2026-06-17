@@ -28,12 +28,14 @@ function FallbackInner({
   reset,
   title,
   body,
+  queryKey,
 }: {
   error: Error;
   requestId: string;
   reset: () => void;
   title: string;
   body: string;
+  queryKey?: readonly unknown[];
 }) {
   const queryClient = useQueryClient();
   // Narrow the typed error to read the server-shipped diagnostic message and
@@ -49,7 +51,9 @@ function FallbackInner({
     void reportError(error, "warning", { requestId, status: status ?? undefined }, TELEMETRY_CODE);
   }, [error, requestId, status]);
   const onRetry = () => {
-    void queryClient.resetQueries({ queryKey: diagnosticsKeys.all });
+    // Reset only the failing surface's queries when a scoped key is provided,
+    // avoiding unnecessary re-suspension of unrelated diagnostics surfaces.
+    void queryClient.resetQueries({ queryKey: queryKey ?? diagnosticsKeys.all });
     reset();
   };
   const shortId = requestId ? shortRequestId(requestId) : "";
@@ -105,15 +109,19 @@ function FallbackInner({
 /** Wraps a diagnostics surface so a failed Suspense read renders an in-place
  *  fallback that narrows {@link DiagnosticsApiError} rather than tearing down
  *  the route. `title`/`body` let each surface (errors vs perf) supply its own
- *  load-failure copy; they default to the errors strings. */
+ *  load-failure copy; they default to the errors strings. Pass `queryKey` to
+ *  scope the retry reset to the failing surface's queries only — omitting it
+ *  resets all diagnostics queries. */
 export function DiagnosticsErrorBoundary({
   children,
   title = m.diagnostics_errors_load_failed_title(),
   body = m.diagnostics_errors_load_failed_body(),
+  queryKey,
 }: {
   children: ReactNode;
   title?: string;
   body?: string;
+  queryKey?: readonly unknown[];
 }) {
   return (
     <ErrorBoundary
@@ -124,6 +132,7 @@ export function DiagnosticsErrorBoundary({
           reset={reset}
           title={title}
           body={body}
+          queryKey={queryKey}
         />
       )}
     >

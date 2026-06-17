@@ -232,7 +232,8 @@ shadcn `Dialog`. Title: `"Add {plugin.name} Connection"` | `"Edit {plugin.name} 
 - `Connect with {plugin.name}` → `connection.initiateDeviceAuth` → `{ userCode, verifyUrl, nonce, intervalSec, expiresAt }`.
 - Modal body swaps to device-code panel:
   - Large mono `userCode` + Copy button.
-  - "Go to `<verifyUrl>`" clickable link (new tab).
+  - "Go to `<verifyUrl>`" clickable link (new tab) — rendered only when `isSafeAuthUrl(verifyUrl)` is true (i.e. `https:` scheme). Because `verifyUrl` is server-controlled, rendering an unvalidated `href` would allow a buggy or compromised plugin response to inject a `javascript:` navigation.
+  - Unsafe-URL fallback (when link is withheld): a plain-text hint showing the extracted hostname so the user can still complete the flow manually. When the hostname cannot be determined (e.g. `javascript:` URI, which parses without throwing but returns an empty hostname), a generic "Enter the code on your authenticator app" message is shown instead so the panel is never blank.
   - Progress indicator showing remaining time (countdown to `expiresAt`).
   - Status: "Waiting for you to approve on {plugin.name}…"
 - Frontend polls `connection.pollDeviceAuth(nonce)` every `intervalSec`. `completed` → modal closes, card shown. `error` | expiry → error + `Try again` button.

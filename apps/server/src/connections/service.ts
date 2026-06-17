@@ -100,10 +100,15 @@ async function updateConnectionWhere(
   connectionId: string,
   patch: Partial<typeof serviceConnections.$inferInsert>,
 ): Promise<void> {
-  await db
+  // Use RETURNING to detect zero-row updates so a row deleted between the
+  // caller's pre-check and this UPDATE surfaces as connection.not_found
+  // instead of silently succeeding with no effect.
+  const rows = await db
     .update(serviceConnections)
     .set({ ...patch, updatedAt: Date.now() })
-    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+    .returning({ id: serviceConnections.id });
+  if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
 }
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
@@ -280,10 +285,8 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    // Guard with requireConnection so a missing or foreign id throws
-    // connection.not_found (matching setDefault and updateUserConfig) instead
-    // of silently returning 200 OK with zero rows updated.
-    await requireConnection(db, args.connectionId, args.userId);
+    // updateConnectionWhere throws connection.not_found when the UPDATE
+    // affects zero rows, so no separate requireConnection guard is needed.
     await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
@@ -325,7 +328,10 @@ export const connectionsService = {
       await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
-    await db
+    // Use RETURNING to detect a row deleted between the initial requireConnection
+    // check and this final UPDATE — the verification work above is wasted but
+    // the caller gets connection.not_found rather than a silent 200 no-op.
+    const updated = await db
       .update(serviceConnections)
       .set({
         userConfig: JSON.stringify(configToSave),
@@ -345,14 +351,17 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
-    if (!row) return;
+    // requireConnection throws 404 for missing or foreign ids — prevents silent
+    // no-ops and stops callers from probing other users' connection ids.
+    const row = await requireConnection(db, args.connectionId, args.userId);
     await db
       .delete(serviceConnections)
       .where(
@@ -403,7 +412,10 @@ export const connectionsService = {
       credentials,
       userConfig,
     );
-    await db
+    // Use RETURNING to detect a row deleted between the pre-check and this
+    // UPDATE. Zero rows means the connection was deleted in the window; return
+    // not_found rather than silently writing to a ghost row.
+    const updated = await db
       .update(serviceConnections)
       .set({
         status: result.ok ? "connected" : "error",
@@ -416,7 +428,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) return { ok: false, message: "connection not found" };
     return result;
   },
 

@@ -1,5 +1,6 @@
-import { Suspense } from "react";
+import { Suspense, useTransition } from "react";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
+import { diagnosticsKeys } from "../shared/query-keys";
 import { ErrorsHeader } from "./errors-header";
 import { ErrorsFilterBar } from "./errors-filter-bar";
 import { ErrorsTable, ErrorsTableSkeleton } from "./errors-table";
@@ -15,15 +16,24 @@ interface Props {
 }
 
 export function ErrorsTab({ filters, onFiltersChange, selectedId, onSelect, onJumpThread }: Props) {
+  const [, startTransition] = useTransition();
+
+  // Wrap in transition so the Suspense subtree stays alive during filter refetch.
+  const handleFiltersChange = (next: ErrorsFilters) => {
+    startTransition(() => {
+      onFiltersChange(next);
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <ErrorsHeader />
-      <ErrorsFilterBar filters={filters} onChange={onFiltersChange} />
-      <DiagnosticsErrorBoundary>
+      <ErrorsFilterBar filters={filters} onChange={handleFiltersChange} />
+      <DiagnosticsErrorBoundary queryKey={diagnosticsKeys.errors.all()}>
         <Suspense fallback={<ErrorsTableSkeleton />}>
           <ErrorsTable
             filters={filters}
-            onClearRequestId={() => onFiltersChange({ ...filters, requestId: "" })}
+            onClearRequestId={() => handleFiltersChange({ ...filters, requestId: "" })}
             selectedId={selectedId}
             onSelect={onSelect}
             onJumpThread={onJumpThread}
