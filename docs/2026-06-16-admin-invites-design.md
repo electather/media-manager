@@ -180,8 +180,13 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
 - `POST /admin/invites/:id/extend` (`zValidator("json", extendInviteSchema)`)
   - `extendInviteSchema = z.object({ expiresAt: z.number().int().positive() })` —
     same field as `createInviteSchema`; handler validates `expiresAt > Date.now()`.
-    Admin supplies the new absolute expiry (the drawer reuses the same expiry
-    picker as creation). No `ttl` constant — admin intention is explicit.
+    The API accepts any future absolute expiry. The v1 client UI sends a fixed
+    `Date.now() + 7 days` from a single "extend" action (`invite-row.tsx`) rather
+    than re-opening the expiry picker — extending is a one-click affordance on the
+    list row, and 7 days is the common "give them another week" case. A
+    custom-expiry picker on the row is a follow-up (the schema already supports it
+    server-side). No `ttl` constant on the server — the value is chosen by the
+    caller.
   - Set `expiresAt` to the supplied value; clear nothing else. (Named `extend`
     because nothing is sent or re-sent — the link already exists and the admin
     shares it manually. When the email-invite path lands, a separate `resend`
@@ -245,8 +250,10 @@ keyed by `clientIp`.
        `sign-in/email` reads. `emailVerified: true` because holding a valid invite
        link is the proof of access (note: `createUserWithRole` is **not** used —
        it opens its own transaction and cannot set `emailVerified`).
-  - Returns `{ ok: true, userId }` — **no server-side session** (none of the
-    existing creators, including `claimBootstrap`, mint one).
+  - Returns `{ ok: true }` — **no server-side session** (none of the
+    existing creators, including `claimBootstrap`, mint one). The internal
+    `userId` is intentionally omitted: this is a public unauthenticated
+    endpoint, and the client does not need the ID (it signs in by email/password).
   - **Sign-in is client-side.** On a successful accept the client immediately
     calls Better Auth email sign-in with the just-submitted email + password
     (the credential `account` row was written precisely for `sign-in/email` to
