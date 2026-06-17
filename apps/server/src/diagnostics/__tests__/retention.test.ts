@@ -138,6 +138,25 @@ describe("retention sweep", () => {
     const result = await sweepDiagnostics();
     expect(result).toEqual({ errors: 0, perf: 0, sourcemaps: 0 });
   });
+
+  // Regression guard for the WHERE clause added in #693: without it a rogue
+  // second row in app_config could shadow the 'global' values silently.
+  it("getAppConfig ignores a rogue second row and returns the global values", async () => {
+    await getAppConfig(); // seeds 'global' with defaults
+
+    await db.insert(appConfig).values({
+      id: "rogue",
+      errorRetentionDays: 999,
+      perfRetentionDays: 999,
+      inboxRetentionDays: 999,
+      deliveryRetentionDays: 999,
+      updatedAt: Date.now(),
+    });
+
+    const cfg = await getAppConfig();
+    expect(cfg.errorRetentionDays).toBe(30);
+    expect(cfg.perfRetentionDays).toBe(7);
+  });
 });
 
 describe("notification retention", () => {
@@ -155,6 +174,25 @@ describe("notification retention", () => {
     expect(await setNotificationRetention({ deliveryRetentionDays: 99_999 })).toMatchObject({
       deliveryRetentionDays: 3650,
     });
+  });
+
+  // Regression guard for the WHERE clause added in #693: without it a rogue
+  // second row in app_config could shadow the 'global' notification values silently.
+  it("getNotificationRetention ignores a rogue second row and returns the global values", async () => {
+    await getNotificationRetention(); // seeds 'global' with defaults
+
+    await db.insert(appConfig).values({
+      id: "rogue",
+      errorRetentionDays: 999,
+      perfRetentionDays: 999,
+      inboxRetentionDays: 999,
+      deliveryRetentionDays: 999,
+      updatedAt: Date.now(),
+    });
+
+    const cfg = await getNotificationRetention();
+    expect(cfg.inboxRetentionDays).toBe(90);
+    expect(cfg.deliveryRetentionDays).toBe(30);
   });
 
   // The previous read-then-update implementation wrote BOTH columns from a stale
