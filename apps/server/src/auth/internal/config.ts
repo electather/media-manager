@@ -6,7 +6,7 @@ import { loadUserPermissions } from "../repo";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { MCP_SCOPES } from "@nama/shared/users";
+import { MCP_SCOPES, NAME_MAX_LENGTH } from "@nama/shared/users";
 import * as schema from "../../db/schema/index";
 import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
@@ -102,6 +102,19 @@ const options = {
   // why the session id is the only viable target-id source inside the hook).
   databaseHooks: {
     user: {
+      // Truncate the name supplied by OAuth identity-provider profiles to
+      // NAME_MAX_LENGTH before it reaches the DB. Better Auth does not route
+      // social sign-up through the Zod schemas (bootstrapClaimSchema,
+      // acceptInviteSchema, createUserSchema, updateUserSchema) that enforce
+      // the 100-character bound on every other write path, so this hook is the
+      // only place to apply the constraint for OAuth-created users.
+      create: {
+        before: async (data) => {
+          if (typeof data.name === "string" && data.name.length > NAME_MAX_LENGTH) {
+            return { data: { ...data, name: data.name.slice(0, NAME_MAX_LENGTH) } };
+          }
+        },
+      },
       update: emailChangeHooks,
     },
   },
