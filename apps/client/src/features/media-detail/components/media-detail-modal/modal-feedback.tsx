@@ -30,7 +30,6 @@ export function ModalFeedback({ hasNote }: Props) {
           label={m.home_detail_feedback_dislike()}
           icon={<ThumbsDown className="size-3.5" />}
         />
-        {/* restore onClick when note persistence lands */}
         <NoteButton hasNote={hasNote} disabled />
         <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground/60">
           <Sparkles className="size-2.5" aria-hidden="true" />
