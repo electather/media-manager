@@ -54,7 +54,7 @@ import {
   DeleteAccountDialog,
   SettingsDangerRoute,
 } from "@/features/settings-danger/components/settings-danger-page";
-import { renderWithProviders } from "@/features/settings/__tests__/test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 import { m } from "@/paraglide/messages";
 
 beforeEach(() => {
