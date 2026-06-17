@@ -456,6 +456,7 @@
         "allow": [
           "client-feat-auth",
           "client-feat-connections",
+          "client-feat-settings-apps",
           "client-feat-settings-connections",
           "client-shared-ui",
           "client-shared-components",
