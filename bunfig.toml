@@ -1,4 +1,2 @@
-[install]
-minimumReleaseAge = 259200
 
 minimumReleaseAgeExcludes = ["typescript", "react", "react-dom", "scheduler"]
