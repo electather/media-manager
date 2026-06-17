@@ -204,6 +204,7 @@ describe("POST /invites/:code/accept — happy path", () => {
       .get();
     expect(createdUser?.emailVerified).toBe(true);
 
+    expect(createdUser).not.toBeNull();
     const newUserId = createdUser!.id;
 
     // Role was assigned.
