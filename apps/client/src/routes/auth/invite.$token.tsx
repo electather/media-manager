@@ -119,49 +119,60 @@ function InviteHeader({ roleName }: { roleName: string }) {
   );
 }
 
-function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
+type AcceptValues = { name: string; email: string; password: string };
+
+/**
+ * Drives the accept → sign-in flow. On success it signs the new account in with
+ * the submitted credentials and redirects to `/setup`; a transient sign-in
+ * failure surfaces `signInFailed`, and a duplicate email (409) surfaces
+ * `emailTaken`. Keeping the branching here keeps `AcceptForm` declarative.
+ */
+function useAcceptInvite(code: string) {
   const navigate = useNavigate();
   const [signInFailed, setSignInFailed] = useState(false);
   const [emailTaken, setEmailTaken] = useState(false);
 
-  const acceptMutation = useMutation({
-    mutationFn: (values: { name: string; email: string; password: string }) =>
-      acceptInvite(code, values),
+  const mutation = useMutation({
+    mutationFn: (values: AcceptValues) => acceptInvite(code, values),
     onSuccess: async (_data, variables) => {
-      // Account created — sign in immediately with the submitted credentials.
       const { error } = await authClient.signIn.email({
         email: variables.email,
         password: variables.password,
         rememberMe: true,
       });
-      if (error) {
-        // Account exists but sign-in failed (transient error). Show recovery
-        // banner — the user should go to login rather than retry the form.
-        setSignInFailed(true);
-        return;
-      }
+      // Account exists but sign-in failed (transient): send the user to login
+      // rather than letting them retry the form (which would 409).
+      if (error) return setSignInFailed(true);
       void navigate({ to: "/setup" });
     },
     onError: (err) => {
-      if (err instanceof AdminUsersApiError && err.status === 409) {
-        setEmailTaken(true);
-      }
+      if (err instanceof AdminUsersApiError && err.status === 409) setEmailTaken(true);
     },
   });
+
+  const submit = async (values: AcceptValues) => {
+    setEmailTaken(false);
+    setSignInFailed(false);
+    await mutation.mutateAsync(values);
+  };
+
+  return { mutation, submit, signInFailed, emailTaken, setEmailTaken };
+}
+
+/** True when the mutation failed with something other than a 409 duplicate-email. */
+function isGenericAcceptError(error: unknown): boolean {
+  return Boolean(error) && !(error instanceof AdminUsersApiError && error.status === 409);
+}
+
+function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
+  const { mutation, submit, signInFailed, emailTaken, setEmailTaken } = useAcceptInvite(code);
 
   const form = useForm({
     defaultValues: { name: "", email: "", password: "" },
-    onSubmit: async ({ value }) => {
-      setEmailTaken(false);
-      setSignInFailed(false);
-      await acceptMutation.mutateAsync(value);
-    },
+    onSubmit: ({ value }) => submit(value),
   });
 
-  const isBusy = form.state.isSubmitting || acceptMutation.isPending || acceptMutation.isSuccess;
-  const showGenericError =
-    acceptMutation.error &&
-    !(acceptMutation.error instanceof AdminUsersApiError && acceptMutation.error.status === 409);
+  const isBusy = form.state.isSubmitting || mutation.isPending || mutation.isSuccess;
 
   if (signInFailed) {
     return <SignInFailedState />;
@@ -266,14 +277,14 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
           )}
         </form.Field>
 
-        {showGenericError ? (
+        {isGenericAcceptError(mutation.error) ? (
           <p className="mt-1 text-center text-sm font-medium text-destructive">
-            {acceptMutation.error?.message}
+            {mutation.error?.message}
           </p>
         ) : null}
 
         <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={isBusy}>
-          {m.auth_invite_submit({ status: acceptMutation.status })}
+          {m.auth_invite_submit({ status: mutation.status })}
         </Button>
       </form>
     </div>
