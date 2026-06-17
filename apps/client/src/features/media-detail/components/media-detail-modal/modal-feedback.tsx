@@ -69,7 +69,7 @@ function VoteButton({
       aria-disabled={disabled ? "true" : undefined}
       aria-pressed={active}
       className={cn(
-        "h-[34px] rounded-full px-3 text-xs backdrop-blur-sm",
+        "h-[34px] rounded-full px-3 text-xs shadow-none backdrop-blur-sm",
         active
           ? activeClass
           : // hover:* applies when vote persistence is wired and disabled is removed.
@@ -107,7 +107,7 @@ function NoteButton({
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
       className={cn(
-        "h-[34px] rounded-full px-3 text-xs text-muted-foreground backdrop-blur-sm",
+        "h-[34px] rounded-full px-3 text-xs text-muted-foreground shadow-none backdrop-blur-sm",
         // Use muted style regardless of hasNote — primary accent on a disabled button
         // looks interactive but never responds. When note persistence lands, restore:
         //   hasNote → active accent colors + hover:bg-muted/40 hover:text-foreground
