@@ -131,7 +131,7 @@ extendInviteSchema = z.object({
 })
 
 acceptInviteSchema = z.object({
-  name:     z.string().min(1),
+  name:     z.string().trim().min(1).max(NAME_MAX_LENGTH),
   email:    z.email(),
   password: passwordSchema,                  // reuse packages/shared/src/auth/password
 })

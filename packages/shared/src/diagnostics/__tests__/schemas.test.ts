@@ -62,7 +62,7 @@ describe("diagnostics schemas — admin viewer requestId filter", () => {
     });
 
     it(`${name} rejects an empty request id`, () => {
-      // The `+` quantifier rejects "" today; this documents that intent so a
+      // The `{1,64}` quantifier rejects "" today; this documents that intent so a
       // future `*` typo would fail the test instead of silently widening the field.
       expect(schema.safeParse({ requestId: "" }).success).toBe(false);
     });
@@ -73,4 +73,19 @@ describe("diagnostics schemas — admin viewer requestId filter", () => {
       }
     });
   }
+});
+
+describe("diagnostics schemas — errorListQuerySchema search filter", () => {
+  it("accepts a search string within the 200-char cap", () => {
+    expect(errorListQuerySchema.safeParse({ search: "TypeError" }).success).toBe(true);
+    expect(errorListQuerySchema.safeParse({ search: "x".repeat(200) }).success).toBe(true);
+  });
+
+  it("accepts an omitted search filter", () => {
+    expect(errorListQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("rejects a search string over the 200-char cap so a scripted caller cannot pass an unbounded string into the server-side query", () => {
+    expect(errorListQuerySchema.safeParse({ search: "x".repeat(201) }).success).toBe(false);
+  });
 });

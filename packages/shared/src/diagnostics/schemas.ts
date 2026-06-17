@@ -5,16 +5,19 @@ export const errorSeveritySchema = z.enum(ERROR_SEVERITIES);
 export const errorSourceSchema = z.enum(ERROR_SOURCES);
 export const perfKindSchema = z.enum(PERF_KINDS);
 
-/** Request-id filter for the admin viewer query strings. Mirrors the server's
- *  canonical request-id shape (`/^[0-9a-zA-Z_-]{1,64}$/` in the diagnostics
- *  middleware) so a scripted caller cannot push an unbounded string straight
- *  into the `eq(records.requestId, …)` filter. This is the real fence; the
- *  client route's `rid` cap is only defence-in-depth. */
-const requestIdQuerySchema = z
-  .string()
-  .regex(/^[0-9a-zA-Z_-]+$/)
-  .max(64)
-  .optional();
+/** Canonical request-id shape enforced at every trust boundary that accepts a
+ *  caller-supplied request id: the admin viewer query filter below and the
+ *  server's `X-Request-Id` header check (`apps/server/src/diagnostics/middleware.ts`).
+ *  1–64 chars of alphanumeric, hyphen, or underscore — matches the IDs the
+ *  server generates. Exported so both boundaries share one source of truth. */
+export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
+
+/** Request-id filter for the admin viewer query strings. Mirrors
+ *  {@link REQUEST_ID_PATTERN} so a scripted caller cannot push an unbounded
+ *  or malformed string straight into the `eq(records.requestId, …)` filter.
+ *  This is the real fence; the client route's `rid` cap is only
+ *  defence-in-depth. */
+const requestIdQuerySchema = z.string().regex(REQUEST_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string
@@ -92,7 +95,9 @@ export const errorListQuerySchema = z.object({
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
   requestId: requestIdQuerySchema,
-  search: z.string().optional(),
+  // Cap free-text search so a scripted caller cannot pass an arbitrarily large
+  // string into the server-side LIKE/full-text query.
+  search: z.string().max(200).optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
   offset: z.coerce.number().min(0).default(0),
 });

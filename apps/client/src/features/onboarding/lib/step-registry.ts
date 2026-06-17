@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { m } from "@/paraglide/messages";
 import { ConnectServicesStep } from "../components/steps/connect-services-step";
+import { McpSetupStep } from "../components/steps/mcp-setup-step";
 import { WelcomeStep } from "../components/steps/welcome-step";
 
 /**
@@ -19,4 +20,5 @@ export const ONBOARDING_STEP_REGISTRY: Record<
     Component: ConnectServicesStep,
     title: () => m.onboarding_step_connect_services_title(),
   },
+  "mcp-setup": { Component: McpSetupStep, title: () => m.onboarding_step_mcp_setup_title() },
 };
