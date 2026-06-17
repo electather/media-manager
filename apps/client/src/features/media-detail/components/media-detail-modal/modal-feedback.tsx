@@ -50,6 +50,7 @@ function VoteButton({
   icon,
 }: {
   active: boolean;
+  /** Maps to aria-disabled, not the native disabled attribute. Keeps element in tab order. */
   disabled?: boolean;
   tone: "up" | "down";
   label: string;
@@ -84,7 +85,14 @@ function VoteButton({
 }
 
 // fallow-ignore-next-line complexity
-function NoteButton({ hasNote, disabled }: { hasNote: boolean; disabled?: boolean }) {
+function NoteButton({
+  hasNote,
+  disabled,
+}: {
+  hasNote: boolean;
+  /** Maps to aria-disabled, not the native disabled attribute. Keeps element in tab order. */
+  disabled?: boolean;
+}) {
   return (
     // Note persistence is not yet wired; aria-disabled keeps the button in the
     // tab order so keyboard and screen-reader users can discover it.
