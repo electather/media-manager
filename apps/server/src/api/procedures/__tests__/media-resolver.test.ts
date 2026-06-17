@@ -67,10 +67,7 @@ vi.mock("../../../media", async () => {
 // media-parity.test.ts.
 vi.mock("../../../home", async () => {
   const { z } = await import("zod");
-  // The real factory is imported directly from the internal file — safe from
-  // tests because the boundary check excludes `.test.ts` files from the walk.
-  // If `recommendations-memo.ts` is ever renamed, update this import path too.
-  const { makeRecommendationsMemo } = await import("../../../home/internal/recommendations-memo");
+  const { makeRecommendationsMemo } = await import("../../../home");
   const sentinelBuild = vi.fn((_ctx: unknown, _params: unknown, cursor: unknown) => ({
     source: { stages: { sort: "recentDesc", cursorMode: "keyset" } },
     cfg: { params: {}, cursor, limit: 10 },
