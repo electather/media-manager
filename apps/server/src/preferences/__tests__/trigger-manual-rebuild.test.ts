@@ -13,10 +13,9 @@ vi.mock("../../catalog", () => ({
 }));
 
 const findJobEntryMock = vi.fn();
-const anyRunningMock = vi.fn((..._args: unknown[]) => false);
 vi.mock("../../jobs", () => ({
   find: (...args: unknown[]) => findJobEntryMock(...args),
-  anyRunning: (...args: unknown[]) => anyRunningMock(...args),
+  anyRunning: (..._args: unknown[]) => false,
 }));
 
 vi.mock("../../jobs/history", () => ({
