@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { passwordSchema } from "../auth";
-import { NAME_MAX_LENGTH } from "../users/schemas";
+import { NAME_MAX_LENGTH } from "../users";
 
 /** Body for `POST /api/bootstrap/claim`. */
 export const bootstrapClaimSchema = z.object({
