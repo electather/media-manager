@@ -30,7 +30,8 @@ export function ModalFeedback({ hasNote }: Props) {
           label={m.home_detail_feedback_dislike()}
           icon={<ThumbsDown className="size-3.5" />}
         />
-        <NoteButton hasNote={hasNote} />
+        {/* restore onClick when note persistence lands */}
+        <NoteButton hasNote={hasNote} disabled />
         <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.02em] text-muted-foreground/60">
           <Sparkles className="size-2.5" aria-hidden="true" />
           {m.home_detail_feedback_tagline()}
@@ -79,14 +80,14 @@ function VoteButton({
   );
 }
 
-function NoteButton({ hasNote }: { hasNote: boolean }) {
+function NoteButton({ hasNote, disabled }: { hasNote: boolean; disabled?: boolean }) {
   return (
     // Note persistence is not yet wired; disabled to avoid misleading users
     // into believing their input was saved across sessions.
     // onClick omitted — disabled buttons never fire; restore when persistence lands.
     <button
       type="button"
-      disabled
+      disabled={disabled}
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
@@ -97,7 +98,7 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
           : // hover:* is inert on disabled buttons (pointer-events:none); kept
             // for when note persistence is wired and the button is re-enabled.
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        "cursor-not-allowed opacity-50",
+        disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
