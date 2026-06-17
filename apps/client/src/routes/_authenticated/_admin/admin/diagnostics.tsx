@@ -17,14 +17,14 @@ const searchSchema = z.object({
   tab: tabSchema,
   rid: z
     .string()
-    .regex(/^[0-9a-zA-Z_-]+$/)
     .max(64)
+    .regex(/^[0-9a-zA-Z_-]+$/)
     .optional(),
   // cuid2 default output is 24 chars; 128 gives headroom for future ID format changes.
   pid: z
     .string()
-    .regex(/^[0-9a-zA-Z_-]+$/)
     .max(128)
+    .regex(/^[0-9a-zA-Z_-]+$/)
     .optional(),
 });
 
