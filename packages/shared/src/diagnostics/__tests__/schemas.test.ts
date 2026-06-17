@@ -53,8 +53,18 @@ describe("diagnostics schemas — admin viewer requestId filter", () => {
       expect(schema.safeParse({}).success).toBe(true);
     });
 
+    it(`${name} accepts a request id at exactly the 64-char cap`, () => {
+      expect(schema.safeParse({ requestId: "x".repeat(64) }).success).toBe(true);
+    });
+
     it(`${name} rejects a request id over the 64-char cap`, () => {
       expect(schema.safeParse({ requestId: "x".repeat(65) }).success).toBe(false);
+    });
+
+    it(`${name} rejects an empty request id`, () => {
+      // The `+` quantifier rejects "" today; this documents that intent so a
+      // future `*` typo would fail the test instead of silently widening the field.
+      expect(schema.safeParse({ requestId: "" }).success).toBe(false);
     });
 
     it(`${name} rejects request ids with characters outside the canonical shape`, () => {
