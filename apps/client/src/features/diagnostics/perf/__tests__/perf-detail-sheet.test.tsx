@@ -96,6 +96,7 @@ describe("PerfDetailSheet — group path", () => {
     expect(screen.getByText(m.diagnostics_perf_label_p95())).toBeDefined();
     expect(screen.getByText(m.diagnostics_perf_label_p99())).toBeDefined();
     expect(screen.getByText(m.diagnostics_perf_label_max())).toBeDefined();
+    expect(fetcherMock.fetchPerfDetail).not.toHaveBeenCalled();
   });
 
   it("falls back to pluginId in the title when route is null", () => {
@@ -127,12 +128,7 @@ describe("PerfDetailSheet — success path", () => {
       correlatedErrors: [],
     });
 
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={client}>
-        <PerfDetailSheet group={null} detailId="rec-1" onClose={vi.fn()} onJumpThread={vi.fn()} />
-      </QueryClientProvider>,
-    );
+    renderSheet("rec-1");
 
     // The route from the fetched record must appear in the sheet title once the
     // Suspense boundary resolves.
