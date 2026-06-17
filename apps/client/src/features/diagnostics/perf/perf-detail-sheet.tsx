@@ -39,6 +39,7 @@ export function PerfDetailSheet({ group, detailId, onClose, onJumpThread }: Prop
           </>
         ) : detailId ? (
           <DiagnosticsErrorBoundary
+            key={detailId}
             title={m.diagnostics_perf_load_failed_title()}
             body={m.diagnostics_perf_load_failed_body()}
             queryKey={diagnosticsKeys.perf.detail(detailId)}
