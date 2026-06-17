@@ -62,7 +62,7 @@ function VoteButton({
   return (
     <button
       type="button"
-      aria-disabled={ariaDisabled}
+      aria-disabled={ariaDisabled || undefined}
       aria-pressed={active}
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
@@ -70,7 +70,7 @@ function VoteButton({
           ? activeClass
           : // hover:* applies when vote persistence is wired and ariaDisabled is removed.
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        ariaDisabled && "cursor-not-allowed opacity-50",
+        ariaDisabled && "cursor-not-allowed opacity-50 pointer-events-none",
       )}
     >
       {icon}
@@ -92,11 +92,12 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
       }
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
-        hasNote
-          ? "border-primary/55 bg-primary/10 text-primary"
-          : // hover:* applies when note persistence is wired and aria-disabled is removed.
-            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        "cursor-not-allowed opacity-50",
+        // Use muted style regardless of hasNote — primary accent on a disabled button
+        // looks interactive but never responds. When note persistence lands, restore:
+        //   hasNote → active accent colors + hover:bg-muted/40 hover:text-foreground
+        //   !hasNote → same muted base + hover:bg-muted/40 hover:text-foreground
+        "border-border bg-foreground/6 text-muted-foreground",
+        "cursor-not-allowed opacity-50 pointer-events-none",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
