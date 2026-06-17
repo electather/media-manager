@@ -17,21 +17,28 @@ describe("connection displayName 100-character upper bound", () => {
     const base = { pluginId: "trakt", userConfig: {} };
     // An absent displayName must still pass.
     expect(connectionCreateSchema.safeParse(base).success).toBe(true);
-    expect(
-      connectionCreateSchema.safeParse({ ...base, displayName: NAME_AT_LIMIT }).success,
-    ).toBe(true);
+    expect(connectionCreateSchema.safeParse({ ...base, displayName: NAME_AT_LIMIT }).success).toBe(
+      true,
+    );
     expect(
       connectionCreateSchema.safeParse({ ...base, displayName: NAME_OVER_LIMIT }).success,
     ).toBe(false);
   });
 
+  it("connectionCreateSchema rejects an empty displayName", () => {
+    const base = { pluginId: "trakt", userConfig: {} };
+    // An empty string is not a valid display name — must be rejected so the DB
+    // never receives a blank string in the displayName column.
+    expect(connectionCreateSchema.safeParse({ ...base, displayName: "" }).success).toBe(false);
+  });
+
   it("connectionDisplayNameSchema rejects a displayName longer than 100 characters", () => {
-    expect(
-      connectionDisplayNameSchema.safeParse({ displayName: NAME_AT_LIMIT }).success,
-    ).toBe(true);
-    expect(
-      connectionDisplayNameSchema.safeParse({ displayName: NAME_OVER_LIMIT }).success,
-    ).toBe(false);
+    expect(connectionDisplayNameSchema.safeParse({ displayName: NAME_AT_LIMIT }).success).toBe(
+      true,
+    );
+    expect(connectionDisplayNameSchema.safeParse({ displayName: NAME_OVER_LIMIT }).success).toBe(
+      false,
+    );
   });
 
   it("connectionDisplayNameSchema rejects an empty displayName", () => {

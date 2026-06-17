@@ -33,7 +33,7 @@ export const DISPLAY_NAME_MAX_LENGTH = 100;
 export const connectionCreateSchema = z.object({
   pluginId: z.string(),
   userConfig: z.unknown(),
-  displayName: z.string().max(DISPLAY_NAME_MAX_LENGTH).optional(),
+  displayName: z.string().min(1).max(DISPLAY_NAME_MAX_LENGTH).optional(),
 });
 export type ConnectionCreateBody = z.infer<typeof connectionCreateSchema>;
 
