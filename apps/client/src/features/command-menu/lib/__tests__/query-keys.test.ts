@@ -19,7 +19,17 @@ describe("isSearchKey", () => {
     expect(isSearchKey([])).toBe(false);
   });
 
-  it("rejects an array with the right prefix but no kind param", () => {
+  it("rejects an array with the right prefix but a non-object at position 2", () => {
     expect(isSearchKey(["command-menu", "search", "not-an-object"])).toBe(false);
+  });
+
+  it("rejects null at position 2", () => {
+    // Exercises the `value !== null` guard in hasKindParam.
+    expect(isSearchKey(["command-menu", "search", null])).toBe(false);
+  });
+
+  it("rejects an object at position 2 that has no kind field", () => {
+    // Exercises the `"kind" in value` branch in hasKindParam.
+    expect(isSearchKey(["command-menu", "search", { q: "foo" }])).toBe(false);
   });
 });
