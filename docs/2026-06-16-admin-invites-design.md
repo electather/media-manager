@@ -131,7 +131,7 @@ extendInviteSchema = z.object({
 })
 
 acceptInviteSchema = z.object({
-  name:     z.string().min(1),
+  name:     z.string().trim().min(1).max(NAME_MAX_LENGTH),
   email:    z.email(),
   password: passwordSchema,                  // reuse packages/shared/src/auth/password
 })
@@ -250,8 +250,10 @@ keyed by `clientIp`.
        `sign-in/email` reads. `emailVerified: true` because holding a valid invite
        link is the proof of access (note: `createUserWithRole` is **not** used —
        it opens its own transaction and cannot set `emailVerified`).
-  - Returns `{ ok: true, userId }` — **no server-side session** (none of the
-    existing creators, including `claimBootstrap`, mint one).
+  - Returns `{ ok: true }` — **no server-side session** (none of the
+    existing creators, including `claimBootstrap`, mint one). The internal
+    `userId` is intentionally omitted: this is a public unauthenticated
+    endpoint, and the client does not need the ID (it signs in by email/password).
   - **Sign-in is client-side.** On a successful accept the client immediately
     calls Better Auth email sign-in with the just-submitted email + password
     (the credential `account` row was written precisely for `sign-in/email` to

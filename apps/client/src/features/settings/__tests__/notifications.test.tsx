@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup } from "@testing-library/react";
 
-import { renderWithProviders } from "./test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 
 vi.mock("@/shared/lib/api", () => ({
   api: {
