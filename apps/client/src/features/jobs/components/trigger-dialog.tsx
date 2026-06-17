@@ -29,6 +29,15 @@ function isMissing(value: string | null | undefined): boolean {
   return isNil(value) || value === "";
 }
 
+/** True when a numeric field holds a non-empty raw string that is not a valid
+ * number (e.g. a transient "-" or "1e"). Such values pass the required-field
+ * emptiness check but would coerce to NaN, so they must be blocked client-side
+ * rather than POSTed (the server's AJV validator would reject them). */
+function isInvalidNumeric(schema: JSONSchemaProperty, value: string | null | undefined): boolean {
+  if (isNil(value) || value === "" || !isNumericSchema(schema)) return false;
+  return Number.isNaN(Number(value));
+}
+
 function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
   if (!Array.isArray(schema?.enum) || schema.enum.length === 0) return null;
   const labels = schema["x-enum-labels"];
@@ -45,7 +54,10 @@ interface FieldItemProps {
   schema: JSONSchemaProperty;
   value: string | null;
   required: boolean;
+  /** True when the required field is empty and errors are being shown. */
   invalid: boolean;
+  /** True when the field holds a non-empty but unparseable numeric string. */
+  invalidNumeric: boolean;
   onChange: (v: string | null) => void;
 }
 
@@ -73,12 +85,21 @@ function coerceForSubmit(schema: JSONSchemaProperty, raw: string | null): FormFi
 }
 
 // fallow-ignore-next-line complexity
-function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: FieldItemProps) {
+function FieldItem({
+  fieldKey,
+  schema,
+  value,
+  required,
+  invalid,
+  invalidNumeric,
+  onChange,
+}: FieldItemProps) {
   const enumOptions = readEnumOptions(schema);
   const labelText = fieldKey.replace(/([A-Z])/g, " $1").trim();
-  const errorId = invalid ? `${fieldKey}-error` : undefined;
+  const showError = invalid || invalidNumeric;
+  const errorId = showError ? `${fieldKey}-error` : undefined;
   return (
-    <Field key={fieldKey} data-invalid={invalid || undefined}>
+    <Field key={fieldKey} data-invalid={showError || undefined}>
       <FieldContent>
         <FieldLabel htmlFor={fieldKey} className="capitalize">
           {labelText}
@@ -120,14 +141,18 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
           id={fieldKey}
           type={isNumericSchema(schema) ? "number" : "text"}
           required={required}
-          aria-invalid={invalid || undefined}
+          aria-invalid={showError || undefined}
           aria-describedby={errorId}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
         />
       )}
-      {invalid && (
-        <FieldError id={errorId}>{m.admin_jobs_trigger_field_required_error()}</FieldError>
+      {showError && (
+        <FieldError id={errorId}>
+          {invalid
+            ? m.admin_jobs_trigger_field_required_error()
+            : m.admin_jobs_trigger_field_number_error()}
+        </FieldError>
       )}
     </Field>
   );
@@ -163,29 +188,42 @@ export function DynamicTriggerDialog({
     return Array.isArray(r) ? (r as string[]) : [];
   }, [job?.inputSchema?.required]);
 
+  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
+
   const missingFields = useMemo(
     () => required.filter((key) => isMissing(formData[key])),
     [required, formData],
   );
 
+  // Numeric fields holding a non-empty but unparseable string (e.g. "-", "1e").
+  // These pass the emptiness check but would coerce to NaN/null at submit and be
+  // rejected by the server, so block them client-side and show an inline error.
+  const invalidNumericFields = useMemo(
+    () =>
+      Object.keys(formData).filter((key) => isInvalidNumeric(properties[key] ?? {}, formData[key])),
+    [formData, properties],
+  );
+
   const triggerMutation = useTriggerJob();
 
-  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
   const hasResult = !!runId;
   const hasForm = Object.keys(properties).length > 0;
-  const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
+  const canSubmit =
+    !triggerMutation.isPending && missingFields.length === 0 && invalidNumericFields.length === 0;
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (missingFields.length > 0) {
+    if (missingFields.length > 0 || invalidNumericFields.length > 0) {
       setShowErrors(true);
       return;
     }
+    // Drop fields that coerce to null (cleared optional inputs); the server's
+    // JSON Schema rejects a null where it expects a string/number, and an
+    // omitted optional property is the correct representation of "no value".
     const coercedInput = Object.fromEntries(
-      Object.entries(formData).map(([key, raw]) => [
-        key,
-        coerceForSubmit(properties[key] ?? {}, raw),
-      ]),
+      Object.entries(formData)
+        .map(([key, raw]) => [key, coerceForSubmit(properties[key] ?? {}, raw)] as const)
+        .filter(([, value]) => value !== null),
     );
     triggerMutation.mutate(
       {
@@ -241,6 +279,7 @@ export function DynamicTriggerDialog({
                       value={formData[key] ?? null}
                       required={required.includes(key)}
                       invalid={showErrors && required.includes(key) && isMissing(formData[key])}
+                      invalidNumeric={showErrors && isInvalidNumeric(schema, formData[key])}
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
                     />
                   ))}

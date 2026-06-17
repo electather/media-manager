@@ -2,4 +2,4 @@
 "@nama/client": patch
 ---
 
-Fixed numeric fields in the job trigger dialog accepting decimals and integer-typed fields being coerced correctly before submission.
+Fixed the job trigger dialog so numeric fields accept decimals, invalid numbers show an inline error instead of failing on submit, and cleared optional fields no longer cause the run to be rejected.

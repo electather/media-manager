@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -191,6 +191,47 @@ describe("DynamicTriggerDialog number coercion", () => {
         expect.objectContaining({ count: 7 }),
       );
     });
+  });
+
+  it('blocks submit on a non-empty but unparseable numeric value (e.g. "1e")', async () => {
+    // A transient value like "1e" is non-empty so the required check passes,
+    // but it coerces to NaN. The dialog must block submit and show an inline
+    // error instead of POSTing a null the server's AJV validator would reject.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("spinbutton", { name: /count/i });
+    // fireEvent.change drives React's onChange with whatever string we provide,
+    // bypassing the browser's number-input filtering so we can reproduce the
+    // transient invalid value the component sees mid-typing in a real browser.
+    fireEvent.change(input, { target: { value: "1e" } });
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    expect(screen.getByText(/enter a valid number/i)).toBeTruthy();
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
+  });
+
+  it("omits a cleared optional field from the payload (sends no null)", async () => {
+    // Clearing an optional string field stores null in formData. The submit
+    // payload must omit it rather than send null, which the server's JSON
+    // Schema would reject as the wrong type for an optional string.
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+
+    const target = screen.getByRole("textbox", { name: /target/i });
+    const note = screen.getByRole("textbox", { name: /note/i });
+    await user.type(target, "abc");
+    await user.type(note, "x");
+    await user.clear(note);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledTimes(1);
+    });
+    const payload = mockFetchTriggerJob.mock.calls[0]![1] as Record<string, unknown>;
+    expect(payload).toEqual({ target: "abc" });
+    expect("note" in payload).toBe(false);
   });
 
   it("treats a cleared number input as null (not 0)", async () => {
