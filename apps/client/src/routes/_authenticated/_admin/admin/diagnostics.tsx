@@ -15,8 +15,8 @@ const tabSchema = z.enum(["errors", "performance"]).optional();
 
 const searchSchema = z.object({
   tab: tabSchema,
-  rid: z.string().optional(),
-  pid: z.string().optional(),
+  rid: z.string().max(128).optional(),
+  pid: z.string().max(128).optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")({
