@@ -1,15 +1,16 @@
 import { describe, it, expect } from "vite-plus/test";
 import { bootstrapClaimSchema } from "@nama/shared/bootstrap";
 import { acceptInviteSchema } from "@nama/shared/invites";
-import { createUserSchema, updateUserSchema } from "@nama/shared/users";
+import { NAME_MAX_LENGTH, createUserSchema, updateUserSchema } from "@nama/shared/users";
 
-// The 100-character upper bound exists so an oversized name is rejected at the
-// validation boundary, before it ever reaches the unbounded SQLite `text`
-// column. These tests pin the exact boundary (100 passes, 101 fails) on every
+// The upper bound exists so an oversized name is rejected at the validation
+// boundary, before it ever reaches the unbounded SQLite `text` column. These
+// tests pin the exact boundary (NAME_MAX_LENGTH passes, +1 fails) on every
 // schema that writes `user.name`, so the constraint cannot silently regress on
-// any of the four write paths.
-const NAME_AT_LIMIT = "a".repeat(100);
-const NAME_OVER_LIMIT = "a".repeat(101);
+// any of the four write paths. Referencing the shared constant (rather than a
+// hard-coded 100) keeps these tests honest if the bound ever moves.
+const NAME_AT_LIMIT = "a".repeat(NAME_MAX_LENGTH);
+const NAME_OVER_LIMIT = "a".repeat(NAME_MAX_LENGTH + 1);
 
 const baseCredentials = {
   email: "person@example.com",
