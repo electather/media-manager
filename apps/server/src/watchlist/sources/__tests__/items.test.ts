@@ -161,18 +161,24 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect("nextRaw" in res).toBe(false);
   });
 
-  it("alpha sort breaks ties deterministically for accent/case-colliding titles (#680)", async () => {
-    // "elite", "Elite", and "élite" all collapse to the same key under the
-    // accent-insensitive primary compare. The secondary full-sensitivity compare
-    // must produce a stable, reproducible order so the same input always yields
-    // the same output regardless of JS sort stability or host environment.
-    const rows = [row("3", 3), row("1", 2), row("2", 1)];
+  // Titles that collide under case-insensitive collation (e.g. "elite" and
+  // "ELITE") must still sort in a deterministic, reproducible order. Under
+  // sensitivity:"accent" case differences are ignored, so these titles return 0
+  // from the primary compare. Without a secondary full-collation pass the tie is
+  // decided by JS sort stability alone, which depends on input order and can
+  // differ across environments. This test asserts the specific order produced by
+  // the full-collation tie-break so that any regression removing the secondary
+  // compare is immediately caught.
+  it("alpha sort breaks ties between case-colliding titles deterministically", async () => {
+    const rows = [row("2", 3), row("1", 2)];
     vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
     const ctx = makeCtx();
+    // "ELITE" and "elite" compare as equal under sensitivity:"accent"
+    // (case-insensitive), so the secondary full-collation pass must produce
+    // "elite" < "ELITE".
     (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:3": { tmdbId: "3", mediaType: "movie", title: "élite", genres: [] },
-      "movie:1": { tmdbId: "1", mediaType: "movie", title: "Elite", genres: [] },
-      "movie:2": { tmdbId: "2", mediaType: "movie", title: "elite", genres: [] },
+      "movie:2": { tmdbId: "2", mediaType: "movie", title: "ELITE", genres: [] },
+      "movie:1": { tmdbId: "1", mediaType: "movie", title: "elite", genres: [] },
     });
 
     const res = await itemsSource(params({ sort: "alpha" })).fetchRawSet(
@@ -181,26 +187,8 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
       null,
     );
 
-    // The secondary tie-break must produce the same order on every invocation.
-    // The exact order is determined by full-locale compare ("Elite" < "elite" < "élite"
-    // under "en" locale), but what matters is that it is stable across calls.
-    const first = res.rows.map((r) => r.tmdbId);
-
-    vi.mocked(media.listAllActiveRows).mockResolvedValueOnce([...rows].reverse());
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:3": { tmdbId: "3", mediaType: "movie", title: "élite", genres: [] },
-      "movie:1": { tmdbId: "1", mediaType: "movie", title: "Elite", genres: [] },
-      "movie:2": { tmdbId: "2", mediaType: "movie", title: "elite", genres: [] },
-    });
-
-    const res2 = await itemsSource(params({ sort: "alpha" })).fetchRawSet(
-      ctx,
-      params({ sort: "alpha" }),
-      null,
-    );
-
-    // Both runs must produce identical ordering regardless of input order.
-    expect(res2.rows.map((r) => r.tmdbId)).toEqual(first);
+    // "elite" should sort before "ELITE" regardless of the input row order.
+    expect(res.rows.map((r) => r.tmdbId)).toEqual(["1", "2"]);
   });
 
   // The status-sort path depends on a `mediaService.getStatusBatch` fan-out.

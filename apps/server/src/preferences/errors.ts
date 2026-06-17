@@ -19,10 +19,10 @@ export class JobNotRegisteredError extends PreferencesError {
   }
 }
 
-/** Thrown when a registered job does not expose the expected handler. */
+/** Thrown when a registered job cannot be triggered from the API (wrong kind or missing handler). */
 export class JobNotTriggerableError extends PreferencesError {
   constructor(jobId: string) {
-    super(`job ${jobId} has no triggerFromApi handler`, "preferences.job_not_triggerable");
+    super(`job ${jobId} is not triggerable`, "preferences.job_not_triggerable");
     this.name = "JobNotTriggerableError";
   }
 }
