@@ -70,7 +70,7 @@ function VoteButton({
           : // hover:* is inert on disabled buttons (pointer-events:none); kept
             // for when vote persistence is wired and the button is re-enabled.
             "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-50",
+        disabled && "disabled:cursor-not-allowed opacity-50",
       )}
     >
       {icon}
@@ -92,12 +92,11 @@ function NoteButton({ hasNote }: { hasNote: boolean }) {
       }
       className={cn(
         "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
-        hasNote
-          ? "border-primary/55 bg-primary/10 text-primary"
-          : // hover:* is inert on disabled buttons (pointer-events:none); kept
-            // for when note persistence is wired and the button is re-enabled.
-            "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-        "cursor-not-allowed opacity-50",
+        // Persistence not wired yet: collapse hasNote branch to the same muted
+        // style so the button never looks interactive regardless of note state.
+        // hover:* kept for when persistence is re-enabled.
+        "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+        "disabled:cursor-not-allowed opacity-50",
       )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
