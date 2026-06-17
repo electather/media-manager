@@ -15,8 +15,13 @@ const tabSchema = z.enum(["errors", "performance"]).optional();
 
 const searchSchema = z.object({
   tab: tabSchema,
-  rid: z.string().optional(),
-  pid: z.string().optional(),
+  rid: z
+    .string()
+    .regex(/^[0-9a-zA-Z_-]+$/)
+    .max(64)
+    .optional(),
+  // cuid2 default output is 24 chars; 128 gives headroom for future ID format changes.
+  pid: z.string().max(128).optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")({
