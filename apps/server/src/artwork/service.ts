@@ -138,8 +138,12 @@ interface CanonicalEntry {
  * is idempotent, but the redundant write/WAL traffic scales with concurrent
  * viewers. Collapsing to at most one patch per key per window keeps a hot title
  * from amplifying writes while still letting later renders refresh the row.
+ *
+ * @internal Exported only so the service test can assert against the real window
+ * instead of a hand-copied literal that would silently drift. Not part of the
+ * module's public contract.
  */
-const WRITE_BACK_DEDUP_MS = 60_000;
+export const WRITE_BACK_DEDUP_MS = 60_000;
 
 /**
  * Process-wide record of when each canonical key was last patched. Lives at

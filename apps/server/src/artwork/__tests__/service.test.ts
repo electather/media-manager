@@ -26,12 +26,9 @@ vi.mock("../../media", async () => {
   };
 });
 
-const { ArtworkService, resetWriteBackDedupForTests } = await import("../service");
+const { ArtworkService, resetWriteBackDedupForTests, WRITE_BACK_DEDUP_MS } =
+  await import("../service");
 const { PluginCallError } = await import("../../media");
-
-// Mirrors the module-private `WRITE_BACK_DEDUP_MS` in service.ts. Kept local so
-// the dedup window stays an implementation detail rather than a public export.
-const WRITE_BACK_DEDUP_MS = 60_000;
 
 function bundle(overrides: Partial<ArtworkBundle> = {}): ArtworkBundle {
   return {
