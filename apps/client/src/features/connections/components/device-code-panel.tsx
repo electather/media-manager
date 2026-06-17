@@ -19,7 +19,15 @@ export function DeviceCodePanel({ device, now }: Props) {
   // it is server-controlled, but rendering an unvalidated `href` would let a
   // buggy or compromised plugin response inject a `javascript:` navigation.
   const safeVerifyUrl = isSafeAuthUrl(device.verifyUrl);
-  const host = safeVerifyUrl ? new URL(device.verifyUrl).hostname : "";
+  // Parse the hostname regardless of scheme so we can show a fallback hint
+  // when the URL is rejected as unsafe (e.g. a future plugin returns http://).
+  const host = (() => {
+    try {
+      return new URL(device.verifyUrl).hostname;
+    } catch {
+      return device.verifyUrl;
+    }
+  })();
 
   return (
     <div className="flex flex-col gap-4">
@@ -33,7 +41,11 @@ export function DeviceCodePanel({ device, now }: Props) {
           <ExternalLinkIcon className="size-3.5" />
           {m.settings_connections_modal_device_open({ host })}
         </a>
-      ) : null}
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {m.settings_connections_modal_device_unsafe_url_hint({ host })}
+        </p>
+      )}
       <div className="flex items-center gap-4 rounded-lg border border-dashed border-input bg-background px-4 py-3.5">
         <div className="flex flex-1 flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">

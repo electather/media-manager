@@ -205,6 +205,7 @@
   "settings_connections_modal_oauth_redirect_body": "Clicking Connect redirects you to {name} to approve access. You'll return here automatically.",
   "settings_connections_modal_oauth_edit_notice": "Credentials for {name} aren't editable here. Use Reconnect from the card to re-run authorization.",
   "settings_connections_modal_device_open": "Open {host}",
+  "settings_connections_modal_device_unsafe_url_hint": "Visit {host} and enter the code below",
   "settings_connections_modal_device_enter_code": "Or enter this code",
   "settings_connections_modal_device_code_aria": "Device code: {code}",
   "settings_connections_modal_device_copy": "Copy",

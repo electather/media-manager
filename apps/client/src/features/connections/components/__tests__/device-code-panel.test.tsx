@@ -31,14 +31,17 @@ describe("DeviceCodePanel — verifyUrl link safety", () => {
     expect(screen.getByText(/plex\.tv/)).toBeTruthy();
   });
 
-  it("renders no link for an unsafe (non-https) verifyUrl", () => {
+  it("renders no link and shows a host hint for an unsafe (non-https) verifyUrl", () => {
     // A `javascript:` value must never become a rendered `href` — the guard
-    // drops the anchor entirely. The user code + copy affordance still render,
-    // so the panel stays usable.
-    render(<DeviceCodePanel device={waitingDevice("javascript:alert(1)")} now={0} />);
+    // must not produce any anchor element at all. A plain-text hint is shown
+    // instead so the user can still identify the target host and complete
+    // the flow manually using the code below.
+    render(<DeviceCodePanel device={waitingDevice("http://example.com/activate")} now={0} />);
 
     expect(screen.queryByRole("link")).toBeNull();
-    // The code itself is still shown so the user can complete the flow manually.
+    // The hint surfaces the host so the panel does not look broken.
+    expect(screen.getByText(/example\.com/)).toBeTruthy();
+    // The user code is still shown so the flow remains completable.
     expect(screen.getByText("ABCD-1234")).toBeTruthy();
   });
 });
