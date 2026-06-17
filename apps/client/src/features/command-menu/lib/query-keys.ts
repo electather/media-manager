@@ -9,6 +9,10 @@ export const commandMenuKeys = {
     [...commandMenuKeys.all, "trending", { mediaType }] as const,
 } as const;
 
+/** Checks that value has a `kind` key. Intentionally loose: only checks key existence,
+ * not `typeof kind === "string"`, because all callers use keys produced by
+ * {@link commandMenuKeys} which always emit a `SearchKind` string.
+ */
 function hasKindParam(value: unknown): value is { kind: string } {
   return value !== null && typeof value === "object" && "kind" in (value as object);
 }

@@ -31,7 +31,7 @@ describe("isSearchKey", () => {
     expect(isSearchKey(["command-menu", "search", null])).toBe(false);
   });
 
-  it("rejects a search-looking key where kind is not a string", () => {
+  it("accepts a search-looking key where kind is not a string (documents loose hasKindParam behaviour)", () => {
     // hasKindParam checks key existence only, not typeof — this documents the
     // current (intentionally loose) behaviour so a future tightening is visible.
     expect(isSearchKey(["command-menu", "search", { kind: 42 }])).toBe(true);
