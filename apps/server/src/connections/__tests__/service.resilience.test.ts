@@ -157,6 +157,9 @@ const testConnectionMock = vi.fn();
 vi.mock("../../plugin-runtime", () => ({
   pluginRuntime: {
     runAuth: vi.fn(),
+    // Indirection so tests can swap the implementation per test; vi.mock
+    // factories are hoisted, so a vi.fn() returned directly from the factory
+    // cannot be replaced via mockImplementation after the import.
     testConnection: (...args: unknown[]) => testConnectionMock(...args),
   },
   capabilityRegistry: {
