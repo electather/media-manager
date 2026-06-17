@@ -145,7 +145,7 @@ describe("retention sweep", () => {
     await getAppConfig(); // seeds 'global' with defaults
 
     await db.insert(appConfig).values({
-      id: "rogue",
+      id: "aaa-rogue",
       errorRetentionDays: 999,
       perfRetentionDays: 999,
       inboxRetentionDays: 999,
@@ -182,7 +182,7 @@ describe("notification retention", () => {
     await getNotificationRetention(); // seeds 'global' with defaults
 
     await db.insert(appConfig).values({
-      id: "rogue",
+      id: "aaa-rogue",
       errorRetentionDays: 999,
       perfRetentionDays: 999,
       inboxRetentionDays: 999,
