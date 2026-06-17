@@ -10,8 +10,8 @@ import { isNil } from "es-toolkit/predicate";
 
 /**
  * Loads the connection row owned by `userId` or returns `null`. Used by
- * idempotent operations (delete, test) where a missing row should resolve
- * silently rather than throw.
+ * idempotent operations (test) where a missing row should resolve silently
+ * rather than throw.
  */
 export async function fetchConnectionByOwner(db: Db, connectionId: string, userId: string) {
   return (

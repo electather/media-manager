@@ -180,10 +180,10 @@ export class PreferencesService {
     meta: TriggerSource,
   ): Promise<{ runId: string; result: unknown }> {
     const entry = findJobEntry(PREFERENCE_MANUAL_REBUILD_JOB_ID);
-    if (!entry || entry.kind !== "triggerable") {
+    if (!entry) {
       throw new JobNotRegisteredError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
-    if (!entry.triggerFromApi) {
+    if (entry.kind !== "triggerable" || !entry.triggerFromApi) {
       throw new JobNotTriggerableError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
     return entry.triggerFromApi(input, meta);

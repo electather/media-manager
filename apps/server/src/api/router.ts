@@ -12,6 +12,7 @@ import { publicTrendingApp } from "./procedures/public";
 import { diagnosticsApp, adminDiagnosticsApp } from "./procedures/diagnostics";
 import { adminJobsApp, userJobsApp } from "./procedures/jobs";
 import { adminUsersApp } from "./procedures/users";
+import { adminInvitesApp, invitesApp } from "./procedures/invites";
 import { meApp } from "./procedures/me";
 import { preferencesApp } from "./procedures/preferences";
 import { notificationsApp, adminNotificationsApp } from "./procedures/notifications";
@@ -58,6 +59,8 @@ export const appRouter = new Hono()
   .route("/jobs", userJobsApp)
   .route("/admin/jobs", adminJobsApp)
   .route("/admin/users", adminUsersApp)
+  .route("/admin/invites", adminInvitesApp)
+  .route("/invites", invitesApp)
   .route("/me", meApp)
   .route("/onboarding", onboardingApp)
   .route("/preferences", preferencesApp)
