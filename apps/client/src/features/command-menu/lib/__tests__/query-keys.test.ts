@@ -26,4 +26,8 @@ describe("isSearchKey", () => {
   it("returns true for a valid search key produced by commandMenuKeys.search", () => {
     expect(isSearchKey(commandMenuKeys.search("blade", "all"))).toBe(true);
   });
+
+  it("returns true for a search key with an empty query string", () => {
+    expect(isSearchKey(commandMenuKeys.search("", "all"))).toBe(true);
+  });
 });

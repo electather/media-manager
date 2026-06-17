@@ -10,12 +10,9 @@ export const commandMenuKeys = {
 } as const;
 
 function hasSearchParam(value: unknown): value is { q: string; kind: SearchKind } {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    "q" in (value as object) &&
-    "kind" in (value as object)
-  );
+  if (value === null || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.q === "string" && typeof v.kind === "string";
 }
 
 /** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */
