@@ -7,7 +7,7 @@ import { Button } from "@/shared/ui/button";
 import { authClient } from "@/shared/lib/auth";
 
 import { useAdminUsers } from "../hooks/use-admin-users";
-import { useInvitesMock } from "../lib/invites-mock";
+import { useAdminInvites } from "../hooks/use-admin-invites";
 import type { AdminUsersFilter } from "../lib/types";
 import { deriveUserCounts } from "../lib/user-predicates";
 import { InviteDrawer } from "./invite-drawer";
@@ -23,8 +23,9 @@ export function UsersPage({ selectedUserId, onSelectUser }: UsersPageProps) {
   const session = authClient.useSession();
   const selfId = session.data?.user?.id ?? null;
   const { data } = useAdminUsers();
-  const invites = useInvitesMock();
+  const { data: invitesData } = useAdminInvites();
   const users = data.users;
+  const invites = invitesData.invites;
 
   const [filter, setFilter] = useState<AdminUsersFilter>("all");
   const [query, setQuery] = useState("");
@@ -40,7 +41,7 @@ export function UsersPage({ selectedUserId, onSelectUser }: UsersPageProps) {
     active: activeCount,
     admins: adminCount,
     pending: pendingCount,
-  } = deriveUserCounts(users, invites, Date.now());
+  } = deriveUserCounts(users, invites);
 
   return (
     <div className="flex flex-col gap-6">

@@ -10,8 +10,8 @@ import { isNil } from "es-toolkit/predicate";
 
 /**
  * Loads the connection row owned by `userId` or returns `null`. Used by
- * idempotent operations (delete, test) where a missing row should resolve
- * silently rather than throw.
+ * idempotent operations (test) where a missing row should resolve silently
+ * rather than throw.
  */
 export async function fetchConnectionByOwner(db: Db, connectionId: string, userId: string) {
   return (
@@ -195,20 +195,22 @@ function stringifyDisplayValue(v: unknown): string {
 
 /**
  * Promotes the given connection to default within its plugin and demotes the
- * rest. Returns `true` when the connection was found and updated, `false` when
- * no row matched `(connectionId, userId)`. The caller is responsible for
- * surfacing `false` as a `connection.not_found` error.
+ * rest. Returns `true` when the promotion UPDATE affected a row, `false` when
+ * the connection was missing (or was deleted between the pre-check and the
+ * promotion). The caller is responsible for surfacing `false` as a
+ * `connection.not_found` error.
  */
 export async function promoteToDefault(userId: string, connectionId: string): Promise<boolean> {
   const db = getDb();
   // Load the row first to obtain pluginId for the sibling-demotion predicate.
-  // A single read followed by two writes inside a transaction is still atomic
-  // for SQLite's single-writer model and avoids exposing pluginId as a caller
-  // concern.
+  // Keeping this read outside the transaction is safe for the true/false
+  // signal because the promotion UPDATE below uses RETURNING: if the row is
+  // deleted in the window between this SELECT and the transaction, zero rows
+  // come back and the function returns `false` rather than a silent success.
   const row = await fetchConnectionByOwner(db, connectionId, userId);
   if (!row) return false;
   const now = Date.now();
-  await db.transaction(async (tx) => {
+  const promoted = await db.transaction(async (tx) => {
     await tx
       .update(serviceConnections)
       .set({ isDefault: 0, updatedAt: now })
@@ -219,12 +221,17 @@ export async function promoteToDefault(userId: string, connectionId: string): Pr
           ne(serviceConnections.id, connectionId),
         ),
       );
-    await tx
+    // RETURNING closes the residual TOCTOU window: if the row is deleted
+    // between the SELECT above and this UPDATE, zero rows are returned and
+    // the caller sees `false` instead of a silent success with no default.
+    const updated = await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
-      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+      .returning({ id: serviceConnections.id });
+    return updated.length > 0;
   });
-  return true;
+  return promoted;
 }
 
 async function ensureDefaultIfFirst(

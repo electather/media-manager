@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -24,6 +24,10 @@ function wrap(client: QueryClient) {
   );
 }
 
+beforeEach(() => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -32,7 +36,6 @@ afterEach(() => {
 
 describe("HomeErrorBoundary", () => {
   it("renders the auth variant for 401 with a sign-in action", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
     const err = new MediaApiError(401, {
@@ -53,7 +56,6 @@ describe("HomeErrorBoundary", () => {
   });
 
   it("renders the server variant for 5xx with a contact-support link", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
     const err = new MediaApiError(503, { code: "home.internal", devMessage: "outage" });
@@ -70,7 +72,6 @@ describe("HomeErrorBoundary", () => {
   });
 
   it("renders the offline variant when navigator is offline", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const original = Object.getOwnPropertyDescriptor(navigator, "onLine");
     Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -89,7 +90,6 @@ describe("HomeErrorBoundary", () => {
   });
 
   it("fires telemetry when caught with the requestId and variant", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     document.documentElement.dataset.requestId = "rid-abc-1234";
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
@@ -114,7 +114,6 @@ describe("HomeErrorBoundary", () => {
     // event in addition to the variant-aware "warning" event from
     // FallbackInner. The base boundary skips when a fallback is provided so
     // feature boundaries own their telemetry path.
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
     render(
@@ -129,7 +128,6 @@ describe("HomeErrorBoundary", () => {
   });
 
   it("hides the alert and shows the home skeleton during the retry transition", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(homeKeys.layout(), { sentinel: true });
     const resetSpy = vi.spyOn(client, "resetQueries");

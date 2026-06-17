@@ -113,17 +113,17 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              const affected = rows.map((r) => ({ id: r.id }));
-              // Extend the resolved Promise with a `.returning()` method so both
-              // `await where(...)` and `await where(...).returning(...)` work.
-              // Attaching `.returning()` to a real Promise avoids the
-              // unicorn/no-thenable lint rule (which only flags plain objects).
-              const promise = Promise.resolve(affected);
-              return Object.assign(promise, {
+              // The UPDATE ... RETURNING chain returns the affected rows; an
+              // empty rowset is how the service detects a zero-row update and
+              // throws connection.not_found. WHERE args are ignored here — the
+              // zero-row guard fires because state.connections is empty, NOT
+              // because userId/connectionId were evaluated. A test that needs
+              // mismatched-id rejection must therefore seed no matching row.
+              return {
                 returning(_fields: unknown) {
-                  return Promise.resolve(affected);
+                  return Promise.resolve(rows.map((r) => ({ id: r.id })));
                 },
-              });
+              };
             },
           };
         },
@@ -202,12 +202,19 @@ const PRIVATE_PLUGIN_MANIFEST = {
   poolable: false,
 };
 
-function installPlugin(opts: { enabled?: 0 | 1 } = {}) {
+// A non-form-auth variant so the updateUserConfig verification takes the
+// verifyNonFormAuthConfig (testConnection) branch instead of the form branch.
+const NON_FORM_PLUGIN_MANIFEST = {
+  ...PRIVATE_PLUGIN_MANIFEST,
+  auth: { kind: "oauth_redirect" },
+};
+
+function installPlugin(opts: { enabled?: 0 | 1; manifest?: unknown } = {}) {
   state.plugins = [
     {
       id: "plex",
       enabled: opts.enabled ?? 1,
-      manifest: JSON.stringify(PRIVATE_PLUGIN_MANIFEST),
+      manifest: JSON.stringify(opts.manifest ?? PRIVATE_PLUGIN_MANIFEST),
     },
   ];
 }
@@ -374,6 +381,51 @@ describe("connectionsService — x-private stripping", () => {
 
     expect(state.connections[0]!.status).toBe("connected");
     expect(state.connections[0]!.errorMessage).toBeNull();
+  });
+
+  it("throws connection.not_found when the row is deleted between requireConnection and the final update", async () => {
+    // TOCTOU guard: requireConnection passes because the row exists when the
+    // update begins, but the row is deleted before the final UPDATE lands. The
+    // RETURNING chain then reports zero affected rows and the caller must get a
+    // 404 instead of a silent 200 no-op. We simulate the mid-flight delete by
+    // clearing state.connections inside runAuth, which fires between
+    // requireConnection and the final UPDATE in the form-auth path.
+    installPlugin();
+    seedConnection({ externalUrl: "https://plex.example.com", apiKey: "old" });
+    runAuthMock.mockImplementation(() => {
+      state.connections = [];
+      return Promise.resolve({ status: "completed", credentials: { token: "fresh" } });
+    });
+
+    await expect(
+      connectionsService.updateUserConfig({
+        userId: "user-1",
+        connectionId: "conn-1",
+        userConfig: { externalUrl: "https://plex.example.com", apiKey: "new" },
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("throws connection.not_found on the non-form-auth path when the row is deleted mid-flight", async () => {
+    // Parallel to the form-auth TOCTOU test, but for the verifyNonFormAuthConfig
+    // branch (testConnection). Both branches converge on the same .returning()
+    // guard; this guards against a future refactor skipping the check on the
+    // non-form path. The mid-flight delete is injected inside testConnection,
+    // which fires between requireConnection and the final UPDATE here.
+    installPlugin({ manifest: NON_FORM_PLUGIN_MANIFEST });
+    seedConnection({ externalUrl: "https://plex.example.com" });
+    testConnectionMock.mockImplementation(() => {
+      state.connections = [];
+      return Promise.resolve({ ok: true });
+    });
+
+    await expect(
+      connectionsService.updateUserConfig({
+        userId: "user-1",
+        connectionId: "conn-1",
+        userConfig: { externalUrl: "https://new.example.com" },
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
 
   it("allows updating an x-private field when the client sends a new value", async () => {

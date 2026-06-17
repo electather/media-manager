@@ -124,7 +124,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", overview: "A classic", ids: {} });
 
     const result = await dispatchPrimary<{ title: string; overview: string | null }>(req());
-    expect(result.data.overview).toBe("A classic");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.overview).toBe("A classic");
   });
 
   it("fills an undefined field in primary from enrichment", async () => {
@@ -134,7 +135,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", overview: "Filled", ids: {} });
 
     const result = await dispatchPrimary<{ title: string; overview?: string }>(req());
-    expect(result.data.overview).toBe("Filled");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.overview).toBe("Filled");
   });
 
   it("fills an empty string in primary from enrichment", async () => {
@@ -144,7 +146,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", tagline: "Welcome to the real world.", ids: {} });
 
     const result = await dispatchPrimary<{ title: string; tagline: string }>(req());
-    expect(result.data.tagline).toBe("Welcome to the real world.");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.tagline).toBe("Welcome to the real world.");
   });
 
   it("fills an empty array field from enrichment", async () => {
@@ -154,7 +157,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", genres: ["sci-fi"], ids: {} });
 
     const result = await dispatchPrimary<{ title: string; genres: string[] }>(req());
-    expect(result.data.genres).toEqual(["sci-fi"]);
+    expect(result.data).not.toBeNull();
+    expect(result.data!.genres).toEqual(["sci-fi"]);
   });
 
   it("does not overwrite a non-empty primary field with enrichment value", async () => {
@@ -164,7 +168,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", overview: "Enrichment overview", ids: {} });
 
     const result = await dispatchPrimary<{ title: string; overview: string }>(req());
-    expect(result.data.overview).toBe("Primary overview");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.overview).toBe("Primary overview");
   });
 
   it("does not overwrite a non-empty array with enrichment value", async () => {
@@ -174,7 +179,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ title: "Other", genres: ["sci-fi"], ids: {} });
 
     const result = await dispatchPrimary<{ title: string; genres: string[] }>(req());
-    expect(result.data.genres).toEqual(["action"]);
+    expect(result.data).not.toBeNull();
+    expect(result.data!.genres).toEqual(["action"]);
   });
 
   it("deep-merges nested objects, filling missing sub-fields", async () => {
@@ -184,7 +190,8 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ ids: { imdb: "tt0133093", trakt: "1" } });
 
     const result = await dispatchPrimary<{ ids: Record<string, string> }>(req());
-    expect(result.data.ids).toEqual({ tmdb: "603", imdb: "tt0133093", trakt: "1" });
+    expect(result.data).not.toBeNull();
+    expect(result.data!.ids).toEqual({ tmdb: "603", imdb: "tt0133093", trakt: "1" });
   });
 
   it("does not overwrite existing nested fields during deep merge", async () => {
@@ -194,8 +201,9 @@ describe("fillGaps (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ ids: { imdb: "tt-enrichment", trakt: "1" } });
 
     const result = await dispatchPrimary<{ ids: Record<string, string> }>(req());
-    expect(result.data.ids.imdb).toBe("tt-primary");
-    expect(result.data.ids.trakt).toBe("1");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.ids.imdb).toBe("tt-primary");
+    expect(result.data!.ids.trakt).toBe("1");
   });
 });
 
@@ -209,7 +217,8 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
     invokeMock.mockResolvedValueOnce({ title: "Solo", ids: { tmdb: "1" } });
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("Solo");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("Solo");
   });
 
   it("returns primary data unchanged when enrichment returns null", async () => {
@@ -219,7 +228,8 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
       .mockResolvedValueOnce(null);
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("Matrix");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("Matrix");
   });
 
   it("treats a null primary as a failed provider and merges from the next candidate", async () => {
@@ -230,7 +240,8 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
     invokeMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ title: "Filled", ids: {} });
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("Filled");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("Filled");
   });
 
   it("returns primary data unchanged when enrichment returns an array (non-object)", async () => {
@@ -253,7 +264,8 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
       .mockResolvedValueOnce({ ids: { tvdb: "321" } });
 
     const result = await dispatchPrimary<{ ids: Record<string, string> }>(req());
-    expect(result.data.ids).toEqual({ tmdb: "603", trakt: "99", tvdb: "321" });
+    expect(result.data).not.toBeNull();
+    expect(result.data!.ids).toEqual({ tmdb: "603", trakt: "99", tvdb: "321" });
   });
 });
 
@@ -328,7 +340,8 @@ describe("prototype pollution defense (issue #451)", () => {
 
     const result = await dispatchPrimary<Record<string, unknown>>(req());
 
-    expect(Object.hasOwn(result.data, "constructor")).toBe(false);
+    expect(result.data).not.toBeNull();
+    expect(Object.hasOwn(result.data!, "constructor")).toBe(false);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
@@ -345,7 +358,8 @@ describe("prototype pollution defense (issue #451)", () => {
 
     const result = await dispatchPrimary<Record<string, unknown>>(req());
 
-    expect(Object.hasOwn(result.data, "prototype")).toBe(false);
+    expect(result.data).not.toBeNull();
+    expect(Object.hasOwn(result.data!, "prototype")).toBe(false);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
@@ -382,9 +396,10 @@ describe("prototype pollution defense (issue #451)", () => {
 
     const result = await dispatchPrimary<Record<string, unknown>>(req());
 
+    expect(result.data).not.toBeNull();
     // Dangerous keys are filtered, not preserved as own properties.
-    expect(Object.hasOwn(result.data, "__proto__")).toBe(false);
-    expect((result.data as { polluted?: unknown }).polluted).toBeUndefined();
+    expect(Object.hasOwn(result.data!, "__proto__")).toBe(false);
+    expect((result.data! as { polluted?: unknown }).polluted).toBeUndefined();
   });
 
   it("still merges legitimate fields when enrichment also contains a dangerous key", async () => {
@@ -395,7 +410,7 @@ describe("prototype pollution defense (issue #451)", () => {
 
     const result = await dispatchPrimary<{ overview: string }>(req());
 
-    expect(result.data.overview).toBe("Filled");
+    expect(result.data!.overview).toBe("Filled");
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
@@ -423,7 +438,8 @@ describe("dispatchPrimary", () => {
       .mockResolvedValueOnce({ title: "From TMDB", ids: {} });
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("From Trakt");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("From Trakt");
   });
 
   it("defaults to the registry's first provider when no primary is stored", async () => {
@@ -434,7 +450,8 @@ describe("dispatchPrimary", () => {
       .mockResolvedValueOnce({ title: "From Trakt", ids: {} });
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("From TMDB");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("From TMDB");
   });
 
   it("collects errors from failing providers alongside a successful primary", async () => {
@@ -539,7 +556,8 @@ describe("dispatchPrimary", () => {
     invokeMock.mockResolvedValueOnce({ title: "TMDB only", ids: {} });
 
     const result = await dispatchPrimary<{ title: string }>(req());
-    expect(result.data.title).toBe("TMDB only");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("TMDB only");
     expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
@@ -571,7 +589,8 @@ describe("dispatchPrimary", () => {
     expect(firstCallArgs.pluginId).toBe("trakt");
     // Merged base comes from the pinned primary's result; non-empty fields
     // from the registry-first plugin must NOT override.
-    expect(result.data.title).toBe("From Trakt");
-    expect(result.data.overview).toBe("Pinned primary");
+    expect(result.data).not.toBeNull();
+    expect(result.data!.title).toBe("From Trakt");
+    expect(result.data!.overview).toBe("Pinned primary");
   });
 });

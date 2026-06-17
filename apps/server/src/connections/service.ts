@@ -94,24 +94,21 @@ function buildPluginSummary(
   };
 }
 
-/**
- * Applies `patch` to the connection row identified by `(connectionId, userId)`.
- * Returns `true` when a row was updated, `false` when the row was missing or
- * belongs to another user. Callers that must surface a missing row as an error
- * should throw `notFound("connection.not_found", ...)` on `false`.
- */
 async function updateConnectionWhere(
   db: Db,
   userId: string,
   connectionId: string,
   patch: Partial<typeof serviceConnections.$inferInsert>,
-): Promise<boolean> {
+): Promise<void> {
+  // Use RETURNING to detect zero-row updates so a row deleted between the
+  // caller's pre-check and this UPDATE surfaces as connection.not_found
+  // instead of silently succeeding with no effect.
   const rows = await db
     .update(serviceConnections)
     .set({ ...patch, updatedAt: Date.now() })
     .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
     .returning({ id: serviceConnections.id });
-  return rows.length > 0;
+  if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
 }
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
@@ -275,10 +272,9 @@ export const connectionsService = {
     enabled: boolean;
   }): Promise<void> {
     const db = getDb();
-    const found = await updateConnectionWhere(db, args.userId, args.connectionId, {
+    await updateConnectionWhere(db, args.userId, args.connectionId, {
       enabled: args.enabled ? 1 : 0,
     });
-    if (!found) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -288,10 +284,11 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    const found = await updateConnectionWhere(db, args.userId, args.connectionId, {
+    // updateConnectionWhere throws connection.not_found when the UPDATE
+    // affects zero rows, so no separate requireConnection guard is needed.
+    await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
-    if (!found) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -330,6 +327,9 @@ export const connectionsService = {
       await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
+    // Use RETURNING to detect a row deleted between the initial requireConnection
+    // check and this final UPDATE — the verification work above is wasted but
+    // the caller gets connection.not_found rather than a silent 200 no-op.
     const updated = await db
       .update(serviceConnections)
       .set({
@@ -358,8 +358,9 @@ export const connectionsService = {
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
-    if (!row) return;
+    // requireConnection throws 404 for missing or foreign ids — prevents silent
+    // no-ops and stops callers from probing other users' connection ids.
+    const row = await requireConnection(db, args.connectionId, args.userId);
     await db
       .delete(serviceConnections)
       .where(
@@ -410,7 +411,10 @@ export const connectionsService = {
       credentials,
       userConfig,
     );
-    await db
+    // Use RETURNING to detect a row deleted between the pre-check and this
+    // UPDATE. Zero rows means the connection was deleted in the window; return
+    // not_found rather than silently writing to a ghost row.
+    const updated = await db
       .update(serviceConnections)
       .set({
         status: result.ok ? "connected" : "error",
@@ -423,7 +427,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) return { ok: false, message: "connection not found" };
     return result;
   },
 
