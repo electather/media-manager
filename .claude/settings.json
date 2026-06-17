@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command' 2>/dev/null); if echo \"$cmd\" | grep -qE 'gh (issue|pr) create'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"LABELING REMINDER: Invoke the label-issues skill before creating this issue/PR. Minimum required: one type: label + one scope: label on every item. PRs also need a complexity: label. See .agents/skills/label-issues/SKILL.md for the full decision guide.\"}}'; fi",
+            "statusMessage": "Checking label requirements..."
+          }
+        ]
+      }
+    ]
+  }
+}
