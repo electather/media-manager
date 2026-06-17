@@ -41,6 +41,7 @@ export function ModalFeedback({ hasNote }: Props) {
   );
 }
 
+// fallow-ignore-next-line complexity
 function VoteButton({
   active,
   ariaDisabled,
