@@ -18,4 +18,8 @@ describe("isSearchKey", () => {
   it("rejects an arbitrary array", () => {
     expect(isSearchKey(["command-menu", "search", "not-an-object"])).toBe(false);
   });
+
+  it("rejects a search key missing the q param", () => {
+    expect(isSearchKey(["command-menu", "search", { kind: "all" }])).toBe(false);
+  });
 });
