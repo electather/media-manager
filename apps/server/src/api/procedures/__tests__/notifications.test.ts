@@ -664,6 +664,20 @@ describe("notifications HTTP — admin settings persistence", () => {
       deliveryRetentionDays: 14,
     });
   });
+
+  it("returns 400 for an empty body — a no-op retention update must be rejected", async () => {
+    // An empty {} body passes schema validation without the refine, silently
+    // bumping only updatedAt and returning 200 with unchanged values. The
+    // refine ensures clients get an explicit 400 instead.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("notifications HTTP — inbox ?after forward cursor", () => {
