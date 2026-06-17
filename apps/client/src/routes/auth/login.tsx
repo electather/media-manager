@@ -34,7 +34,10 @@ function LoginRoute() {
 
   // Snapshot the error into local state so the banner stays visible after the
   // URL is cleaned. Deriving directly from Route.useSearch() would make it
-  // disappear on the next render once the param is removed.
+  // disappear on the next render once the param is removed. Safe to snapshot at
+  // mount because every OAuth failure arrives via a full-page server redirect
+  // (HTTP 302 to errorCallbackURL), which remounts the app. If that ever
+  // changes to SPA navigation, replace with a useEffect-driven setter.
   const [oauthError] = useState(error ? m.auth_social_signin_error() : undefined);
 
   useEffect(() => {
