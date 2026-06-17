@@ -38,6 +38,26 @@
   "auth_register_invite_only_title": "Invite only",
   "auth_register_invite_only_body": "New accounts are created by an administrator. Ask your administrator for an invite, then sign in.",
   "auth_register_go_to_login": "Go to login",
+  "auth_invite_title": "You've been invited",
+  "auth_invite_subtitle": "Create your account to get started.",
+  "auth_invite_role_label": "You'll be signed up as",
+  "auth_invite_invalid_title": "Invite not found",
+  "auth_invite_invalid_body": "This invite link is invalid or has expired.",
+  "auth_invite_gone_title": "Invite no longer valid",
+  "auth_invite_gone_body": "This invite has expired, been revoked, or fully used.",
+  "auth_invite_email_taken": "An account with this email already exists.",
+  "auth_invite_email_taken_login": "Sign in instead",
+  "auth_invite_account_created_signin_failed": "Your account was created, but sign-in failed.",
+  "auth_invite_go_to_login": "Go to login",
+  "auth_invite_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "Creating account…",
+        "status=*": "Create account"
+      }
+    }
+  ],
   "auth_login_submit": [
     {
       "selectors": ["status"],
