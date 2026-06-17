@@ -2,4 +2,4 @@
 "@nama/client": patch
 ---
 
-Fixed the note button to use a consistent muted style when disabled, regardless of whether a note exists.
+Fixed the NoteButton in the media detail feedback bar to show a muted disabled style when a note exists, preventing a misleading highlighted appearance while persistence is not yet wired.
