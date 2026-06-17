@@ -35,11 +35,11 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("fetchSeasonAvailability — error surfacing", () => {
+describe("fetchSeasonAvailability", () => {
   it("throws MediaApiError with the parsed code on a 4xx response", async () => {
     // Ensures the ErrorBoundary's retry-copy keying off `err.code` (V.CL1)
     // receives a typed error rather than a raw fetch rejection.
-    apiMock.availabilityGet.mockResolvedValue(
+    apiMock.availabilityGet.mockResolvedValueOnce(
       jsonResponse({ code: "media.not_found", message: "title not found" }, 404),
     );
     await expect(
@@ -52,7 +52,7 @@ describe("fetchSeasonAvailability — error surfacing", () => {
   });
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
-    apiMock.availabilityGet.mockResolvedValue(jsonResponse({}, 503));
+    apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
     const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
       (e: unknown) => e,
     );
@@ -63,7 +63,7 @@ describe("fetchSeasonAvailability — error surfacing", () => {
 
   it("returns the parsed JSON payload on a 2xx response", async () => {
     const payload = { seasons: [{ seasonNumber: 1, available: true }] };
-    apiMock.availabilityGet.mockResolvedValue(jsonResponse(payload));
+    apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse(payload));
     await expect(fetchSeasonAvailability("12345", new AbortController().signal)).resolves.toEqual(
       payload,
     );
@@ -71,7 +71,7 @@ describe("fetchSeasonAvailability — error surfacing", () => {
 
   it("forwards the AbortSignal to the api call", async () => {
     const payload = { seasons: [] };
-    apiMock.availabilityGet.mockResolvedValue(jsonResponse(payload));
+    apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse(payload));
     const signal = new AbortController().signal;
     await fetchSeasonAvailability("99999", signal);
     expect(apiMock.availabilityGet).toHaveBeenCalledWith(
