@@ -40,4 +40,12 @@ describe("bootstrapClaimSchema name field", () => {
     const result = bootstrapClaimSchema.safeParse({ ...base, name: "   " });
     expect(result.success).toBe(false);
   });
+
+  it("trims leading and trailing whitespace from name before validating", () => {
+    const result = bootstrapClaimSchema.safeParse({ ...base, name: "  Admin  " });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.name).toBe("Admin");
+    }
+  });
 });
