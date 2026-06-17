@@ -68,7 +68,7 @@ function isNumericSchema(schema: JSONSchemaProperty): boolean {
  */
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
-    if (raw === "") return null;
+    if (raw === "" || raw.trim() === "") return null;
     const n = Number(raw);
     if (Number.isNaN(n)) return null;
     return schema.type === "integer" ? Math.trunc(n) : n;
@@ -173,9 +173,22 @@ export function DynamicTriggerDialog({
   const triggerMutation = useTriggerJob();
   const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
 
+  const invalidNumericFields = useMemo(
+    () =>
+      Object.entries(properties)
+        .filter(([key, schema]) => {
+          const raw = formData[key] ?? "";
+          return (
+            isNumericSchema(schema) && raw !== "" && raw.trim() !== "" && Number.isNaN(Number(raw))
+          );
+        })
+        .map(([key]) => key),
+    [properties, formData],
+  );
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (missingFields.length > 0) {
+    if (missingFields.length > 0 || invalidNumericFields.length > 0) {
       setShowErrors(true);
       return;
     }
@@ -201,7 +214,8 @@ export function DynamicTriggerDialog({
 
   const hasResult = !!runId;
   const hasForm = Object.keys(properties).length > 0;
-  const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
+  const canSubmit =
+    !triggerMutation.isPending && missingFields.length === 0 && invalidNumericFields.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -239,7 +253,11 @@ export function DynamicTriggerDialog({
                       schema={schema}
                       value={formData[key] ?? ""}
                       required={required.includes(key)}
-                      invalid={showErrors && required.includes(key) && isMissing(formData[key])}
+                      invalid={
+                        showErrors &&
+                        ((required.includes(key) && isMissing(formData[key])) ||
+                          invalidNumericFields.includes(key))
+                      }
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
                     />
                   ))}
