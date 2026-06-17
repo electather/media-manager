@@ -56,7 +56,7 @@ const { JobNotRegisteredError, JobNotTriggerableError } = await import("../error
 
 describe("PreferencesService.triggerManualRebuild", () => {
   let service: InstanceType<typeof PreferencesService>;
-  const meta = { source: "api" as const };
+  const meta = { triggeredBy: "user" as const, triggeredByUserId: "u1" };
 
   beforeEach(() => {
     resetPreferencesServiceForTest();
@@ -83,6 +83,10 @@ describe("PreferencesService.triggerManualRebuild", () => {
   });
 
   it("throws JobNotTriggerableError when kind is correct but triggerFromApi is absent", async () => {
+    // registerTriggerable always sets triggerFromApi, so this state is not
+    // reachable through the public registration API. The branch is defensive,
+    // and this test pins the contract in case a future entry is constructed by
+    // other means.
     findJobEntryMock.mockReturnValue({ kind: "triggerable", triggerFromApi: undefined });
 
     await expect(service.triggerManualRebuild({ userId: "u1" }, meta)).rejects.toBeInstanceOf(
