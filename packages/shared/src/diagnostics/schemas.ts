@@ -81,7 +81,9 @@ export const errorListQuerySchema = z.object({
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
   requestId: z.string().optional(),
-  search: z.string().optional(),
+  // Cap free-text search so a scripted caller cannot pass an arbitrarily large
+  // string into the server-side LIKE/full-text query.
+  search: z.string().max(200).optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
   offset: z.coerce.number().min(0).default(0),
 });
