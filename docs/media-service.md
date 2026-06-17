@@ -351,10 +351,15 @@ Response shape when plugin fails in `aggregate` or `primary_with_enrichment`:
 
 ```ts
 interface AggregateResult<T> {
-  data: T;
+  data: T | null;  // null when attempted === 0 (no providers installed) or all providers failed
   errors: [{ connectionId; pluginId; code; message }];
 }
 ```
+
+`data` is `null` in two cases:
+
+- `attempted === 0` — no provider is installed for the capability; no plugin was contacted at all.
+- All contacted providers returned errors — every call failed; no successful payload exists.
 
 Caller passes both to frontend. UI decides presentation: show data + subtle "Some sources unavailable" indicator linked to connection status.
 
