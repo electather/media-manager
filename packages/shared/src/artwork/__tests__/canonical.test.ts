@@ -25,8 +25,11 @@ describe("canonicalArtworkKey", () => {
     );
   });
 
-  it("falls back to a type-only key when no id is present", () => {
-    expect(canonicalArtworkKey({}, "movie")).toBe("movie");
+  it("throws when the id map carries no recognised id", () => {
+    // Two empty-id items of the same type must not silently collapse onto one
+    // key — throwing makes the contract self-enforcing rather than relying on
+    // every caller to pre-validate with artworkIdMapSchema.
+    expect(() => canonicalArtworkKey({}, "movie")).toThrow(/carries no recognised id/);
   });
 });
 

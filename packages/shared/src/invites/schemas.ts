@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { passwordSchema } from "../auth/password";
+import { NAME_MAX_LENGTH } from "../users/schemas";
 
 /**
  * Input schema for creating a link invite. `expiresAt > Date.now()` is
@@ -26,7 +27,7 @@ export const extendInviteSchema = z.object({
  * the invite's role.
  */
 export const acceptInviteSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(NAME_MAX_LENGTH),
   email: z.string().email(),
   password: passwordSchema,
 });
