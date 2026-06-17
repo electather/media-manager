@@ -676,6 +676,18 @@ describe("notifications HTTP — admin settings persistence", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it("accepts a partial body with only one field present", async () => {
+    // Guards the partial-update contract: if the refine's `||` became `&&`, a single-field update would 400.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ inboxRetentionDays: 30 }),
+    });
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("notifications HTTP — inbox ?after forward cursor", () => {
