@@ -359,9 +359,8 @@ export const connectionsService = {
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    // Use requireConnection so a missing or foreign id throws connection.not_found
-    // (404) instead of silently returning 200 OK with no effect, matching the
-    // behaviour of updateDisplayName, setEnabled, updateUserConfig, and setDefault.
+    // requireConnection throws 404 for missing or foreign ids — prevents silent
+    // no-ops and stops callers from probing other users' connection ids.
     const row = await requireConnection(db, args.connectionId, args.userId);
     await db
       .delete(serviceConnections)
