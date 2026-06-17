@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const apiMock = vi.hoisted(() => ({
@@ -33,7 +32,7 @@ beforeEach(() => {
   apiMock.availabilityGet.mockReset();
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => vi.clearAllMocks());
 
 describe("fetchSeasonAvailability", () => {
   it("throws MediaApiError with the parsed code on a 4xx response", async () => {
