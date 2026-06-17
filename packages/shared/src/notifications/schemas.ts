@@ -225,7 +225,10 @@ export const adminDeliveryRowSchema = z.object({
 
 export type InboxListQuery = z.infer<typeof inboxListQuerySchema>;
 export type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
-export type AdminSettingsBody = z.infer<typeof adminSettingsBodySchema>;
+// z.infer on .refine() doesn't narrow — {} stays assignable; union surfaces the same guard to TS.
+export type AdminSettingsBody =
+  | { inboxRetentionDays: number; deliveryRetentionDays?: number }
+  | { inboxRetentionDays?: number; deliveryRetentionDays: number };
 export type AdminSettingsResponse = z.infer<typeof adminSettingsResponseSchema>;
 export type InboxItemDto = z.infer<typeof inboxItemSchema>;
 export type CategoryEntry = z.infer<typeof categoryEntrySchema>;
