@@ -202,10 +202,9 @@ describe("POST /invites/:code/accept — happy path", () => {
       .from(user)
       .where(eq(user.email, "newuser@example.com"))
       .get();
-    expect(createdUser?.emailVerified).toBe(true);
-
     expect(createdUser).not.toBeNull();
     const newUserId = createdUser!.id;
+    expect(createdUser!.emailVerified).toBe(true);
 
     // Role was assigned.
     const assignedRole = await db
