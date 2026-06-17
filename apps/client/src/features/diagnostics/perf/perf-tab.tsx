@@ -53,6 +53,9 @@ export function PerfTab({
         onClose={() => {
           setSelectedKey(null);
           setSelectedGroup(null);
+          // Always call onCloseDetail so that closing the sheet clears the
+          // ?pid deep-link even when the sheet was opened by a row-click rather
+          // than the deep link itself (row-click supersedes the pid param).
           onCloseDetail();
         }}
         onJumpThread={onJumpThread}
