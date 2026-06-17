@@ -51,6 +51,7 @@ vi.mock("../internal/profile-storage", () => ({
   profileStorage: { read: vi.fn(), write: vi.fn() },
 }));
 
+// Dynamic import intentional — must run after vi.mock() hoisting so mocks are in place.
 const { PreferencesService, resetPreferencesServiceForTest } = await import("../service");
 const { JobNotRegisteredError, JobNotTriggerableError } = await import("../errors");
 
