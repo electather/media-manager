@@ -38,8 +38,8 @@ export function PluginsListPage() {
   const toggle = useTogglePlugin();
   const [filter, setFilter] = useState<PluginListFilter>("all");
   const [query, setQuery] = useState("");
-  // Dormant: set canInstall and sandboxAvailable to true when QuickJS sandbox lands — state, handler, and dialog are intentionally preserved.
-  // sandboxAvailable={false} keeps the dialog's install action disabled in the meantime.
+  // Dormant: canInstall={false} hides CTA; sandboxAvailable={false} disables install action.
+  // Set both true when QuickJS sandbox lands — state, handler, and dialog are intentionally preserved.
   const [installOpen, setInstallOpen] = useState(false);
 
   const counts = useMemo(
