@@ -1,19 +1,265 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { m } from "@/paraglide/messages";
+import { Button } from "@/shared/ui/button";
+import { Field, FieldLabel, FieldError } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { PasswordField, validateEmail, validateNewPassword } from "@/features/auth";
+import { authClient } from "@/shared/lib/auth";
+import { fetchInvitePreview, acceptInvite } from "@/features/admin-users/lib/fetchers";
+import { AdminUsersApiError } from "@/features/admin-users/lib/types";
 
 export const Route = createFileRoute("/auth/invite/$token")({
   component: InvitePage,
 });
 
 function InvitePage() {
+  const { token } = Route.useParams();
+
+  const preview = useQuery({
+    queryKey: ["invite-preview", token],
+    queryFn: () => fetchInvitePreview(token),
+    retry: false,
+  });
+
+  if (preview.isPending) {
+    return <LoadingState />;
+  }
+
+  if (preview.data === null) {
+    return <InvalidState />;
+  }
+
+  if (preview.data === "gone") {
+    return <GoneState />;
+  }
+
+  if (preview.isError) {
+    return <InvalidState />;
+  }
+
+  return <AcceptForm code={token} roleName={preview.data.roleName} />;
+}
+
+function LoadingState() {
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">Accept Invitation</h1>
-        <p className="text-muted-foreground mt-2">
-          Validates the invite token, then presents a registration form to create an account.
-          Redirects to the onboarding wizard at /setup on success.
+    <div className="flex flex-col gap-4">
+      <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+      <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+    </div>
+  );
+}
+
+function InvalidState() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+        {m.auth_invite_invalid_title()}
+      </h1>
+      <p className="text-center text-sm text-muted-foreground">{m.auth_invite_invalid_body()}</p>
+      <Button variant="link" size="sm" render={<Link to="/auth/login" />}>
+        {m.auth_invite_go_to_login()}
+      </Button>
+    </div>
+  );
+}
+
+function GoneState() {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+        {m.auth_invite_gone_title()}
+      </h1>
+      <p className="text-center text-sm text-muted-foreground">{m.auth_invite_gone_body()}</p>
+      <Button variant="link" size="sm" render={<Link to="/auth/login" />}>
+        {m.auth_invite_go_to_login()}
+      </Button>
+    </div>
+  );
+}
+
+function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
+  const navigate = useNavigate();
+  const [signInFailed, setSignInFailed] = useState(false);
+  const [emailTaken, setEmailTaken] = useState(false);
+
+  const acceptMutation = useMutation({
+    mutationFn: (values: { name: string; email: string; password: string }) =>
+      acceptInvite(code, values),
+    onSuccess: async (_data, variables) => {
+      // Account created — sign in immediately with the submitted credentials.
+      const { error } = await authClient.signIn.email({
+        email: variables.email,
+        password: variables.password,
+        rememberMe: true,
+      });
+      if (error) {
+        // Account exists but sign-in failed (transient error). Show recovery
+        // banner — the user should go to login rather than retry the form.
+        setSignInFailed(true);
+        return;
+      }
+      void navigate({ to: "/setup" });
+    },
+    onError: (err) => {
+      if (err instanceof AdminUsersApiError && err.status === 409) {
+        setEmailTaken(true);
+      }
+    },
+  });
+
+  const form = useForm({
+    defaultValues: { name: "", email: "", password: "" },
+    onSubmit: async ({ value }) => {
+      setEmailTaken(false);
+      setSignInFailed(false);
+      await acceptMutation.mutateAsync(value);
+    },
+  });
+
+  const isBusy = form.state.isSubmitting || acceptMutation.isPending || acceptMutation.isSuccess;
+
+  if (signInFailed) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+          {m.auth_invite_title()}
+        </h1>
+        <p className="mt-1 text-center text-sm font-medium text-destructive">
+          {m.auth_invite_account_created_signin_failed()}
         </p>
+        <Button variant="link" size="sm" render={<Link to="/auth/login" />}>
+          {m.auth_invite_go_to_login()}
+        </Button>
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+          {m.auth_invite_title()}
+        </h1>
+        <p className="mt-1 text-center text-sm text-muted-foreground">{m.auth_invite_subtitle()}</p>
+        {roleName ? (
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            {m.auth_invite_role_label()}{" "}
+            <span className="font-medium text-foreground">{roleName}</span>
+          </p>
+        ) : null}
+      </div>
+
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+      >
+        <form.Field
+          name="name"
+          validators={{
+            onBlur: ({ value }) => (!value.trim() ? m.auth_name_required() : undefined),
+            onSubmit: ({ value }) => (!value.trim() ? m.auth_name_required() : undefined),
+          }}
+        >
+          {(field) => (
+            <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+              <FieldLabel htmlFor="name">{m.auth_name()}</FieldLabel>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your name"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                onBlur={field.handleBlur}
+                autoComplete="name"
+                disabled={isBusy}
+              />
+              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+            </Field>
+          )}
+        </form.Field>
+
+        <form.Field
+          name="email"
+          validators={{
+            onBlur: ({ value }) => validateEmail(value),
+            onSubmit: ({ value }) => validateEmail(value),
+          }}
+        >
+          {(field) => (
+            <Field data-invalid={field.state.meta.errors.length > 0 || emailTaken || undefined}>
+              <FieldLabel htmlFor="email">{m.auth_email()}</FieldLabel>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@domain.com"
+                value={field.state.value}
+                onChange={(e) => {
+                  setEmailTaken(false);
+                  field.handleChange(e.target.value);
+                }}
+                onBlur={field.handleBlur}
+                autoComplete="email"
+                disabled={isBusy}
+              />
+              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+              {emailTaken ? (
+                <p className="text-sm text-destructive">
+                  {m.auth_invite_email_taken()}{" "}
+                  <Link
+                    to="/auth/login"
+                    className="font-medium underline underline-offset-4 transition-colors hover:text-primary"
+                  >
+                    {m.auth_invite_email_taken_login()}
+                  </Link>
+                </p>
+              ) : null}
+            </Field>
+          )}
+        </form.Field>
+
+        <form.Field
+          name="password"
+          validators={{
+            onBlur: ({ value }) => validateNewPassword(value),
+            onSubmit: ({ value }) => validateNewPassword(value),
+          }}
+        >
+          {(field) => (
+            <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+              <FieldLabel htmlFor="password">{m.auth_password()}</FieldLabel>
+              <PasswordField
+                id="password"
+                value={field.state.value}
+                autoComplete="new-password"
+                disabled={isBusy}
+                onChange={field.handleChange}
+                onBlur={field.handleBlur}
+              />
+              <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
+            </Field>
+          )}
+        </form.Field>
+
+        {acceptMutation.error &&
+        !(
+          acceptMutation.error instanceof AdminUsersApiError && acceptMutation.error.status === 409
+        ) ? (
+          <p className="mt-1 text-center text-sm font-medium text-destructive">
+            {acceptMutation.error.message}
+          </p>
+        ) : null}
+
+        <Button type="submit" className="mt-2 h-10 w-full font-bold" disabled={isBusy}>
+          {m.auth_invite_submit({ status: acceptMutation.status })}
+        </Button>
+      </form>
     </div>
   );
 }
