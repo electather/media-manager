@@ -113,7 +113,14 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              return Promise.resolve(undefined);
+              // `.returning()` is called after `.where()` in the atomic update
+              // helpers. Returning the mutated rows satisfies the length check
+              // that throws connection.not_found on zero rows.
+              return {
+                returning(_fields: unknown) {
+                  return Promise.resolve(rows.map((r) => ({ id: r.id })));
+                },
+              };
             },
           };
         },

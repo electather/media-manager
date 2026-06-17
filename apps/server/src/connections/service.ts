@@ -94,16 +94,24 @@ function buildPluginSummary(
   };
 }
 
+/**
+ * Applies `patch` to the connection row matching both `connectionId` and `userId`.
+ * Throws `connection.not_found` when zero rows are affected — the row was either
+ * absent or owned by another user. Using `.returning()` makes the check atomic,
+ * eliminating the TOCTOU window present in a SELECT-then-UPDATE pattern.
+ */
 async function updateConnectionWhere(
   db: Db,
   userId: string,
   connectionId: string,
   patch: Partial<typeof serviceConnections.$inferInsert>,
 ): Promise<void> {
-  await db
+  const rows = await db
     .update(serviceConnections)
     .set({ ...patch, updatedAt: Date.now() })
-    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+    .returning({ id: serviceConnections.id });
+  if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
 }
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
@@ -257,8 +265,12 @@ export const connectionsService = {
 
   async setDefault(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
+    // requireConnection fetches the row to obtain pluginId. The subsequent
+    // promoteToDefault transaction uses .returning() on the promotion UPDATE
+    // to verify atomically that the target row still exists at commit time.
     const row = await requireConnection(db, args.connectionId, args.userId);
-    await promoteToDefault(args.userId, row.pluginId, args.connectionId);
+    const promoted = await promoteToDefault(args.userId, row.pluginId, args.connectionId);
+    if (!promoted) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
@@ -280,10 +292,9 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    // Guard with requireConnection so a missing or foreign id throws
-    // connection.not_found (matching setDefault and updateUserConfig) instead
-    // of silently returning 200 OK with zero rows updated.
-    await requireConnection(db, args.connectionId, args.userId);
+    // updateConnectionWhere throws connection.not_found when zero rows are
+    // affected, making this a single atomic round-trip instead of a
+    // SELECT-then-UPDATE with a TOCTOU window.
     await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
@@ -325,7 +336,7 @@ export const connectionsService = {
       await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
-    await db
+    const updated = await db
       .update(serviceConnections)
       .set({
         userConfig: JSON.stringify(configToSave),
@@ -345,7 +356,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
