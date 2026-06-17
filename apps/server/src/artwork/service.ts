@@ -91,14 +91,17 @@ export class ArtworkService {
     // so a partial first bundle (or a differing `languages` set) can defer a
     // newly resolved slot until the window lapses — an accepted, bounded
     // trade-off documented in the design doc's Concurrency section.
-    if (!claimWriteBack(entry.key, Date.now())) return;
+    const claim = claimWriteBack(entry.key, Date.now());
+    if (claim === null) return;
     void this.catalogService
       .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, urls)
       .catch((err) => {
         // The patch is best-effort: the next read should be free to write it
-        // again. Release the claim so a rejected patch does not block retries
-        // for the whole dedup window.
-        releaseWriteBack(entry.key);
+        // again. Release this claim so a rejected patch does not block retries
+        // for the whole dedup window. Pass the claim token so a patch that
+        // outlives its window cannot evict a newer claim that has since taken
+        // the key — only the claim that still owns the entry releases it.
+        releaseWriteBack(entry.key, claim);
         consola.error("[artwork] patch failed", err);
       });
   }
@@ -157,25 +160,31 @@ function pruneExpiredWriteBacks(now: number): void {
 }
 
 /**
- * Returns `true` and records the timestamp when a write-back for `key` should
- * proceed; returns `false` when one already fired inside the dedup window.
- * Prunes expired entries on each call.
+ * Records the timestamp and returns it as a claim token when a write-back for
+ * `key` should proceed; returns `null` when one already fired inside the dedup
+ * window. The recorded timestamp doubles as a generation token: it is unique
+ * enough to tell a stale claim from the one that currently owns the key, since
+ * a fresh claim only happens after the previous window has lapsed. Prunes
+ * expired entries on each call.
  */
-function claimWriteBack(key: string, now: number): boolean {
+function claimWriteBack(key: string, now: number): number | null {
   pruneExpiredWriteBacks(now);
   const last = recentWriteBacks.get(key);
-  if (last !== undefined && now - last < WRITE_BACK_DEDUP_MS) return false;
+  if (last !== undefined && now - last < WRITE_BACK_DEDUP_MS) return null;
   recentWriteBacks.set(key, now);
-  return true;
+  return now;
 }
 
 /**
  * Drops a previously claimed key so the next read can write it again. Called
  * when a fire-and-forget patch rejects — the claim must not outlive a failed
- * write or it would suppress retries for the rest of the window.
+ * write or it would suppress retries for the rest of the window. Only releases
+ * when `claim` still matches the stored token: a patch that outlives its own
+ * window can reject after a newer claim has taken the key, and dropping that
+ * newer entry would let a redundant patch fire against an already-claimed row.
  */
-function releaseWriteBack(key: string): void {
-  recentWriteBacks.delete(key);
+function releaseWriteBack(key: string, claim: number): void {
+  if (recentWriteBacks.get(key) === claim) recentWriteBacks.delete(key);
 }
 
 /**

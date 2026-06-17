@@ -29,6 +29,10 @@ vi.mock("../../media", async () => {
 const { ArtworkService, resetWriteBackDedupForTests } = await import("../service");
 const { PluginCallError } = await import("../../media");
 
+// Mirrors the module-private `WRITE_BACK_DEDUP_MS` in service.ts. Kept local so
+// the dedup window stays an implementation detail rather than a public export.
+const WRITE_BACK_DEDUP_MS = 60_000;
+
 function bundle(overrides: Partial<ArtworkBundle> = {}): ArtworkBundle {
   return {
     poster: [],
@@ -290,6 +294,56 @@ describe("ArtworkService write-back", () => {
       { key: "k", ids: { tmdb: "4040" }, type: "movie" },
     ]);
     expect(patchArtwork).toHaveBeenCalledTimes(2);
+  });
+
+  it("a patch that rejects after its window lapses does not evict a newer claim", async () => {
+    // A late-rejecting patch must release only its own claim, never a fresher
+    // one that took the key after the window lapsed. Otherwise the stale reject
+    // re-opens the window and lets a redundant patch fire against a row another
+    // request has already claimed.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      dispatchMock.mockResolvedValue(
+        bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
+      );
+
+      // Request A: hold its patch open so we can reject it after the window.
+      // The promise must actually reject, since `releaseWriteBack` only runs
+      // from the service's rejection handler.
+      let rejectA!: (err: Error) => void;
+      const aPatch = new Promise<void>((_resolve, reject) => {
+        rejectA = reject;
+      });
+      const patchArtwork = vi.fn().mockReturnValueOnce(aPatch).mockResolvedValue(undefined);
+      const stub = { patchArtwork } as unknown as CatalogService;
+
+      await new ArtworkService("uA", stub).getArtwork([
+        { key: "k", ids: { tmdb: "5050" }, type: "movie" },
+      ]);
+      expect(patchArtwork).toHaveBeenCalledTimes(1);
+
+      // Window lapses, then request B claims a fresh entry for the same title.
+      vi.setSystemTime(WRITE_BACK_DEDUP_MS + 1_000);
+      await new ArtworkService("uB", stub).getArtwork([
+        { key: "k", ids: { tmdb: "5050" }, type: "movie" },
+      ]);
+      expect(patchArtwork).toHaveBeenCalledTimes(2);
+
+      // A's patch finally rejects — it must not release B's newer claim.
+      rejectA(new Error("late db error"));
+      await aPatch.catch(() => undefined);
+      await flushMicrotasks();
+
+      // Request C inside B's still-open window must stay suppressed.
+      vi.setSystemTime(WRITE_BACK_DEDUP_MS + 2_000);
+      await new ArtworkService("uC", stub).getArtwork([
+        { key: "k", ids: { tmdb: "5050" }, type: "movie" },
+      ]);
+      expect(patchArtwork).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("suppresses a second write-back for the same canonical title within the window", async () => {
