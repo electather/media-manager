@@ -86,7 +86,7 @@ interface FetchResult {
 
 async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchResult> {
   const result = await media.getMetadataResult(key.tmdbId, key.type);
-  const data = result.data ?? null;
+  const data = result.data;
   const notFound = data === null && result.attempted > 0 && result.errors.length === 0;
   return { key, data, notFound };
 }

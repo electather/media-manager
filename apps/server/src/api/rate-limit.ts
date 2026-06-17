@@ -122,3 +122,22 @@ export const publicIpRateLimit: MiddlewareHandler = makeRateLimitMiddleware({
   limiter: publicIpLimiter,
   key: clientIp,
 });
+
+/**
+ * Per-IP bucket guarding `POST /invites/:code/accept`. Capacity 5 with refill
+ * 0.1/s bounds scrypt CPU exposure — each accept call hashes a password — while
+ * still covering every legitimate single-IP use (an invitee submits once).
+ * Separate from {@link publicIpLimiter} so a preview burst does not drain the
+ * accept budget.
+ */
+export const acceptIpLimiter = new TokenBucketLimiter({ capacity: 5, refillPerSec: 0.1 });
+
+/**
+ * Middleware that debits {@link acceptIpLimiter} once per request keyed by
+ * {@link clientIp}. Mount it directly on the accept route handler in
+ * `invites.ts` after the global middleware.
+ */
+export const acceptIpRateLimit: MiddlewareHandler = makeRateLimitMiddleware({
+  limiter: acceptIpLimiter,
+  key: clientIp,
+});
