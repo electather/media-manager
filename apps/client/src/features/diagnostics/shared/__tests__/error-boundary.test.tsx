@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "@testing-library/jest-dom";
 import type { ReactNode } from "react";
 import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../error-boundary";
@@ -53,8 +54,8 @@ describe("DiagnosticsErrorBoundary — surface-specific copy", () => {
       </DiagnosticsErrorBoundary>,
     );
 
-    expect(screen.getByText(m.diagnostics_perf_load_failed_title())).toBeDefined();
-    expect(screen.queryByText(m.diagnostics_errors_load_failed_title())).toBeNull();
+    expect(screen.getByText(m.diagnostics_perf_load_failed_title())).toBeInTheDocument();
+    expect(screen.queryByText(m.diagnostics_errors_load_failed_title())).not.toBeInTheDocument();
   });
 
   it("falls back to the errors copy when no override is passed", () => {
@@ -64,7 +65,7 @@ describe("DiagnosticsErrorBoundary — surface-specific copy", () => {
       </DiagnosticsErrorBoundary>,
     );
 
-    expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeDefined();
+    expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeInTheDocument();
   });
 });
 
