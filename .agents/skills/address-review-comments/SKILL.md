@@ -38,9 +38,27 @@ Always work in a fresh worktree branched from `origin/main` so the current check
    - Push the updated branch (`git push` — use `--force-with-lease` only if you rebased and the project allows it).
 5. Clean up the worktree at the end with `git worktree remove <path>` once the loop terminates.
 
+## Helper scripts
+
+Five scripts live at `.agents/skills/address-review-comments/scripts/` in the repo root. **Always run them from inside the worktree** (where the repo's `gh` context is set):
+
+| Script | Usage | What it does |
+|--------|-------|--------------|
+| `list-comments.sh <PR>` | gather step | Unresolved inline threads + review summaries + issue comments |
+| `get-threads.sh <PR>` | resolve step | `thread=<node_id> comment_id=<db_id>` pairs for every unresolved thread |
+| `review-summary.sh <PR>` | loop check | Reviewer verdicts + unresolved thread count |
+| `reply-to-comment.sh <PR> <comment_db_id>` | reply step | Post a reply; pipe body via stdin |
+| `resolve-thread.sh <thread_node_id>` | resolve step | Mark a thread resolved via GraphQL |
+
+Use these instead of raw `gh api` calls — they handle owner/repo inference, pagination warnings, and output formatting consistently.
+
 ## 1. Gather the comments
 
-- If the user named a PR, run `scripts/review-summary.sh <num>` for a quick overview, then `scripts/list-comments.sh <num>` for the full comment list with IDs. This covers inline diff threads, review-body comments, and top-level PR conversation comments. Resolved threads are excluded automatically — only act on what's listed.
+- If the user named a PR, run from the worktree:
+  ```bash
+  bash .agents/skills/address-review-comments/scripts/list-comments.sh <num>
+  bash .agents/skills/address-review-comments/scripts/review-summary.sh <num>
+  ```
 - If no PR was named, infer from the current branch: `gh pr view --json number,url`. Confirm with the user if ambiguous.
 - List the distinct concerns so you can address them one by one. Don't batch-respond blindly — each concern needs its own verification.
 
@@ -65,13 +83,20 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 
 - Make the **minimum change** that addresses the concern. No drive-by refactors.
 - Add or update a test if the comment was about behavior.
-- After fixing, reply on the thread: what changed and where (commit SHA, or `file.ts:42`).
-- For inline threads: `echo "<body>" | scripts/reply-to-comment.sh <num> <comment_id>` (body via stdin handles spaces and newlines).
-- For issue-level comments: `gh pr comment <num> --body "<body>"`.
-- **Mark the inline thread resolved** once the fix is pushed:
-  1. `scripts/get-threads.sh <num>` — find the `thread=` ID matching the `comment_id`.
-  2. `scripts/resolve-thread.sh <thread_node_id>`.
-  - Only resolve threads where you applied the fix — leave pushback threads for the reviewer.
+- After fixing, reply on the thread with a short note: what changed and where (commit SHA, or `file.ts:42`).
+- Use `gh pr comment` for issue-level replies; for line-anchored threads use the script:
+  ```bash
+  echo "Fixed in <sha> — <what changed and where>" \
+    | bash .agents/skills/address-review-comments/scripts/reply-to-comment.sh <num> <comment_db_id>
+  ```
+- **Mark the inline thread as resolved** once the fix is pushed. Get thread node IDs then resolve:
+  ```bash
+  # Get thread node IDs paired with comment DB IDs
+  bash .agents/skills/address-review-comments/scripts/get-threads.sh <num>
+  # Resolve a thread
+  bash .agents/skills/address-review-comments/scripts/resolve-thread.sh <thread_node_id>
+  ```
+  Only resolve threads where you applied the fix — leave pushback threads for the reviewer.
 
 ## 4. If invalid or partially valid → push back
 
@@ -111,8 +136,13 @@ Do not skip verification because the reviewer is senior, confident, or has been 
 
 After pushing the round of fixes:
 
-1. Sleep for **4 minutes** to give reviewers and CI time to catch up (`sleep 240`, or schedule a wakeup if the harness supports it).
-2. Re-run §1 to fetch fresh comments and reviews. Compare against the set you already handled — only new or updated threads matter.
+1. Sleep for **4 minutes** to give reviewers and CI time to catch up (use `ScheduleWakeup` — don't `sleep`).
+2. Re-run §1 to fetch fresh comments and reviews:
+   ```bash
+   bash .agents/skills/address-review-comments/scripts/list-comments.sh <num>
+   bash .agents/skills/address-review-comments/scripts/review-summary.sh <num>
+   ```
+   Compare against the set you already handled — only new or updated threads matter.
 3. If new comments exist, repeat §0–§6 (re-sync with `origin/main` first; conflicts may have appeared while you waited).
 4. Exit the loop when one of:
    - No new comments after the wait and CI is green.
