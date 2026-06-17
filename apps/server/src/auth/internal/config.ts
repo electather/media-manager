@@ -112,7 +112,11 @@ const options = {
           if (typeof userData.name === "string" && userData.name.length > NAME_MAX_LENGTH) {
             return { data: { ...userData, name: userData.name.slice(0, NAME_MAX_LENGTH) } };
           }
-          return { data: userData };
+          // Returning nothing tells Better Auth to proceed with the row
+          // unchanged, avoiding a needless shallow clone on every social
+          // sign-up. See node_modules/better-auth dist/db/with-hooks.mjs:
+          // a non-object result leaves the create payload untouched.
+          return;
         },
       },
       update: emailChangeHooks,

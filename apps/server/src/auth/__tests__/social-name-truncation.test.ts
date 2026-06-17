@@ -38,11 +38,15 @@ describe("social sign-up name truncation hook", () => {
   const createHook = auth.options.databaseHooks?.user?.create?.before;
 
   // WHY: a name that fits within NAME_MAX_LENGTH must be stored as-is so
-  // normal social sign-ups are unaffected by the guard.
+  // normal social sign-ups are unaffected by the guard. The hook signals
+  // "no change" by returning nothing, which Better Auth treats as "proceed
+  // with the create payload unchanged" (see dist/db/with-hooks.mjs: a
+  // non-object result leaves the data untouched). This avoids cloning the
+  // payload on every social sign-up.
   it("leaves names at or below NAME_MAX_LENGTH unchanged", async () => {
     const name = "a".repeat(NAME_MAX_LENGTH);
     const result = await createHook!(makeUser({ name }));
-    expect(result?.data?.name).toBe(name);
+    expect(result).toBeUndefined();
   });
 
   // WHY: an OAuth provider (e.g. Google) can return a display name longer than
@@ -64,5 +68,17 @@ describe("social sign-up name truncation hook", () => {
     expect(result?.data?.id).toBe("u2");
     expect(result?.data?.email).toBe("a@example.com");
     expect(result?.data?.emailVerified).toBe(true);
+  });
+
+  // WHY: some OAuth providers omit the display name entirely, so the hook
+  // receives a null/undefined name. The typeof guard must skip truncation
+  // without throwing or corrupting the row. The hook returns nothing, which
+  // Better Auth treats as "proceed with the create payload unchanged" — so
+  // the absent name is preserved. This catches a regression if someone
+  // rewrites the guard to call .length unconditionally.
+  it("passes through unchanged when name is null or undefined", async () => {
+    // Cast models a real OAuth edge case where the provider omits the name.
+    const noName = await createHook!(makeUser({ name: null as unknown as string }));
+    expect(noName).toBeUndefined();
   });
 });
