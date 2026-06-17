@@ -38,6 +38,9 @@ export function PluginsListPage() {
   const toggle = useTogglePlugin();
   const [filter, setFilter] = useState<PluginListFilter>("all");
   const [query, setQuery] = useState("");
+  // installOpen, setInstallOpen, the onInstall handler, and <InstallDialog> below are
+  // intentionally dormant while canInstall={false} (QuickJS sandbox not yet available).
+  // Keep this state — it will become reachable once the sandbox capability lands.
   const [installOpen, setInstallOpen] = useState(false);
 
   const counts = useMemo(
