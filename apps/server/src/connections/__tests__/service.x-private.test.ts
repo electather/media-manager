@@ -113,7 +113,14 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              return Promise.resolve(undefined);
+              // The UPDATE ... RETURNING chain returns the affected rows; an
+              // empty rowset is how the service detects a zero-row update and
+              // throws connection.not_found.
+              return {
+                returning(_fields: unknown) {
+                  return Promise.resolve(rows.map((r) => ({ id: r.id })));
+                },
+              };
             },
           };
         },
@@ -364,6 +371,29 @@ describe("connectionsService — x-private stripping", () => {
 
     expect(state.connections[0]!.status).toBe("connected");
     expect(state.connections[0]!.errorMessage).toBeNull();
+  });
+
+  it("throws connection.not_found when the row is deleted between requireConnection and the final update", async () => {
+    // TOCTOU guard: requireConnection passes because the row exists when the
+    // update begins, but the row is deleted before the final UPDATE lands. The
+    // RETURNING chain then reports zero affected rows and the caller must get a
+    // 404 instead of a silent 200 no-op. We simulate the mid-flight delete by
+    // clearing state.connections inside runAuth, which fires between
+    // requireConnection and the final UPDATE in the form-auth path.
+    installPlugin();
+    seedConnection({ externalUrl: "https://plex.example.com", apiKey: "old" });
+    runAuthMock.mockImplementation(() => {
+      state.connections = [];
+      return Promise.resolve({ status: "completed", credentials: { token: "fresh" } });
+    });
+
+    await expect(
+      connectionsService.updateUserConfig({
+        userId: "user-1",
+        connectionId: "conn-1",
+        userConfig: { externalUrl: "https://plex.example.com", apiKey: "new" },
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
 
   it("allows updating an x-private field when the client sends a new value", async () => {

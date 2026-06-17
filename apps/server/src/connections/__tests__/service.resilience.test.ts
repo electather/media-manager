@@ -110,7 +110,14 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              return Promise.resolve(undefined);
+              // The UPDATE ... RETURNING chain returns the affected rows; an
+              // empty rowset is how the service detects a zero-row update and
+              // throws connection.not_found.
+              return {
+                returning(_fields: unknown) {
+                  return Promise.resolve(rows.map((r) => ({ id: r.id })));
+                },
+              };
             },
           };
         },
@@ -245,6 +252,21 @@ describe("updateDisplayName guard (finding 2)", () => {
         userId: "user-1",
         connectionId: "missing",
         displayName: "New Name",
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("setEnabled throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
+    // setEnabled routes through the same updateConnectionWhere guard as
+    // updateDisplayName, so a missing/foreign id must surface as 404 here too.
+    // As above: DO NOT seed a row — the guard fires only on an empty rowset.
+    installPlugin();
+
+    await expect(
+      connectionsService.setEnabled({
+        userId: "user-1",
+        connectionId: "missing",
+        enabled: false,
       }),
     ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
