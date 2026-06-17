@@ -18,9 +18,7 @@ interface Props {
 export function ErrorsTab({ filters, onFiltersChange, selectedId, onSelect, onJumpThread }: Props) {
   const [, startTransition] = useTransition();
 
-  /** Wraps filter updates in a transition so React keeps the current
-   *  Suspense subtree alive while the new query loads, preventing the
-   *  skeleton from flashing on every keystroke. */
+  // Wrap in transition so the Suspense subtree stays alive during filter refetch.
   const handleFiltersChange = (next: ErrorsFilters) => {
     startTransition(() => {
       onFiltersChange(next);

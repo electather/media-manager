@@ -29,9 +29,7 @@ export function PerfTab({
   const [selectedGroup, setSelectedGroup] = useState<PerfAggregateGroup | null>(null);
   const [, startTransition] = useTransition();
 
-  /** Wraps filter updates in a transition so React keeps the current
-   *  Suspense subtree alive while the new query loads, preventing the
-   *  skeleton from flashing on every keystroke. */
+  // Wrap in transition so the Suspense subtree stays alive during filter refetch.
   const handleFiltersChange = (next: PerfFilters) => {
     startTransition(() => {
       onFiltersChange(next);
