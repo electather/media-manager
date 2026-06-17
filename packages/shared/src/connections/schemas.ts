@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CONNECTION_STATUSES } from "./enums";
 import { MEDIA_TYPES } from "../media/enums";
+import { NAME_MAX_LENGTH } from "../users/schemas";
 
 export const connectionStatusSchema = z.enum(CONNECTION_STATUSES);
 
@@ -43,7 +44,7 @@ export const connectionVerifyConfigSchema = z.object({
 export type ConnectionVerifyConfigBody = z.infer<typeof connectionVerifyConfigSchema>;
 
 export const connectionDisplayNameSchema = z.object({
-  displayName: z.string().min(1),
+  displayName: z.string().min(1).max(NAME_MAX_LENGTH),
 });
 export const connectionUserConfigSchema = z.object({
   userConfig: z.unknown(),
