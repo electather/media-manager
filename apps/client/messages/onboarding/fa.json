@@ -80,5 +80,12 @@
   "onboarding_tmdb_test_ok": "کلید کار می‌کند.",
   "onboarding_tmdb_test_failed": "این کلید کار نکرد. آن را بررسی کنید و دوباره تلاش کنید.",
   "onboarding_tmdb_save_failed": "ذخیرهٔ کلید ممکن نشد. لطفاً دوباره تلاش کنید.",
-  "onboarding_tmdb_saved": "کلید TMDB ذخیره شد."
+  "onboarding_tmdb_saved": "کلید TMDB ذخیره شد.",
+  "onboarding_step_mcp_setup_title": "اتصال کلاینت هوش مصنوعی",
+  "onboarding_mcp_setup_heading": "اتصال کلاینت هوش مصنوعی",
+  "onboarding_mcp_setup_intro": "Claude Desktop، Cursor یا هر کلاینت سازگار با MCP را به نمونهٔ nama خود متصل کنید تا از طریق هوش مصنوعی کتابخانه‌تان را مرور و مدیریت کنید.",
+  "onboarding_mcp_setup_endpoint_label": "نقطهٔ پایانی MCP",
+  "onboarding_mcp_setup_copy": "کپی",
+  "onboarding_mcp_setup_copied": "کپی شد",
+  "onboarding_mcp_setup_guide_button": "مشاهدهٔ راهنمای راه‌اندازی"
 }

@@ -16,7 +16,7 @@ import {
   EmailRow,
   VerifyBanner,
 } from "@/features/settings-profile/components/settings-profile-page";
-import { renderWithProviders } from "./test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();

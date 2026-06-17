@@ -27,11 +27,13 @@ export const primaryConnectionClearSchema = z.object({
 });
 export type PrimaryConnectionClearBody = z.infer<typeof primaryConnectionClearSchema>;
 
+export const DISPLAY_NAME_MAX_LENGTH = 100;
+
 /** Body for `POST /api/connections`. */
 export const connectionCreateSchema = z.object({
   pluginId: z.string(),
   userConfig: z.unknown(),
-  displayName: z.string().optional(),
+  displayName: z.string().min(1).max(DISPLAY_NAME_MAX_LENGTH).optional(),
 });
 export type ConnectionCreateBody = z.infer<typeof connectionCreateSchema>;
 
@@ -43,7 +45,7 @@ export const connectionVerifyConfigSchema = z.object({
 export type ConnectionVerifyConfigBody = z.infer<typeof connectionVerifyConfigSchema>;
 
 export const connectionDisplayNameSchema = z.object({
-  displayName: z.string().min(1),
+  displayName: z.string().min(1).max(DISPLAY_NAME_MAX_LENGTH),
 });
 export const connectionUserConfigSchema = z.object({
   userConfig: z.unknown(),
