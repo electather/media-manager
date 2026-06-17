@@ -52,11 +52,10 @@ export function UsersList({
     [locale],
   );
 
-  const now = Date.now();
   const counts = {
     all: users.length,
     admins: users.filter(isAdmin).length,
-    invites: invites.filter((i) => isInviteActive(i, now)).length,
+    invites: invites.filter(isInviteActive).length,
   };
 
   const filtered = useMemo(() => {

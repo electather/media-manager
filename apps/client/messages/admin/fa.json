@@ -273,7 +273,7 @@
   ],
 
   "admin_users_invite_drawer_title": "دعوت کاربران",
-  "admin_users_invite_drawer_subtitle": "دعوت‌نامه ایمیل ارسال کنید یا یک لینک قابل اشتراک‌گذاری تولید کنید. دعوت‌شدگان رمز عبور خود را انتخاب می‌کنند و وارد پروفایل می‌شوند.",
+  "admin_users_invite_drawer_subtitle": "یک لینک قابل اشتراک‌گذاری تولید کنید. دعوت‌شدگان نام، ایمیل و رمز عبور خود را انتخاب می‌کنند.",
   "admin_users_invite_tab_email": "دعوت ایمیلی",
   "admin_users_invite_tab_link": "تولید لینک",
   "admin_users_invite_emails_label": "آدرس‌های ایمیل",
@@ -311,7 +311,7 @@
       }
     }
   ],
-  "admin_users_invite_toast_resent": "دعوت‌نامه مجدداً ارسال شد",
+  "admin_users_invite_toast_extended": "دعوت‌نامه تمدید شد",
   "admin_users_invite_toast_revoked": "دعوت‌نامه لغو شد",
   "admin_users_invite_toast_copied": "لینک دعوت کپی شد",
   "admin_users_invite_expires_1d": "۱ روز",
@@ -331,7 +331,7 @@
   "admin_users_invite_expired": "منقضی شده",
   "admin_users_invite_expires_in": "منقضی می‌شود {time}",
   "admin_users_invite_copy": "کپی",
-  "admin_users_invite_resend": "ارسال مجدد",
+  "admin_users_invite_extend": "تمدید",
   "admin_users_invite_revoke": "لغو",
 
   "admin_users_detail_back": "همه کاربران",
