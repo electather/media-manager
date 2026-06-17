@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, it, vi } from "vite-plus/test";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -53,7 +53,8 @@ describe("TmdbKeyForm — TestResult message path", () => {
 
     // The component must render the server message verbatim, not fall back to
     // the generic "That key did not work" copy from onboarding_tmdb_test_failed.
-    await waitFor(() => expect(screen.getByText("Expired API key")).toBeTruthy());
+    // `getByText` throws if absent, so it is the assertion on its own.
+    await waitFor(() => screen.getByText("Expired API key"));
   });
 
   it("shows the generic failure copy when the probe returns { ok: false } with no message", async () => {
@@ -66,7 +67,8 @@ describe("TmdbKeyForm — TestResult message path", () => {
     await user.click(screen.getByRole("button", { name: /test key/i }));
 
     // Without a server message the component falls back to the generic locale
-    // copy — this verifies the fallback branch of the same ternary.
-    await waitFor(() => expect(screen.getByText(/that key did not work/i)).toBeTruthy());
+    // copy — this verifies the fallback branch of the same ternary. `getByText`
+    // throws if absent, so it is the assertion on its own.
+    await waitFor(() => screen.getByText(/that key did not work/i));
   });
 });
