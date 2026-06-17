@@ -217,6 +217,35 @@ describe("DynamicTriggerDialog number coercion", () => {
     });
   });
 
+  it("truncates fractional input for integer-typed fields toward zero", async () => {
+    // Math.trunc (not Math.floor) is applied for integer fields.
+    // Math.floor(-1.5) = -2, Math.trunc(-1.5) = -1 — these differ for negatives.
+    // The test uses a positive fraction to cover the truncation path and confirm
+    // the field is not treated as invalid (fractional integers are accepted silently).
+    const integerJob = {
+      ...numberJob,
+      inputSchema: {
+        type: "object",
+        properties: { count: { type: "integer", description: "How many items" } },
+        required: ["count"],
+      },
+    } as unknown as JobHandle;
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i });
+    await user.type(input, "3.7");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        integerJob.id,
+        expect.objectContaining({ count: 3 }),
+      );
+    });
+  });
+
   it("blocks submit and shows a format error when non-numeric text is typed in a number field", async () => {
     // After switching to type="text", the browser no longer blocks "abc".
     // The client must validate and reject non-parseable input before posting.
@@ -231,6 +260,20 @@ describe("DynamicTriggerDialog number coercion", () => {
     expect(mockFetchTriggerJob).not.toHaveBeenCalled();
     // The user must see a specific "enter a valid number" message, not "required".
     expect(screen.getByText(/enter a valid number/i)).toBeTruthy();
+  });
+
+  it("treats whitespace-only input as missing for required fields", async () => {
+    // isMissing applies value.trim() === "" so whitespace-only strings are
+    // treated as empty, preventing "   " from being submitted as a valid value.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /target/i });
+    await user.type(input, "   ");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    expect(screen.getByText(/this field is required/i)).toBeTruthy();
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
   });
 
   it("treats a cleared number input as null (not 0)", async () => {

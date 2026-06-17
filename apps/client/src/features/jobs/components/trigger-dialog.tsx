@@ -26,7 +26,7 @@ interface EnumOption {
 }
 
 function isMissing(value: unknown): boolean {
-  return isNil(value) || value === "" || (typeof value === "string" && value.trim() === "");
+  return isNil(value) || (typeof value === "string" && value.trim() === "");
 }
 
 function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
@@ -71,9 +71,9 @@ function isNumericSchema(schema: JSONSchemaProperty): boolean {
 // fallow-ignore-next-line complexity
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
-    if (raw === "" || raw.trim() === "") return null;
+    if (!raw.trim()) return null;
     const n = Number(raw);
-    if (Number.isNaN(n)) return null;
+    if (!Number.isFinite(n)) return null;
     return schema.type === "integer" ? Math.trunc(n) : n;
   }
   return raw;
@@ -195,12 +195,9 @@ export function DynamicTriggerDialog({
   const invalidNumericFields = useMemo(
     () =>
       Object.entries(properties)
-        // fallow-ignore-next-line complexity
         .filter(([key, schema]) => {
           const raw = formData[key] ?? "";
-          return (
-            isNumericSchema(schema) && raw !== "" && raw.trim() !== "" && Number.isNaN(Number(raw))
-          );
+          return isNumericSchema(schema) && raw.trim() !== "" && !Number.isFinite(Number(raw));
         })
         .map(([key]) => key),
     [properties, formData],
