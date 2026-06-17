@@ -44,7 +44,6 @@ export function McpSetupStep() {
             value={config.mcpEndpointUrl}
             label={m.onboarding_mcp_setup_copy()}
             copiedLabel={m.onboarding_mcp_setup_copied()}
-            aria-label={m.onboarding_mcp_setup_copy()}
             variant="ghost"
             className="h-auto shrink-0 gap-1.5 rounded-none border-0 border-s border-border bg-muted px-3.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
           />
