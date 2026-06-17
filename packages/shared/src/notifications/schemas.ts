@@ -225,11 +225,7 @@ export const adminDeliveryRowSchema = z.object({
 
 export type InboxListQuery = z.infer<typeof inboxListQuerySchema>;
 export type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
-// Discriminated union that enforces at least one field at compile time.
-// adminSettingsBodySchema carries a runtime .refine() guard, but z.infer on a
-// .refine() schema does not narrow the TypeScript type — both fields remain
-// optional and {} would be assignable. This union surfaces the same constraint
-// to TypeScript callers without changing the Zod runtime schema.
+// z.infer on .refine() doesn't narrow — {} stays assignable; union surfaces the same guard to TS.
 export type AdminSettingsBody =
   | { inboxRetentionDays: number; deliveryRetentionDays?: number }
   | { inboxRetentionDays?: number; deliveryRetentionDays: number };
