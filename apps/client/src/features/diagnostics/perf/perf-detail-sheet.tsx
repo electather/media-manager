@@ -1,4 +1,5 @@
-import { skipToken, useQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { m } from "@/paraglide/messages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -6,6 +7,7 @@ import { CopyButton } from "@/shared/components/copy-button";
 import { Separator } from "@/shared/ui/separator";
 import { absoluteDateTime, formatDuration } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
+import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchPerfDetail } from "../shared/fetchers";
 import { ThreadChip } from "../thread-chip";
@@ -23,97 +25,94 @@ interface Props {
  *  loads a specific perf row by id (e.g. when reached via deep link); the
  *  "group summary" path uses the parent aggregate row directly so we render
  *  immediately without re-querying. */
-// Sheet wraps a header + body; both branches over the (group | detailId)
-// inputs are intrinsic to the bimodal API.
-// fallow-ignore-next-line complexity
 export function PerfDetailSheet({ group, detailId, onClose, onJumpThread }: Props) {
-  const detail = useQuery({
-    queryKey: detailId
-      ? diagnosticsKeys.perf.detail(detailId)
-      : diagnosticsKeys.perf.detailDisabled(),
-    // `skipToken` disables the query when there is no id, so the fetcher never
-    // runs with a null id and no non-null assertion is needed.
-    queryFn: detailId ? () => fetchPerfDetail(detailId) : skipToken,
-  });
-
   const open = Boolean(group ?? detailId);
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <SheetContent side="right" className="w-full max-w-2xl gap-0 sm:max-w-2xl">
-        <PerfDetailHeader group={group} detail={detail.data ?? null} />
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <PerfDetailBody
-            group={group}
-            detailId={detailId}
-            detail={detail.data ?? null}
-            isPending={detail.isPending}
-            onJumpThread={onJumpThread}
-          />
-        </div>
+        {group ? (
+          <>
+            <PerfGroupHeader group={group} />
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <GroupBody group={group} />
+            </div>
+          </>
+        ) : detailId ? (
+          <DiagnosticsErrorBoundary
+            title={m.diagnostics_perf_load_failed_title()}
+            body={m.diagnostics_perf_load_failed_body()}
+            queryKey={diagnosticsKeys.perf.detail(detailId)}
+          >
+            <Suspense fallback={<PerfDetailSkeleton />}>
+              <PerfDetailContent id={detailId} onJumpThread={onJumpThread} />
+            </Suspense>
+          </DiagnosticsErrorBoundary>
+        ) : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-interface PerfDetail {
-  record: SingleBodyProps["record"];
-  correlatedErrors: SingleBodyProps["correlated"];
-}
-
-// Header title falls through (group | detail | "Detail"); each branch is
-// one input slot.
-// fallow-ignore-next-line complexity
-function PerfDetailHeader({
-  group,
-  detail,
-}: {
-  group: PerfAggregateGroup | null;
-  detail: PerfDetail | null;
-}) {
-  const title = group
-    ? (group.route ?? group.pluginId ?? m.diagnostics_errors_table_unknown())
-    : (detail?.record.route ?? m.diagnostics_perf_detail_title_fallback());
+function PerfGroupHeader({ group }: { group: PerfAggregateGroup }) {
   return (
     <SheetHeader className="border-b border-border">
-      <SheetTitle className="font-mono text-sm">{title}</SheetTitle>
-      {group ? (
-        <p className="text-xs text-muted-foreground">
-          {m.diagnostics_perf_detail_calls_last_seen({
-            count: group.count.toLocaleString(),
-            when: absoluteDateTime(group.lastAt),
-          })}
-        </p>
-      ) : null}
+      <SheetTitle className="font-mono text-sm">
+        {group.route ?? group.pluginId ?? m.diagnostics_errors_table_unknown()}
+      </SheetTitle>
+      <p className="text-xs text-muted-foreground">
+        {m.diagnostics_perf_detail_calls_last_seen({
+          count: group.count.toLocaleString(),
+          when: absoluteDateTime(group.lastAt),
+        })}
+      </p>
     </SheetHeader>
   );
 }
 
-// Dispatches over (group | detailId | pending | data) states; one branch
-// per query state is intrinsic.
-// fallow-ignore-next-line complexity
-function PerfDetailBody({
-  group,
-  detailId,
-  detail,
-  isPending,
+function PerfDetailSkeleton() {
+  return (
+    <>
+      <SheetHeader className="border-b border-border">
+        <SheetTitle className="font-mono text-sm">
+          {m.diagnostics_perf_detail_title_fallback()}
+        </SheetTitle>
+      </SheetHeader>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <Skeleton className="h-32 w-full" />
+      </div>
+    </>
+  );
+}
+
+/** Loads a single perf record by id using Suspense. Must be rendered inside a
+ *  {@link DiagnosticsErrorBoundary} so a fetch error surfaces as a retryable
+ *  fallback instead of a blank sheet. */
+function PerfDetailContent({
+  id,
   onJumpThread,
 }: {
-  group: PerfAggregateGroup | null;
-  detailId: string | null;
-  detail: PerfDetail | null;
-  isPending: boolean;
+  id: string;
   onJumpThread: (requestId: string) => void;
 }) {
-  if (group) return <GroupBody group={group} />;
-  if (!detailId) return null;
-  if (isPending) return <Skeleton className="h-32 w-full" />;
-  if (!detail) return null;
+  const { data } = useSuspenseQuery({
+    queryKey: diagnosticsKeys.perf.detail(id),
+    queryFn: () => fetchPerfDetail(id),
+  });
   return (
-    <SingleBody
-      record={detail.record}
-      correlated={detail.correlatedErrors}
-      onJumpThread={onJumpThread}
-    />
+    <>
+      <SheetHeader className="border-b border-border">
+        <SheetTitle className="font-mono text-sm">
+          {data.record.route ?? m.diagnostics_perf_detail_title_fallback()}
+        </SheetTitle>
+      </SheetHeader>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <SingleBody
+          record={data.record}
+          correlated={data.correlatedErrors}
+          onJumpThread={onJumpThread}
+        />
+      </div>
+    </>
   );
 }
 
