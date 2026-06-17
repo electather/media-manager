@@ -32,8 +32,8 @@ describe("DeviceCodePanel — verifyUrl link safety", () => {
   });
 
   it("renders no link and shows a host hint for an unsafe (non-https) verifyUrl", () => {
-    // A `javascript:` value must never become a rendered `href` — the guard
-    // must not produce any anchor element at all. A plain-text hint is shown
+    // An http:// value must never become a rendered `href` — the guard must
+    // not produce any anchor element at all. A plain-text hint is shown
     // instead so the user can still identify the target host and complete
     // the flow manually using the code below.
     render(<DeviceCodePanel device={waitingDevice("http://example.com/activate")} now={0} />);
@@ -41,6 +41,21 @@ describe("DeviceCodePanel — verifyUrl link safety", () => {
     expect(screen.queryByRole("link")).toBeNull();
     // The hint surfaces the host so the panel does not look broken.
     expect(screen.getByText(/example\.com/)).toBeTruthy();
+    // The user code is still shown so the flow remains completable.
+    expect(screen.getByText("ABCD-1234")).toBeTruthy();
+  });
+
+  it("renders no link and shows a generic fallback when verifyUrl has no extractable host", () => {
+    // javascript: URIs parse without throwing but produce an empty hostname.
+    // The component must not render a blank host hint — it falls back to a
+    // generic message so the panel remains meaningful.
+    render(<DeviceCodePanel device={waitingDevice("javascript:alert(1)")} now={0} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    // No host-bearing text should appear.
+    expect(screen.queryByText(/javascript/i)).toBeNull();
+    // A generic instruction is rendered in place of the host hint.
+    expect(screen.getByText(/authenticator/i)).toBeTruthy();
     // The user code is still shown so the flow remains completable.
     expect(screen.getByText("ABCD-1234")).toBeTruthy();
   });

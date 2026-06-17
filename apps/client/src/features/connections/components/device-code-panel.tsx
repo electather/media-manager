@@ -21,11 +21,14 @@ export function DeviceCodePanel({ device, now }: Props) {
   const safeVerifyUrl = isSafeAuthUrl(device.verifyUrl);
   // Parse the hostname regardless of scheme so we can show a fallback hint
   // when the URL is rejected as unsafe (e.g. a future plugin returns http://).
+  // Return an empty string for unparseable values or schemes that produce no
+  // hostname (e.g. javascript:) so server-controlled content never reaches
+  // the UI verbatim.
   const host = (() => {
     try {
       return new URL(device.verifyUrl).hostname;
     } catch {
-      return device.verifyUrl;
+      return "";
     }
   })();
 
@@ -43,7 +46,9 @@ export function DeviceCodePanel({ device, now }: Props) {
         </a>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {m.settings_connections_modal_device_unsafe_url_hint({ host })}
+          {host
+            ? m.settings_connections_modal_device_unsafe_url_hint({ host })
+            : m.settings_connections_modal_device_unsafe_url_hint_no_host()}
         </p>
       )}
       <div className="flex items-center gap-4 rounded-lg border border-dashed border-input bg-background px-4 py-3.5">

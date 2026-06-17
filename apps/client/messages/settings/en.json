@@ -206,6 +206,7 @@
   "settings_connections_modal_oauth_edit_notice": "Credentials for {name} aren't editable here. Use Reconnect from the card to re-run authorization.",
   "settings_connections_modal_device_open": "Open {host}",
   "settings_connections_modal_device_unsafe_url_hint": "Visit {host} and enter the code below",
+  "settings_connections_modal_device_unsafe_url_hint_no_host": "Enter the code on your authenticator app",
   "settings_connections_modal_device_enter_code": "Or enter this code",
   "settings_connections_modal_device_code_aria": "Device code: {code}",
   "settings_connections_modal_device_copy": "Copy",
