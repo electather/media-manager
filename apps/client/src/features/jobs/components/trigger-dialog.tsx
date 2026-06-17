@@ -43,30 +43,35 @@ function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
 interface FieldItemProps {
   fieldKey: string;
   schema: JSONSchemaProperty;
-  value: FormFieldValue;
+  /** Raw string value as entered by the user. */
+  value: string;
   required: boolean;
   invalid: boolean;
-  onChange: (v: FormFieldValue) => void;
+  onChange: (v: string) => void;
 }
 
-/** JSON Schema numeric types whose form input is coerced to a `number`. */
+/** JSON Schema numeric types whose form input is coerced to a `number` at submit. */
 const NUMERIC_SCHEMA_TYPES = ["number", "integer"];
 
 function isNumericSchema(schema: JSONSchemaProperty): boolean {
   return schema.type != null && NUMERIC_SCHEMA_TYPES.includes(schema.type);
 }
 
-/** Coerces a raw input value to the appropriate type for a schema field.
+/** Coerces a raw string value to the typed payload value for a schema field.
  *
- * Numeric fields (`number` and `integer`) receive a numeric conversion so the
+ * Called once at submit rather than on each keystroke so that intermediate
+ * states like "1.", "-", or "1e" are not collapsed while the user is typing.
+ * Numeric fields (`number` and `integer`) are converted to `number` so the
  * POSTed payload matches the server's JSON-schema type declaration rather than
  * sending a string the server-side AJV validator would reject.
+ * An `integer` field is additionally floored to strip any fractional part.
  */
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
     if (raw === "") return null;
     const n = Number(raw);
-    return Number.isNaN(n) ? null : n;
+    if (Number.isNaN(n)) return null;
+    return schema.type === "integer" ? Math.trunc(n) : n;
   }
   return raw;
 }
@@ -89,21 +94,18 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         </FieldLabel>
       </FieldContent>
       {schema["x-picker"] === "user" ? (
-        <UserPicker value={value as string} onChange={onChange} />
+        <UserPicker value={value} onChange={onChange} />
       ) : schema["x-picker"] === "connection" ? (
-        <ConnectionPicker value={value as string} onChange={onChange} />
+        <ConnectionPicker value={value} onChange={onChange} />
       ) : enumOptions ? (
-        <Select value={typeof value === "string" ? value : ""} onValueChange={(v) => onChange(v)}>
+        <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
           <SelectTrigger
             id={fieldKey}
             aria-invalid={invalid || undefined}
             aria-describedby={errorId}
           >
             <SelectValue placeholder={schema.description ?? "Select…"}>
-              {(v) =>
-                enumOptions.find((opt) => opt.value === v)?.label ??
-                (typeof v === "string" ? v : "")
-              }
+              {(v) => enumOptions.find((opt) => opt.value === v)?.label ?? v}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -117,12 +119,13 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
       ) : (
         <Input
           id={fieldKey}
-          type={isNumericSchema(schema) ? "number" : "text"}
+          type="text"
+          inputMode={isNumericSchema(schema) ? "decimal" : undefined}
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
-          value={value == null ? "" : String(value)}
-          onChange={(e) => onChange(coerceValue(schema, e.target.value))}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
         />
       )}
       {invalid && (
@@ -143,7 +146,8 @@ export function DynamicTriggerDialog({
   onClose: () => void;
 }) {
   const [runId, setRunId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, FormFieldValue>>({});
+  /** Raw string values keyed by field name. Coercion to typed values happens at submit. */
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -165,6 +169,7 @@ export function DynamicTriggerDialog({
   );
 
   const triggerMutation = useTriggerJob();
+  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,10 +177,13 @@ export function DynamicTriggerDialog({
       setShowErrors(true);
       return;
     }
+    const coercedInput: Record<string, FormFieldValue> = Object.fromEntries(
+      Object.entries(formData).map(([key, raw]) => [key, coerceValue(properties[key] ?? {}, raw)]),
+    );
     triggerMutation.mutate(
       {
         jobId: job!.id,
-        input: Object.keys(formData).length > 0 ? formData : null,
+        input: Object.keys(coercedInput).length > 0 ? coercedInput : null,
       },
       {
         onSuccess: (data) => {
@@ -190,7 +198,6 @@ export function DynamicTriggerDialog({
   };
 
   const hasResult = !!runId;
-  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
   const hasForm = Object.keys(properties).length > 0;
   const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
 
@@ -228,7 +235,7 @@ export function DynamicTriggerDialog({
                       key={key}
                       fieldKey={key}
                       schema={schema}
-                      value={formData[key] ?? null}
+                      value={formData[key] ?? ""}
                       required={required.includes(key)}
                       invalid={showErrors && required.includes(key) && isMissing(formData[key])}
                       onChange={(v) => setFormData({ ...formData, [key]: v })}

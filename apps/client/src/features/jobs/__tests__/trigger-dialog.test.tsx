@@ -153,7 +153,7 @@ describe("DynamicTriggerDialog number coercion", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "5");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -162,6 +162,29 @@ describe("DynamicTriggerDialog number coercion", () => {
       expect(mockFetchTriggerJob).toHaveBeenCalledWith(
         numberJob.id,
         expect.objectContaining({ count: 5 }),
+      );
+    });
+  });
+
+  it("allows decimal values to be typed without the dot being swallowed", async () => {
+    // With type="number" the browser round-trips every keystroke through
+    // Number → String, collapsing "1." to "1" so decimals can never be entered.
+    // The fix stores the raw string and only coerces at submit.
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i }) as HTMLInputElement;
+    await user.type(input, "1.5");
+
+    // The intermediate "1." must survive so the user can finish typing "1.5".
+    expect(input.value).toBe("1.5");
+
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        numberJob.id,
+        expect.objectContaining({ count: 1.5 }),
       );
     });
   });
@@ -181,7 +204,7 @@ describe("DynamicTriggerDialog number coercion", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "7");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -199,7 +222,7 @@ describe("DynamicTriggerDialog number coercion", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "5");
     await user.clear(input);
 
@@ -219,7 +242,7 @@ describe("DynamicTriggerDialog error handling", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "3");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -240,7 +263,7 @@ describe("DynamicTriggerDialog error handling", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "3");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
