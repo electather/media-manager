@@ -10,7 +10,12 @@ export const commandMenuKeys = {
 } as const;
 
 function hasKindParam(value: unknown): value is { kind: string } {
-  return value !== null && typeof value === "object" && "kind" in (value as object);
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "kind" in (value as object) &&
+    typeof (value as { kind: unknown }).kind === "string"
+  );
 }
 
 /** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */

@@ -37,4 +37,9 @@ describe("isSearchKey", () => {
     // Exercises the key[0] === "command-menu" guard.
     expect(isSearchKey(["other-feature", "search", { kind: "all" }])).toBe(false);
   });
+
+  it("rejects an object at position 2 with a non-string kind field", () => {
+    // Exercises the typeof kind === "string" guard in hasKindParam.
+    expect(isSearchKey(["command-menu", "search", { kind: 42 }])).toBe(false);
+  });
 });
