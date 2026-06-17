@@ -38,6 +38,26 @@
   "auth_register_invite_only_title": "فقط با دعوت",
   "auth_register_invite_only_body": "حساب‌های جدید توسط مدیر ایجاد می‌شوند. از مدیر خود درخواست دعوت کنید، سپس وارد شوید.",
   "auth_register_go_to_login": "رفتن به صفحه ورود",
+  "auth_invite_title": "دعوت شده‌اید",
+  "auth_invite_subtitle": "برای شروع حساب کاربری خود را ایجاد کنید.",
+  "auth_invite_role_label": "با نقش زیر ثبت‌نام می‌شوید",
+  "auth_invite_invalid_title": "دعوت‌نامه یافت نشد",
+  "auth_invite_invalid_body": "این لینک دعوت نامعتبر است یا منقضی شده.",
+  "auth_invite_gone_title": "دعوت‌نامه دیگر معتبر نیست",
+  "auth_invite_gone_body": "این دعوت‌نامه منقضی، لغو یا کاملاً استفاده شده است.",
+  "auth_invite_email_taken": "حساب کاربری با این ایمیل قبلاً وجود دارد.",
+  "auth_invite_email_taken_login": "در عوض وارد شوید",
+  "auth_invite_account_created_signin_failed": "حساب کاربری ایجاد شد اما ورود ناموفق بود.",
+  "auth_invite_go_to_login": "رفتن به صفحه ورود",
+  "auth_invite_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ایجاد حساب…",
+        "status=*": "ایجاد حساب"
+      }
+    }
+  ],
   "auth_login_submit": [
     {
       "selectors": ["status"],

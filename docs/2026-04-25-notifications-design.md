@@ -757,6 +757,8 @@ GET  /api/admin/notifications/settings
 
 PATCH /api/admin/notifications/settings
       body: { inboxRetentionDays?: number; deliveryRetentionDays?: number }
+            At least one field must be present; an empty body `{}` is rejected
+            with 400 rather than performing a no-op 200 update.
       → { ok: true; inboxRetentionDays: number; deliveryRetentionDays: number }
       Returns the persisted (clamped) values alongside `ok` so the client can
       reflect what was actually stored without a follow-up GET.
