@@ -248,10 +248,11 @@ function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): num
   // pure locale pin: collation semantics are unchanged from before.
   //
   // The secondary compare (no sensitivity option, i.e. full collation) acts as a
-  // deterministic tie-break for titles that are equal under "accent" sensitivity
-  // (e.g. "elite" vs "élite" vs "ÉLITE"). Without it, JS sort stability is the
-  // only guarantee, so the same pair can appear in arbitrary relative order
-  // across environments or when the input order changes.
+  // deterministic tie-break for titles that are equal under "accent" sensitivity:
+  // case variants such as "elite" / "Elite" / "ELITE" all return 0 from the first
+  // compare (case-insensitive) and would otherwise be ordered by JS sort
+  // stability, which is input-order-dependent and non-reproducible across
+  // environments.
   return at.localeCompare(bt, "en", { sensitivity: "accent" }) || at.localeCompare(bt, "en");
 }
 

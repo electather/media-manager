@@ -161,20 +161,23 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect("nextRaw" in res).toBe(false);
   });
 
-  // Titles that collide under accent-insensitive collation (e.g. "elite" and
-  // "élite") must still sort in a deterministic, reproducible order. Without a
-  // secondary full-collation pass the tie is decided by JS sort stability alone,
-  // which depends on input order and can differ across environments. This test
-  // asserts the specific order produced by the full-collation tie-break so that
-  // any regression removing the secondary compare is immediately caught.
-  it("alpha sort breaks ties between accent-colliding titles deterministically", async () => {
+  // Titles that collide under case-insensitive collation (e.g. "elite" and
+  // "ELITE") must still sort in a deterministic, reproducible order. Under
+  // sensitivity:"accent" case differences are ignored, so these titles return 0
+  // from the primary compare. Without a secondary full-collation pass the tie is
+  // decided by JS sort stability alone, which depends on input order and can
+  // differ across environments. This test asserts the specific order produced by
+  // the full-collation tie-break so that any regression removing the secondary
+  // compare is immediately caught.
+  it("alpha sort breaks ties between case-colliding titles deterministically", async () => {
     const rows = [row("2", 3), row("1", 2)];
     vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
     const ctx = makeCtx();
-    // "élite" and "elite" compare as equal under sensitivity:"accent", so the
-    // secondary full-collation pass must pick "elite" < "élite".
+    // "ELITE" and "elite" compare as equal under sensitivity:"accent"
+    // (case-insensitive), so the secondary full-collation pass must produce
+    // "elite" < "ELITE".
     (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:2": { tmdbId: "2", mediaType: "movie", title: "élite", genres: [] },
+      "movie:2": { tmdbId: "2", mediaType: "movie", title: "ELITE", genres: [] },
       "movie:1": { tmdbId: "1", mediaType: "movie", title: "elite", genres: [] },
     });
 
@@ -184,7 +187,7 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
       null,
     );
 
-    // "elite" should sort before "élite" regardless of the input row order.
+    // "elite" should sort before "ELITE" regardless of the input row order.
     expect(res.rows.map((r) => r.tmdbId)).toEqual(["1", "2"]);
   });
 
