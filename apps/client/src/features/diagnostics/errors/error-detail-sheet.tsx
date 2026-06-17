@@ -25,7 +25,10 @@ export function ErrorDetailSheet({ selectedId, onClose, onJumpThread }: Props) {
     <Sheet open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <SheetContent side="right" className="w-full max-w-xl gap-0 sm:max-w-xl">
         {selectedId ? (
-          <DiagnosticsErrorBoundary queryKey={diagnosticsKeys.errors.detail(selectedId)}>
+          <DiagnosticsErrorBoundary
+            key={selectedId}
+            queryKey={diagnosticsKeys.errors.detail(selectedId)}
+          >
             <Suspense fallback={<DetailSkeleton />}>
               <ErrorDetailContent id={selectedId} onJumpThread={onJumpThread} />
             </Suspense>
