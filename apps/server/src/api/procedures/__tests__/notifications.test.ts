@@ -688,6 +688,18 @@ describe("notifications HTTP — admin settings persistence", () => {
     });
     expect(res.status).toBe(200);
   });
+
+  it("accepts a partial body with only deliveryRetentionDays present", async () => {
+    // Covers the other branch of the symmetric `||` so dropping one branch fails here.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deliveryRetentionDays: 7 }),
+    });
+    expect(res.status).toBe(200);
+  });
 });
 
 describe("notifications HTTP — inbox ?after forward cursor", () => {
