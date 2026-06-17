@@ -27,7 +27,7 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-import { renderWithProviders } from "../../settings/__tests__/test-utils";
+import { renderWithProviders } from "@/shared/lib/test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
