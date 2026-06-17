@@ -78,7 +78,10 @@ function PerfDetailSkeleton() {
         </SheetTitle>
       </SheetHeader>
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <Skeleton className="h-32 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
       </div>
     </>
   );
