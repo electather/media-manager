@@ -68,7 +68,7 @@ function isNumericSchema(schema: JSONSchemaProperty): boolean {
  * sending a string the server-side AJV validator would reject.
  * An `integer` field is additionally truncated toward zero to strip any fractional part.
  */
-// fallow-ignore-next-line high-crap-score
+// fallow-ignore-next-line complexity
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
     if (raw === "" || raw.trim() === "") return null;
@@ -79,7 +79,7 @@ function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   return raw;
 }
 
-// fallow-ignore-next-line high-crap-score
+// fallow-ignore-next-line complexity
 function FieldItem({
   fieldKey,
   schema,
@@ -152,7 +152,7 @@ function FieldItem({
   );
 }
 
-// fallow-ignore-next-line high-crap-score
+// fallow-ignore-next-line complexity
 export function DynamicTriggerDialog({
   open,
   job,
@@ -191,11 +191,11 @@ export function DynamicTriggerDialog({
     [job?.inputSchema?.properties],
   );
 
-  // fallow-ignore-next-line high-crap-score
+  // fallow-ignore-next-line complexity
   const invalidNumericFields = useMemo(
     () =>
       Object.entries(properties)
-        // fallow-ignore-next-line high-crap-score
+        // fallow-ignore-next-line complexity
         .filter(([key, schema]) => {
           const raw = formData[key] ?? "";
           return (
