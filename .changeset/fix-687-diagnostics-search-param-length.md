@@ -1,5 +1,5 @@
 ---
-"@nama/client": patch
+"@nama/server": patch
 ---
 
-Capped the `rid` and `pid` admin diagnostics search parameters to 128 characters to avoid sending oversized values to the server.
+Bounded the admin diagnostics request-id filter so oversized or malformed values are rejected at the API boundary instead of reaching the database.
