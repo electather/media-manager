@@ -508,6 +508,7 @@
   "admin_jobs_trigger_dialog_done": "انجام شد",
   "admin_jobs_trigger_dialog_cancel": "لغو",
   "admin_jobs_trigger_field_required_error": "این فیلد الزامی است",
+  "admin_jobs_trigger_field_invalid_number_error": "یک عدد معتبر وارد کنید",
 
   "admin_jobs_run_detail_tab_details": "جزئیات",
   "admin_jobs_run_detail_tab_logs": "لاگ‌ها",
