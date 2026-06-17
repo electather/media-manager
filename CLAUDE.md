@@ -149,7 +149,7 @@ Check linked issue before deleting anything flagged by tooling.
 ## Rule 14 — Never increase fallow baseline
 
 Flag → fix root cause. No new entries in `.fallow/dead-code-baseline.json`.
-Exception: add `// fallow-ignore-file <rule>` or `// fallow-ignore-next-line <rule>` inline with one-line reason.
+Exception: add `// fallow-ignore-file <rule>` or `// fallow-ignore-next-line <rule>` (bare — no inline reason text; fallow parses extra tokens as rule names and warns on stale suppressions; put the reason in the commit message instead).
 
 ## Token Savior MCP
 

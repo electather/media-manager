@@ -1,8 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
-// Tests for two correctness findings from issue #595:
+// Tests for correctness findings:
 //   1. Corrupt userConfig rows must degrade gracefully instead of throwing 500s.
-//   2. updateDisplayName must reject missing/foreign ids and must invalidate cache.
+//   2. Mutations through updateConnectionWhere (updateDisplayName, setEnabled)
+//      must reject missing/foreign ids via its RETURNING zero-row guard — not a
+//      requireConnection pre-check — and updateDisplayName must invalidate cache.
+//   3. connectionsService.test must short-circuit on zero-row UPDATE so a row
+//      deleted between the pre-check and the status UPDATE doesn't produce a
+//      silent ghost write.
 
 vi.mock("../../env", () => ({
   env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
@@ -110,7 +115,17 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              return Promise.resolve(undefined);
+              // The UPDATE ... RETURNING chain returns the affected rows; an
+              // empty rowset is how the service detects a zero-row update and
+              // throws connection.not_found. WHERE args are ignored here — the
+              // zero-row guard fires because state.connections is empty, NOT
+              // because userId/connectionId were evaluated. A test that needs
+              // mismatched-id rejection must therefore seed no matching row.
+              return {
+                returning(_fields: unknown) {
+                  return Promise.resolve(rows.map((r) => ({ id: r.id })));
+                },
+              };
             },
           };
         },
@@ -137,11 +152,15 @@ vi.mock("../../crypto/vault", () => ({
 }));
 
 const invalidateUserCacheMock = vi.fn();
+const testConnectionMock = vi.fn();
 
 vi.mock("../../plugin-runtime", () => ({
   pluginRuntime: {
     runAuth: vi.fn(),
-    testConnection: vi.fn(),
+    // Indirection so tests can swap the implementation per test; vi.mock
+    // factories are hoisted, so a vi.fn() returned directly from the factory
+    // cannot be replaced via mockImplementation after the import.
+    testConnection: (...args: unknown[]) => testConnectionMock(...args),
   },
   capabilityRegistry: {
     get: (id: string) => (state.plugins.some((p) => p.id === id) ? {} : undefined),
@@ -204,6 +223,7 @@ beforeEach(() => {
   state.connections = [];
   state.plugins = [];
   invalidateUserCacheMock.mockReset();
+  testConnectionMock.mockReset();
 });
 
 describe("corrupt userConfig resilience (finding 1)", () => {
@@ -232,12 +252,38 @@ describe("corrupt userConfig resilience (finding 1)", () => {
   });
 });
 
+describe("delete guard (issue #758)", () => {
+  it("throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
+    // DO NOT seed state.connections before this assertion: the db mock ignores
+    // the WHERE predicate, so the guard fires here only because the rowset is
+    // empty. Seeding any row would make the mock return it and bypass the guard,
+    // silently turning this into a false pass.
+    installPlugin();
+
+    await expect(
+      connectionsService.delete({ userId: "user-1", connectionId: "missing" }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("invalidates the user cache after a successful delete", async () => {
+    // Deleted connections are reflected in the connections list; the cache must
+    // be invalidated so callers get an up-to-date view.
+    installPlugin();
+    seedConnection();
+
+    await connectionsService.delete({ userId: "user-1", connectionId: "conn-1" });
+
+    expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
 describe("updateDisplayName guard (finding 2)", () => {
   it("throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
     // DO NOT seed state.connections before this assertion: the db mock ignores
     // the WHERE predicate, so the guard fires here only because the rowset is
     // empty. Seeding any row would make the mock return it and bypass the guard,
     // silently turning this into a false pass.
+    expect(state.connections).toHaveLength(0);
     installPlugin();
 
     await expect(
@@ -262,5 +308,44 @@ describe("updateDisplayName guard (finding 2)", () => {
     });
 
     expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
+describe("updateConnectionWhere RETURNING guard", () => {
+  it("setEnabled throws connection.not_found when the rowset is empty (mock ignores WHERE)", async () => {
+    // setEnabled routes through the same updateConnectionWhere guard as
+    // updateDisplayName, so a missing/foreign id must surface as 404 here too.
+    // As above: DO NOT seed a row — the guard fires only on an empty rowset.
+    installPlugin();
+
+    await expect(
+      connectionsService.setEnabled({
+        userId: "user-1",
+        connectionId: "missing",
+        enabled: false,
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+});
+
+describe("connectionsService.test TOCTOU guard (issue #761)", () => {
+  it("returns { ok: false } when the row is deleted between the pre-check and the status UPDATE", async () => {
+    // The `test` handler reads the connection row first, then runs testConnection,
+    // then UPDATEs status/errorMessage/lastVerifiedAt. If the row is deleted in
+    // the window between the SELECT and the UPDATE, .returning() yields zero rows.
+    // The guard must return { ok: false } rather than silently writing to a ghost row.
+    //
+    // The mid-flight delete is injected inside testConnectionMock: at that point
+    // the pre-check has already passed (row was present), but the subsequent UPDATE
+    // will find state.connections empty and return zero rows via .returning().
+    installPlugin();
+    seedConnection();
+    testConnectionMock.mockImplementation(() => {
+      state.connections = [];
+      return Promise.resolve({ ok: true });
+    });
+
+    const result = await connectionsService.test({ userId: "user-1", connectionId: "conn-1" });
+    expect(result).toEqual({ ok: false, message: "connection not found" });
   });
 });
