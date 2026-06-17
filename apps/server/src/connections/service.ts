@@ -270,10 +270,10 @@ export const connectionsService = {
     const db = getDb();
     // requireConnection fetches the row to obtain pluginId. The subsequent
     // promoteToDefault transaction uses .returning() on the promotion UPDATE
-    // to verify atomically that the target row still exists at commit time.
+    // to verify atomically that the target row still exists at commit time,
+    // throwing connection.not_found (and rolling back the demotion) on a miss.
     const row = await requireConnection(db, args.connectionId, args.userId);
-    const promoted = await promoteToDefault(args.userId, row.pluginId, args.connectionId);
-    if (!promoted) throw notFound("connection.not_found", "connection not found");
+    await promoteToDefault(args.userId, row.pluginId, args.connectionId);
     await invalidateUserCache(args.userId);
   },
 

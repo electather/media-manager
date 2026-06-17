@@ -195,18 +195,21 @@ function stringifyDisplayValue(v: unknown): string {
 
 /**
  * Promotes the given connection id to default within its plugin; demotes the rest.
- * Returns `true` when the target row was found and updated, `false` when zero rows
- * matched — the caller decides whether to throw. Using `.returning()` on the
- * promotion UPDATE makes the existence check atomic within the transaction.
+ * Throws `connection.not_found` when the target row matched zero rows (absent or
+ * owned by another user). The throw happens *inside* the transaction so the
+ * demotion UPDATE rolls back too — otherwise a row deleted between the caller's
+ * pre-check and the promotion would leave the plugin with zero default
+ * connections (the demotion committed, the promotion matched nothing). Using
+ * `.returning()` on the promotion UPDATE makes the existence check atomic within
+ * the transaction.
  */
 export async function promoteToDefault(
   userId: string,
   pluginId: string,
   connectionId: string,
-): Promise<boolean> {
+): Promise<void> {
   const db = getDb();
   const now = Date.now();
-  let promoted = false;
   await db.transaction(async (tx) => {
     await tx
       .update(serviceConnections)
@@ -223,9 +226,8 @@ export async function promoteToDefault(
       .set({ isDefault: 1, updatedAt: now })
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .returning({ id: serviceConnections.id });
-    promoted = rows.length > 0;
+    if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
   });
-  return promoted;
 }
 
 async function ensureDefaultIfFirst(
