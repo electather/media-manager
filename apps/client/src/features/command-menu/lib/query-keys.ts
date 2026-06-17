@@ -9,7 +9,7 @@ export const commandMenuKeys = {
     [...commandMenuKeys.all, "trending", { mediaType }] as const,
 } as const;
 
-function hasSearchParam(value: unknown): value is { q: string; kind: string } {
+function hasSearchParam(value: unknown): value is { q: string; kind: SearchKind } {
   return (
     value !== null &&
     typeof value === "object" &&

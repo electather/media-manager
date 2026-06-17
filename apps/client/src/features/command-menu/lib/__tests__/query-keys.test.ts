@@ -19,6 +19,10 @@ describe("isSearchKey", () => {
     expect(isSearchKey(commandMenuKeys.trending("movie"))).toBe(false);
   });
 
+  it("returns false for a key with no params object", () => {
+    expect(isSearchKey(["command-menu", "search"])).toBe(false);
+  });
+
   it("returns true for a valid search key produced by commandMenuKeys.search", () => {
     expect(isSearchKey(commandMenuKeys.search("blade", "all"))).toBe(true);
   });
