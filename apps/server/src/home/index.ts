@@ -12,6 +12,7 @@ export {
   composeRow,
   composeSeasonAvailability,
   homeMediaSources,
+  makeRecommendationsMemo,
   type ComposeOptions,
 } from "./service";
 export { HOME_EVENTS } from "./events";

@@ -29,7 +29,7 @@ export interface DispatchRequest {
 }
 
 export interface AggregateResult<T> {
-  data: T;
+  data: T | null;
   errors: Array<{
     pluginId: string;
     connectionId: string | null;
