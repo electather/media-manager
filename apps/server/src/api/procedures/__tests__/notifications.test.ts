@@ -687,6 +687,7 @@ describe("notifications HTTP — admin settings persistence", () => {
       body: JSON.stringify({ inboxRetentionDays: 30 }),
     });
     expect(res.status).toBe(200);
+    expect((await res.json()).inboxRetentionDays).toBe(30);
   });
 
   it("accepts a partial body with only deliveryRetentionDays present", async () => {
@@ -699,6 +700,7 @@ describe("notifications HTTP — admin settings persistence", () => {
       body: JSON.stringify({ deliveryRetentionDays: 7 }),
     });
     expect(res.status).toBe(200);
+    expect((await res.json()).deliveryRetentionDays).toBe(7);
   });
 });
 
