@@ -32,4 +32,9 @@ describe("isSearchKey", () => {
     // Exercises the `"kind" in value` branch in hasKindParam.
     expect(isSearchKey(["command-menu", "search", { q: "foo" }])).toBe(false);
   });
+
+  it("rejects a key with a wrong root segment", () => {
+    // Exercises the key[0] === "command-menu" guard.
+    expect(isSearchKey(["other-feature", "search", { kind: "all" }])).toBe(false);
+  });
 });
