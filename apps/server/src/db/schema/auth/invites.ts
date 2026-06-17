@@ -39,5 +39,7 @@ export const invites = sqliteTable(
     // No explicit index on `code`: the `.unique()` constraint above already
     // creates `invites_code_unique`, which SQLite uses for every seek on `code`.
     index("invites_invited_by_idx").on(table.invitedBy),
+    // Supports filtering active (non-revoked) invites as invite volume grows.
+    index("invites_revoked_at_idx").on(table.revokedAt),
   ],
 );

@@ -3,9 +3,9 @@ import { passwordSchema } from "../auth";
 
 /**
  * Upper bound for user-supplied display names, shared across every write path
- * (bootstrap claim, invite accept, admin create/update). Exported so client
- * forms can bind `maxLength` and tests can reference the bound without
- * hard-coding it — mirrors `PASSWORD_MAX_LENGTH`.
+ * (bootstrap claim, invite accept, admin create/update). Mirrors
+ * `PASSWORD_MAX_LENGTH` — one constant for schema validation, client
+ * `maxLength` bindings, and test assertions.
  */
 export const NAME_MAX_LENGTH = 100;
 
