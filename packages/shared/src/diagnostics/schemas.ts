@@ -12,7 +12,7 @@ export const perfKindSchema = z.enum(PERF_KINDS);
  *  server generates. Exported so both boundaries share one source of truth. */
 export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
-/** Request-id filter for the admin viewer query strings. Mirrors
+/** Request-id filter for the admin viewer query strings. Applies
  *  {@link REQUEST_ID_PATTERN} so a scripted caller cannot push an unbounded
  *  or malformed string straight into the `eq(records.requestId, …)` filter.
  *  This is the real fence; the client route's `rid` cap is only
