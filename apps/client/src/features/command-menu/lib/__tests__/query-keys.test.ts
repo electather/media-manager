@@ -3,41 +3,47 @@ import { describe, expect, it } from "vite-plus/test";
 import { commandMenuKeys, isSearchKey } from "../query-keys";
 
 describe("isSearchKey", () => {
-  it("accepts a well-formed search key", () => {
-    expect(isSearchKey(commandMenuKeys.search("x", "all"))).toBe(true);
+  it("returns true for a valid search key produced by commandMenuKeys.search", () => {
+    expect(isSearchKey(commandMenuKeys.search("blade", "all"))).toBe(true);
   });
 
-  it("rejects a trending key", () => {
+  it("returns true for a search key with an empty query string", () => {
+    expect(isSearchKey(commandMenuKeys.search("", "all"))).toBe(true);
+  });
+
+  it("returns false for a trending key", () => {
     expect(isSearchKey(commandMenuKeys.trending("movie"))).toBe(false);
   });
 
-  it("rejects a key with wrong verb but valid params", () => {
-    expect(isSearchKey(["command-menu", "trending", { kind: "all" }])).toBe(false);
+  it("returns false for a key with wrong verb but valid params", () => {
+    expect(isSearchKey(["command-menu", "trending", { q: "x", kind: "all" }])).toBe(false);
   });
 
-  it("rejects the bare namespace key", () => {
+  it("returns false for a non-search key", () => {
     expect(isSearchKey(commandMenuKeys.all)).toBe(false);
   });
 
-  it("rejects an empty array", () => {
+  it("returns false for an empty array", () => {
     expect(isSearchKey([])).toBe(false);
   });
 
-  it("rejects a key with the wrong root segment", () => {
-    expect(isSearchKey(["other", "search", { kind: "all" }])).toBe(false);
+  it("returns false for a key with the wrong root segment", () => {
+    expect(isSearchKey(["other", "search", { q: "x", kind: "all" }])).toBe(false);
   });
 
-  it("rejects a search-looking key whose params object lacks kind", () => {
-    expect(isSearchKey(["command-menu", "search", { q: "x" }])).toBe(false);
+  it("returns false for a key missing q", () => {
+    expect(isSearchKey(["command-menu", "search", { kind: "all" }])).toBe(false);
   });
 
-  it("rejects a search-looking key with null at position 2", () => {
+  it("returns false for a key missing kind", () => {
+    expect(isSearchKey(["command-menu", "search", { q: "blade" }])).toBe(false);
+  });
+
+  it("returns false for a key with no params object", () => {
+    expect(isSearchKey(["command-menu", "search"])).toBe(false);
+  });
+
+  it("returns false for a key with null at position 2", () => {
     expect(isSearchKey(["command-menu", "search", null])).toBe(false);
-  });
-
-  it("accepts a search-looking key where kind is not a string (documents loose hasKindParam behaviour)", () => {
-    // hasKindParam checks key existence only, not typeof — this documents the
-    // current (intentionally loose) behaviour so a future tightening is visible.
-    expect(isSearchKey(["command-menu", "search", { kind: 42 }])).toBe(true);
   });
 });

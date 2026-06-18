@@ -9,17 +9,15 @@ export const commandMenuKeys = {
     [...commandMenuKeys.all, "trending", { mediaType }] as const,
 } as const;
 
-/** Checks that value has a `kind` key. Intentionally loose: only checks key existence,
- * not `typeof kind === "string"`, because all callers use keys produced by
- * {@link commandMenuKeys} which always emit a `SearchKind` string.
- */
-function hasKindParam(value: unknown): value is { kind: string } {
-  return value !== null && typeof value === "object" && "kind" in (value as object);
+function hasSearchParam(value: unknown): value is { q: string; kind: SearchKind } {
+  if (value === null || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.q === "string" && typeof v.kind === "string";
 }
 
 /** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */
 export function isSearchKey(
   key: readonly unknown[],
 ): key is ReturnType<typeof commandMenuKeys.search> {
-  return key[0] === "command-menu" && key[1] === "search" && hasKindParam(key[2]);
+  return key[0] === "command-menu" && key[1] === "search" && hasSearchParam(key[2]);
 }
