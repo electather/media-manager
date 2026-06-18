@@ -151,7 +151,7 @@ Filter out: draft PRs and PR numbers ${SKIP_PRS.join(', ')}.
 
 For each PR return: number (int), branch (headRefName), base (baseRefName), additions (int), deletions (int), changedFiles (int), title.
 If no PRs match, return an empty prs array.`,
-  { label: 'discover', phase: 'Discover', model: 'haiku', schema: DISCOVER_SCHEMA }
+  { label: 'discover', phase: 'Discover', model: 'claude-haiku-4-5-20251001', schema: DISCOVER_SCHEMA }
 )
 
 const prs = discovered ? discovered.prs : []
@@ -173,7 +173,7 @@ if (prs.length === 0) {
         const triage = await agent(triagePrompt(pr), {
           label: `triage:#${pr.number}`,
           phase: 'Process',
-          model: 'haiku',
+          model: 'claude-haiku-4-5-20251001',
           schema: TRIAGE_SCHEMA,
         })
         const model = triage?.model === 'opus' ? 'opus' : 'sonnet'
