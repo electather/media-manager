@@ -377,7 +377,10 @@ export const connectionsService = {
     // plugin can never be left with zero default connections. The delete uses
     // .returning() so a row removed between requireConnection and this
     // transaction surfaces as connection.not_found instead of letting the stale
-    // pre-check value drive a spurious promotion.
+    // pre-check value drive a spurious promotion. The default flag is read back
+    // from the deleted row rather than the requireConnection pre-check, so a
+    // concurrent setDefault that flips isDefault before the DELETE commits still
+    // triggers the fallback promotion.
     await db.transaction(async (tx) => {
       const deleted = await tx
         .delete(serviceConnections)
@@ -387,9 +390,9 @@ export const connectionsService = {
             eq(serviceConnections.userId, args.userId),
           ),
         )
-        .returning({ id: serviceConnections.id });
+        .returning({ id: serviceConnections.id, isDefault: serviceConnections.isDefault });
       if (deleted.length === 0) throw notFound("connection.not_found", "connection not found");
-      if (row.isDefault !== 1) return;
+      if (deleted[0]!.isDefault !== 1) return;
       // Promote another enabled connection to default if any remain. `next` is
       // read inside this transaction, so under SQLite's serialized writers it
       // cannot be deleted before the promotion UPDATE below — no extra zero-row

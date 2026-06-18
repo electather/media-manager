@@ -139,9 +139,10 @@ vi.mock("../../db/client", () => {
           // WHERE is ignored — an empty rowset is how that guard is exercised.
           const rows = rowsFor(table) as ConnectionRow[];
           const result = Promise.resolve(undefined) as Promise<undefined> & {
-            returning(_fields: unknown): Promise<Array<{ id: string }>>;
+            returning(_fields: unknown): Promise<Array<{ id: string; isDefault: number }>>;
           };
-          result.returning = () => Promise.resolve(rows.map((r) => ({ id: r.id })));
+          result.returning = () =>
+            Promise.resolve(rows.map((r) => ({ id: r.id, isDefault: r.isDefault })));
           return result;
         },
       };
