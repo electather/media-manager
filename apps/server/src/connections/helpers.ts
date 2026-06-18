@@ -194,44 +194,40 @@ function stringifyDisplayValue(v: unknown): string {
 }
 
 /**
- * Promotes the given connection to default within its plugin and demotes the
- * rest. Returns `true` when the promotion UPDATE affected a row, `false` when
- * the connection was missing (or was deleted between the pre-check and the
- * promotion). The caller is responsible for surfacing `false` as a
- * `connection.not_found` error.
+ * Promotes the given connection id to default within its plugin; demotes the rest.
+ * Throws `connection.not_found` when the target row matched zero rows (absent or
+ * owned by another user). The throw happens *inside* the transaction so the
+ * demotion UPDATE rolls back too — otherwise a row deleted between the caller's
+ * pre-check and the promotion would leave the plugin with zero default
+ * connections (the demotion committed, the promotion matched nothing). Using
+ * `.returning()` on the promotion UPDATE makes the existence check atomic within
+ * the transaction.
  */
-export async function promoteToDefault(userId: string, connectionId: string): Promise<boolean> {
+export async function promoteToDefault(
+  userId: string,
+  pluginId: string,
+  connectionId: string,
+): Promise<void> {
   const db = getDb();
-  // Load the row first to obtain pluginId for the sibling-demotion predicate.
-  // Keeping this read outside the transaction is safe for the true/false
-  // signal because the promotion UPDATE below uses RETURNING: if the row is
-  // deleted in the window between this SELECT and the transaction, zero rows
-  // come back and the function returns `false` rather than a silent success.
-  const row = await fetchConnectionByOwner(db, connectionId, userId);
-  if (!row) return false;
   const now = Date.now();
-  const promoted = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     await tx
       .update(serviceConnections)
       .set({ isDefault: 0, updatedAt: now })
       .where(
         and(
           eq(serviceConnections.userId, userId),
-          eq(serviceConnections.pluginId, row.pluginId),
+          eq(serviceConnections.pluginId, pluginId),
           ne(serviceConnections.id, connectionId),
         ),
       );
-    // RETURNING closes the residual TOCTOU window: if the row is deleted
-    // between the SELECT above and this UPDATE, zero rows are returned and
-    // the caller sees `false` instead of a silent success with no default.
-    const updated = await tx
+    const rows = await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .returning({ id: serviceConnections.id });
-    return updated.length > 0;
+    if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
   });
-  return promoted;
 }
 
 async function ensureDefaultIfFirst(

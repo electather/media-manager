@@ -49,6 +49,9 @@ export const _testOnly_clearWarnedFingerprints = (): void => warnedFingerprints.
  * because `x-private` fields live in `userConfig` as plaintext and an excerpt
  * could leak one into the logs. A length + short content hash is enough to tell
  * corrupt rows apart and confirm a re-occurrence without exposing any content.
+ *
+ * Each distinct fingerprint is logged at most once per process lifetime to
+ * avoid flooding the log on hot read paths.
  */
 function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
   const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")

@@ -131,12 +131,27 @@ vi.mock("../../db/client", () => {
         },
       };
     },
-    delete(_table: unknown) {
+    delete(table: unknown) {
       return {
         where(_: unknown) {
-          return Promise.resolve(undefined);
+          // The delete handler chains .returning() to detect a zero-row delete
+          // (row removed before the transaction) and throw connection.not_found.
+          // WHERE is ignored — an empty rowset is how that guard is exercised.
+          const rows = rowsFor(table) as ConnectionRow[];
+          const result = Promise.resolve(undefined) as Promise<undefined> & {
+            returning(_fields: unknown): Promise<Array<{ id: string; isDefault: number }>>;
+          };
+          result.returning = () =>
+            Promise.resolve(rows.map((r) => ({ id: r.id, isDefault: r.isDefault })));
+          return result;
         },
       };
+    },
+    // The transactional delete handler runs its delete + fallback-default
+    // promotion inside db.transaction(); the mock just invokes the callback
+    // with itself as the tx handle so the same select/update/delete shims apply.
+    transaction(fn: (tx: unknown) => unknown) {
+      return Promise.resolve(fn(dbMock));
     },
   };
 
@@ -330,11 +345,12 @@ describe("updateConnectionWhere RETURNING guard", () => {
 
 describe("setDefault guard (issue #698)", () => {
   it("throws connection.not_found when the connection is missing", async () => {
-    // setDefault routes through promoteToDefault, which SELECTs the row first
-    // and returns false when nothing matches; setDefault then surfaces the
-    // false as connection.not_found instead of a silent 200 OK. DO NOT seed a
-    // row — the SELECT returns undefined and the function returns false before
-    // the transaction runs (the mock has no `transaction` method by design).
+    // setDefault calls requireConnection to load the row (and its pluginId)
+    // before delegating to promoteToDefault; requireConnection throws
+    // connection.not_found when nothing matches, so a missing or foreign id
+    // surfaces a 404 instead of a silent 200 OK. DO NOT seed a row — the
+    // pre-check SELECT returns undefined and the guard fires before any
+    // transaction runs (the mock has no `transaction` method by design).
     installPlugin();
 
     await expect(

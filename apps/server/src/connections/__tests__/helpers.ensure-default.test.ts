@@ -182,11 +182,35 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
       userConfig: null,
     });
 
-    await promoteToDefault("u1", second);
+    await promoteToDefault("u1", "p1", second);
 
     const rows = await loadRows();
     const byId = new Map(rows.map((r) => [r.id, r.isDefault]));
     expect(byId.get(first)).toBe(0);
     expect(byId.get(second)).toBe(1);
+  });
+
+  it("rolls back the demotion when the promotion target no longer exists", async () => {
+    // Concurrent-delete regression: if the target row is deleted between the
+    // service's requireConnection pre-check and promoteToDefault, the promotion
+    // UPDATE matches zero rows. The demotion UPDATE (step 1) must roll back so
+    // the previously-default sibling keeps isDefault=1 — otherwise the plugin
+    // would be left with zero default connections. The throw inside the
+    // transaction is what triggers the rollback.
+    const existing = await writeConnection({
+      userId: "u1",
+      pluginId: "p1",
+      credentials: { token: "existing" },
+      userConfig: null,
+    });
+
+    await expect(promoteToDefault("u1", "p1", "ghost-id")).rejects.toMatchObject({
+      code: "connection.not_found",
+    });
+
+    const rows = await loadRows();
+    // The surviving connection must still be the default; the demotion is undone.
+    expect(rows.find((r) => r.id === existing)?.isDefault).toBe(1);
+    expect(rows.filter((r) => r.isDefault === 1)).toHaveLength(1);
   });
 });
