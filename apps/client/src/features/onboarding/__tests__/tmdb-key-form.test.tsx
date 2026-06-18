@@ -5,7 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Stub only the network seams so the real hooks, state machine, and conditional
-// render path under test all run as-written.
+// render path under test all run as-written. saveTmdbKey is stubbed alongside
+// testTmdbKey to prevent any accidental real call if the component wiring changes,
+// even though no test here exercises the save flow.
 const fetchers = vi.hoisted(() => ({
   testTmdbKey: vi.fn(),
   saveTmdbKey: vi.fn(),
