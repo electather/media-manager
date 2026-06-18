@@ -48,6 +48,7 @@ export default defineConfig({
     },
   },
   test: {
+    setupFiles: ["./apps/client/src/test/setup.ts"],
     exclude: [
       "**/node_modules/**",
       "**/dist/**",

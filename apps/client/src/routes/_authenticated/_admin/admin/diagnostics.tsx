@@ -20,7 +20,7 @@ const searchSchema = z.object({
     .max(64)
     .regex(/^[0-9a-zA-Z_-]+$/)
     .optional(),
-  // cuid2 default output is 24 chars; 128 gives headroom for future ID format changes.
+  // pid is a plugin id (cuid2, 24 chars); 128 gives headroom for future ID format changes.
   pid: z
     .string()
     .max(128)

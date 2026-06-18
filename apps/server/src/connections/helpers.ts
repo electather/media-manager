@@ -193,7 +193,16 @@ function stringifyDisplayValue(v: unknown): string {
   return "";
 }
 
-/** Promotes the given connection id to default within its plugin; demotes the rest. */
+/**
+ * Promotes the given connection id to default within its plugin; demotes the rest.
+ * Throws `connection.not_found` when the target row matched zero rows (absent or
+ * owned by another user). The throw happens *inside* the transaction so the
+ * demotion UPDATE rolls back too — otherwise a row deleted between the caller's
+ * pre-check and the promotion would leave the plugin with zero default
+ * connections (the demotion committed, the promotion matched nothing). Using
+ * `.returning()` on the promotion UPDATE makes the existence check atomic within
+ * the transaction.
+ */
 export async function promoteToDefault(
   userId: string,
   pluginId: string,
@@ -212,10 +221,12 @@ export async function promoteToDefault(
           ne(serviceConnections.id, connectionId),
         ),
       );
-    await tx
+    const rows = await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
-      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+      .returning({ id: serviceConnections.id });
+    if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
   });
 }
 
