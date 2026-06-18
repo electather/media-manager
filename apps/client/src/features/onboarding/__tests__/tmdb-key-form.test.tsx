@@ -12,8 +12,7 @@ const fetchers = vi.hoisted(() => ({
   testTmdbKey: vi.fn(),
   saveTmdbKey: vi.fn(),
 }));
-vi.mock("../lib/fetchers", async (orig) => ({
-  ...((await orig()) as object),
+vi.mock("../lib/fetchers", () => ({
   testTmdbKey: fetchers.testTmdbKey,
   saveTmdbKey: fetchers.saveTmdbKey,
 }));
@@ -37,7 +36,7 @@ afterEach(() => {
   fetchers.saveTmdbKey.mockReset();
 });
 
-describe("TmdbKeyForm — TestResult message path", () => {
+describe("TmdbKeyForm — TestResult branches", () => {
   // Exercises the branch in <TestResult> that renders result.message when the
   // probe returns { ok: false, message: "..." }. That path is distinct from the
   // generic onboarding_tmdb_test_failed copy shown when the mutation itself
