@@ -144,7 +144,7 @@ export const adminSettingsBodySchema = z
   })
   .strict()
   .refine((b) => b.inboxRetentionDays !== undefined || b.deliveryRetentionDays !== undefined, {
-    message: "at_least_one_field_required",
+    message: "at least one of inboxRetentionDays or deliveryRetentionDays must be provided",
   });
 
 export const adminSettingsResponseSchema = z.object({
@@ -225,7 +225,10 @@ export const adminDeliveryRowSchema = z.object({
 
 export type InboxListQuery = z.infer<typeof inboxListQuerySchema>;
 export type AdminDeliveriesQuery = z.infer<typeof adminDeliveriesQuerySchema>;
-export type AdminSettingsBody = z.infer<typeof adminSettingsBodySchema>;
+// z.infer on .refine() doesn't narrow — {} stays assignable; union surfaces the same guard to TS.
+export type AdminSettingsBody =
+  | { inboxRetentionDays: number; deliveryRetentionDays?: number }
+  | { inboxRetentionDays?: number; deliveryRetentionDays: number };
 export type AdminSettingsResponse = z.infer<typeof adminSettingsResponseSchema>;
 export type InboxItemDto = z.infer<typeof inboxItemSchema>;
 export type CategoryEntry = z.infer<typeof categoryEntrySchema>;

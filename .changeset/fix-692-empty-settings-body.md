@@ -2,4 +2,4 @@
 "@nama/server": patch
 ---
 
-Fixed the admin notification settings endpoint to return 400 when the request body contains no fields instead of silently succeeding with no change.
+`PATCH /api/admin/notifications/settings` now returns 400 when the request body contains no retention fields instead of silently returning 200 with unchanged values.
