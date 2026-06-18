@@ -83,9 +83,9 @@ describe("HeaderDialog — add mode validation", () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it("trims surrounding whitespace from name before submitting", async () => {
-    // The save handler calls name.trim() before passing to mutate. If trimmedName
-    // were not used, the mutation would receive " X-Corp-Key " and this would fail.
+  it("trims surrounding whitespace from the name before submitting", async () => {
+    // Trim is applied before validation — leading/trailing whitespace must not
+    // cause a pattern failure or alter the stored key.
     const user = userEvent.setup();
     renderAdd();
 
