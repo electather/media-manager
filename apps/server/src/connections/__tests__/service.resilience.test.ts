@@ -341,8 +341,10 @@ describe("updateConnectionWhere RETURNING guard", () => {
       }),
     ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
+});
 
-  it("setEnabled invalidates the user cache after a successful toggle", async () => {
+describe("setEnabled cache (issue #698)", () => {
+  it("invalidates the user cache after a successful toggle", async () => {
     // The enabled flag affects which connections the list surfaces; callers need
     // an up-to-date view after the toggle so the cache must be invalidated,
     // matching updateDisplayName/delete/setDefault.
