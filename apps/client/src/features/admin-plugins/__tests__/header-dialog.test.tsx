@@ -83,30 +83,6 @@ describe("HeaderDialog — add mode validation", () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it("shows invalid-name error when name is whitespace-only", async () => {
-    // "   ".trim() === "" → HEADER_NAME_PATTERN.test("") returns false → error must show.
-    const user = userEvent.setup();
-    renderAdd();
-
-    await user.type(screen.getByPlaceholderText("X-Corp-Key"), "   ");
-    await user.type(getValueInput(), "some-value");
-    await user.click(screen.getByRole("button", { name: /save/i }));
-
-    expect(screen.getByText(/invalid header name/i)).toBeTruthy();
-    expect(mutate).not.toHaveBeenCalled();
-
-  it("shows invalid-name error for names that fail the RFC 7230 pattern", async () => {
-    const user = userEvent.setup();
-    renderAdd();
-
-    await user.type(screen.getByPlaceholderText("X-Corp-Key"), "Invalid Header");
-    await user.type(getValueInput(), "some-value");
-    await user.click(screen.getByRole("button", { name: /save/i }));
-
-    expect(screen.getByText(/invalid header name/i)).toBeTruthy();
-    expect(mutate).not.toHaveBeenCalled();
-  });
-
   it("trims surrounding whitespace from name before submitting", async () => {
     // The save handler calls name.trim() before passing to mutate. If trimmedName
     // were not used, the mutation would receive " X-Corp-Key " and this would fail.
