@@ -138,6 +138,12 @@ vi.mock("../../db/client", () => {
         },
       };
     },
+    // The transactional delete handler runs its delete + fallback-default
+    // promotion inside db.transaction(); the mock just invokes the callback
+    // with itself as the tx handle so the same select/update/delete shims apply.
+    transaction(fn: (tx: unknown) => unknown) {
+      return Promise.resolve(fn(dbMock));
+    },
   };
 
   return { getDb: () => dbMock };

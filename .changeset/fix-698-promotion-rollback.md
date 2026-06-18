@@ -2,4 +2,4 @@
 "@nama/server": patch
 ---
 
-Fixed setting a connection as default so that, when the target connection is deleted at the same time, it reports a not-found error and leaves the previous default intact instead of clearing it.
+Fixed connection default handling so that, when a connection is deleted or set as default at the same time as a concurrent change, the previous default is preserved and the operation reports a not-found error instead of leaving the plugin with no default connection.

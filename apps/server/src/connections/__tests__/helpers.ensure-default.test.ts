@@ -204,7 +204,9 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
       userConfig: null,
     });
 
-    await expect(promoteToDefault("u1", "p1", "ghost-id")).rejects.toThrow();
+    await expect(promoteToDefault("u1", "p1", "ghost-id")).rejects.toMatchObject({
+      code: "connection.not_found",
+    });
 
     const rows = await loadRows();
     // The surviving connection must still be the default; the demotion is undone.
