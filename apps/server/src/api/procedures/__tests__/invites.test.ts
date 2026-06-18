@@ -461,6 +461,8 @@ describe("POST /invites/:code/accept — role re-validation at consumption", () 
     // Orphan the invite: drop the role with FK enforcement off, then restore it.
     // try/finally ensures FK enforcement is always re-enabled even if the delete
     // throws — otherwise subsequent tests in this file would run with FKs off.
+    // Safe across tests because beforeEach (line 117) recreates db fresh each time,
+    // so MEMBER_ROLE_ID is always re-inserted by seedBaseData on a clean slate.
     await db.run(sql`PRAGMA foreign_keys=OFF`);
     try {
       await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
@@ -934,7 +936,7 @@ describe("POST /admin/invites — expiresAt in the past", () => {
 // to the proxy for the duration of the test.
 function withFailingInsert<T>(error: Error, fn: () => Promise<T>): Promise<T> {
   const originalDb = db;
-  const failingInsert = () => ({ values: () => Promise.reject(error) });
+  const failingInsert = () => ({ values: () => Promise.reject(error) }); // assumes bare .values() — no .returning()
   db = new Proxy(originalDb, {
     get(target, prop) {
       if (prop === "insert") return failingInsert;
