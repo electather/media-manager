@@ -18,7 +18,7 @@ import {
   sessionUserId,
   roleHasAdminTierPermission,
 } from "../../auth";
-// Design §4.2 step 3 mandates this exact tx-aware primitive (the same one claimBootstrap composes with
+// Design §4.2 step 4 mandates this exact tx-aware primitive (the same one claimBootstrap composes with
 // its own transaction). `hashPassword` is the matching scrypt the sign-in path verifies against; accept
 // runs it before opening the transaction so scrypt never holds the write lock (#852 L2).
 // fallow-ignore-next-line boundary-violation
@@ -68,6 +68,7 @@ function buildInviteUrl(code: string, requestUrl: string): string {
  * rather than a raw 500. Driver wording varies, so accept either the message form
  * or the SQLite code form (scoped to `user.email` so an unrelated UNIQUE is not
  * silently rewritten).
+ * @internal Exported for unit tests only; not part of the public module API.
  */
 export function isEmailUniqueViolation(err: unknown): boolean {
   return (
@@ -323,6 +324,25 @@ export const invitesApp = new Hono()
     const { name, email, password } = c.req.valid("json");
     const db = getDb();
 
+    // Preflight: cheap validity check before the ~100ms scrypt hash, reducing
+    // CPU exposure from public bogus accepts. TOCTOU-safe — the in-transaction
+    // UPDATE (step 1) is the authoritative race-safe guard; this only avoids
+    // paying hash cost for obviously-invalid codes.
+    const preflightNow = Date.now();
+    const preflightExists = await db
+      .select({ id: invites.id })
+      .from(invites)
+      .where(
+        and(
+          eq(invites.code, code),
+          or(eq(invites.maxUses, 0), sql`${invites.uses} < ${invites.maxUses}`),
+          gt(invites.expiresAt, new Date(preflightNow)),
+          isNull(invites.revokedAt),
+        ),
+      )
+      .get();
+    if (!preflightExists) return c.json({ code: "invites.gone" }, 410);
+
     // Hash the password BEFORE opening the transaction. scrypt is deliberately
     // ~100ms, and `db.transaction` issues `BEGIN IMMEDIATE` (SQLite's single-writer
     // lock) up front — hashing inside would hold that lock for the full hash on
@@ -371,6 +391,9 @@ export const invitesApp = new Hono()
         //       gained an admin-tier permission after the invite was minted, an
         //       unauthenticated stranger must not be granted it (L1a). The check
         //       runs inside the txn so a rejection rolls back the use increment.
+        //       `roleHasAdminTierPermission` calls getDb() — a separate connection
+        //       from `tx`. In WAL mode this is correct: the reader sees the latest
+        //       committed permissions, which is exactly what the guard requires.
         if (await roleHasAdminTierPermission(role.id, role.systemSlug)) {
           throw forbidden(
             "invites.admin_role",
@@ -387,7 +410,7 @@ export const invitesApp = new Hono()
 
         // 4. Create the account from the precomputed hash. emailVerified=true
         //    because holding a valid invite link is sufficient proof of access
-        //    (design §4.2 step 3).
+        //    (design §4.2 step 4).
         await insertCredentialUserWithHashTx(tx, {
           name,
           email,

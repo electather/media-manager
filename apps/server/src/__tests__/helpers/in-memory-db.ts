@@ -43,6 +43,8 @@ export async function createInMemoryDb(): Promise<Db> {
  * enables them, and {@link createInMemoryDb}'s explicit `foreign_keys = ON` would
  * otherwise mask a regression (an FK test on it proves nothing about prod). See
  * #852 M1.
+ * @remarks Callers must register `afterAll(cleanupInMemoryDbs)` in their test
+ * file; otherwise the temp directory created here will not be cleaned up.
  */
 export async function createProductionLikeDb(): Promise<Db> {
   const dir = mkdtempSync(join(tmpdir(), "nama-test-prod-"));
