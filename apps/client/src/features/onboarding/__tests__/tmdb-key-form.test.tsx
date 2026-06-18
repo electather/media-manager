@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, it, vi } from "vite-plus/test";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -18,7 +18,7 @@ vi.mock("../lib/fetchers", async (orig) => ({
 
 import { TmdbKeyForm } from "../components/steps/tmdb-key-form";
 
-function renderForm(): QueryClient {
+function renderForm(): void {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -27,7 +27,6 @@ function renderForm(): QueryClient {
       <TmdbKeyForm />
     </QueryClientProvider>,
   );
-  return client;
 }
 
 afterEach(() => {
@@ -37,11 +36,10 @@ afterEach(() => {
 });
 
 describe("TmdbKeyForm — TestResult message path", () => {
-  // This test specifically exercises the branch in <TestResult> that renders
-  // result.message when the probe returns { ok: false, message: "..." }.
-  // That path is distinct from the generic `onboarding_tmdb_test_failed` copy
-  // shown when the mutation itself errors (network failure, etc.), and no
-  // existing test targets it.
+  // Exercises the branch in <TestResult> that renders result.message when the
+  // probe returns { ok: false, message: "..." }. That path is distinct from the
+  // generic onboarding_tmdb_test_failed copy shown when the mutation itself
+  // errors (network failure, etc.), and no existing test targets it.
   it("shows the server-supplied message when the probe returns { ok: false, message }", async () => {
     const user = userEvent.setup();
     fetchers.testTmdbKey.mockResolvedValue({ ok: false, message: "Expired API key" });
@@ -53,8 +51,7 @@ describe("TmdbKeyForm — TestResult message path", () => {
 
     // The component must render the server message verbatim, not fall back to
     // the generic "That key did not work" copy from onboarding_tmdb_test_failed.
-    // `getByText` throws if absent, so it is the assertion on its own.
-    await waitFor(() => screen.getByText("Expired API key"));
+    expect(await screen.findByText("Expired API key")).not.toBeNull();
   });
 
   it("shows the generic failure copy when the probe returns { ok: false } with no message", async () => {
@@ -67,8 +64,35 @@ describe("TmdbKeyForm — TestResult message path", () => {
     await user.click(screen.getByRole("button", { name: /test key/i }));
 
     // Without a server message the component falls back to the generic locale
-    // copy — this verifies the fallback branch of the same ternary. `getByText`
-    // throws if absent, so it is the assertion on its own.
-    await waitFor(() => screen.getByText(/that key did not work/i));
+    // copy — this verifies the fallback branch of the same ternary.
+    expect(await screen.findByText(/that key did not work/i)).not.toBeNull();
+  });
+
+  it("shows success copy when the probe returns { ok: true }", async () => {
+    const user = userEvent.setup();
+    fetchers.testTmdbKey.mockResolvedValue({ ok: true });
+
+    renderForm();
+
+    await user.type(screen.getByRole("textbox"), "some-api-key");
+    await user.click(screen.getByRole("button", { name: /test key/i }));
+
+    // A successful probe must surface the ok copy so the admin knows the key
+    // is valid before committing it with the Save button.
+    expect(await screen.findByText(/the key works/i)).not.toBeNull();
+  });
+
+  it("shows the generic failure copy when the mutation itself rejects", async () => {
+    const user = userEvent.setup();
+    fetchers.testTmdbKey.mockRejectedValue(new Error("Network error"));
+
+    renderForm();
+
+    await user.type(screen.getByRole("textbox"), "some-api-key");
+    await user.click(screen.getByRole("button", { name: /test key/i }));
+
+    // A rejected mutation (network error, server crash) sets isError=true on the
+    // hook. The component must not go blank — it falls back to the generic copy.
+    expect(await screen.findByText(/that key did not work/i)).not.toBeNull();
   });
 });
