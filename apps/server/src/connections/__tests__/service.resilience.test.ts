@@ -273,7 +273,11 @@ describe("delete guard (issue #758)", () => {
     // the WHERE predicate, so the guard fires here only because the rowset is
     // empty. Seeding any row would make the mock return it and bypass the guard,
     // silently turning this into a false pass.
+    expect(state.connections).toHaveLength(0);
     installPlugin();
+    // Sentinel: if installPlugin() seeds a connection (it shouldn't), the
+    // WHERE-ignoring mock would return it and bypass the guard silently.
+    expect(state.connections).toHaveLength(0);
 
     await expect(
       connectionsService.delete({ userId: "user-1", connectionId: "missing" }),
@@ -300,6 +304,9 @@ describe("updateDisplayName guard (finding 2)", () => {
     // silently turning this into a false pass.
     expect(state.connections).toHaveLength(0);
     installPlugin();
+    // Sentinel: if installPlugin() seeds a connection (it shouldn't), the
+    // WHERE-ignoring mock would return it and bypass the guard silently.
+    expect(state.connections).toHaveLength(0);
 
     await expect(
       connectionsService.updateDisplayName({
