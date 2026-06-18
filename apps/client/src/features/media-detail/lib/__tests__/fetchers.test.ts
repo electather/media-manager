@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const apiMock = vi.hoisted(() => ({
   availabilityGet: vi.fn(),
@@ -32,8 +32,6 @@ beforeEach(() => {
   apiMock.availabilityGet.mockReset();
 });
 
-afterEach(() => vi.clearAllMocks());
-
 describe("fetchSeasonAvailability", () => {
   it("throws MediaApiError with the parsed code on a 4xx response", async () => {
     // Ensures the ErrorBoundary's retry-copy keying off `err.code` (V.CL1)
@@ -41,23 +39,17 @@ describe("fetchSeasonAvailability", () => {
     apiMock.availabilityGet.mockResolvedValueOnce(
       jsonResponse({ code: "media.not_found", message: "title not found" }, 404),
     );
-    await expect(
-      fetchSeasonAvailability("12345", new AbortController().signal),
-    ).rejects.toMatchObject({
-      name: "MediaApiError",
-      status: 404,
-      code: "media.not_found",
-    });
+    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
+      (e) => e instanceof MediaApiError && e.status === 404 && e.code === "media.not_found",
+    );
   });
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
     apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
-    const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
-      (e: unknown) => e,
+    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
+      (e) =>
+        e instanceof MediaApiError && e.status === 503 && (e.message as string).includes("503"),
     );
-    expect(err).toBeInstanceOf(MediaApiError);
-    expect((err as MediaApiError).status).toBe(503);
-    expect((err as MediaApiError).message).toContain("503");
   });
 
   it("returns the parsed JSON payload on a 2xx response", async () => {
