@@ -341,6 +341,22 @@ describe("updateConnectionWhere RETURNING guard", () => {
       }),
     ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
   });
+
+  it("setEnabled invalidates the user cache after a successful toggle", async () => {
+    // The enabled flag affects which connections the list surfaces; callers need
+    // an up-to-date view after the toggle so the cache must be invalidated,
+    // matching updateDisplayName/delete/setDefault.
+    installPlugin();
+    seedConnection();
+
+    await connectionsService.setEnabled({
+      userId: "user-1",
+      connectionId: "conn-1",
+      enabled: false,
+    });
+
+    expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
 });
 
 describe("setDefault guard (issue #698)", () => {
