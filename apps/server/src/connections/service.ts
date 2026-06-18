@@ -359,8 +359,9 @@ export const connectionsService = {
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
-    if (!row) return;
+    // requireConnection throws 404 for missing or foreign ids — prevents silent
+    // no-ops and stops callers from probing other users' connection ids.
+    const row = await requireConnection(db, args.connectionId, args.userId);
     await db
       .delete(serviceConnections)
       .where(
@@ -411,7 +412,10 @@ export const connectionsService = {
       credentials,
       userConfig,
     );
-    await db
+    // Use RETURNING to detect a row deleted between the pre-check and this
+    // UPDATE. Zero rows means the connection was deleted in the window; return
+    // not_found rather than silently writing to a ghost row.
+    const updated = await db
       .update(serviceConnections)
       .set({
         status: result.ok ? "connected" : "error",
@@ -424,7 +428,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) return { ok: false, message: "connection not found" };
     return result;
   },
 

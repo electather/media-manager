@@ -508,6 +508,7 @@
   "admin_jobs_trigger_dialog_done": "Done",
   "admin_jobs_trigger_dialog_cancel": "Cancel",
   "admin_jobs_trigger_field_required_error": "This field is required",
+  "admin_jobs_trigger_field_invalid_number_error": "Enter a valid number",
 
   "admin_jobs_run_detail_tab_details": "Details",
   "admin_jobs_run_detail_tab_logs": "Logs",

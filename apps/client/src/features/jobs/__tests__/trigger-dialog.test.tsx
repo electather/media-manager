@@ -153,7 +153,7 @@ describe("DynamicTriggerDialog number coercion", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "5");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -162,6 +162,30 @@ describe("DynamicTriggerDialog number coercion", () => {
       expect(mockFetchTriggerJob).toHaveBeenCalledWith(
         numberJob.id,
         expect.objectContaining({ count: 5 }),
+      );
+    });
+  });
+
+  it("allows decimal values to be typed without the dot being swallowed", async () => {
+    // With type="number" the browser round-trips every keystroke through
+    // Number → String, collapsing "1." to "1" so decimals can never be entered.
+    // The fix stores the raw string and only coerces at submit.
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i }) as HTMLInputElement;
+    await user.type(input, "1.");
+    // The intermediate "1." must survive so the user can finish typing "1.5".
+    expect(input.value).toBe("1.");
+    await user.type(input, "5");
+    expect(input.value).toBe("1.5");
+
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        numberJob.id,
+        expect.objectContaining({ count: 1.5 }),
       );
     });
   });
@@ -181,7 +205,7 @@ describe("DynamicTriggerDialog number coercion", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "7");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -193,13 +217,102 @@ describe("DynamicTriggerDialog number coercion", () => {
     });
   });
 
+  it("truncates fractional input for integer-typed fields toward zero", async () => {
+    // Math.trunc (not Math.floor) is applied for integer fields.
+    // Math.floor(-1.5) = -2, Math.trunc(-1.5) = -1 — these differ for negatives.
+    // The test uses a positive fraction to cover the truncation path and confirm
+    // the field is not treated as invalid (fractional integers are accepted silently).
+    const integerJob = {
+      ...numberJob,
+      inputSchema: {
+        type: "object",
+        properties: { count: { type: "integer", description: "How many items" } },
+        required: ["count"],
+      },
+    } as unknown as JobHandle;
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i });
+    await user.type(input, "3.7");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        integerJob.id,
+        expect.objectContaining({ count: 3 }),
+      );
+    });
+  });
+
+  it("accepts negative integer input and submits the signed value", async () => {
+    // inputMode="numeric" on iOS shows a numpad without a minus key, so negative
+    // integers become untypable. Using inputMode="decimal" surfaces the minus key
+    // on every platform. This test confirms "-" can be entered and that the
+    // resulting negative value reaches the fetcher unchanged (Math.trunc(-3) = -3).
+    const integerJob = {
+      ...numberJob,
+      inputSchema: {
+        type: "object",
+        properties: { count: { type: "integer", description: "How many items" } },
+        required: ["count"],
+      },
+    } as unknown as JobHandle;
+    mockFetchTriggerJob.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={integerJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i }) as HTMLInputElement;
+    await user.type(input, "-3");
+    expect(input.value).toBe("-3");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    await waitFor(() => {
+      expect(mockFetchTriggerJob).toHaveBeenCalledWith(
+        integerJob.id,
+        expect.objectContaining({ count: -3 }),
+      );
+    });
+  });
+
+  it("blocks submit and shows a format error when non-numeric text is typed in a number field", async () => {
+    // After switching to type="text", the browser no longer blocks "abc".
+    // The client must validate and reject non-parseable input before posting.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /count/i });
+    await user.type(input, "abc");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    // The fetch must not have been called — client validation should block it.
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
+    // The user must see a specific "enter a valid number" message, not "required".
+    expect(screen.getByText(/enter a valid number/i)).toBeTruthy();
+  });
+
+  it("treats whitespace-only input as missing for required fields", async () => {
+    // isMissing applies value.trim() === "" so whitespace-only strings are
+    // treated as empty, preventing "   " from being submitted as a valid value.
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: /target/i });
+    await user.type(input, "   ");
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+
+    expect(screen.getByText(/this field is required/i)).toBeTruthy();
+    expect(mockFetchTriggerJob).not.toHaveBeenCalled();
+  });
+
   it("treats a cleared number input as null (not 0)", async () => {
     // Number("") === 0 in JavaScript, so an explicit empty-string guard is
     // needed to prevent clearing a field from snapping its value to 0.
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "5");
     await user.clear(input);
 
@@ -219,7 +332,7 @@ describe("DynamicTriggerDialog error handling", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "3");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
@@ -240,7 +353,7 @@ describe("DynamicTriggerDialog error handling", () => {
     const user = userEvent.setup();
     renderWithClient(<DynamicTriggerDialog open job={numberJob} onClose={() => undefined} />);
 
-    const input = screen.getByRole("spinbutton", { name: /count/i });
+    const input = screen.getByRole("textbox", { name: /count/i });
     await user.type(input, "3");
     await user.click(screen.getByRole("button", { name: /run now/i }));
 
