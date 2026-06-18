@@ -53,7 +53,7 @@ describe("DiagnosticsErrorBoundary — surface-specific copy", () => {
       </DiagnosticsErrorBoundary>,
     );
 
-    expect(screen.getByText(m.diagnostics_perf_load_failed_title())).toBeDefined();
+    expect(screen.getByText(m.diagnostics_perf_load_failed_title())).toBeInTheDocument();
     expect(screen.queryByText(m.diagnostics_errors_load_failed_title())).toBeNull();
   });
 
@@ -64,7 +64,7 @@ describe("DiagnosticsErrorBoundary — surface-specific copy", () => {
       </DiagnosticsErrorBoundary>,
     );
 
-    expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeDefined();
+    expect(screen.getByText(m.diagnostics_errors_load_failed_title())).toBeInTheDocument();
   });
 });
 

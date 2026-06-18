@@ -1,13 +1,11 @@
 import type { Context, Next, ErrorHandler } from "hono";
 import { consola } from "consola";
+import { REQUEST_ID_PATTERN } from "@nama/shared/diagnostics";
 import { captureError, capturePerf } from "./capture";
 import { runWithRequestContext, newRequestId } from "./request-context";
 import { HttpError, isExpectedUserError, isNoConnectionError } from "./http-errors";
 
 const REQUEST_ID_HEADER = "x-request-id";
-// Accepts request IDs that are 1–64 characters of alphanumeric, hyphen, or underscore only.
-// Rejects anything else (oversized, path-injection chars, etc.) and falls back to a generated ID.
-const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
 /** Hono middleware that opens a request-scoped AsyncLocalStorage frame with a
  *  request ID (reused from `X-Request-Id` header when present). Also attaches the
@@ -23,6 +21,7 @@ const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 export function requestContextMiddleware() {
   return async (c: Context, next: Next): Promise<void> => {
     const raw = c.req.header(REQUEST_ID_HEADER);
+    // Accepts 1–64 chars of alphanumeric, hyphen, or underscore; falls back to a generated ID.
     const requestId = raw && REQUEST_ID_PATTERN.test(raw) ? raw : newRequestId();
     c.set("requestId", requestId);
     try {
