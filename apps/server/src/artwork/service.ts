@@ -186,10 +186,10 @@ function claimWriteBack(key: string, now: number): number | null {
  * when `claim` still matches the stored token: a patch that outlives its own
  * window can reject after a newer claim has taken the key, and dropping that
  * newer entry would let a redundant patch fire against an already-claimed row.
- * The token's uniqueness assumes `Date.now()` is monotonically non-decreasing,
- * which holds on every production runtime we target; a backward clock step
- * between two claims could collide their tokens and reopen the original race
- * for that one window, but that is no worse than the pre-guard behaviour.
+ * The token's uniqueness assumes `Date.now()` is monotonically non-decreasing.
+ * A backward clock step could make the window appear un-lapsed indefinitely,
+ * blocking new claims until the clock recovers — no worse than pre-guard
+ * behaviour for that interval.
  */
 function releaseWriteBack(key: string, claim: number): void {
   if (recentWriteBacks.get(key) === claim) recentWriteBacks.delete(key);
