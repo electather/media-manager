@@ -32,7 +32,7 @@
   "catalog": {
     "es-toolkit": "^1.47.1",
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
+    "vitest": "^4.1.9",
     "vite-plus": "latest",
     "@better-auth/oauth-provider": "^1.6.19",
     "better-auth": "^1.6.17",
