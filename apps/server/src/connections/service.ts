@@ -394,9 +394,14 @@ export const connectionsService = {
       if (deleted.length === 0) throw notFound("connection.not_found", "connection not found");
       if (deleted[0]!.isDefault !== 1) return;
       // Promote another enabled connection to default if any remain. `next` is
-      // read inside this transaction, so under SQLite's serialized writers it
-      // cannot be deleted before the promotion UPDATE below — no extra zero-row
-      // guard is needed on the promotion itself.
+      // read inside this transaction, so under SQLite's serialized writer model
+      // it cannot be deleted before the promotion UPDATE below — no extra
+      // zero-row guard is needed on the promotion itself. NOTE: this relies on
+      // SQLite's serialized writers. Under READ COMMITTED (the PostgreSQL
+      // default) the SELECT and UPDATE run in separate snapshots and a
+      // concurrent delete could race; if this codebase ever migrates off
+      // SQLite, add a .returning() guard on the promotion UPDATE here (same
+      // pattern as promoteToDefault).
       const next = await tx
         .select()
         .from(serviceConnections)
