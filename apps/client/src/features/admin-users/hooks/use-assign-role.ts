@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
+import { errorMessage } from "@/shared/lib/diagnostics/api-error";
 import { rollbackQuery, snapshotQuery } from "@/shared/lib/query/optimistic";
 import { fetchAssignRole } from "../lib/fetchers";
 import { adminUsersKeys } from "../lib/query-keys";
 import type { AdminUserDetail, AdminUserSummary } from "../lib/types";
-import { AdminUsersApiError } from "../lib/types";
 
 interface Vars {
   userId: string;
@@ -46,7 +46,7 @@ export function useAssignRole() {
     onError: (err, { userId }, ctx) => {
       if (ctx?.listCtx.prev) rollbackQuery(qc, adminUsersKeys.list(), ctx.listCtx.prev);
       if (ctx?.detailCtx.prev) rollbackQuery(qc, adminUsersKeys.detail(userId), ctx.detailCtx.prev);
-      toast.error(err instanceof AdminUsersApiError ? err.message : String(err));
+      toast.error(errorMessage(err));
     },
     onSuccess: (_data, { roleName }) => {
       toast.success(m.admin_users_detail_role_toast({ name: roleName }));

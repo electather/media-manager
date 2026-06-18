@@ -20,6 +20,11 @@ export class BaseApiError extends Error {
   }
 }
 
+/** Returns a user-facing string from any thrown value; centralises the `instanceof XxxApiError ? .message : String()` idiom. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 function deriveMessage(body: ApiErrorBody | null, fallback: string): string {
   return body?.message ?? fallback;
 }

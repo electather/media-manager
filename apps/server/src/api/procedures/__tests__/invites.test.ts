@@ -177,7 +177,7 @@ describe("POST /invites/:code/accept — happy path", () => {
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -267,7 +267,7 @@ describe("POST /invites/:code/accept — 410 paths", () => {
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 1,
       uses: 1, // already exhausted
@@ -289,11 +289,11 @@ describe("POST /invites/:code/accept — 410 paths", () => {
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 1,
       uses: 0,
-      revokedAt: new Date(Date.now()),
+      revokedAt: new Date(),
     });
 
     const res = await buildApp().request(`/invites/${code}/accept`, {
@@ -323,7 +323,7 @@ describe("POST /invites/:code/accept — 409 duplicate email", () => {
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -363,7 +363,7 @@ describe("POST /invites/:code/accept — maxUses=1 sequential double-accept", ()
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 1,
       uses: 0,
@@ -408,7 +408,7 @@ describe("POST /invites/:code/accept — role re-validation at consumption", () 
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -452,7 +452,7 @@ describe("POST /invites/:code/accept — role re-validation at consumption", () 
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -461,6 +461,8 @@ describe("POST /invites/:code/accept — role re-validation at consumption", () 
     // Orphan the invite: drop the role with FK enforcement off, then restore it.
     // try/finally ensures FK enforcement is always re-enabled even if the delete
     // throws — otherwise subsequent tests in this file would run with FKs off.
+    // Safe across tests because beforeEach (line 117) recreates db fresh each time,
+    // so MEMBER_ROLE_ID is always re-inserted by seedBaseData on a clean slate.
     await db.run(sql`PRAGMA foreign_keys=OFF`);
     try {
       await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
@@ -527,7 +529,7 @@ describe("invites foreign-key enforcement (production connection setup)", () => 
       code: "FKTEST-777777-BBBBBB",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -551,7 +553,7 @@ describe("invites foreign-key enforcement (production connection setup)", () => 
         code: "BADFK0-888888-CCCCCC",
         roleId: "role_does_not_exist",
         invitedBy: ACTING_ADMIN_ID,
-        createdAt: new Date(Date.now()),
+        createdAt: new Date(),
         expiresAt: new Date(FUTURE_EXPIRY),
         maxUses: 1,
         uses: 0,
@@ -604,7 +606,7 @@ describe("GET /invites/:code", () => {
       code,
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -620,6 +622,98 @@ describe("GET /invites/:code", () => {
     const res = await buildApp().request("/invites/NOPE-NOPE-NOPE");
     expect(res.status).toBe(404);
   });
+
+  // Preview 410 paths — the link is no longer usable. The accepter should not
+  // see an accept form; instead the UI can surface a meaningful error message.
+  it("returns 410 with invites.gone for an expired invite", async () => {
+    const code = "PRVEXP-BBBBBB-222222";
+    await db.insert(invites).values({
+      id: "inv-preview-expired",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now() - 10_000),
+      expiresAt: new Date(Date.now() - 1_000), // already expired
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.gone");
+  });
+
+  it("returns 410 with invites.gone for an exhausted invite (uses >= maxUses)", async () => {
+    const code = "PRVEXH-CCCCCC-333333";
+    await db.insert(invites).values({
+      id: "inv-preview-exhausted",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 1,
+      uses: 1, // already exhausted
+    });
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.gone");
+  });
+
+  it("returns 410 with invites.gone for a revoked invite", async () => {
+    const code = "PRVRVK-DDDDDD-444444";
+    await db.insert(invites).values({
+      id: "inv-preview-revoked",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+      revokedAt: new Date(),
+    });
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.gone");
+  });
+
+  // An orphaned invite — the referenced role was deleted after minting — must
+  // surface as 410 (not a blank role name). This mirrors the accept path's L1b
+  // guard: both preview and accept must agree on the "gone" state so the UI
+  // shows the same error and accept never attempts to assign a ghost role.
+  it("returns 410 with invites.gone when the bound role was deleted (orphaned invite)", async () => {
+    const code = "PRVOPH-EEEEEE-555555";
+    await db.insert(invites).values({
+      id: "inv-preview-orphan",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    // Drop the role with FK enforcement off to create the orphaned state.
+    // The try/finally ensures FK enforcement is always re-enabled.
+    await db.run(sql`PRAGMA foreign_keys=OFF`);
+    try {
+      await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
+    } finally {
+      await db.run(sql`PRAGMA foreign_keys=ON`);
+    }
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.gone");
+  });
 });
 
 // ─── GET /admin/invites — excludes revoked, reports expired ──────────────────
@@ -634,7 +728,7 @@ describe("GET /admin/invites", () => {
         code: "ACTIVE-AAAAAA-BBBBBB",
         roleId: MEMBER_ROLE_ID,
         invitedBy: ACTING_ADMIN_ID,
-        createdAt: new Date(Date.now()),
+        createdAt: new Date(),
         expiresAt: new Date(FUTURE_EXPIRY),
         maxUses: 5,
         uses: 0,
@@ -654,11 +748,11 @@ describe("GET /admin/invites", () => {
         code: "REVOKE-EEEEEE-FFFFFF",
         roleId: MEMBER_ROLE_ID,
         invitedBy: ACTING_ADMIN_ID,
-        createdAt: new Date(Date.now()),
+        createdAt: new Date(),
         expiresAt: new Date(FUTURE_EXPIRY),
         maxUses: 5,
         uses: 0,
-        revokedAt: new Date(Date.now()),
+        revokedAt: new Date(),
       },
     ]);
 
@@ -693,7 +787,7 @@ describe("POST /admin/invites/:id/extend", () => {
       code: "EXTEND-111111-AAAAAA",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(Date.now() + 1_000),
       maxUses: 5,
       uses: 0,
@@ -731,7 +825,7 @@ describe("POST /admin/invites/:id/extend", () => {
       code: "EXTEND-444444-DDDDDD",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -754,11 +848,11 @@ describe("POST /admin/invites/:id/extend", () => {
       code: "EXTEND-222222-BBBBBB",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(Date.now() + 1_000),
       maxUses: 5,
       uses: 0,
-      revokedAt: new Date(Date.now()),
+      revokedAt: new Date(),
     });
 
     const before = await db
@@ -792,7 +886,7 @@ describe("POST /admin/invites/:id/extend", () => {
       code: "EXTEND-333333-CCCCCC",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(Date.now() + 1_000),
       maxUses: 1,
       uses: 1,
@@ -810,6 +904,101 @@ describe("POST /admin/invites/:id/extend", () => {
   });
 });
 
+// ─── POST /admin/invites — create with expiresAt in the past ─────────────────
+
+describe("POST /admin/invites — expiresAt in the past", () => {
+  beforeEach(seedBaseData);
+
+  // The guard prevents the server from creating an immediately-unusable invite.
+  // Without it, an admin could mint a link that rejects every accept attempt.
+  it("returns 400 with invites.expiry_in_past when expiresAt <= now", async () => {
+    const res = await buildApp().request("/admin/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roleId: MEMBER_ROLE_ID,
+        expiresAt: Date.now() - 1_000,
+        maxUses: 1,
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.expiry_in_past");
+  });
+});
+
+// ─── POST /admin/invites — code-collision retry loop ─────────────────────────
+
+// The mock at line 27 wires `getDb` as a closure: `getDb: () => db`. Every
+// handler call to `getDb()` returns the *current* value of the module-level
+// `db` variable, so reassigning `db` here redirects the procedure's DB access
+// to the proxy for the duration of the test.
+function withFailingInsert<T>(error: Error, fn: () => Promise<T>): Promise<T> {
+  const originalDb = db;
+  const failingInsert = () => ({ values: () => Promise.reject(error) }); // assumes bare .values() — no .returning()
+  db = new Proxy(originalDb, {
+    get(target, prop) {
+      if (prop === "insert") return failingInsert;
+      const value = (target as any)[prop];
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) as typeof db;
+  return fn().finally(() => {
+    db = originalDb;
+  });
+}
+
+describe("POST /admin/invites — code-collision retry loop", () => {
+  beforeEach(seedBaseData);
+
+  // When all three retry attempts fail with a code-collision UNIQUE error the
+  // handler must give up and return 500 / invites.code_collision. In practice
+  // the loop should never exhaust (90-bit entropy), but the guard must not
+  // silently swallow the final error.
+  it("returns 500 with invites.code_collision when all retries fail on collision", async () => {
+    const collisionError = new Error("UNIQUE constraint failed: invites.code");
+    const res = await withFailingInsert(collisionError, async () =>
+      buildApp().request("/admin/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roleId: MEMBER_ROLE_ID,
+          expiresAt: FUTURE_EXPIRY,
+          maxUses: 1,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.code_collision");
+  });
+
+  // A non-collision DB error (e.g. disk full, schema mismatch) must be rethrown
+  // unchanged — the retry loop must not silently eat unrelated failures and
+  // mask them behind the generic code_collision 500.
+  it("rethrows non-collision insert errors unchanged", async () => {
+    const otherError = new Error("disk I/O error");
+    const res = await withFailingInsert(otherError, async () =>
+      buildApp().request("/admin/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roleId: MEMBER_ROLE_ID,
+          expiresAt: FUTURE_EXPIRY,
+          maxUses: 1,
+        }),
+      }),
+    );
+
+    // The unmasked error surfaces as a generic 500, not code_collision.
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { code?: string; message?: string };
+    expect(body.code).not.toBe("invites.code_collision");
+  });
+});
+
 // ─── DELETE /admin/invites/:id ───────────────────────────────────────────────
 
 describe("DELETE /admin/invites/:id", () => {
@@ -821,7 +1010,7 @@ describe("DELETE /admin/invites/:id", () => {
       code: "DELETE-111111-AAAAAA",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -850,7 +1039,7 @@ describe("DELETE /admin/invites/:id", () => {
       code: "DELETE-222222-BBBBBB",
       roleId: MEMBER_ROLE_ID,
       invitedBy: ACTING_ADMIN_ID,
-      createdAt: new Date(Date.now()),
+      createdAt: new Date(),
       expiresAt: new Date(FUTURE_EXPIRY),
       maxUses: 5,
       uses: 0,
@@ -869,5 +1058,394 @@ describe("DELETE /admin/invites/:id", () => {
       .where(eq(invites.id, "inv-already-revoked"))
       .get();
     expect(row?.revokedAt?.getTime()).toBe(originalRevokedAt.getTime());
+  });
+});
+
+// ─── maxUses = 0 (unlimited) branch ──────────────────────────────────────────
+
+// maxUses=0 means unlimited: `uses < maxUses` is never the exhaustion condition.
+// This branch is load-bearing in the accept guard, preview, and list — a bug
+// here would silently cap an admin-intended unlimited invite after the first use.
+describe("POST /invites/:code/accept — maxUses=0 unlimited invite", () => {
+  it("allows more than one accept and correctly increments uses each time", async () => {
+    await seedBaseData();
+
+    const code = "UNLIM0-AAAAAA-111111";
+    await db.insert(invites).values({
+      id: "inv-unlimited",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 0, // unlimited
+      uses: 0,
+    });
+
+    const first = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Alice",
+        email: "alice@example.com",
+        password: "password-longer-12",
+      }),
+    });
+    expect(first.status).toBe(200);
+
+    const afterFirst = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-unlimited"))
+      .get();
+    expect(afterFirst?.uses).toBe(1);
+
+    const second = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Bob",
+        email: "bob@example.com",
+        password: "password-longer-12",
+      }),
+    });
+    // A maxUses=0 invite must not be rejected after the first acceptance.
+    expect(second.status).toBe(200);
+
+    const afterSecond = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-unlimited"))
+      .get();
+    expect(afterSecond?.uses).toBe(2);
+  });
+});
+
+describe("GET /invites/:code — maxUses=0 unlimited invite is never flagged as gone", () => {
+  beforeEach(seedBaseData);
+
+  // A maxUses=0 invite with uses>0 must still preview as 200: `expired` is false
+  // when maxUses=0 regardless of how many people have already accepted.
+  it("returns 200 for a maxUses=0 invite that already has uses>0", async () => {
+    const code = "UNLIM0-BBBBBB-222222";
+    await db.insert(invites).values({
+      id: "inv-unlimited-used",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 0, // unlimited
+      uses: 99, // already accepted many times
+    });
+
+    const res = await buildApp().request(`/invites/${code}`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { roleName: string };
+    expect(body.roleName).toBe("Member");
+  });
+});
+
+describe("GET /admin/invites — maxUses=0 invite is not flagged expired", () => {
+  it("reports expired=false for a maxUses=0 invite with uses>0", async () => {
+    await seedBaseData();
+
+    await db.insert(invites).values({
+      id: "inv-unlimited-list",
+      code: "UNLIM0-CCCCCC-333333",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 0, // unlimited
+      uses: 10,
+    });
+
+    const res = await buildApp().request("/admin/invites");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { invites: { id: string; expired: boolean }[] };
+    const row = body.invites.find((i) => i.id === "inv-unlimited-list");
+    expect(row).toBeDefined();
+    // An unlimited invite with high use count must not be reported as expired.
+    expect(row?.expired).toBe(false);
+  });
+});
+
+// ─── Accept — unknown code returns 410, not 404 or 500 ───────────────────────
+
+// The accept route collapses "unknown code" and "exhausted/revoked" into the
+// same 410 response. This is intentional: leaking a distinct 404 for unknown
+// codes would let an attacker confirm which invite codes exist by probing. The
+// test documents this design choice so a refactor cannot silently change it.
+describe("POST /invites/:code/accept — unknown code returns 410", () => {
+  it("returns 410 (not 404 or 500) for a code that has never existed", async () => {
+    await seedBaseData();
+
+    const res = await buildApp().request("/invites/NOCODE-ZZZZZZ-ZZZZZZ/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "X", email: "x@example.com", password: "password-longer-12" }),
+    });
+
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.gone");
+  });
+});
+
+// ─── Accept 410 paths — uses must remain untouched on rejection ──────────────
+
+// The accept guard's atomic UPDATE runs inside a transaction that rolls back on
+// any error. For the cases where the UPDATE itself matches 0 rows (expired /
+// exhausted / revoked) the transaction never increments, so uses must be
+// unchanged. This strengthens the existing 410 tests with an explicit DB check.
+describe("POST /invites/:code/accept — 410 paths do not increment uses", () => {
+  beforeEach(seedBaseData);
+
+  it("does not increment uses when accepting an expired invite", async () => {
+    const code = "410USR-AAAAAA-XXXXXX";
+    await db.insert(invites).values({
+      id: "inv-410-expired",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now() - 10_000),
+      expiresAt: new Date(Date.now() - 1_000),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "X", email: "x@example.com", password: "password-longer-12" }),
+    });
+    expect(res.status).toBe(410);
+
+    // The failed accept must not have burned a use — uses stays at 0.
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-410-expired"))
+      .get();
+    expect(inv?.uses).toBe(0);
+  });
+
+  it("does not increment uses when accepting an exhausted invite", async () => {
+    const code = "410USR-BBBBBB-YYYYYY";
+    await db.insert(invites).values({
+      id: "inv-410-exhausted",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 1,
+      uses: 1, // exhausted
+    });
+
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "X", email: "x@example.com", password: "password-longer-12" }),
+    });
+    expect(res.status).toBe(410);
+
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-410-exhausted"))
+      .get();
+    // Uses must not exceed the cap — the guard rolled back.
+    expect(inv?.uses).toBe(1);
+  });
+
+  it("does not increment uses when accepting a revoked invite", async () => {
+    const code = "410USR-CCCCCC-ZZZZZZ";
+    await db.insert(invites).values({
+      id: "inv-410-revoked",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+      revokedAt: new Date(),
+    });
+
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "X", email: "x@example.com", password: "password-longer-12" }),
+    });
+    expect(res.status).toBe(410);
+
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-410-revoked"))
+      .get();
+    expect(inv?.uses).toBe(0);
+  });
+});
+
+// ─── Sequential double-accept — uses must stop at the cap ────────────────────
+
+// The existing sequential double-accept test confirms the second request 410s,
+// but does not verify that uses stayed at 1 (the cap). Without this assertion,
+// a bug that incremented uses on both calls while still returning 410 on the
+// second would be invisible.
+describe("POST /invites/:code/accept — maxUses=1 uses stops at cap", () => {
+  it("uses is exactly 1 after first success and second 410", async () => {
+    await seedBaseData();
+
+    const code = "CAPCHK-444444-EEEEEE";
+    await db.insert(invites).values({
+      id: "inv-cap-check",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 1,
+      uses: 0,
+    });
+
+    const first = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "First",
+        email: "capchk1@example.com",
+        password: "password-longer-12",
+      }),
+    });
+    expect(first.status).toBe(200);
+
+    const second = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Second",
+        email: "capchk2@example.com",
+        password: "password-longer-12",
+      }),
+    });
+    expect(second.status).toBe(410);
+
+    // The use count must have stopped at the cap of 1 — the second attempt
+    // must not have incremented it past the maxUses boundary.
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.id, "inv-cap-check"))
+      .get();
+    expect(inv?.uses).toBe(1);
+  });
+});
+
+// ─── Happy path — password is hashed, not stored as plaintext ────────────────
+
+// The accept path calls hashPassword (scrypt) before inserting the credential
+// row. Verifying the hash is non-empty and differs from the plaintext ensures
+// the call was not accidentally short-circuited (e.g. returning the raw string
+// from a stub or skipping hashing entirely).
+describe("POST /invites/:code/accept — password is hashed in the credential row", () => {
+  it("stores a non-empty hash that differs from the original plaintext password", async () => {
+    await seedBaseData();
+
+    const code = "HASHCK-AAAAAA-111111";
+    await db.insert(invites).values({
+      id: "inv-hash-check",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    const plaintext = "password-longer-than-12";
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Hashed", email: "hashcheck@example.com", password: plaintext }),
+    });
+    expect(res.status).toBe(200);
+
+    const createdUser = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, "hashcheck@example.com"))
+      .get();
+    expect(createdUser).not.toBeNull();
+
+    const credAccount = await db
+      .select({ password: account.password })
+      .from(account)
+      .where(eq(account.userId, createdUser!.id))
+      .get();
+
+    // The stored password must be non-empty (hashing did not return nothing).
+    expect(credAccount?.password).toBeTruthy();
+    // The stored value must not equal the plaintext (hashing was not skipped).
+    expect(credAccount?.password).not.toBe(plaintext);
+  });
+});
+
+// ─── Rate-limit wiring — accept and preview use distinct buckets ──────────────
+
+// acceptIpRateLimit and publicIpRateLimit are separate middlewares with
+// different capacities (5 vs 60). The module-level vi.mock above replaces both
+// with pass-through shims so other tests never trip a limit. This focused test
+// verifies the structural invariant using the *real* module via vi.importActual:
+// the accept route must use a tighter bucket (capacity 5) than the shared
+// preview bucket (capacity 60). A misconfiguration would expose scrypt CPU to
+// a per-IP burst of 60, not 5.
+//
+// Role-guard arm 2 note: the auth mock at lines 50-53 re-implements
+// `roleHasAdminTierPermission` by delegating to `roleHasAnyPermission` from
+// the real auth/repo against the mocked in-memory db. It must stay in sync
+// with the production `roleHasAdminTierPermission` in auth/index.ts — if that
+// function changes its logic, the mock here must be updated to match.
+// The users.role-guard.test.ts file follows the same pattern for the same reason.
+describe("rate-limit wiring — accept and preview use distinct buckets", () => {
+  it("acceptIpLimiter has capacity 5 and publicIpLimiter has capacity 60", async () => {
+    // Load the REAL module (not the vi.mock shim) to inspect the limiter instances.
+    const actual =
+      await vi.importActual<typeof import("../../../api/rate-limit")>("../../../api/rate-limit");
+    const { acceptIpLimiter, publicIpLimiter } = actual;
+
+    // Drain tokens to measure capacity: start fresh, then consume until the
+    // bucket rejects. The key is arbitrary (these are not keyed by session).
+    acceptIpLimiter.reset();
+    publicIpLimiter.reset();
+
+    let acceptCapacity = 0;
+    while (acceptIpLimiter.check("test-ip", 1) === null) {
+      acceptCapacity++;
+      if (acceptCapacity > 20) break; // safety valve — fail loudly if capacity is wildly misconfigured
+    }
+
+    let publicCapacity = 0;
+    while (publicIpLimiter.check("test-ip", 1) === null) {
+      publicCapacity++;
+      if (publicCapacity > 200) break; // safety valve — generous for the larger public bucket
+    }
+
+    // Accept bucket must be the tighter one to protect scrypt CPU.
+    expect(acceptCapacity).toBe(5);
+    // Preview bucket must be the generous shared-reads bucket.
+    expect(publicCapacity).toBe(60);
+
+    // Verify they are not the same object — a single shared bucket would
+    // mean a preview burst could drain the accept allowance.
+    expect(acceptIpLimiter).not.toBe(publicIpLimiter);
+
+    // Clean up so subsequent tests are not affected.
+    acceptIpLimiter.reset();
+    publicIpLimiter.reset();
   });
 });

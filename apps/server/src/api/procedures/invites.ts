@@ -79,6 +79,30 @@ export function isEmailUniqueViolation(err: unknown): boolean {
   );
 }
 
+// ─── Invite helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Normalises a timestamp that Drizzle may return as either a `Date` or a raw
+ * millisecond integer (driver-dependent) to a consistent ms number.
+ */
+function toMs(value: Date | number): number {
+  return value instanceof Date ? value.getTime() : (value as number);
+}
+
+/**
+ * Returns true when the invite row is expired or exhausted, implementing the
+ * design §2 formula: `expiresAt < now OR uses >= maxUses`.
+ *
+ * The `revokedAt != null` arm is deliberately excluded here — callers that need
+ * it (preview, accept) check `revokedAt` separately; the list pre-filters it.
+ */
+function isInviteExpired(
+  row: { expiresAt: Date | number; maxUses: number; uses: number },
+  now: number,
+): boolean {
+  return toMs(row.expiresAt) < now || (row.maxUses !== 0 && row.uses >= row.maxUses);
+}
+
 // ─── Admin sub-app ─────────────────────────────────────────────────────────────
 
 export const adminInvitesApp = new Hono()
@@ -178,13 +202,14 @@ export const adminInvitesApp = new Hono()
       url: buildInviteUrl(r.code, c.req.url),
       roleId: r.roleId,
       invitedBy: r.invitedBy ?? null,
-      createdAt: r.createdAt instanceof Date ? r.createdAt.getTime() : (r.createdAt as number),
-      expiresAt: r.expiresAt instanceof Date ? r.expiresAt.getTime() : (r.expiresAt as number),
+      createdAt: toMs(r.createdAt),
+      expiresAt: toMs(r.expiresAt),
       maxUses: r.maxUses,
       uses: r.uses,
-      expired:
-        (r.expiresAt instanceof Date ? r.expiresAt.getTime() : (r.expiresAt as number)) < now ||
-        (r.maxUses !== 0 && r.uses >= r.maxUses),
+      // The `revokedAt != null` term from the design §2 formula is intentionally
+      // omitted: the query already pre-filters `WHERE revokedAt IS NULL`, so
+      // revoked rows never appear in this list.
+      expired: isInviteExpired(r, now),
     }));
 
     return c.json({ invites: result });
@@ -295,10 +320,8 @@ export const invitesApp = new Hono()
 
     if (!row) return c.json({ code: "invites.not_found" }, 404);
 
-    const expiresAtMs =
-      row.expiresAt instanceof Date ? row.expiresAt.getTime() : (row.expiresAt as number);
-    const isExpired =
-      expiresAtMs < now || (row.maxUses !== 0 && row.uses >= row.maxUses) || row.revokedAt !== null;
+    const expiresAtMs = toMs(row.expiresAt);
+    const isExpired = isInviteExpired(row, now) || row.revokedAt !== null;
 
     if (isExpired) return c.json({ code: "invites.gone" }, 410);
 
@@ -316,7 +339,7 @@ export const invitesApp = new Hono()
    * creation) runs in a single transaction so any failure rolls back the
    * use increment.
    *
-   * Returns `{ ok: true, userId }` — no session is created server-side.
+   * Returns `{ ok: true }` — no session is created server-side.
    * The client signs in immediately after with the submitted credentials.
    */
   .post("/:code/accept", acceptIpRateLimit, zValidator("json", acceptInviteSchema), async (c) => {
