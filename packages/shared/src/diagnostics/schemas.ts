@@ -17,7 +17,7 @@ export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
  *  or malformed string straight into the `eq(records.requestId, …)` filter.
  *  This is the real fence; the client route's `rid` cap is only
  *  defence-in-depth. */
-const requestIdQuerySchema = z.string().regex(REQUEST_ID_PATTERN).optional();
+const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string
