@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { createClient } from "@libsql/client";
+import { sql } from "drizzle-orm";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +31,27 @@ export async function createInMemoryDb(): Promise<Db> {
   const client = createClient({ url: `file:${filePath}` });
   await client.execute("PRAGMA foreign_keys = ON");
   const db = drizzle(client, { schema });
+  await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+  return db;
+}
+
+/**
+ * Like {@link createInMemoryDb} but mirrors the *production* connection setup:
+ * only the `PRAGMA journal_mode=WAL` + `busy_timeout` that `initDb` applies, and
+ * crucially NO explicit `PRAGMA foreign_keys`. Use this to assert that libSQL
+ * enforces foreign keys by its per-connection default — the production path never
+ * enables them, and {@link createInMemoryDb}'s explicit `foreign_keys = ON` would
+ * otherwise mask a regression (an FK test on it proves nothing about prod). See
+ * #852 M1.
+ */
+export async function createProductionLikeDb(): Promise<Db> {
+  const dir = mkdtempSync(join(tmpdir(), "nama-test-prod-"));
+  tempDirs.push(dir);
+  const filePath = join(dir, "test.db");
+  const client = createClient({ url: `file:${filePath}` });
+  const db = drizzle(client, { schema });
+  await db.run(sql`PRAGMA journal_mode=WAL`);
+  await db.run(sql`PRAGMA busy_timeout=5000`);
   await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   return db;
 }

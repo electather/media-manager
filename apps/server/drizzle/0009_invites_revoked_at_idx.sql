@@ -1,0 +1,1 @@
+CREATE INDEX `invites_revoked_at_idx` ON `invites` (`revoked_at`);
