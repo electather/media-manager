@@ -6,10 +6,6 @@ import { runWithRequestContext, newRequestId } from "./request-context";
 import { HttpError, isExpectedUserError, isNoConnectionError } from "./http-errors";
 
 const REQUEST_ID_HEADER = "x-request-id";
-// Accepts request IDs that are 1–64 characters of alphanumeric, hyphen, or underscore only.
-// Rejects anything else (oversized, path-injection chars, etc.) and falls back to a generated ID.
-// `REQUEST_ID_PATTERN` is imported from `@nama/shared/diagnostics` so this header
-// check and the admin viewer query filter share one source of truth.
 
 /** Hono middleware that opens a request-scoped AsyncLocalStorage frame with a
  *  request ID (reused from `X-Request-Id` header when present). Also attaches the
@@ -25,6 +21,7 @@ const REQUEST_ID_HEADER = "x-request-id";
 export function requestContextMiddleware() {
   return async (c: Context, next: Next): Promise<void> => {
     const raw = c.req.header(REQUEST_ID_HEADER);
+    // Accepts 1–64 chars of alphanumeric, hyphen, or underscore; falls back to a generated ID.
     const requestId = raw && REQUEST_ID_PATTERN.test(raw) ? raw : newRequestId();
     c.set("requestId", requestId);
     try {
