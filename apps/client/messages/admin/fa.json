@@ -274,43 +274,17 @@
 
   "admin_users_invite_drawer_title": "دعوت کاربران",
   "admin_users_invite_drawer_subtitle": "یک لینک قابل اشتراک‌گذاری تولید کنید. دعوت‌شدگان نام، ایمیل و رمز عبور خود را انتخاب می‌کنند.",
-  "admin_users_invite_tab_email": "دعوت ایمیلی",
-  "admin_users_invite_tab_link": "تولید لینک",
-  "admin_users_invite_emails_label": "آدرس‌های ایمیل",
-  "admin_users_invite_emails_hint": "یکی در هر خط یا با کاما جدا شده. هر دعوت‌شونده یک لینک ۷ روزه از طریق ایمیل دریافت می‌کند.",
   "admin_users_invite_role_label": "نقش",
   "admin_users_invite_expires_label": "انقضای لینک پس از",
   "admin_users_invite_max_uses_label": "حداکثر استفاده",
   "admin_users_invite_max_uses_hint": "پس از اتمام، لینک دیگر کار نمی‌کند. برای لینک تک‌گیرنده ۱ انتخاب کنید یا ۰ برای نامحدود.",
-  "admin_users_invite_role_email_hint": "هر دعوت‌شونده با این نقش ایجاد می‌شود",
   "admin_users_invite_role_link_hint": "هر کسی با این لینک به عنوان ثبت‌نام می‌کند",
   "admin_users_invite_link_created_title": "لینک دعوت ایجاد شد",
   "admin_users_invite_link_share_label": "اشتراک‌گذاری لینک",
-  "admin_users_invite_link_send_by_email": "یا ارسال از طریق ایمیل",
   "admin_users_invite_generate_another": "تولید لینک دیگری",
   "admin_users_invite_cancel": "لغو",
   "admin_users_invite_done": "انجام شد",
   "admin_users_invite_generate": "تولید لینک",
-  "admin_users_invite_send": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "ارسال دعوت‌نامه",
-        "countPlural=other": "ارسال {count} دعوت‌نامه"
-      }
-    }
-  ],
-  "admin_users_invite_toast_sent": [
-    {
-      "declarations": ["input count", "input email", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "دعوت‌نامه به {email} ارسال شد",
-        "countPlural=other": "{count} دعوت‌نامه ارسال شد"
-      }
-    }
-  ],
   "admin_users_invite_toast_extended": "دعوت‌نامه تمدید شد",
   "admin_users_invite_toast_revoked": "دعوت‌نامه لغو شد",
   "admin_users_invite_toast_copied": "لینک دعوت کپی شد",

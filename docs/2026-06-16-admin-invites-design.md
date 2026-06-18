@@ -193,7 +193,7 @@ Registered in `apps/server/src/api/router.ts`. Mirrors `adminUsersApp`.
     endpoint handles re-delivery for `kind = 'email'` invites.)
   - **Exhausted guard:** if `uses >= maxUses` (and `maxUses != 0`) at the time of
     the call, the invite is fully consumed — extending the expiry alone would be
-    useless. Reject with `409 Conflict` and body `{ code: "INVITE_EXHAUSTED" }`
+    useless. Reject with `409 Conflict` and body `{ code: "invites.exhausted" }`
     so the admin knows to create a new invite. (An exhausted invite with
     `maxUses = 0` is impossible by definition.)
 - `DELETE /admin/invites/:id`

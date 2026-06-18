@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createInvite } from "../lib/fetchers";
-import { adminInvitesKeys } from "../lib/query-keys";
+import { adminInvitesKeys, adminUsersKeys } from "../lib/query-keys";
 import { AdminUsersApiError } from "../lib/types";
 
 interface Vars {
@@ -21,6 +21,8 @@ export function useCreateInvite() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: adminInvitesKeys.list() });
+      // Invalidate user counts which include the pending invite count.
+      void qc.invalidateQueries({ queryKey: adminUsersKeys.list() });
     },
   });
 }

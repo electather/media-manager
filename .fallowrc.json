@@ -71,7 +71,10 @@
       "**/plugin.ts",
       "packages/plugins/**",
       "apps/server/src/db/schema/**",
-      "apps/server/src/api/procedures/**"
+      "apps/server/src/api/procedures/**",
+      "apps/client/src/features/admin-users/lib/fetchers.ts",
+      "apps/client/src/features/admin-users/lib/types.ts",
+      "apps/client/src/features/admin-users/hooks/use-revoke-invite.ts"
     ]
   },
   "health": {
