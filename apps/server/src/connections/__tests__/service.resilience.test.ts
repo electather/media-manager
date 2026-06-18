@@ -300,8 +300,8 @@ describe("updateDisplayName guard (finding 2)", () => {
     // silently turning this into a false pass.
     expect(state.connections).toHaveLength(0);
     installPlugin();
-    // Sentinel: if a shared fixture pre-seeds connections this test would pass
-    // for the wrong reason (WHERE is ignored by the mock).
+    // Sentinel: if installPlugin() seeds a connection (it shouldn't), the
+    // WHERE-ignoring mock would return it and bypass the guard silently.
     expect(state.connections).toHaveLength(0);
 
     await expect(
