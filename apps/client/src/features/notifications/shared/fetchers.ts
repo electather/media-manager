@@ -1,9 +1,9 @@
 import type { NotificationCategory, AdminSettingsBody } from "@nama/shared/notifications";
 import { api } from "@/shared/lib/api";
-import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
+import { createReadJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } from "./types";
 
-const readJson = <R extends Response>(res: R) => readOkJson(res, NotificationsApiError);
+const readJson = createReadJson(NotificationsApiError);
 
 // fallow-ignore-next-line complexity
 function inboxQuery(filters: InboxFilters, cursor: string | null, limit = 50) {

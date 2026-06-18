@@ -50,11 +50,13 @@ export interface AdminInvite {
   expired: boolean;
 }
 
-// AdminUsersApiError carries status/body/code for mutation error toasts
-// (use-assign-role.ts, use-delete-user.ts). Render errors from Suspense reads
-// bubble to SettingsErrorBoundary which shows error.message — the typed fields
-// are not consumed there. A feature-local boundary that narrows on 403/404 is a
-// future improvement; the shared boundary is acceptable for now.
+// AdminUsersApiError carries status/body/code so the fetcher layer can throw a
+// typed error (it is bound via createReadJson in lib/fetchers.ts). Mutation
+// onError handlers surface the message through the shared errorMessage helper,
+// and render errors from Suspense reads bubble to SettingsErrorBoundary which
+// shows error.message — the typed fields are not consumed there. A feature-local
+// boundary that narrows on 403/404 is a future improvement; the shared boundary
+// is acceptable for now.
 export class AdminUsersApiError extends BaseApiError {
   constructor(status: number, body: ApiErrorBody | null) {
     super("AdminUsersApiError", status, body, `admin users request failed (${status})`);

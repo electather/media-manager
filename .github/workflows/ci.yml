@@ -42,6 +42,22 @@ jobs:
         # directly would fail because setup-vp does not surface it.
         run: vp run check:file-sizes
 
+      - name: Database migration drift check
+        if: always()
+        working-directory: apps/server
+        # The schema and committed migrations must agree. Regenerating must
+        # produce no new files or edits; a schema change that forgot its
+        # migration (e.g. #852 H1's missing invites_revoked_at_idx) fails here
+        # instead of silently shipping a prod DB without the index. porcelain
+        # catches untracked new migrations, which `git diff` alone would miss.
+        run: |
+          vp exec drizzle-kit generate
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            echo "::error::Schema/migration drift. Run 'bun run db:generate' and commit the generated migration."
+            git status --porcelain drizzle
+            exit 1
+          fi
+
       - name: Run tests
         if: always()
         run: vp test

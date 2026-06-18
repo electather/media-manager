@@ -274,43 +274,17 @@
 
   "admin_users_invite_drawer_title": "Invite users",
   "admin_users_invite_drawer_subtitle": "Generate a shareable link. Invitees pick their own name, email, and password.",
-  "admin_users_invite_tab_email": "Email invite",
-  "admin_users_invite_tab_link": "Generate link",
-  "admin_users_invite_emails_label": "Email addresses",
-  "admin_users_invite_emails_hint": "One per line, or separated by commas. Each invitee gets a 7-day link by email.",
   "admin_users_invite_role_label": "Role",
   "admin_users_invite_expires_label": "Link expires after",
   "admin_users_invite_max_uses_label": "Maximum uses",
   "admin_users_invite_max_uses_hint": "Once exhausted the link stops working. Pick 1 for a single-recipient link, or 0 for unlimited.",
-  "admin_users_invite_role_email_hint": "Each invitee will be created with this role",
   "admin_users_invite_role_link_hint": "Anyone with this link signs up as",
   "admin_users_invite_link_created_title": "Invite link created",
   "admin_users_invite_link_share_label": "Share link",
-  "admin_users_invite_link_send_by_email": "Or send by email",
   "admin_users_invite_generate_another": "Generate another link",
   "admin_users_invite_cancel": "Cancel",
   "admin_users_invite_done": "Done",
   "admin_users_invite_generate": "Generate link",
-  "admin_users_invite_send": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "Send invite",
-        "countPlural=other": "Send {count} invites"
-      }
-    }
-  ],
-  "admin_users_invite_toast_sent": [
-    {
-      "declarations": ["input count", "input email", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "Invite sent to {email}",
-        "countPlural=other": "{count} invites sent"
-      }
-    }
-  ],
   "admin_users_invite_toast_extended": "Invite extended",
   "admin_users_invite_toast_revoked": "Invite revoked",
   "admin_users_invite_toast_copied": "Invite link copied",

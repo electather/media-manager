@@ -28,6 +28,6 @@ export const extendInviteSchema = z.object({
  */
 export const acceptInviteSchema = z.object({
   name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
-  email: z.string().email(),
+  email: z.email(),
   password: passwordSchema,
 });
