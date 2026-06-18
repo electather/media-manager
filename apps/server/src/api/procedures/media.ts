@@ -9,7 +9,7 @@ import {
 } from "@nama/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
 import { ArtworkService } from "../../artwork";
-import { getCatalogService, toCanonicalRow, type CatalogService } from "../../catalog";
+import { getCatalogService, toCanonicalRow } from "../../catalog";
 import {
   addItem,
   decode,
@@ -28,6 +28,7 @@ import {
   composeDetails,
   composeSeasonAvailability,
   homeMediaSources,
+  makeRecommendationsMemo,
 } from "../../home";
 import { getMoodSummary, watchlistMediaSources } from "../../watchlist";
 import { libraryMediaSources } from "../../library";
@@ -133,21 +134,12 @@ const WATCHLIST_REQUEST_DEADLINE_MS = 5000;
 function buildSourceContext(userId: string): SourceContext {
   const mediaService = new MediaService(userId);
   const catalog = getCatalogService();
-  // Memoize the user's default rec list for this request so the home
-  // `recommendedForYou-*` registrations read it once across their eligibility
-  // gate and source `fetchRawSet`, rather than once per pass. This is the
-  // sibling of `home/internal/recommendations-memo.ts`'s `makeRecommendationsMemo`
-  // (same in-flight-promise semantics); it is inlined rather than reused because
-  // that helper is internal to `home` and the `home` barrel deliberately does
-  // not re-export `internal/**`, so this adapter cannot import it across the
-  // module boundary. Keep the two in sync if the memo semantics change.
-  let recsPending: ReturnType<CatalogService["getRecommendations"]> | undefined;
   return {
     userId,
     mediaService,
     catalog,
     statusBatch: new StatusBatchMemo(mediaService),
-    recommendations: () => (recsPending ??= catalog.getRecommendations(userId, "default")),
+    recommendations: makeRecommendationsMemo(catalog, userId),
     logger: consola,
     deadlineMs: Date.now() + REQUEST_DEADLINE_MS,
     getArtwork: (requests) => new ArtworkService(userId, catalog).getArtwork(requests),

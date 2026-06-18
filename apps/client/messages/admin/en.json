@@ -273,7 +273,7 @@
   ],
 
   "admin_users_invite_drawer_title": "Invite users",
-  "admin_users_invite_drawer_subtitle": "Send email invites or generate a shareable link. Invitees pick their password and land on Profile.",
+  "admin_users_invite_drawer_subtitle": "Generate a shareable link. Invitees pick their own name, email, and password.",
   "admin_users_invite_tab_email": "Email invite",
   "admin_users_invite_tab_link": "Generate link",
   "admin_users_invite_emails_label": "Email addresses",
@@ -311,7 +311,7 @@
       }
     }
   ],
-  "admin_users_invite_toast_resent": "Invite resent",
+  "admin_users_invite_toast_extended": "Invite extended",
   "admin_users_invite_toast_revoked": "Invite revoked",
   "admin_users_invite_toast_copied": "Invite link copied",
   "admin_users_invite_expires_1d": "1 day",
@@ -331,7 +331,7 @@
   "admin_users_invite_expired": "Expired",
   "admin_users_invite_expires_in": "expires {time}",
   "admin_users_invite_copy": "Copy",
-  "admin_users_invite_resend": "Resend",
+  "admin_users_invite_extend": "Extend",
   "admin_users_invite_revoke": "Revoke",
 
   "admin_users_detail_back": "All users",
@@ -508,6 +508,7 @@
   "admin_jobs_trigger_dialog_done": "Done",
   "admin_jobs_trigger_dialog_cancel": "Cancel",
   "admin_jobs_trigger_field_required_error": "This field is required",
+  "admin_jobs_trigger_field_invalid_number_error": "Enter a valid number",
 
   "admin_jobs_run_detail_tab_details": "Details",
   "admin_jobs_run_detail_tab_logs": "Logs",

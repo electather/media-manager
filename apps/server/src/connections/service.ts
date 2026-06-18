@@ -94,16 +94,27 @@ function buildPluginSummary(
   };
 }
 
+/**
+ * Applies `patch` to the connection row matching both `connectionId` and `userId`.
+ * Throws `connection.not_found` when zero rows are affected — the row was either
+ * absent or owned by another user. Using `.returning()` makes the check atomic,
+ * eliminating the TOCTOU window present in a SELECT-then-UPDATE pattern.
+ */
 async function updateConnectionWhere(
   db: Db,
   userId: string,
   connectionId: string,
   patch: Partial<typeof serviceConnections.$inferInsert>,
 ): Promise<void> {
-  await db
+  // Use RETURNING to detect zero-row updates so a row deleted between the
+  // caller's pre-check and this UPDATE surfaces as connection.not_found
+  // instead of silently succeeding with no effect.
+  const rows = await db
     .update(serviceConnections)
     .set({ ...patch, updatedAt: Date.now() })
-    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+    .returning({ id: serviceConnections.id });
+  if (rows.length === 0) throw notFound("connection.not_found", "connection not found");
 }
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
@@ -257,6 +268,10 @@ export const connectionsService = {
 
   async setDefault(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
+    // requireConnection fetches the row to obtain pluginId. The subsequent
+    // promoteToDefault transaction uses .returning() on the promotion UPDATE
+    // to verify atomically that the target row still exists at commit time,
+    // throwing connection.not_found (and rolling back the demotion) on a miss.
     const row = await requireConnection(db, args.connectionId, args.userId);
     await promoteToDefault(args.userId, row.pluginId, args.connectionId);
     await invalidateUserCache(args.userId);
@@ -280,10 +295,8 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    // Guard with requireConnection so a missing or foreign id throws
-    // connection.not_found (matching setDefault and updateUserConfig) instead
-    // of silently returning 200 OK with zero rows updated.
-    await requireConnection(db, args.connectionId, args.userId);
+    // updateConnectionWhere throws connection.not_found when the UPDATE
+    // affects zero rows, so no separate requireConnection guard is needed.
     await updateConnectionWhere(db, args.userId, args.connectionId, {
       displayName: args.displayName,
     });
@@ -325,7 +338,10 @@ export const connectionsService = {
       await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
-    await db
+    // Use RETURNING to detect a row deleted between the initial requireConnection
+    // check and this final UPDATE — the verification work above is wasted but
+    // the caller gets connection.not_found rather than a silent 200 no-op.
+    const updated = await db
       .update(serviceConnections)
       .set({
         userConfig: JSON.stringify(configToSave),
@@ -345,26 +361,48 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) throw notFound("connection.not_found", "connection not found");
     await invalidateUserCache(args.userId);
   },
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
-    if (!row) return;
-    await db
-      .delete(serviceConnections)
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      );
-    await invalidateUserCache(args.userId);
-    if (row.isDefault === 1) {
-      // Promote another enabled connection to default if any remain.
-      const next = await db
+    // requireConnection throws 404 for missing or foreign ids — prevents silent
+    // no-ops and stops callers from probing other users' connection ids.
+    const row = await requireConnection(db, args.connectionId, args.userId);
+    // Wrap the delete and the fallback-default promotion in one transaction so
+    // the SELECT-next and its promotion UPDATE see a consistent snapshot and the
+    // plugin can never be left with zero default connections. The delete uses
+    // .returning() so a row removed between requireConnection and this
+    // transaction surfaces as connection.not_found instead of letting the stale
+    // pre-check value drive a spurious promotion. The default flag is read back
+    // from the deleted row rather than the requireConnection pre-check, so a
+    // concurrent setDefault that flips isDefault before the DELETE commits still
+    // triggers the fallback promotion.
+    await db.transaction(async (tx) => {
+      const deleted = await tx
+        .delete(serviceConnections)
+        .where(
+          and(
+            eq(serviceConnections.id, args.connectionId),
+            eq(serviceConnections.userId, args.userId),
+          ),
+        )
+        .returning({ id: serviceConnections.id, isDefault: serviceConnections.isDefault });
+      if (deleted.length === 0) throw notFound("connection.not_found", "connection not found");
+      if (deleted[0]!.isDefault !== 1) return;
+      // Promote another enabled connection to default if any remain. `next` is
+      // read inside this transaction, so under SQLite's serialized writer model
+      // it cannot be deleted before the promotion UPDATE below — no extra
+      // zero-row guard is needed on the promotion itself. NOTE: this relies on
+      // SQLite's serialized writers. Under READ COMMITTED (the PostgreSQL
+      // default) the SELECT and UPDATE run in separate snapshots and a
+      // concurrent delete could race; if this codebase ever migrates off
+      // SQLite, add a .returning() guard on the promotion UPDATE here (same
+      // pattern as promoteToDefault).
+      const next = await tx
         .select()
         .from(serviceConnections)
         .where(
@@ -376,15 +414,13 @@ export const connectionsService = {
         )
         .orderBy(desc(serviceConnections.createdAt))
         .get();
-      if (next) {
-        await db
-          .update(serviceConnections)
-          .set({ isDefault: 1, updatedAt: Date.now() })
-          .where(
-            and(eq(serviceConnections.id, next.id), eq(serviceConnections.userId, args.userId)),
-          );
-      }
-    }
+      if (!next) return;
+      await tx
+        .update(serviceConnections)
+        .set({ isDefault: 1, updatedAt: Date.now() })
+        .where(and(eq(serviceConnections.id, next.id), eq(serviceConnections.userId, args.userId)));
+    });
+    await invalidateUserCache(args.userId);
   },
 
   // fallow-ignore-next-line complexity
@@ -403,7 +439,10 @@ export const connectionsService = {
       credentials,
       userConfig,
     );
-    await db
+    // Use RETURNING to detect a row deleted between the pre-check and this
+    // UPDATE. Zero rows means the connection was deleted in the window; return
+    // not_found rather than silently writing to a ghost row.
+    const updated = await db
       .update(serviceConnections)
       .set({
         status: result.ok ? "connected" : "error",
@@ -416,7 +455,9 @@ export const connectionsService = {
           eq(serviceConnections.id, args.connectionId),
           eq(serviceConnections.userId, args.userId),
         ),
-      );
+      )
+      .returning({ id: serviceConnections.id });
+    if (updated.length === 0) return { ok: false, message: "connection not found" };
     return result;
   },
 
