@@ -3,13 +3,17 @@ import { discoverTrendingResponseSchema } from "@nama/shared/media";
 import { searchResponseSchema, type SearchKind } from "@nama/shared/search";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";
-
-import { CommandMenuApiError } from "../types";
 
 async function throwOnError(res: Response): Promise<never> {
   const body = (await safeJson(res)) as ApiErrorBody | null;
-  throw new CommandMenuApiError(res.status, body);
+  throw new BaseApiError(
+    "CommandMenuApiError",
+    res.status,
+    body,
+    `command-menu request failed (${res.status})`,
+  );
 }
 
 export interface SearchResult {
