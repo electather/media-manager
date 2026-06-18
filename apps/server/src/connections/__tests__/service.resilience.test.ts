@@ -131,10 +131,18 @@ vi.mock("../../db/client", () => {
         },
       };
     },
-    delete(_table: unknown) {
+    delete(table: unknown) {
       return {
         where(_: unknown) {
-          return Promise.resolve(undefined);
+          // The delete handler chains .returning() to detect a zero-row delete
+          // (row removed before the transaction) and throw connection.not_found.
+          // WHERE is ignored — an empty rowset is how that guard is exercised.
+          const rows = rowsFor(table) as ConnectionRow[];
+          const result = Promise.resolve(undefined) as Promise<undefined> & {
+            returning(_fields: unknown): Promise<Array<{ id: string }>>;
+          };
+          result.returning = () => Promise.resolve(rows.map((r) => ({ id: r.id })));
+          return result;
         },
       };
     },

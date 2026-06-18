@@ -373,22 +373,27 @@ export const connectionsService = {
     // no-ops and stops callers from probing other users' connection ids.
     const row = await requireConnection(db, args.connectionId, args.userId);
     // Wrap the delete and the fallback-default promotion in one transaction so
-    // the SELECT-next and its promotion UPDATE see a consistent snapshot: a
-    // concurrent delete cannot remove the chosen candidate between the two
-    // steps and leave the plugin with zero default connections. The promotion
-    // uses .returning() so a zero-row miss surfaces rather than silently
-    // committing a no-op.
+    // the SELECT-next and its promotion UPDATE see a consistent snapshot and the
+    // plugin can never be left with zero default connections. The delete uses
+    // .returning() so a row removed between requireConnection and this
+    // transaction surfaces as connection.not_found instead of letting the stale
+    // pre-check value drive a spurious promotion.
     await db.transaction(async (tx) => {
-      await tx
+      const deleted = await tx
         .delete(serviceConnections)
         .where(
           and(
             eq(serviceConnections.id, args.connectionId),
             eq(serviceConnections.userId, args.userId),
           ),
-        );
+        )
+        .returning({ id: serviceConnections.id });
+      if (deleted.length === 0) throw notFound("connection.not_found", "connection not found");
       if (row.isDefault !== 1) return;
-      // Promote another enabled connection to default if any remain.
+      // Promote another enabled connection to default if any remain. `next` is
+      // read inside this transaction, so under SQLite's serialized writers it
+      // cannot be deleted before the promotion UPDATE below — no extra zero-row
+      // guard is needed on the promotion itself.
       const next = await tx
         .select()
         .from(serviceConnections)
@@ -402,17 +407,10 @@ export const connectionsService = {
         .orderBy(desc(serviceConnections.createdAt))
         .get();
       if (!next) return;
-      const promoted = await tx
+      await tx
         .update(serviceConnections)
         .set({ isDefault: 1, updatedAt: Date.now() })
-        .where(and(eq(serviceConnections.id, next.id), eq(serviceConnections.userId, args.userId)))
-        .returning({ id: serviceConnections.id });
-      // A candidate selected within this transaction must still exist for the
-      // promotion UPDATE; a zero-row result means the invariant cannot be
-      // restored, so roll back rather than commit zero default connections.
-      if (promoted.length === 0) {
-        throw notFound("connection.not_found", "connection not found");
-      }
+        .where(and(eq(serviceConnections.id, next.id), eq(serviceConnections.userId, args.userId)));
     });
     await invalidateUserCache(args.userId);
   },
