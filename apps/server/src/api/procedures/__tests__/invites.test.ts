@@ -459,9 +459,14 @@ describe("POST /invites/:code/accept — role re-validation at consumption", () 
     });
 
     // Orphan the invite: drop the role with FK enforcement off, then restore it.
+    // try/finally ensures FK enforcement is always re-enabled even if the delete
+    // throws — otherwise subsequent tests in this file would run with FKs off.
     await db.run(sql`PRAGMA foreign_keys=OFF`);
-    await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
-    await db.run(sql`PRAGMA foreign_keys=ON`);
+    try {
+      await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
+    } finally {
+      await db.run(sql`PRAGMA foreign_keys=ON`);
+    }
 
     const res = await buildApp().request(`/invites/${code}/accept`, {
       method: "POST",

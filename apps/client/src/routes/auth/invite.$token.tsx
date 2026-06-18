@@ -158,7 +158,9 @@ function useAcceptInvite(code: string) {
       // accept (the race the atomic use-guard exists to handle). Surface the same
       // "no longer valid" state as the preview, with a login link — not the raw
       // server message in the generic error paragraph.
-      else if (err.status === 410) setInviteGone(true);
+      // 403: the invite's role gained admin-tier permissions after minting (design
+      // §6). Route to the same GoneState — retrying would keep returning 403.
+      else if (err.status === 410 || err.status === 403) setInviteGone(true);
     },
   });
 
@@ -173,11 +175,15 @@ function useAcceptInvite(code: string) {
 }
 
 /** True when the mutation failed with something other than an expected 409
- *  (duplicate email) or 410 (invite gone) — both render dedicated states. */
+ *  (duplicate email), 410 (invite gone), or 403 (role escalated) — all three
+ *  render dedicated states and must not fall through to the generic paragraph. */
 function isGenericAcceptError(error: unknown): boolean {
   return (
     Boolean(error) &&
-    !(error instanceof AdminUsersApiError && (error.status === 409 || error.status === 410))
+    !(
+      error instanceof AdminUsersApiError &&
+      (error.status === 409 || error.status === 410 || error.status === 403)
+    )
   );
 }
 
