@@ -46,4 +46,8 @@ describe("isSearchKey", () => {
   it("returns false for a key with null at position 2", () => {
     expect(isSearchKey(["command-menu", "search", null])).toBe(false);
   });
+
+  it("returns false for a key with undefined at position 2", () => {
+    expect(isSearchKey(["command-menu", "search", undefined])).toBe(false);
+  });
 });
