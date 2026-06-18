@@ -29,13 +29,19 @@ export function parseUserConfig(raw: string | null | undefined, connectionId?: s
 }
 
 /**
- * Tracks fingerprints of corrupt userConfig rows that have already been logged
- * during this process lifetime. Deduplicated so that hot read paths (e.g.
- * media resolveConnections, MCP calls) do not flood the log with the same
- * warning at request rate. Evicted on restart, which is fine — the goal is
- * operator visibility, not guaranteed per-event delivery.
+ * Tracks corrupt rows that have already been logged so each distinct one emits
+ * exactly one warning per process lifetime. Evicted on restart, which is
+ * acceptable — operators need to see the warning at least once.
+ *
+ * Keyed by `connectionId` plus content fingerprint, not content alone: the goal
+ * is to stop a single bad row read on every request from flooding the log, while
+ * still surfacing every distinct corrupt row an operator needs to locate. Two
+ * different connections holding byte-identical corrupt blobs each warn once.
  */
 const warnedFingerprints = new Set<string>();
+
+/** Test-only escape hatch to clear the module-level dedupe state between tests. */
+export const _testOnly_clearWarnedFingerprints = (): void => warnedFingerprints.clear();
 
 /**
  * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
@@ -52,8 +58,9 @@ function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string)
     .update(raw)
     .digest("hex")
     .slice(0, 8)}`;
-  if (warnedFingerprints.has(fingerprint)) return;
-  warnedFingerprints.add(fingerprint);
+  const dedupeKey = `${connectionId ?? ""}:${fingerprint}`;
+  if (warnedFingerprints.has(dedupeKey)) return;
+  warnedFingerprints.add(dedupeKey);
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
     connectionId,
     fingerprint,

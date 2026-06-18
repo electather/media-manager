@@ -14,9 +14,13 @@ const CANONICAL_ID_PRECEDENCE = ["tmdb", "imdb", "tvdb"] as const;
  * highest-precedence id present (not the whole id subset) so two items that
  * point at the same logical title collapse to one key regardless of which id
  * subset the client happened to send — e.g. `{tmdb:"550"}` and
- * `{tmdb:"550", imdb:"tt1"}` both yield `movie|tmdb:550`. The id map is
- * guaranteed non-empty by `artworkIdMapSchema`, but we fall back to a
- * type-only key defensively so the function is total.
+ * `{tmdb:"550", imdb:"tt1"}` both yield `movie|tmdb:550`.
+ *
+ * Throws if the id map carries no recognised id. Callers must validate with
+ * `artworkIdMapSchema` first (which already rejects empty maps), or handle
+ * the error at the boundary. Throwing rather than returning a bare type key
+ * prevents two unrelated empty-id items of the same type from collapsing onto
+ * one canonical key and sharing each other's results.
  *
  * Single source of truth: both the service dedupe and the rate-limiter's
  * per-canonical token charge call this, so a request can never be charged a
@@ -27,10 +31,9 @@ export function canonicalArtworkKey(ids: ArtworkIdMap, type: MediaType): string 
     const value = ids[idType];
     if (value) return `${type}|${idType}:${value}`;
   }
-  // Unreachable for validated input — `artworkIdMapSchema.refine` rejects an
-  // empty id map. The type-only fallback keeps this total; it is intentional
-  // dead code, not a collapse path two real titles can hit.
-  return type;
+  throw new Error(
+    `canonicalArtworkKey: id map for type "${type}" carries no recognised id (tmdb/imdb/tvdb)`,
+  );
 }
 
 /** Number of unique canonical lookups in a batch (minimum 1). */
