@@ -119,24 +119,29 @@ describe("ModalSeasons", () => {
 });
 
 describe("ModalFeedback", () => {
-  it("renders like/dislike vote buttons in disabled state (persistence not yet wired)", () => {
+  it("renders like/dislike vote buttons as aria-disabled (persistence not yet wired)", () => {
     render(<ModalFeedback hasNote={false} />);
     const like = screen.getByRole("button", { name: /^like$/i });
     const dislike = screen.getByRole("button", { name: /^dislike$/i });
-    // Buttons must remain disabled until vote persistence is implemented to
-    // prevent users from believing their input was saved.
-    expect((like as HTMLButtonElement).disabled).toBe(true);
-    expect((dislike as HTMLButtonElement).disabled).toBe(true);
+    // Buttons must use aria-disabled so keyboard/screen-reader users can discover
+    // them while still being announced as unavailable until vote persistence lands.
+    expect(like.getAttribute("aria-disabled")).toBe("true");
+    expect(dislike.getAttribute("aria-disabled")).toBe("true");
+    // The buttons must NOT carry the HTML disabled attribute — that removes them
+    // from the tab order entirely, hiding them from assistive technology.
+    expect((like as HTMLButtonElement).disabled).toBe(false);
+    expect((dislike as HTMLButtonElement).disabled).toBe(false);
     expect(like.getAttribute("aria-pressed")).toBe("false");
     expect(dislike.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("renders note pill in disabled state (persistence not yet wired)", () => {
+  it("renders note pill as aria-disabled (persistence not yet wired)", () => {
     render(<ModalFeedback hasNote={false} />);
     const noteBtn = screen.getByRole("button", { name: /add a note/i });
-    // The note button must be disabled until note persistence is implemented;
-    // no onClick is wired since disabled buttons never fire.
-    expect((noteBtn as HTMLButtonElement).disabled).toBe(true);
+    // The note button uses aria-disabled to stay in the tab order while being
+    // announced as unavailable until note persistence is implemented.
+    expect(noteBtn.getAttribute("aria-disabled")).toBe("true");
+    expect((noteBtn as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("switches the note pill label when a note is present", () => {

@@ -297,9 +297,8 @@ export const invitesApp = new Hono()
     const { name, email, password } = c.req.valid("json");
     const db = getDb();
 
-    let userId: string;
     try {
-      userId = await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         // 1. Atomic use guard: a single conditional UPDATE that increments the
         //    use counter only when the invite is still valid (design §4.2 step 1).
         //    The guard lives entirely in the WHERE clause, so it is race-safe even
@@ -331,15 +330,13 @@ export const invitesApp = new Hono()
 
         // 3. Create the account. emailVerified=true because holding a valid
         //    invite link is sufficient proof of access (design §4.2 step 3).
-        const { userId: newUserId } = await insertCredentialUserTx(tx, {
+        await insertCredentialUserTx(tx, {
           name,
           email,
           password,
           roleId: inv.roleId,
           emailVerified: true,
         });
-
-        return newUserId;
       });
     } catch (err) {
       if (err instanceof Error && err.message === "INVITE_GONE") {
@@ -355,5 +352,5 @@ export const invitesApp = new Hono()
       throw err;
     }
 
-    return c.json({ ok: true, userId });
+    return c.json({ ok: true });
   });
