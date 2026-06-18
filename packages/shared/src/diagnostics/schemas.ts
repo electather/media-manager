@@ -16,7 +16,9 @@ export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
  *  {@link REQUEST_ID_PATTERN} so a scripted caller cannot push an unbounded
  *  or malformed string straight into the `eq(records.requestId, …)` filter.
  *  This is the real fence; the client route's `rid` cap is only
- *  defence-in-depth. */
+ *  defence-in-depth. `.max(64)` is chained before the regex so Zod emits an
+ *  actionable length error rather than a generic regex-mismatch on oversized
+ *  input (the `{1,64}` quantifier alone would handle the bound, but silently). */
 const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
