@@ -664,6 +664,44 @@ describe("notifications HTTP — admin settings persistence", () => {
       deliveryRetentionDays: 14,
     });
   });
+
+  it("returns 400 for an empty body — a no-op retention update must be rejected", async () => {
+    // Without refine, {} passes validation and silently bumps updatedAt, returning 200 with stale values.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts a partial body with only one field present", async () => {
+    // Guards the partial-update contract: if the refine's `||` became `&&`, a single-field update would 400.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ inboxRetentionDays: 30 }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).inboxRetentionDays).toBe(30);
+  });
+
+  it("accepts a partial body with only deliveryRetentionDays present", async () => {
+    // Covers the other branch of the symmetric `||` so dropping one branch fails here.
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deliveryRetentionDays: 7 }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).deliveryRetentionDays).toBe(7);
+  });
 });
 
 describe("notifications HTTP — inbox ?after forward cursor", () => {

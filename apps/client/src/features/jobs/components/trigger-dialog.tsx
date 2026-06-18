@@ -26,7 +26,7 @@ interface EnumOption {
 }
 
 function isMissing(value: unknown): boolean {
-  return isNil(value) || value === "";
+  return isNil(value) || (typeof value === "string" && value.trim() === "");
 }
 
 function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
@@ -43,36 +43,52 @@ function readEnumOptions(schema: JSONSchemaProperty): EnumOption[] | null {
 interface FieldItemProps {
   fieldKey: string;
   schema: JSONSchemaProperty;
-  value: FormFieldValue;
+  /** Raw string value as entered by the user. */
+  value: string;
   required: boolean;
   invalid: boolean;
-  onChange: (v: FormFieldValue) => void;
+  /** Distinguishes which type of validation error to display. */
+  invalidReason?: "required" | "invalid-number";
+  onChange: (v: string) => void;
 }
 
-/** JSON Schema numeric types whose form input is coerced to a `number`. */
+/** JSON Schema numeric types whose form input is coerced to a `number` at submit. */
 const NUMERIC_SCHEMA_TYPES = ["number", "integer"];
 
 function isNumericSchema(schema: JSONSchemaProperty): boolean {
   return schema.type != null && NUMERIC_SCHEMA_TYPES.includes(schema.type);
 }
 
-/** Coerces a raw input value to the appropriate type for a schema field.
+/** Coerces a raw string value to the typed payload value for a schema field.
  *
- * Numeric fields (`number` and `integer`) receive a numeric conversion so the
+ * Called once at submit rather than on each keystroke so that intermediate
+ * states like "1.", "-", or "1e" are not collapsed while the user is typing.
+ * Numeric fields (`number` and `integer`) are converted to `number` so the
  * POSTed payload matches the server's JSON-schema type declaration rather than
  * sending a string the server-side AJV validator would reject.
+ * An `integer` field is additionally truncated toward zero to strip any fractional part.
  */
+// fallow-ignore-next-line complexity
 function coerceValue(schema: JSONSchemaProperty, raw: string): FormFieldValue {
   if (isNumericSchema(schema)) {
-    if (raw === "") return null;
+    if (!raw.trim()) return null;
     const n = Number(raw);
-    return Number.isNaN(n) ? null : n;
+    if (!Number.isFinite(n)) return null;
+    return schema.type === "integer" ? Math.trunc(n) : n;
   }
   return raw;
 }
 
 // fallow-ignore-next-line complexity
-function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: FieldItemProps) {
+function FieldItem({
+  fieldKey,
+  schema,
+  value,
+  required,
+  invalid,
+  invalidReason,
+  onChange,
+}: FieldItemProps) {
   const enumOptions = readEnumOptions(schema);
   const labelText = fieldKey.replace(/([A-Z])/g, " $1").trim();
   const errorId = invalid ? `${fieldKey}-error` : undefined;
@@ -89,21 +105,18 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
         </FieldLabel>
       </FieldContent>
       {schema["x-picker"] === "user" ? (
-        <UserPicker value={value as string} onChange={onChange} />
+        <UserPicker value={value} onChange={onChange} />
       ) : schema["x-picker"] === "connection" ? (
-        <ConnectionPicker value={value as string} onChange={onChange} />
+        <ConnectionPicker value={value} onChange={onChange} />
       ) : enumOptions ? (
-        <Select value={typeof value === "string" ? value : ""} onValueChange={(v) => onChange(v)}>
+        <Select value={value} onValueChange={(v) => onChange(v ?? "")}>
           <SelectTrigger
             id={fieldKey}
             aria-invalid={invalid || undefined}
             aria-describedby={errorId}
           >
             <SelectValue placeholder={schema.description ?? "Select…"}>
-              {(v) =>
-                enumOptions.find((opt) => opt.value === v)?.label ??
-                (typeof v === "string" ? v : "")
-              }
+              {(v) => enumOptions.find((opt) => opt.value === v)?.label ?? v}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -117,16 +130,21 @@ function FieldItem({ fieldKey, schema, value, required, invalid, onChange }: Fie
       ) : (
         <Input
           id={fieldKey}
-          type={isNumericSchema(schema) ? "number" : "text"}
+          type="text"
+          inputMode={isNumericSchema(schema) ? "decimal" : undefined}
           required={required}
           aria-invalid={invalid || undefined}
           aria-describedby={errorId}
-          value={value == null ? "" : String(value)}
-          onChange={(e) => onChange(coerceValue(schema, e.target.value))}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
         />
       )}
       {invalid && (
-        <FieldError id={errorId}>{m.admin_jobs_trigger_field_required_error()}</FieldError>
+        <FieldError id={errorId}>
+          {invalidReason === "invalid-number"
+            ? m.admin_jobs_trigger_field_invalid_number_error()
+            : m.admin_jobs_trigger_field_required_error()}
+        </FieldError>
       )}
     </Field>
   );
@@ -143,7 +161,8 @@ export function DynamicTriggerDialog({
   onClose: () => void;
 }) {
   const [runId, setRunId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, FormFieldValue>>({});
+  /** Raw string values keyed by field name. Coercion to typed values happens at submit. */
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
@@ -165,17 +184,36 @@ export function DynamicTriggerDialog({
   );
 
   const triggerMutation = useTriggerJob();
+  const properties = useMemo(
+    () => (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {},
+    [job?.inputSchema?.properties],
+  );
+
+  // fallow-ignore-next-line complexity
+  const invalidNumericFields = useMemo(
+    () =>
+      Object.entries(properties)
+        .filter(([key, schema]) => {
+          const raw = formData[key] ?? "";
+          return isNumericSchema(schema) && raw.trim() !== "" && !Number.isFinite(Number(raw));
+        })
+        .map(([key]) => key),
+    [properties, formData],
+  );
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (missingFields.length > 0) {
+    if (missingFields.length > 0 || invalidNumericFields.length > 0) {
       setShowErrors(true);
       return;
     }
+    const coercedInput: Record<string, FormFieldValue> = Object.fromEntries(
+      Object.entries(formData).map(([key, raw]) => [key, coerceValue(properties[key] ?? {}, raw)]),
+    );
     triggerMutation.mutate(
       {
         jobId: job!.id,
-        input: Object.keys(formData).length > 0 ? formData : null,
+        input: Object.keys(coercedInput).length > 0 ? coercedInput : null,
       },
       {
         onSuccess: (data) => {
@@ -189,10 +227,32 @@ export function DynamicTriggerDialog({
     );
   };
 
+  // fallow-ignore-next-line complexity
+  function renderField([key, schema]: [string, JSONSchemaProperty]) {
+    return (
+      <FieldItem
+        key={key}
+        fieldKey={key}
+        schema={schema}
+        value={formData[key] ?? ""}
+        required={required.includes(key)}
+        invalid={
+          showErrors &&
+          ((required.includes(key) && isMissing(formData[key])) ||
+            invalidNumericFields.includes(key))
+        }
+        invalidReason={
+          showErrors && invalidNumericFields.includes(key) ? "invalid-number" : undefined
+        }
+        onChange={(v) => setFormData((prev) => ({ ...prev, [key]: v }))}
+      />
+    );
+  }
+
   const hasResult = !!runId;
-  const properties = (job?.inputSchema?.properties as Record<string, JSONSchemaProperty>) ?? {};
   const hasForm = Object.keys(properties).length > 0;
-  const canSubmit = !triggerMutation.isPending && missingFields.length === 0;
+  const canSubmit =
+    !triggerMutation.isPending && missingFields.length === 0 && invalidNumericFields.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -223,17 +283,7 @@ export function DynamicTriggerDialog({
             <div className="py-2">
               {hasForm ? (
                 <FieldGroup className="gap-4">
-                  {Object.entries(properties).map(([key, schema]) => (
-                    <FieldItem
-                      key={key}
-                      fieldKey={key}
-                      schema={schema}
-                      value={formData[key] ?? null}
-                      required={required.includes(key)}
-                      invalid={showErrors && required.includes(key) && isMissing(formData[key])}
-                      onChange={(v) => setFormData({ ...formData, [key]: v })}
-                    />
-                  ))}
+                  {Object.entries(properties).map(renderField)}
                 </FieldGroup>
               ) : (
                 <div className="text-sm text-muted-foreground">

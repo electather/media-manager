@@ -1,6 +1,7 @@
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
+import { diagnosticsKeys } from "../shared/query-keys";
 import { PerfStatsCards } from "./perf-stats-cards";
 import { PerfFilterBar } from "./perf-filter-bar";
 import { PerfAggregateTable, PerfAggregateTableSkeleton } from "./perf-aggregate-table";
@@ -26,14 +27,23 @@ export function PerfTab({
 }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<PerfAggregateGroup | null>(null);
+  const [, startTransition] = useTransition();
+
+  // Wrap in transition so the Suspense subtree stays alive during filter refetch.
+  const handleFiltersChange = (next: PerfFilters) => {
+    startTransition(() => {
+      onFiltersChange(next);
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <PerfStatsCards />
-      <PerfFilterBar filters={filters} onChange={onFiltersChange} />
+      <PerfFilterBar filters={filters} onChange={handleFiltersChange} />
       <DiagnosticsErrorBoundary
         title={m.diagnostics_perf_load_failed_title()}
         body={m.diagnostics_perf_load_failed_body()}
+        queryKey={diagnosticsKeys.perf.all()}
       >
         <Suspense fallback={<PerfAggregateTableSkeleton />}>
           <PerfAggregateTable
@@ -41,7 +51,7 @@ export function PerfTab({
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             selectedGroup={setSelectedGroup}
-            onClearRequestId={() => onFiltersChange({ ...filters, requestId: "" })}
+            onClearRequestId={() => handleFiltersChange({ ...filters, requestId: "" })}
           />
         </Suspense>
       </DiagnosticsErrorBoundary>
@@ -51,6 +61,9 @@ export function PerfTab({
         onClose={() => {
           setSelectedKey(null);
           setSelectedGroup(null);
+          // Always call onCloseDetail so that closing the sheet clears the
+          // ?pid deep-link even when the sheet was opened by a row-click (not
+          // the deep link itself). Both open paths share this close handler (#639).
           onCloseDetail();
         }}
         onJumpThread={onJumpThread}
