@@ -28,3 +28,12 @@ export async function readOkJson<R extends Response>(
   if (!res.ok) await throwOnApiError(res, ErrorCtor);
   return res.json() as Promise<R extends { json(): Promise<infer T> } ? T : unknown>;
 }
+
+/**
+ * Binds {@link readOkJson} to a feature's error class so each fetcher module no
+ * longer declares its own `const readJson = (res) => readOkJson(res, XxxApiError)`
+ * line. The returned helper preserves Hono's typed `res.json()` inference.
+ */
+export function createReadJson(ErrorCtor: ApiErrorCtor) {
+  return <R extends Response>(res: R) => readOkJson(res, ErrorCtor);
+}

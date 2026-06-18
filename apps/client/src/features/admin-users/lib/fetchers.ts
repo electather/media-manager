@@ -1,8 +1,8 @@
 import { api } from "@/shared/lib/api";
-import { readOkJson } from "@/shared/lib/api/throw-on-error";
+import { createReadJson } from "@/shared/lib/api/throw-on-error";
 import { AdminUsersApiError } from "./types";
 
-const readJson = <R extends Response>(res: R) => readOkJson(res, AdminUsersApiError);
+const readJson = createReadJson(AdminUsersApiError);
 
 export async function fetchAdminUsers() {
   return readJson(await api.admin.users.$get());

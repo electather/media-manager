@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
+import { errorMessage } from "@/shared/lib/diagnostics/api-error";
 import { rollbackQuery, snapshotQuery } from "@/shared/lib/query/optimistic";
 import { fetchDeleteUser } from "../lib/fetchers";
 import { adminUsersKeys } from "../lib/query-keys";
-import { AdminUsersApiError, type AdminUserSummary } from "../lib/types";
+import type { AdminUserSummary } from "../lib/types";
 
 interface ListSnapshot {
   users: AdminUserSummary[];
@@ -20,7 +21,7 @@ export function useDeleteUser() {
       ),
     onError: (err, _vars, ctx) => {
       if (ctx?.prev) rollbackQuery(qc, adminUsersKeys.list(), ctx.prev);
-      toast.error(err instanceof AdminUsersApiError ? err.message : String(err));
+      toast.error(errorMessage(err));
     },
     onSuccess: () => toast.success(m.admin_users_detail_delete_toast()),
     onSettled: () => {

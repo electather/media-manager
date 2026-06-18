@@ -20,6 +20,17 @@ export class BaseApiError extends Error {
   }
 }
 
+/**
+ * Resolves a user-facing message from an unknown thrown value. Every feature's
+ * mutation `onError` handler narrowed on its own `XxxApiError` subclass before
+ * reaching for `.message`, but each of those subclasses extends `Error`, so the
+ * narrowing is equivalent to a plain `instanceof Error` check. Centralising it
+ * here removes that repeated idiom from each feature's hooks.
+ */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 function deriveMessage(body: ApiErrorBody | null, fallback: string): string {
   return body?.message ?? fallback;
 }

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { errorMessage } from "@/shared/lib/diagnostics/api-error";
 import { createInvite } from "../lib/fetchers";
-import { adminInvitesKeys, adminUsersKeys } from "../lib/query-keys";
-import { AdminUsersApiError } from "../lib/types";
+import { adminInvitesKeys } from "../lib/query-keys";
 
 interface Vars {
   roleId: string;
@@ -17,12 +17,10 @@ export function useCreateInvite() {
     mutationFn: ({ roleId, expiresAt, maxUses }: Vars) =>
       createInvite({ roleId, expiresAt, maxUses: Number(maxUses) }),
     onError: (err) => {
-      toast.error(err instanceof AdminUsersApiError ? err.message : String(err));
+      toast.error(errorMessage(err));
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: adminInvitesKeys.list() });
-      // Invalidate user counts which include the pending invite count.
-      void qc.invalidateQueries({ queryKey: adminUsersKeys.list() });
     },
   });
 }
