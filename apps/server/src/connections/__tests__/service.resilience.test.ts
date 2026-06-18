@@ -131,12 +131,27 @@ vi.mock("../../db/client", () => {
         },
       };
     },
-    delete(_table: unknown) {
+    delete(table: unknown) {
       return {
         where(_: unknown) {
-          return Promise.resolve(undefined);
+          // The delete handler chains .returning() to detect a zero-row delete
+          // (row removed before the transaction) and throw connection.not_found.
+          // WHERE is ignored — an empty rowset is how that guard is exercised.
+          const rows = rowsFor(table) as ConnectionRow[];
+          const result = Promise.resolve(undefined) as Promise<undefined> & {
+            returning(_fields: unknown): Promise<Array<{ id: string; isDefault: number }>>;
+          };
+          result.returning = () =>
+            Promise.resolve(rows.map((r) => ({ id: r.id, isDefault: r.isDefault })));
+          return result;
         },
       };
+    },
+    // The transactional delete handler runs its delete + fallback-default
+    // promotion inside db.transaction(); the mock just invokes the callback
+    // with itself as the tx handle so the same select/update/delete shims apply.
+    transaction(fn: (tx: unknown) => unknown) {
+      return Promise.resolve(fn(dbMock));
     },
   };
 
