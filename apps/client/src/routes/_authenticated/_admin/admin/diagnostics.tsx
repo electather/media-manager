@@ -15,8 +15,17 @@ const tabSchema = z.enum(["errors", "performance"]).optional();
 
 const searchSchema = z.object({
   tab: tabSchema,
-  rid: z.string().optional(),
-  pid: z.string().optional(),
+  rid: z
+    .string()
+    .max(64)
+    .regex(/^[0-9a-zA-Z_-]+$/)
+    .optional(),
+  // pid is a plugin id (cuid2, 24 chars); 128 gives headroom for future ID format changes.
+  pid: z
+    .string()
+    .max(128)
+    .regex(/^[0-9a-zA-Z_-]+$/)
+    .optional(),
 });
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")({

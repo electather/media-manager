@@ -5,6 +5,22 @@ export const errorSeveritySchema = z.enum(ERROR_SEVERITIES);
 export const errorSourceSchema = z.enum(ERROR_SOURCES);
 export const perfKindSchema = z.enum(PERF_KINDS);
 
+/** Canonical request-id shape enforced at every trust boundary that accepts a
+ *  caller-supplied request id: the admin viewer query filter below and the
+ *  server's `X-Request-Id` header check (`apps/server/src/diagnostics/middleware.ts`).
+ *  1–64 chars of alphanumeric, hyphen, or underscore — matches the IDs the
+ *  server generates. Exported so both boundaries share one source of truth. */
+export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
+
+/** Request-id filter for the admin viewer query strings. Applies
+ *  {@link REQUEST_ID_PATTERN} so a scripted caller cannot push an unbounded
+ *  or malformed string straight into the `eq(records.requestId, …)` filter.
+ *  This is the real fence; the client route's `rid` cap is only
+ *  defence-in-depth. `.max(64)` is chained before the regex so Zod emits an
+ *  actionable length error rather than a generic regex-mismatch on oversized
+ *  input (the `{1,64}` quantifier alone would handle the bound, but silently). */
+const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
+
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string
  *  caps via an unbounded nested object. `undefined` is accepted at the type
@@ -80,8 +96,10 @@ export const errorListQuerySchema = z.object({
   pluginId: z.string().optional(),
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
-  requestId: z.string().optional(),
-  search: z.string().optional(),
+  requestId: requestIdQuerySchema,
+  // Cap free-text search so a scripted caller cannot pass an arbitrarily large
+  // string into the server-side LIKE/full-text query.
+  search: z.string().max(200).optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
   offset: z.coerce.number().min(0).default(0),
 });
@@ -92,7 +110,7 @@ export const perfListQuerySchema = z.object({
   kind: perfKindSchema.optional(),
   route: z.string().optional(),
   pluginId: z.string().optional(),
-  requestId: z.string().optional(),
+  requestId: requestIdQuerySchema,
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
   limit: z.coerce.number().min(1).max(200).default(50),
@@ -106,7 +124,7 @@ export const perfAggregateQuerySchema = z.object({
   groupBy: z.enum(["route", "plugin"]).default("route"),
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
-  requestId: z.string().optional(),
+  requestId: requestIdQuerySchema,
 });
 export type PerfAggregateQuery = z.infer<typeof perfAggregateQuerySchema>;
 

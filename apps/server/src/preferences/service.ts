@@ -172,18 +172,20 @@ export class PreferencesService {
 
   /**
    * Fires the manual rebuild job for `userId`. Used by the admin/user-facing
-   * `/api/preferences/rebuild` endpoint. Throws if the job is not yet
-   * registered (cold worker before `registerJobs()` settles).
+   * `/api/preferences/rebuild` endpoint. Throws `JobNotRegisteredError` if the
+   * job is not yet registered (cold worker before `registerJobs()` settles), or
+   * `JobNotTriggerableError` if the entry has the wrong kind or is missing its
+   * `triggerFromApi` handler (misconfiguration).
    */
   async triggerManualRebuild(
     input: { userId: string },
     meta: TriggerSource,
   ): Promise<{ runId: string; result: unknown }> {
     const entry = findJobEntry(PREFERENCE_MANUAL_REBUILD_JOB_ID);
-    if (!entry || entry.kind !== "triggerable") {
+    if (!entry) {
       throw new JobNotRegisteredError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
-    if (!entry.triggerFromApi) {
+    if (entry.kind !== "triggerable" || !entry.triggerFromApi) {
       throw new JobNotTriggerableError(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     }
     return entry.triggerFromApi(input, meta);

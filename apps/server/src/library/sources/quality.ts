@@ -1,6 +1,6 @@
 import { selectQualityPage, type LensFilters } from "../repo";
 import type { ExpandedLibraryRow } from "../types";
-import { ensureSeeded } from "../internal/reads";
+import { ensureSeeded } from "../service";
 import type { Cursor, MediaSource, RawPageToken, SourceContext } from "../../media";
 import { decodeQuality, qualityToken } from "./keyset";
 

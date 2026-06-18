@@ -29,11 +29,19 @@ export function parseUserConfig(raw: string | null | undefined, connectionId?: s
 }
 
 /**
- * Tracks fingerprints of corrupt rows that have already been logged. Evicted on
- * process restart, which is fine — operators need to see the warning at least
- * once, not on every request hitting the same bad row.
+ * Tracks corrupt rows that have already been logged so each distinct one emits
+ * exactly one warning per process lifetime. Evicted on restart, which is
+ * acceptable — operators need to see the warning at least once.
+ *
+ * Keyed by `connectionId` plus content fingerprint, not content alone: the goal
+ * is to stop a single bad row read on every request from flooding the log, while
+ * still surfacing every distinct corrupt row an operator needs to locate. Two
+ * different connections holding byte-identical corrupt blobs each warn once.
  */
 const warnedFingerprints = new Set<string>();
+
+/** Test-only escape hatch to clear the module-level dedupe state between tests. */
+export const _testOnly_clearWarnedFingerprints = (): void => warnedFingerprints.clear();
 
 /**
  * Surfaces a corrupt `userConfig` row so operators can locate it. The owning
@@ -42,16 +50,17 @@ const warnedFingerprints = new Set<string>();
  * could leak one into the logs. A length + short content hash is enough to tell
  * corrupt rows apart and confirm a re-occurrence without exposing any content.
  *
- * Each distinct corrupt row (identified by its fingerprint) is logged at most
- * once per process lifetime to avoid log flooding on hot read paths.
+ * Each distinct fingerprint is logged at most once per process lifetime to
+ * avoid flooding the log on hot read paths.
  */
 function warnCorruptUserConfig(raw: string, err: unknown, connectionId?: string): void {
   const fingerprint = `${raw.length} chars, sha256=${createHash("sha256")
     .update(raw)
     .digest("hex")
     .slice(0, 8)}`;
-  if (warnedFingerprints.has(fingerprint)) return;
-  warnedFingerprints.add(fingerprint);
+  const dedupeKey = `${connectionId ?? ""}:${fingerprint}`;
+  if (warnedFingerprints.has(dedupeKey)) return;
+  warnedFingerprints.add(dedupeKey);
   consola.warn("Failed to parse serviceConnections.userConfig; treating as empty", {
     connectionId,
     fingerprint,
