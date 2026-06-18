@@ -8,7 +8,7 @@
  */
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 vi.mock("../../../env", () => ({
   env: {
@@ -65,6 +65,7 @@ vi.mock("../../../api/rate-limit", () => ({
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,
+  createProductionLikeDb,
   type Db,
 } from "../../../__tests__/helpers/in-memory-db";
 import { user } from "../../../db/schema/auth";
@@ -72,7 +73,7 @@ import { roles, rolePermissions, userRoles } from "../../../db/schema/auth/roles
 import { invites } from "../../../db/schema/auth/invites";
 import { account } from "../../../db/schema/auth";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
-import { adminInvitesApp, invitesApp } from "../invites";
+import { adminInvitesApp, invitesApp, isEmailUniqueViolation } from "../invites";
 
 const ACTING_ADMIN_ID = "acting-admin";
 const ADMIN_ROLE_ID = "role_admin";
@@ -389,6 +390,205 @@ describe("POST /invites/:code/accept — maxUses=1 sequential double-accept", ()
       }),
     });
     expect(second.status).toBe(410);
+  });
+});
+
+// ─── Accept role re-validation at consumption (#852 L1a/L1b) ──────────────────
+
+describe("POST /invites/:code/accept — role re-validation at consumption", () => {
+  beforeEach(seedBaseData);
+
+  // L1a: the #576 escalation guard runs at creation, but a role can gain an
+  // admin-tier permission after the invite is minted. Accepting must re-check so
+  // an unauthenticated stranger is never granted a now-admin-tier role.
+  it("returns 403 and does NOT consume a use when the bound role gained an admin-tier permission after minting", async () => {
+    const code = "ESCAL8-555555-FFFFFF";
+    await db.insert(invites).values({
+      id: "inv-escalate",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    // The role becomes admin-tier *after* the invite exists.
+    await db.insert(rolePermissions).values({ roleId: MEMBER_ROLE_ID, permission: "admin:users" });
+
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "X",
+        email: "escalate@example.com",
+        password: "password-longer-12",
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("invites.admin_role");
+
+    // The rejection rolled back the increment — no use was burned.
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.code, code))
+      .get();
+    expect(inv?.uses).toBe(0);
+  });
+
+  // L1b: a role deleted after the invite was minted leaves the invite pointing at
+  // a missing role. The preview already returns 410 for this; accept must agree
+  // rather than assign a permissionless ghost role / hit the role_id FK. (FK is
+  // disabled only to *create* the orphan state — which production's enforced FK
+  // would otherwise block — not to test it.)
+  it("returns 410 and does NOT consume a use when the bound role was deleted after minting", async () => {
+    const code = "ORPHAN-666666-AAAAAA";
+    await db.insert(invites).values({
+      id: "inv-orphan",
+      code,
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    // Orphan the invite: drop the role with FK enforcement off, then restore it.
+    // try/finally ensures FK enforcement is always re-enabled even if the delete
+    // throws — otherwise subsequent tests in this file would run with FKs off.
+    await db.run(sql`PRAGMA foreign_keys=OFF`);
+    try {
+      await db.delete(roles).where(eq(roles.id, MEMBER_ROLE_ID));
+    } finally {
+      await db.run(sql`PRAGMA foreign_keys=ON`);
+    }
+
+    const res = await buildApp().request(`/invites/${code}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "X",
+        email: "orphan@example.com",
+        password: "password-longer-12",
+      }),
+    });
+
+    expect(res.status).toBe(410);
+
+    const inv = await db
+      .select({ uses: invites.uses })
+      .from(invites)
+      .where(eq(invites.code, code))
+      .get();
+    expect(inv?.uses).toBe(0);
+  });
+});
+
+// ─── Foreign-key enforcement (#852 M1) ────────────────────────────────────────
+
+// Runs against a PRODUCTION-LIKE db — WAL + busy_timeout only, NO explicit
+// `PRAGMA foreign_keys` (just like getDb()+initDb()). This proves libSQL enforces
+// FKs by its per-connection default; using the FK-on `createInMemoryDb` helper
+// here would be a tautology that asserts nothing about the production path.
+describe("invites foreign-key enforcement (production connection setup)", () => {
+  let prodDb: Db;
+
+  beforeEach(async () => {
+    prodDb = await createProductionLikeDb();
+    await prodDb.insert(roles).values({
+      id: MEMBER_ROLE_ID,
+      name: "Member",
+      isSystem: 1,
+      createdAt: 0,
+      updatedAt: 0,
+    });
+    await prodDb
+      .insert(user)
+      .values({ id: ACTING_ADMIN_ID, name: "Admin", email: "a@example.com" });
+  });
+
+  it("reports foreign_keys ON without any explicit PRAGMA", async () => {
+    const row = (await prodDb.get(sql`PRAGMA foreign_keys`)) as
+      | { foreign_keys: number }
+      | undefined;
+    expect(row?.foreign_keys).toBe(1);
+  });
+
+  // Locks the production guarantee that `invited_by … ON DELETE SET NULL` fires:
+  // deleting the creating admin must null the column, not leave a dangling id.
+  it("nulls invited_by when the creating admin is deleted (ON DELETE SET NULL)", async () => {
+    await prodDb.insert(invites).values({
+      id: "inv-fk",
+      code: "FKTEST-777777-BBBBBB",
+      roleId: MEMBER_ROLE_ID,
+      invitedBy: ACTING_ADMIN_ID,
+      createdAt: new Date(Date.now()),
+      expiresAt: new Date(FUTURE_EXPIRY),
+      maxUses: 5,
+      uses: 0,
+    });
+
+    // Production deletes the user with a plain (non-tx) delete (users.ts).
+    await prodDb.delete(user).where(eq(user.id, ACTING_ADMIN_ID));
+
+    const inv = await prodDb
+      .select({ invitedBy: invites.invitedBy })
+      .from(invites)
+      .where(eq(invites.id, "inv-fk"))
+      .get();
+    expect(inv?.invitedBy).toBeNull();
+  });
+
+  it("rejects an invite insert that references a non-existent role (role_id FK enforced)", async () => {
+    await expect(
+      prodDb.insert(invites).values({
+        id: "inv-bad-fk",
+        code: "BADFK0-888888-CCCCCC",
+        roleId: "role_does_not_exist",
+        invitedBy: ACTING_ADMIN_ID,
+        createdAt: new Date(Date.now()),
+        expiresAt: new Date(FUTURE_EXPIRY),
+        maxUses: 1,
+        uses: 0,
+      }),
+    ).rejects.toThrow();
+  });
+});
+
+// ─── isEmailUniqueViolation matcher (#852 L1c) ────────────────────────────────
+
+// A true concurrent same-email accept race is not reproducible under single-writer
+// in-memory SQLite, so the catch→409 mapping is verified at the matcher level: it
+// must recognise the user.email UNIQUE violation across driver wordings without
+// rewriting an unrelated UNIQUE failure (which would mask a different bug).
+describe("isEmailUniqueViolation", () => {
+  it("matches the user.email UNIQUE violation by message", () => {
+    expect(isEmailUniqueViolation(new Error("UNIQUE constraint failed: user.email"))).toBe(true);
+  });
+
+  it("matches the SQLite code form scoped to user.email", () => {
+    const err = Object.assign(new Error("constraint failed on user.email"), {
+      code: "SQLITE_CONSTRAINT_UNIQUE",
+    });
+    expect(isEmailUniqueViolation(err)).toBe(true);
+  });
+
+  it("does NOT match an unrelated UNIQUE violation", () => {
+    expect(isEmailUniqueViolation(new Error("UNIQUE constraint failed: invites.code"))).toBe(false);
+    const codeErr = Object.assign(new Error("UNIQUE constraint failed: invites.code"), {
+      code: "SQLITE_CONSTRAINT_UNIQUE",
+    });
+    expect(isEmailUniqueViolation(codeErr)).toBe(false);
+  });
+
+  it("does NOT match a non-error value", () => {
+    expect(isEmailUniqueViolation("nope")).toBe(false);
+    expect(isEmailUniqueViolation(null)).toBe(false);
   });
 });
 

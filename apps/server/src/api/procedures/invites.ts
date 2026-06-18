@@ -11,16 +11,24 @@
 import { Hono } from "hono";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { createInviteSchema, extendInviteSchema, acceptInviteSchema } from "@nama/shared/invites";
-import { requireSession, requirePermission, PERMISSIONS, sessionUserId } from "../../auth";
-// Design §4.2 step 3 mandates this exact tx-aware primitive (the same one claimBootstrap composes with its own transaction).
+import {
+  requireSession,
+  requirePermission,
+  PERMISSIONS,
+  sessionUserId,
+  roleHasAdminTierPermission,
+} from "../../auth";
+// Design §4.2 step 4 mandates this exact tx-aware primitive (the same one claimBootstrap composes with
+// its own transaction). `hashPassword` is the matching scrypt the sign-in path verifies against; accept
+// runs it before opening the transaction so scrypt never holds the write lock (#852 L2).
 // fallow-ignore-next-line boundary-violation
-import { insertCredentialUserTx } from "../../auth/internal/create-user";
+import { insertCredentialUserWithHashTx, hashPassword } from "../../auth/internal/create-user";
 import { getDb } from "../../db/client";
 import { user } from "../../db/schema/auth";
 import { roles } from "../../db/schema/auth/roles";
 import { invites } from "../../db/schema/auth/invites";
 import { zValidator } from "../../diagnostics/validator";
-import { notFound, badRequest, conflict, internal } from "../../diagnostics/http-errors";
+import { notFound, badRequest, conflict, forbidden, internal } from "../../diagnostics/http-errors";
 import { env } from "../../env";
 import { requireAssignableRole } from "./assignable-role";
 import { publicIpRateLimit, acceptIpRateLimit } from "../rate-limit";
@@ -50,6 +58,25 @@ function generateInviteCode(): string {
 function buildInviteUrl(code: string, requestUrl: string): string {
   const base = env.APP_EXTERNAL_URL ?? new URL(requestUrl).origin;
   return `${base}/auth/invite/${code}`;
+}
+
+/**
+ * True when `err` is the `user.email` UNIQUE violation. The accept transaction's
+ * pre-INSERT SELECT (step 3) catches the common duplicate cleanly; this backstops
+ * the narrow race where two requests for the same new email both pass that SELECT
+ * and one then loses the UNIQUE race on INSERT — so it surfaces as a clean 409
+ * rather than a raw 500. Driver wording varies, so accept either the message form
+ * or the SQLite code form (scoped to `user.email` so an unrelated UNIQUE is not
+ * silently rewritten).
+ * @internal Exported for unit tests only; not part of the public module API.
+ */
+export function isEmailUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.message.includes("UNIQUE constraint failed: user.email") ||
+      ((err as { code?: string }).code === "SQLITE_CONSTRAINT_UNIQUE" &&
+        err.message.includes("user.email")))
+  );
 }
 
 // ─── Admin sub-app ─────────────────────────────────────────────────────────────
@@ -297,14 +324,39 @@ export const invitesApp = new Hono()
     const { name, email, password } = c.req.valid("json");
     const db = getDb();
 
+    // Preflight: cheap validity check before the ~100ms scrypt hash, reducing
+    // CPU exposure from public bogus accepts. TOCTOU-safe — the in-transaction
+    // UPDATE (step 1) is the authoritative race-safe guard; this only avoids
+    // paying hash cost for obviously-invalid codes.
+    const preflightNow = Date.now();
+    const preflightExists = await db
+      .select({ id: invites.id })
+      .from(invites)
+      .where(
+        and(
+          eq(invites.code, code),
+          or(eq(invites.maxUses, 0), sql`${invites.uses} < ${invites.maxUses}`),
+          gt(invites.expiresAt, new Date(preflightNow)),
+          isNull(invites.revokedAt),
+        ),
+      )
+      .get();
+    if (!preflightExists) return c.json({ code: "invites.gone" }, 410);
+
+    // Hash the password BEFORE opening the transaction. scrypt is deliberately
+    // ~100ms, and `db.transaction` issues `BEGIN IMMEDIATE` (SQLite's single-writer
+    // lock) up front — hashing inside would hold that lock for the full hash on
+    // every accept, queuing other writers until `busy_timeout` fails them (#852 L2).
+    const passwordHash = await hashPassword(password);
+
     try {
       await db.transaction(async (tx) => {
         // 1. Atomic use guard: a single conditional UPDATE that increments the
         //    use counter only when the invite is still valid (design §4.2 step 1).
-        //    The guard lives entirely in the WHERE clause, so it is race-safe even
-        //    under a multi-writer backend (libSQL/Turso) — no read-then-write
-        //    window. `.returning()` hands back the role so we avoid a second read.
-        //    Zero rows returned ⇒ consumed/expired/revoked ⇒ 410 Gone.
+        //    Only THIS step is race-safe by construction — the guard lives entirely
+        //    in the WHERE clause, so even under a multi-writer backend (libSQL/Turso)
+        //    there is no read-then-write window. `.returning()` hands back the role
+        //    so we avoid a second read. Zero rows ⇒ consumed/expired/revoked ⇒ 410.
         const nowMs = Date.now();
         const [inv] = await tx
           .update(invites)
@@ -321,19 +373,48 @@ export const invitesApp = new Hono()
 
         if (!inv) throw new Error("INVITE_GONE");
 
-        // 2. Unique-email check inside the transaction (not via requireUniqueEmail,
+        // 2. Re-validate the bound role at consumption time. Both checks read the
+        //    *current committed* role state — these rows are never mutated by this
+        //    transaction, so reading the role's slug here (and its permissions via
+        //    the auth barrel below) is correct and cannot deadlock the open write:
+        //    libSQL readers never block on a writer.
+        const role = await tx
+          .select({ id: roles.id, systemSlug: roles.systemSlug })
+          .from(roles)
+          .where(eq(roles.id, inv.roleId))
+          .get();
+        //   (a) Role deleted since the invite was minted ⇒ mirror the preview's
+        //       orphaned-role guard (a null roleName there → 410) instead of
+        //       assigning a permissionless ghost role / hitting the role_id FK (L1b).
+        if (!role) throw new Error("INVITE_GONE");
+        //   (b) Re-run the #576 escalation guard at consumption time: if the role
+        //       gained an admin-tier permission after the invite was minted, an
+        //       unauthenticated stranger must not be granted it (L1a). The check
+        //       runs inside the txn so a rejection rolls back the use increment.
+        //       `roleHasAdminTierPermission` calls getDb() — a separate connection
+        //       from `tx`. In WAL mode this is correct: the reader sees the latest
+        //       committed permissions, which is exactly what the guard requires.
+        if (await roleHasAdminTierPermission(role.id, role.systemSlug)) {
+          throw forbidden(
+            "invites.admin_role",
+            "this invite's role now grants admin-tier permissions and can no longer be accepted",
+          );
+        }
+
+        // 3. Unique-email check inside the transaction (not via requireUniqueEmail,
         //    which calls getDb() directly and is not tx-aware).
         const dup = await tx.select({ id: user.id }).from(user).where(eq(user.email, email)).get();
         if (dup) {
           throw new Error("EMAIL_TAKEN");
         }
 
-        // 3. Create the account. emailVerified=true because holding a valid
-        //    invite link is sufficient proof of access (design §4.2 step 3).
-        await insertCredentialUserTx(tx, {
+        // 4. Create the account from the precomputed hash. emailVerified=true
+        //    because holding a valid invite link is sufficient proof of access
+        //    (design §4.2 step 4).
+        await insertCredentialUserWithHashTx(tx, {
           name,
           email,
-          password,
+          passwordHash,
           roleId: inv.roleId,
           emailVerified: true,
         });
@@ -342,7 +423,11 @@ export const invitesApp = new Hono()
       if (err instanceof Error && err.message === "INVITE_GONE") {
         return c.json({ code: "invites.gone" }, 410);
       }
-      if (err instanceof Error && err.message === "EMAIL_TAKEN") {
+      // Step 3 narrows the common duplicate to a clean 409, but two requests for
+      // the same new email can both pass that SELECT and one then loses the
+      // `user.email` UNIQUE race on INSERT. Map that to the same 409 (the txn still
+      // rolled back the increment) rather than leaking a raw 500.
+      if (err instanceof Error && (err.message === "EMAIL_TAKEN" || isEmailUniqueViolation(err))) {
         throw conflict(
           "invites.email_taken",
           "an account with this email already exists — please sign in",

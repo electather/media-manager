@@ -135,6 +135,7 @@ function useAcceptInvite(code: string) {
   const navigate = useNavigate();
   const [signInFailed, setSignInFailed] = useState(false);
   const [emailTaken, setEmailTaken] = useState(false);
+  const [inviteGone, setInviteGone] = useState(false);
 
   const mutation = useMutation({
     mutationFn: (values: AcceptValues) => acceptInvite(code, values),
@@ -150,26 +151,45 @@ function useAcceptInvite(code: string) {
       void navigate({ to: "/setup" });
     },
     onError: (err) => {
-      if (err instanceof AdminUsersApiError && err.status === 409) setEmailTaken(true);
+      if (!(err instanceof AdminUsersApiError)) return;
+      // 409: the email is taken — keep them on the form with the inline hint.
+      if (err.status === 409) setEmailTaken(true);
+      // 410: the invite was consumed/expired/revoked between the preview and the
+      // accept (the race the atomic use-guard exists to handle). Surface the same
+      // "no longer valid" state as the preview, with a login link — not the raw
+      // server message in the generic error paragraph.
+      // 403: the invite's role gained admin-tier permissions after minting (design
+      // §6). Route to the same GoneState — retrying would keep returning 403.
+      else if (err.status === 410 || err.status === 403) setInviteGone(true);
     },
   });
 
   const submit = async (values: AcceptValues) => {
     setEmailTaken(false);
     setSignInFailed(false);
+    setInviteGone(false);
     await mutation.mutateAsync(values);
   };
 
-  return { mutation, submit, signInFailed, emailTaken, setEmailTaken };
+  return { mutation, submit, signInFailed, emailTaken, setEmailTaken, inviteGone };
 }
 
-/** True when the mutation failed with something other than a 409 duplicate-email. */
+/** True when the mutation failed with something other than an expected 409
+ *  (duplicate email), 410 (invite gone), or 403 (role escalated) — all three
+ *  render dedicated states and must not fall through to the generic paragraph. */
 function isGenericAcceptError(error: unknown): boolean {
-  return Boolean(error) && !(error instanceof AdminUsersApiError && error.status === 409);
+  return (
+    Boolean(error) &&
+    !(
+      error instanceof AdminUsersApiError &&
+      (error.status === 409 || error.status === 410 || error.status === 403)
+    )
+  );
 }
 
 function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
-  const { mutation, submit, signInFailed, emailTaken, setEmailTaken } = useAcceptInvite(code);
+  const { mutation, submit, signInFailed, emailTaken, setEmailTaken, inviteGone } =
+    useAcceptInvite(code);
 
   const form = useForm({
     defaultValues: { name: "", email: "", password: "" },
@@ -177,6 +197,12 @@ function AcceptForm({ code, roleName }: { code: string; roleName: string }) {
   });
 
   const isBusy = form.state.isSubmitting || mutation.isPending || mutation.isSuccess;
+
+  // An invite that became invalid mid-accept gets the same terminal state the
+  // preview shows, so retrying the form (which would keep 410ing) is not offered.
+  if (inviteGone) {
+    return <GoneState />;
+  }
 
   if (signInFailed) {
     return <SignInFailedState />;

@@ -221,6 +221,13 @@ keyed by `clientIp`.
   - Look up by code. Return `InvitePreviewDTO` when active; `404` when missing;
     `410` when expired / exhausted / revoked.
 - `POST /invites/:code/accept` (`zValidator("json", acceptInviteSchema)`)
+  - **Password hashed before the transaction.** scrypt is ~100ms; `db.transaction`
+    issues `BEGIN IMMEDIATE` up front, so hashing inside would hold SQLite's
+    single-writer lock for the full hash duration on every accept. The handler
+    hashes the password first, then passes the resulting `passwordHash` into the
+    transaction (#852 L2). A cheap preflight `SELECT` runs before hashing to
+    reject obviously-invalid codes without paying the scrypt cost; the
+    in-transaction `UPDATE` remains the authoritative race-safe guard (TOCTOU-safe).
   - Runs entirely inside **one `db.transaction`** so a later failure rolls back
     the use-count increment (no silently-burned use):
     1. **Atomic use guard** (single statement, race-safe under SQLite's
@@ -235,14 +242,23 @@ keyed by `clientIp`.
        ```
        0 rows changed ⇒ throw → `410 Gone` (consumed/expired/revoked between
        preview and accept).
-    2. **Unique-email check** within the txn — inline a `SELECT` on `user.email`
+    2. **Re-validate the bound role** at consumption time. Uses the current
+       committed role state (two sub-checks, both roll back the increment on failure):
+       - Role deleted since minting ⇒ throw → `410 Gone` (mirrors the preview's
+         orphaned-role guard; avoids assigning a permissionless ghost role or
+         hitting the `role_id` FK).
+       - Role gained an admin-tier permission since minting ⇒ throw → `403
+         Forbidden` (re-escalation guard: re-runs the §4.1 `requireAssignableRole`
+         parity check so an unauthenticated stranger cannot be granted a
+         now-admin-tier role, #852 L1a).
+    3. **Unique-email check** within the txn — inline a `SELECT` on `user.email`
        using `tx` directly (do **not** call `requireUniqueEmail` from `users.ts`;
        that function calls `getDb()` internally and is not tx-aware). Duplicate ⇒
        throw → `409` with an "account exists — log in" body. (Checked before the
        insert so the failure is a clean 409, not a raw UNIQUE-constraint error; the
        txn rolls back the increment from step 1.)
-    3. **Create the account** via `insertCredentialUserTx(tx, { email, password,`
-       `name, roleId, emailVerified: true })` from
+    4. **Create the account** via `insertCredentialUserWithHashTx(tx, { email,`
+       `passwordHash, name, roleId, emailVerified: true })` from
        `apps/server/src/auth/internal/create-user.ts`. This is the same primitive
        `claimBootstrap` uses inside its own transaction, so it composes with our
        `tx`. It writes the `user` + credential `account` rows directly (bypassing
@@ -303,8 +319,10 @@ Replace the stub:
   primitives from the login/register routes.
 - Submit ⇒ `acceptInvite` (creates the account). On success, **sign in** with the
   same email + password via Better Auth email sign-in (the server minted no
-  session), then redirect to `/setup`. Surface `409` (account exists — link to
-  login) and `410` (invite consumed/expired) inline.
+  session), then redirect to `/setup`. Surface `403` (invite role now grants
+  admin-tier permissions — show generic "this invite is no longer valid" message),
+  `409` (account exists — link to login), and `410` (invite consumed/expired)
+  inline.
 - **Sign-in failure recovery:** account creation and sign-in are separate calls.
   If `acceptInvite` succeeds (2xx) but the subsequent `signIn.email` call fails
   (network error, transient Better Auth failure, etc.), the account already exists
@@ -325,6 +343,10 @@ Vitest + in-memory SQLite, mirroring
 - Accept happy path: user + credential account created with `emailVerified=true`,
   role assigned, `uses` incremented by 1.
 - Accept on expired / exhausted (`uses >= maxUses`) / revoked ⇒ 410.
+- Accept when the invite's role has gained an admin-tier permission since minting
+  ⇒ 403, and `uses` is **not** consumed (transaction rollback — assert the row's
+  `uses` is unchanged). Also covers the case where the bound role was deleted
+  after minting ⇒ 410 (same rollback invariant).
 - Accept with an already-registered email ⇒ 409, and `uses` is **not** consumed
   (transaction rollback — assert the row's `uses` is unchanged).
 - Sequential double-accept respects `maxUses` (atomic guard — second request
