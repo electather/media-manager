@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file
 // Extend Vitest's expect with jest-dom matchers (e.g. toBeInTheDocument).
 // Import matchers directly and extend via vite-plus/test to avoid the
 // `@testing-library/jest-dom/vitest` entry's hard dependency on the "vitest"
