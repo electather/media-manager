@@ -343,6 +343,52 @@ describe("updateConnectionWhere RETURNING guard", () => {
   });
 });
 
+describe("setEnabled cache (issue #698)", () => {
+  it("invalidates the user cache after a successful toggle", async () => {
+    // The enabled flag affects which connections the list surfaces; callers need
+    // an up-to-date view after the toggle so the cache must be invalidated,
+    // matching updateDisplayName/delete/setDefault.
+    installPlugin();
+    seedConnection();
+
+    await connectionsService.setEnabled({
+      userId: "user-1",
+      connectionId: "conn-1",
+      enabled: false,
+    });
+
+    expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
+describe("setDefault guard (issue #698)", () => {
+  it("throws connection.not_found when the connection is missing", async () => {
+    // setDefault calls requireConnection to load the row (and its pluginId)
+    // before delegating to promoteToDefault; requireConnection throws
+    // connection.not_found when nothing matches, so a missing or foreign id
+    // surfaces a 404 instead of a silent 200 OK. DO NOT seed a row — the
+    // pre-check SELECT returns undefined and requireConnection throws before
+    // promoteToDefault (and its inner transaction) is ever reached.
+    installPlugin();
+
+    await expect(
+      connectionsService.setDefault({ userId: "user-1", connectionId: "missing" }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+  });
+
+  it("invalidates the user cache after a successful promotion", async () => {
+    // The default flag drives which connection the list surfaces first; callers
+    // need an up-to-date view after the promotion so the cache must be
+    // invalidated, mirroring updateDisplayName/delete.
+    installPlugin();
+    seedConnection();
+
+    await connectionsService.setDefault({ userId: "user-1", connectionId: "conn-1" });
+
+    expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
 describe("connectionsService.test TOCTOU guard (issue #761)", () => {
   it("returns { ok: false } when the row is deleted between the pre-check and the status UPDATE", async () => {
     // The `test` handler reads the connection row first, then runs testConnection,
