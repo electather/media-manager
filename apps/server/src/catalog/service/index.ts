@@ -35,7 +35,7 @@ import {
   selectUserRatings,
 } from "./user-mirrors";
 
-export const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
+const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
 /**
  * UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table.
@@ -48,7 +48,7 @@ function utcDayBucket(): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-export interface CatalogServiceOptions {
+interface CatalogServiceOptions {
   recordAccessThrottleMs?: number;
 }
 
@@ -267,14 +267,4 @@ let instance: CatalogService | undefined;
 export function getCatalogService(): CatalogService {
   if (!instance) instance = new CatalogService(getDb());
   return instance;
-}
-
-/** Test helper: drop the singleton so the next `get` rebuilds from scratch. */
-export function resetCatalogServiceForTest(): void {
-  instance = undefined;
-}
-
-/** Test helper: install an arbitrary catalog instance (e.g. with an in-memory DB). */
-export function setCatalogServiceForTest(svc: CatalogService): void {
-  instance = svc;
 }

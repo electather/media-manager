@@ -1,12 +1,4 @@
-export {
-  CatalogService,
-  type CatalogServiceOptions,
-  getCatalogService,
-  resetCatalogServiceForTest,
-  setCatalogServiceForTest,
-} from "./service";
-export { CATALOG_EVENTS } from "./events";
-export { CatalogServiceError } from "./errors";
+export { CatalogService, getCatalogService } from "./service";
 export {
   toCanonicalRow,
   asMetadataKey,

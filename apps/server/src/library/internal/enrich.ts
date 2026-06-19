@@ -2,7 +2,7 @@ import type { CanonicalMetadata } from "@nama/shared/catalog";
 import type { CompactMediaItem } from "@nama/shared/home";
 import { loadProgressMap, type EnrichRowsFn, type ProgressMap } from "../../media";
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
-import type { ResolvedLibraryReadContext } from "./context";
+import type { LibraryContext } from "../types";
 
 /**
  * Builds the library lens `enrichRows` hook (design §Enrich). This is the custom
@@ -25,7 +25,7 @@ import type { ResolvedLibraryReadContext } from "./context";
  * subtype), so one builder serves all four lenses — the optional `section` is
  * read structurally and is simply absent on the flat lenses.
  */
-export function buildEnrichRows(ctx: ResolvedLibraryReadContext): EnrichRowsFn<LibraryRow> {
+export function buildEnrichRows(ctx: LibraryContext): EnrichRowsFn<LibraryRow> {
   return async (rows) => {
     if (rows.length === 0) return { items: [], partial: false };
     const { metadata, partial: metaPartial } = await loadMetadata(ctx, rows);
@@ -43,7 +43,7 @@ export function buildEnrichRows(ctx: ResolvedLibraryReadContext): EnrichRowsFn<L
  * denormalized columns (matching the design's tolerance of null meta).
  */
 async function loadMetadata(
-  ctx: ResolvedLibraryReadContext,
+  ctx: LibraryContext,
   rows: LibraryRow[],
 ): Promise<{ metadata: Record<string, CanonicalMetadata>; partial: boolean }> {
   const keys = rows.map((row) => ({ tmdbId: row.tmdbId, type: row.mediaType }));

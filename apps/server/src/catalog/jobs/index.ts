@@ -20,11 +20,5 @@ export function registerCatalogJobs(): void {
   registerCatalogPruneJob({ catalog });
 }
 
-export { CATALOG_METADATA_REFRESH_JOB_ID } from "./metadata-refresh";
 export { CATALOG_DISCOVER_SNAPSHOT_JOB_ID } from "./discover-snapshot";
-export {
-  CATALOG_RECOMMENDATION_BUILD_JOB_ID,
-  writeRecommendationsForUser,
-} from "./recommendation-build";
-export { CATALOG_USER_MIRROR_SYNC_JOB_ID } from "./user-mirror-sync";
-export { CATALOG_PRUNE_JOB_ID } from "./prune";
+export { writeRecommendationsForUser } from "./recommendation-build";

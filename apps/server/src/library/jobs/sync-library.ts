@@ -3,16 +3,12 @@ import { getCatalogService } from "../../catalog";
 import { MediaService } from "../../media";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import { listSeededUserIds } from "../repo";
-import { hydrateLibrary, syncLibrary } from "../service";
+import { hydrateLibrary, syncMembership } from "../service";
 
 export const LIBRARY_SYNC_JOB_ID = "library.sync";
 
 const RUN_TIMEOUT_SEC = 30 * 60;
 const PER_ROW_TIMEOUT_SEC = 30;
-
-interface SeededUserRow {
-  userId: string;
-}
 
 /**
  * Registers the 6-hourly per-row job that re-syncs owned-library membership
@@ -25,7 +21,7 @@ interface SeededUserRow {
  * `watchlist/jobs/sync-plugin-watchlist.ts`.
  */
 export function registerSyncLibraryJob(): void {
-  registerScheduledPerRow<SeededUserRow>({
+  registerScheduledPerRow<{ userId: string }>({
     id: LIBRARY_SYNC_JOB_ID,
     name: "Library membership sync",
     description: "Re-syncs owned-library membership from the collection feed for each seeded user.",
@@ -43,7 +39,7 @@ export function registerSyncLibraryJob(): void {
         catalog: getCatalogService(),
         log: consola,
       };
-      await syncLibrary(ctx);
+      await syncMembership(ctx);
       // Hydrate new and long-stale rows right after membership reconciles so a
       // freshly owned title gets its browse projection on this same run. The
       // hourly `library.hydrate` job handles the faster availability staleness.

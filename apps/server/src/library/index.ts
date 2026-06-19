@@ -8,7 +8,6 @@
  * adapter), and the cron job registration.
  */
 export {
-  syncLibrary,
   syncMembership,
   hydrateLibrary,
   getFacets,
@@ -20,5 +19,4 @@ export {
 } from "./service";
 export { libraryMediaSources } from "./internal/media-sources";
 export type { MaybeLibraryContext } from "./types";
-export { LibraryError, LibrarySyncError } from "./errors";
 export { registerJobs, LIBRARY_SYNC_JOB_ID, LIBRARY_HYDRATE_JOB_ID } from "./jobs";

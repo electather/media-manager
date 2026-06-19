@@ -47,7 +47,7 @@ export function applyUserConfigPatch(
  * the `params.field` convention used on HTTPError wire bodies so a single
  * client-side helper can handle both.
  */
-export interface VerifyConfigResult {
+interface VerifyConfigResult {
   ok: boolean;
   message?: string;
   field?: string;
