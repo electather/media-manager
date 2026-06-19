@@ -9,7 +9,7 @@ import { candidateId } from "../features";
  * Per-process throttle state owned by `CatalogService`. The map is keyed by
  * `${type}:${tmdbId}`; each entry is the last-seen monotonic timestamp.
  */
-export interface AccessThrottleState {
+interface AccessThrottleState {
   db: Db;
   throttle: Map<string, number>;
   throttleMs: number;

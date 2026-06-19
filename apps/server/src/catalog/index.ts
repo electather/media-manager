@@ -1,21 +1,11 @@
-export {
-  CatalogService,
-  type CatalogServiceOptions,
-  getCatalogService,
-  resetCatalogServiceForTest,
-  setCatalogServiceForTest,
-} from "./service";
-export { CATALOG_EVENTS } from "./events";
-export { CatalogServiceError } from "./errors";
+export { CatalogService, getCatalogService } from "./service";
 export {
   toCanonicalRow,
   asMetadataKey,
   type RawArtwork,
   type RawCanonicalSource,
-  toCandidateFeatures,
-  extractFeatures,
-  candidateId,
-} from "./types";
+} from "./canonical";
+export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
 export {
   CATALOG_DISCOVER_SNAPSHOT_JOB_ID,
   registerCatalogJobs as registerJobs,

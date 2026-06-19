@@ -185,7 +185,7 @@ export function ownedFilterConditions(userId: string, filters: LensFilters): SQL
  * the membership helpers build the list explicitly with `sql.join` — each value
  * stays a bound parameter, never string-interpolated.
  */
-function inList(values: string[]): SQL {
+export function inList(values: string[]): SQL {
   return sql`(${sql.join(
     values.map((value) => sql`${value}`),
     sql`, `,

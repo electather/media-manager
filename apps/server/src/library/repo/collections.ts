@@ -2,7 +2,7 @@ import { and, asc, eq, gt, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 import type { LibraryRow } from "../types";
-import { ownedFilterConditions, ROW_COLUMNS, type LensFilters } from "./lens-pages";
+import { inList, ownedFilterConditions, ROW_COLUMNS, type LensFilters } from "./lens-pages";
 
 /** The maximum preview ids gathered per franchise group (design §Collections lens: "preview ≤4"). */
 const PREVIEW_LIMIT = 4;
@@ -170,24 +170,24 @@ function previewIdsExpr(userId: string, filters: LensFilters): SQL<string | null
  * this the count is filter-aware but the preview can surface titles excluded
  * from the count. Mirrors the lens-page filter predicates (kinds/watched as
  * column membership, genres/qualities/servers as `json_each` membership); every
- * value stays a bound parameter via {@link sqlInList}.
+ * value stays a bound parameter via {@link inList}.
  */
 function innerFilterConditions(filters: LensFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.kinds && filters.kinds.length > 0) {
-    conditions.push(sql`inner_li.media_type IN ${sqlInList(filters.kinds)}`);
+    conditions.push(sql`inner_li.media_type IN ${inList(filters.kinds)}`);
   }
   if (filters.watched && filters.watched.length > 0) {
-    conditions.push(sql`inner_li.watched_state IN ${sqlInList(filters.watched)}`);
+    conditions.push(sql`inner_li.watched_state IN ${inList(filters.watched)}`);
   }
   if (filters.genres && filters.genres.length > 0) {
     conditions.push(
-      sql`EXISTS (SELECT 1 FROM json_each(inner_li.genres) WHERE value IN ${sqlInList(filters.genres)})`,
+      sql`EXISTS (SELECT 1 FROM json_each(inner_li.genres) WHERE value IN ${inList(filters.genres)})`,
     );
   }
   if (filters.qualities && filters.qualities.length > 0) {
     conditions.push(
-      sql`EXISTS (SELECT 1 FROM json_each(inner_li.quality_tiers) WHERE value IN ${sqlInList(filters.qualities)})`,
+      sql`EXISTS (SELECT 1 FROM json_each(inner_li.quality_tiers) WHERE value IN ${inList(filters.qualities)})`,
     );
   }
   if (filters.servers && filters.servers.length > 0) {
@@ -196,18 +196,10 @@ function innerFilterConditions(filters: LensFilters): SQL[] {
     // label back as `filters.servers`, so the preview filter must agree with the
     // facet key and the lens-page filter on the label.
     conditions.push(
-      sql`EXISTS (SELECT 1 FROM json_each(inner_li.servers) WHERE value ->> 'label' IN ${sqlInList(filters.servers)})`,
+      sql`EXISTS (SELECT 1 FROM json_each(inner_li.servers) WHERE value ->> 'label' IN ${inList(filters.servers)})`,
     );
   }
   return conditions;
-}
-
-/** Renders `values` as a parenthesized `IN` list of bound parameters (no interpolation). */
-function sqlInList(values: string[]): SQL {
-  return sql`(${sql.join(
-    values.map((value) => sql`${value}`),
-    sql`, `,
-  )})`;
 }
 
 /**

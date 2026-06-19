@@ -15,10 +15,6 @@ const PER_ROW_TIMEOUT_SEC = 60;
 // staleness window — every row older than an hour is re-projected.
 const HYDRATE_STALE_TTL_MS = 60 * 60 * 1000;
 
-interface SeededUserRow {
-  userId: string;
-}
-
 /**
  * Registers the hourly per-row job that re-hydrates each seeded user's stale
  * browse projection (design §Sync + hydrate: "availability re-hydrate hourly").
@@ -32,7 +28,7 @@ interface SeededUserRow {
  * `jobs/sync-library.ts`.
  */
 export function registerHydrateLibraryJob(): void {
-  registerScheduledPerRow<SeededUserRow>({
+  registerScheduledPerRow<{ userId: string }>({
     id: LIBRARY_HYDRATE_JOB_ID,
     name: "Library availability hydrate",
     description: "Re-hydrates stale library availability and quality for each seeded user.",

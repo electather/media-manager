@@ -87,11 +87,6 @@ export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMemb
   return { added, removed, partial: parsed.partial };
 }
 
-/** Alias matching the design's `sync(userId)` job entry point. */
-export async function syncLibrary(ctx: MaybeLibraryContext): Promise<SyncMembershipResult> {
-  return syncMembership(ctx);
-}
-
 /**
  * Eager-seed trigger run on the first page of a library read (the lens sources'
  * `fetchRawSet` and `/facets`), mirroring `watchlist/internal/reads.ts` (whose
