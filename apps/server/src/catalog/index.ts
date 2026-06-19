@@ -4,8 +4,10 @@ export {
   asMetadataKey,
   type RawArtwork,
   type RawCanonicalSource,
-} from "./canonical";
-export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
+  toCandidateFeatures,
+  extractFeatures,
+  candidateId,
+} from "./types";
 export {
   CATALOG_DISCOVER_SNAPSHOT_JOB_ID,
   registerCatalogJobs as registerJobs,
