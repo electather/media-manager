@@ -2,16 +2,8 @@ import type { MediaSourceId, Page } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "./error";
 
-/**
- * A client media source descriptor (design §B1). It mirrors the server
- * `MediaSourceRegistration` so a feature declares each list it reads once —
- * `sourceId`, its request `params`, whether it reads `infinite` (home rows,
- * watchlist items/moods) or as a bounded `section` (tonight/recently), how a
- * null cursor maps, and any client-built `initialCursor` (the `similarTo` seed).
- *
- * `fetchPage` binds the ONE media read endpoint — there is no per-feature
- * fetcher anymore (#509). Build descriptors with `defineMediaSource` so they all
- * share the same bound fetcher.
+/** Client media source descriptor (design §B1). Mirrors server `MediaSourceRegistration`.
+ *  `fetchPage` binds the ONE media read endpoint (#509). Use `defineMediaSource` to bind.
  */
 export interface ClientMediaSource<P> {
   sourceId: MediaSourceId;
@@ -31,18 +23,9 @@ export interface ClientMediaSource<P> {
 /** Fields of a `ClientMediaSource` other than the shared `fetchPage` binding. */
 export type MediaSourceSpec<P> = Omit<ClientMediaSource<P>, "fetchPage">;
 
-/**
- * Serialize a source param object into the query the generic resolver parses
- * off the request. Null / undefined fields are dropped (the resolver treats an
- * absent param as unset); strings/numbers are stringified. A `string[]` value
- * is forwarded as-is so the Hono client emits it as repeated params
- * (`?genres=Drama&genres=Crime`), which the resolver reads multi-value — empty
- * arrays are dropped like an unset axis.
+/** Serialize params into the resolver query. Null/undefined dropped; strings/numbers
+ *  stringified; non-empty arrays forwarded as repeated params.
  */
-// Reason: each branch maps one irreducible param category (string / number /
-// non-empty array; everything else is an unset axis the resolver ignores). It
-// is exercised by source.test.ts; the flagged CRAP is the export-reference
-// coverage estimate, not the real path. Mirrors error.ts's tested constructor.
 // fallow-ignore-next-line complexity
 function serializeParam(value: unknown): string | string[] | undefined {
   if (typeof value === "string") return value;
@@ -63,12 +46,8 @@ function toQuery(params: Record<string, unknown>): Record<string, string | strin
   return query;
 }
 
-/**
- * Build a `ClientMediaSource` from its spec, binding the one media read endpoint
- * (`GET /api/media/sources/:sourceId`). The cursor rides as a query param when
- * present; the resolver decodes only the opaque outer cursor and re-parses the
- * source params off the query (design §A3). Params may be `string[]` for
- * multi-value axes (the library lens filters), which ride as repeated params.
+/** Build a `ClientMediaSource` from spec, binding `GET /api/media/sources/:sourceId`.
+ *  Cursor rides as query param; resolver decodes outer cursor and re-parses params (design §A3).
  */
 export function defineMediaSource<
   P extends Record<string, string | string[] | number | null | undefined>,

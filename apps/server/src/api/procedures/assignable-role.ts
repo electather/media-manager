@@ -1,12 +1,7 @@
 /**
- * Shared role-assignability guard. Imported by both `users.ts` and
- * `invites.ts` so the same escalation-prevention logic is enforced on
- * every code path that creates accounts or assigns roles.
- *
- * Lives under `api/procedures/` (not `auth/`) because it imports
- * `roleHasAdminTierPermission` from the auth barrel; that function lives
- * behind the barrel boundary (the barrel does not re-export `auth/repo`
- * internals), so the guard must stay on the API side of that boundary.
+ * Shared role-assignability guard used by both `users.ts` and `invites.ts`.
+ * Lives under `api/procedures/` (not `auth/`) because `roleHasAdminTierPermission`
+ * is only exported from the auth barrel — not from `auth/repo` — so callers must stay on the API side.
  */
 import { roleHasAdminTierPermission, SYSTEM_ADMIN_ROLE_SLUG } from "../../auth";
 import { getDb } from "../../db/client";
@@ -34,13 +29,9 @@ export async function requireRole(
 }
 
 /**
- * Resolves `roleId` and rejects when it is admin-equivalent — either the
- * system Admin slug or any role holding an admin-tier permission (any
- * `admin:*` permission). Guards on capability, not slug, so a custom role
- * that grants admin power cannot be handed out (issue #576).
- *
- * Capability is resolved through the auth service barrel; the role's
- * permission set stays behind the auth/repo boundary.
+ * Rejects `roleId` if it is admin-equivalent: matches `SYSTEM_ADMIN_ROLE_SLUG`
+ * OR holds any `admin:*` permission. Guards on capability, not slug, so a custom
+ * role that grants admin power cannot be assigned (#576).
  */
 export async function requireAssignableRole(roleId: string): Promise<void> {
   const role = await requireRole(roleId);

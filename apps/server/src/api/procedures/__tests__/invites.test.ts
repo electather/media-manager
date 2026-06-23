@@ -1,11 +1,5 @@
-/**
- * Tests for `POST /admin/invites`, `GET /admin/invites`, `POST /admin/invites/:id/extend`,
- * `DELETE /admin/invites/:id`, and `POST /invites/:code/accept`.
- *
- * Mirrors the harness pattern of `users.role-guard.test.ts`: in-memory SQLite +
- * mocked auth middleware. The accept tests exercise the full transaction path
- * including the atomic use-count guard and the duplicate-email rollback.
- */
+/** Tests for invite admin routes and accept. In-memory SQLite + mocked auth (mirrors users.role-guard.test.ts).
+ *  Accept tests verify the atomic use-count guard and duplicate-email rollback. */
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
@@ -1397,20 +1391,11 @@ describe("POST /invites/:code/accept — password is hashed in the credential ro
 
 // ─── Rate-limit wiring — accept and preview use distinct buckets ──────────────
 
-// acceptIpRateLimit and publicIpRateLimit are separate middlewares with
-// different capacities (5 vs 60). The module-level vi.mock above replaces both
-// with pass-through shims so other tests never trip a limit. This focused test
-// verifies the structural invariant using the *real* module via vi.importActual:
-// the accept route must use a tighter bucket (capacity 5) than the shared
-// preview bucket (capacity 60). A misconfiguration would expose scrypt CPU to
-// a per-IP burst of 60, not 5.
-//
-// Role-guard arm 2 note: the auth mock at lines 50-53 re-implements
-// `roleHasAdminTierPermission` by delegating to `roleHasAnyPermission` from
-// the real auth/repo against the mocked in-memory db. It must stay in sync
-// with the production `roleHasAdminTierPermission` in auth/index.ts — if that
-// function changes its logic, the mock here must be updated to match.
-// The users.role-guard.test.ts file follows the same pattern for the same reason.
+// acceptIpRateLimit (capacity 5) vs publicIpRateLimit (capacity 60) — accept must stay tighter
+// to prevent scrypt CPU exposure. Module mocks shim both so other tests don't trip limits.
+// This test loads the *real* modules via vi.importActual to verify the structural invariant.
+// Role-guard note: auth mock at lines 50-53 must stay in sync with roleHasAdminTierPermission
+// in auth/index.ts — users.role-guard.test.ts follows the same pattern.
 describe("rate-limit wiring — accept and preview use distinct buckets", () => {
   it("acceptIpLimiter has capacity 5 and publicIpLimiter has capacity 60", async () => {
     // Load the REAL module (not the vi.mock shim) to inspect the limiter instances.

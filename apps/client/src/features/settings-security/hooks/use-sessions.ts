@@ -19,12 +19,8 @@ export function useSessions(): UseSuspenseQueryResult<AuthSession[]> {
   });
 }
 
-/**
- * Optimistic single-session revoke. Removes the row from the cache before the
- * server replies; rolls back on error. The current session token is never
- * revoked from this hook — the row is hidden in the UI so the option never
- * surfaces.
- */
+/** Optimistic single-session revoke; rolls back on error. Current session token never
+ *  appears in the UI so revoke option never surfaces. */
 export function useRevokeSession() {
   return useOptimisticArrayMutation<AuthSession, string>({
     queryKey: settingsSecurityKeys.sessions(),

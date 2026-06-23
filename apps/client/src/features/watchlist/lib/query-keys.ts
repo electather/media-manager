@@ -19,12 +19,9 @@ export type WatchlistItemsParams = {
 };
 
 /**
- * The single source of truth for the `watchlist-items` request params. Both the
- * `ClientMediaSource` descriptor (`lib/sources.ts`) and the query-key factory
- * derive from this, so the optimistic-mutation cache key
- * (`mediaKeys.source("watchlist-items", { sort: "recent" })`) and the list
- * hook's key can never drift. `sort` always defaults to `recent`; `bucket` /
- * `mood` are only present when set, matching the old `watchlistKeys.items` shape.
+ * Single source of truth for `watchlist-items` params. Both `ClientMediaSource` (lib/sources.ts)
+ * and query-key factory derive from this so cache keys never drift. Defaults `sort: "recent"`;
+ * `bucket`/`mood` only when set.
  */
 export function watchlistItemsParams(opts: WatchlistItemsKeyOpts = {}): WatchlistItemsParams {
   const params: WatchlistItemsParams = { sort: opts.sort ?? "recent" };
@@ -45,16 +42,9 @@ export function watchlistMoodItemsParams(moodId: MoodId, limit?: number): Watchl
 }
 
 /**
- * Watchlist query-key factory, now DERIVED from `mediaKeys` (design §B3,
- * invariant V.CL1) — the standalone `["watchlist", …]` root is gone. Every key
- * resolves to a `mediaKeys.source(...)` (or the shared moods key) so a
- * single `invalidateQueries({ queryKey: mediaKeys.root })` after a mutation
- * sweeps the whole surface once (#505), and the section error boundaries reset
- * the exact caches the list hooks read.
- *
- * `moodItems(moodId)` intentionally omits `limit` so a retry resets both the
- * mosaic preview (limit 3) and the mood-page (limit 60) caches via React
- * Query's partial key match, mirroring the old prefix-reset behaviour.
+ * DERIVED from `mediaKeys` (design §B3, V.CL1) — no standalone `["watchlist", …]` root.
+ * Each key resolves to `mediaKeys.source(...)` so one `invalidateQueries({ queryKey: mediaKeys.root })`
+ * sweeps the whole surface (#505). `moodItems(moodId)` omits `limit` to reset partial-key caches.
  */
 export const watchlistKeys = {
   root: mediaKeys.root,

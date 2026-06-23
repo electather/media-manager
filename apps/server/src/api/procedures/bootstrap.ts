@@ -4,13 +4,9 @@ import { AuthError, claimBootstrap } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 import { badRequest, conflict } from "../../diagnostics/http-errors";
 
-/**
- * Public first-install endpoint. Mounted at `/api/bootstrap` with no
- * `requireSession` — it is the only sanctioned path to create the first admin
- * and is self-closing once any user exists. The plaintext setup token is
- * supplied by the operator from the boot-log banner; the server only ever
- * stored its hash.
- */
+// Public first-install endpoint at `/api/bootstrap` (no `requireSession`).
+// Only sanctioned path to create first admin; self-closes once any user exists.
+// Plaintext token from boot-log banner; server only stored its hash.
 export const bootstrapApp = new Hono().post(
   "/claim",
   zValidator("json", bootstrapClaimSchema),

@@ -1,12 +1,7 @@
 import { useEffect, useRef } from "react";
 
-/**
- * Calls `callback` every `delayMs` milliseconds while mounted.
- *
- * Pass `null` for `delayMs` to pause the interval without unmounting the
- * caller. The latest `callback` is always invoked even if it changes between
- * ticks — consumers do not need to memoise it.
- */
+// Calls callback every delayMs while mounted. Pass null for delayMs to pause
+// without unmounting. Latest callback always invoked; consumers don't need memoization.
 export function useInterval(callback: () => void, delayMs: number | null): void {
   const cbRef = useRef(callback);
 

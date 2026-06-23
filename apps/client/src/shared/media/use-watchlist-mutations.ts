@@ -24,23 +24,13 @@ import { useWatchlistIdSet, WATCHLIST_ITEMS_SOURCE_ID } from "./use-watchlist-me
 
 type MediaPages = InfiniteData<Page, string | undefined>;
 
-/**
- * Params of the default unfiltered all-items cache the optimistic insert targets
- * (sort=recent, no bucket, no mood). Exported so the watchlist shell registers
- * its all-items `ClientMediaSource` with matching params (US-008) and the
- * optimistic row lands in the cache the `/watchlist/all` view reads.
- */
+/** Default all-items params (sort=recent, no bucket, no mood). Exported so watchlist shell registers matching `ClientMediaSource` (US-008) for optimistic insert. */
 export const DEFAULT_WATCHLIST_ITEMS_PARAMS = { sort: "recent" } as const;
 
 /** The cache key the optimistic add/remove write through. */
 const DEFAULT_KEY = mediaKeys.source(WATCHLIST_ITEMS_SOURCE_ID, DEFAULT_WATCHLIST_ITEMS_PARAMS);
 
-/**
- * Sweep the whole media surface after a watchlist mutation in ONE invalidation
- * (#505). Every read — home rows, watchlist sections, moods — nests
- * under `mediaKeys.root`, so a single invalidate replaces the per-feature roots
- * the home and watchlist features each used to flush separately.
- */
+/** Invalidate whole media surface in one go (#505): all reads nest under `mediaKeys.root`. */
 function invalidateMediaAll(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: mediaKeys.root });
 }
@@ -75,12 +65,7 @@ interface AddContext {
   skippedOptimistic: boolean;
 }
 
-/**
- * Shared optimistic add (design §B2). Writes the new row into the default
- * unfiltered all-items cache so cross-feature membership reads flip immediately,
- * then invalidates `mediaKeys.root` once on settle. Filtered (bucket/mood)
- * caches recompute on that sweep rather than being pre-classified client-side.
- */
+/** Optimistic add (design §B2): write to default all-items cache, invalidate mediaKeys.root on settle. Filtered caches recompute on sweep, not pre-classified. */
 export function useAddToWatchlist() {
   const qc = useQueryClient();
   return useMutation<unknown, Error, AddVariables, AddContext>({
@@ -175,13 +160,7 @@ interface ToggleOptions {
   source?: WatchlistUserSource;
 }
 
-/**
- * Returns a referentially stable `toggle(item)` that flips an item's watchlist
- * state (design §B2). Cross-feature surfaces (home cards, search rows) call this
- * without knowing the current state. Stability matters: the callback is forwarded
- * to memoised cards, so the latest id-set and mutation objects are read via refs
- * and only `source` keys the `useCallback`.
- */
+/** Referentially stable toggle (design §B2): read id-set and mutations via refs (not keys) so cross-feature surfaces use latest state without re-renders. */
 export function useToggleWatchlist({ source = "manual" }: ToggleOptions = {}) {
   const ids = useWatchlistIdSet();
   const add = useAddToWatchlist();

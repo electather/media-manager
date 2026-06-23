@@ -19,18 +19,10 @@ function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | 
   };
 }
 
-/** Frontend-side error capture. Fires a fire-and-forget POST to
- *  `/api/diagnostics/errors` with the serialized error. Threads any ambient
- *  request id off the DOM via the `X-Request-Id` header so the record chains
- *  with the Hono RPC call that triggered it (server picks it up through the
- *  request-context middleware). Swallows transport failures intentionally —
- *  we never want "error capture failed" to surface in the UI.
- *
- *  Note: we deliberately do *not* attach `window.location.pathname` as the
- *  `route` field. The diagnostics design doc requires `route` to be a
- *  parameterised TanStack pattern (`/movie/$id`) to keep cardinality bounded;
- *  the raw `pathname` would persist one row per distinct id. Callers with
- *  access to the matched `routeId` may pass it through `context` instead. */
+/** Frontend error capture. POST to `/api/diagnostics/errors`, threading `X-Request-Id`
+ *  from DOM to chain with Hono RPC call. Swallows transport failures. Does NOT use
+ *  `window.location.pathname` as route (needs parameterized TanStack pattern `/movie/$id`).
+ */
 export async function reportError(
   err: unknown,
   severity: ErrorSeverity,

@@ -19,12 +19,8 @@ interface ObserverCallbackEntry {
   targets: Set<Element>;
 }
 
-/**
- * jsdom / happy-dom report zero for layout sizes, which makes
- * `@tanstack/react-virtual` render zero virtual items. This helper mocks the
- * minimum DOM surface the virtualizers read so a test can assert mounted
- * counts. Returns a `triggerResize(width, height?)` callback that fires the
- * observed `ResizeObserver` callbacks with the new dimensions.
+/** jsdom/happy-dom report zero layout sizes, breaking @tanstack/react-virtual.
+ *  Mocks DOM surface so tests assert virtualizer mount counts. Returns `triggerResize()`.
  */
 export function setupVirtualizerEnv({
   width = 1024,

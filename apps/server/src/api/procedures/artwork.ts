@@ -13,11 +13,8 @@ import { TokenBucketLimiter } from "../../mcp/rate-limit";
 // quota despite the limit.
 export const artworkLimiter = new TokenBucketLimiter({ capacity: 60, refillPerSec: 1 });
 
-/**
- * `artwork.*` RPC procedures. Authenticated-user-only — no anon access since
- * dispatch consumes admin-pool credentials (TMDB key today, fanart key when
- * that plugin lands). Per-item failures ride back on the response's `errors`
- * map so a single bad input never breaks the batch.
+/** Authenticated-user-only RPC (dispatch consumes admin-pool credentials: TMDB key, fanart key).
+ *  Per-item failures in response's `errors` map to avoid breaking batch on bad input.
  */
 export const artworkApp = new Hono()
   .use("*", requireSession)

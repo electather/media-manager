@@ -1,16 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
-// Both branches of `EMAIL_PROVIDER_CONFIGURED` need their own module instance
-// because `configPublicApp` reads `env` at handler-evaluation time. Reset
-// modules between tests and use `vi.doMock` so each `import("../config")` picks
-// up the matching mocked env value. Both branch assertions are required by the
-// design spec — the email-gated UI flag is the entire reason this endpoint
-// exists.
-//
-// The handler also reads `needsBootstrap()` from the auth barrel. We mock that
-// module so importing the handler does not pull in the full betterAuth instance
-// (which reads BETTER_AUTH_URL at load time) or touch the database; the handler
-// only needs the flag to resolve.
+// Reset modules + `vi.doMock` per test so each `import("../config")` picks up matching env. Both EMAIL_PROVIDER_CONFIGURED branches required by design spec.
+// Mock auth to avoid betterAuth instance load (reads BETTER_AUTH_URL, touches db) — only flag needed.
 
 describe("configPublicApp", () => {
   beforeEach(() => {

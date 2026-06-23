@@ -1,13 +1,6 @@
-/**
- * Invite endpoints — two sub-apps registered in `router.ts`:
- *
- *   `adminInvitesApp` at `/admin/invites`  — ADMIN_USERS-gated CRUD.
- *   `invitesApp`      at `/invites`        — public preview + accept.
- *
- * The accept path runs entirely inside a single `db.transaction` so a
- * later failure (duplicate email, user-creation error) rolls back the
- * atomic use-count increment and no use is silently burned.
- */
+// Invite endpoints: `adminInvitesApp` at `/admin/invites` (ADMIN_USERS-gated CRUD),
+// `invitesApp` at `/invites` (public preview + accept). Accept runs in a single
+// db.transaction so failures roll back the atomic use-count increment.
 import { Hono } from "hono";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { createInviteSchema, extendInviteSchema, acceptInviteSchema } from "@nama/shared/invites";
@@ -60,16 +53,10 @@ function buildInviteUrl(code: string, requestUrl: string): string {
   return `${base}/auth/invite/${code}`;
 }
 
-/**
- * True when `err` is the `user.email` UNIQUE violation. The accept transaction's
- * pre-INSERT SELECT (step 3) catches the common duplicate cleanly; this backstops
- * the narrow race where two requests for the same new email both pass that SELECT
- * and one then loses the UNIQUE race on INSERT — so it surfaces as a clean 409
- * rather than a raw 500. Driver wording varies, so accept either the message form
- * or the SQLite code form (scoped to `user.email` so an unrelated UNIQUE is not
- * silently rewritten).
- * @internal Exported for unit tests only; not part of the public module API.
- */
+// True when `err` is the `user.email` UNIQUE violation. Pre-INSERT SELECT catches
+// most duplicates; this backstops the race where two requests pass the SELECT and
+// one loses the UNIQUE race on INSERT. Driver wording varies; scoped to `user.email`
+// so unrelated UNIQUEs are not silently rewritten. @internal Exported for unit tests only.
 export function isEmailUniqueViolation(err: unknown): boolean {
   return (
     err instanceof Error &&
@@ -89,13 +76,8 @@ function toMs(value: Date | number): number {
   return value instanceof Date ? value.getTime() : (value as number);
 }
 
-/**
- * Returns true when the invite row is expired or exhausted, implementing the
- * design §2 formula: `expiresAt < now OR uses >= maxUses`.
- *
- * The `revokedAt != null` arm is deliberately excluded here — callers that need
- * it (preview, accept) check `revokedAt` separately; the list pre-filters it.
- */
+// Implements design §2 formula: expiresAt < now OR (maxUses !== 0 && uses >= maxUses).
+// revokedAt excluded here; callers check it separately, list pre-filters it.
 function isInviteExpired(
   row: { expiresAt: Date | number; maxUses: number; uses: number },
   now: number,
@@ -333,15 +315,8 @@ export const invitesApp = new Hono()
     return c.json({ roleName: row.roleName, expiresAt: expiresAtMs });
   })
 
-  /**
-   * Accept an invite — create an account and increment the use counter.
-   * The entire operation (use-count guard + duplicate-email check + user
-   * creation) runs in a single transaction so any failure rolls back the
-   * use increment.
-   *
-   * Returns `{ ok: true }` — no session is created server-side.
-   * The client signs in immediately after with the submitted credentials.
-   */
+  // Create account and increment use counter in a single transaction so any
+  // failure rolls back the use increment. Returns {ok: true}; client signs in after.
   .post("/:code/accept", acceptIpRateLimit, zValidator("json", acceptInviteSchema), async (c) => {
     const code = c.req.param("code");
     const { name, email, password } = c.req.valid("json");
@@ -374,12 +349,9 @@ export const invitesApp = new Hono()
 
     try {
       await db.transaction(async (tx) => {
-        // 1. Atomic use guard: a single conditional UPDATE that increments the
-        //    use counter only when the invite is still valid (design §4.2 step 1).
-        //    Only THIS step is race-safe by construction — the guard lives entirely
-        //    in the WHERE clause, so even under a multi-writer backend (libSQL/Turso)
-        //    there is no read-then-write window. `.returning()` hands back the role
-        //    so we avoid a second read. Zero rows ⇒ consumed/expired/revoked ⇒ 410.
+        // 1. Atomic use guard: conditional UPDATE in WHERE clause (design §4.2 step 1),
+        //    race-safe even under multi-writer (libSQL/Turso). .returning() avoids
+        //    second read. Zero rows ⇒ consumed/expired/revoked ⇒ 410.
         const nowMs = Date.now();
         const [inv] = await tx
           .update(invites)
@@ -410,13 +382,10 @@ export const invitesApp = new Hono()
         //       orphaned-role guard (a null roleName there → 410) instead of
         //       assigning a permissionless ghost role / hitting the role_id FK (L1b).
         if (!role) throw new Error("INVITE_GONE");
-        //   (b) Re-run the #576 escalation guard at consumption time: if the role
-        //       gained an admin-tier permission after the invite was minted, an
-        //       unauthenticated stranger must not be granted it (L1a). The check
-        //       runs inside the txn so a rejection rolls back the use increment.
-        //       `roleHasAdminTierPermission` calls getDb() — a separate connection
-        //       from `tx`. In WAL mode this is correct: the reader sees the latest
-        //       committed permissions, which is exactly what the guard requires.
+        //   (b) Re-run #576 escalation guard at consumption time: role gained
+        //       admin-tier permission after minting ⇒ reject (L1a). Inside txn so
+        //       rejection rolls back use increment. roleHasAdminTierPermission sees
+        //       latest committed state, which the guard requires.
         if (await roleHasAdminTierPermission(role.id, role.systemSlug)) {
           throw forbidden(
             "invites.admin_role",

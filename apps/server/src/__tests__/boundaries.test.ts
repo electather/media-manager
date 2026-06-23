@@ -33,13 +33,9 @@ const ALL_MODULES = [
   "plugin-runtime",
 ];
 
-// Barrel may only re-export from these sibling files (or directory barrels):
-// service, events, errors, types, jobs, progress, source, cursor, plus the
-// public `pipeline/*` and `service/*` files the media pipeline consolidation
-// promotes (design §A/§J: `MediaSource`, the cursor codec, `listRows`,
-// `batchLoad`/`paginate`, and the writes are public via the
-// barrel). `repo/**`, `internal/**`, and individual handler files in
-// `jobs/<x>.ts` are deliberately private and stay off this list.
+// Barrel re-exports allowed from: service, events, errors, types, jobs, progress, source, cursor,
+// plus public `pipeline/*` and `service/*` files (design §A/§J).
+// `repo/**`, `internal/**`, `jobs/<handler>.ts` deliberately private.
 const APPROVED_RE_EXPORT_SOURCES = [
   /^\.\/service$/,
   /^\.\/events$/,

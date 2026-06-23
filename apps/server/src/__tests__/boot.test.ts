@@ -25,12 +25,8 @@ const INDEX_EXPECTED_ORDER = [
   "watchlist",
 ];
 
-/**
- * Maps the *namespace identifier* used at the call site to the canonical
- * module name. `plugin-runtime` is imported as `pluginRuntime` because the
- * hyphen is invalid in a JS identifier; every other module uses its directory
- * name directly.
- */
+// Maps namespace identifier to canonical module name. `plugin-runtime` → `pluginRuntime`
+// (hyphens invalid in JS identifiers); others use directory name directly.
 const NAMESPACE_TO_MODULE: Record<string, string> = {
   artwork: "artwork",
   auth: "auth",
@@ -74,14 +70,9 @@ describe("boot order", () => {
   });
 });
 
-/**
- * Static handler-coverage assertion. For every event-name string in any
- * `<module>/events.ts` or `apps/server/src/jobs/runtime-events.ts`, some
- * `<module>/jobs/on-*.ts` must reference the matching constant in an `on(...)`
- * call. The fresh-process variant (TODO: spawn child) is heavy to wire up in
- * this repo's test harness; the static check catches the regression the
- * spec calls out — "module added events.ts but never wired handler".
- */
+// Static check: every event in `<module>/events.ts` and `runtime-events.ts`
+// must have an `on(...)` handler in some `on-*.ts`. Fresh-process variant too heavy;
+// static check catches spec regression: "module added events.ts but never wired handler".
 describe("event handler coverage", () => {
   const eventFiles = [
     resolve(SERVER_SRC, "jobs/runtime-events.ts"),
@@ -142,15 +133,9 @@ describe("event handler coverage", () => {
   });
 });
 
-/**
- * `runner.emitJobOutcome` skips outcome emission when the failing job is one
- * of the typed-runtime-event dispatchers — otherwise a fault inside the
- * `jobs.run.failed` handler re-emits the same event for itself and cascades
- * unboundedly. The skip-list lives next to the event constants
- * (`runtime-events.ts`); this test pins the invariant that every value in
- * `JOB_EVENTS` is present in `EVENT_DISPATCHER_JOB_IDS`, so adding a new
- * runtime event without adding it to the skip-list fails CI.
- */
+// Prevents cascade: `runner.emitJobOutcome` skips outcome emission for runtime-event
+// dispatchers (else fault in `jobs.run.failed` re-emits the same event). Invariant:
+// every `JOB_EVENTS` value must be in `EVENT_DISPATCHER_JOB_IDS` (checked in CI).
 describe("runner skip-list ↔ JOB_EVENTS invariant", () => {
   it("every JOB_EVENTS value appears in EVENT_DISPATCHER_JOB_IDS", async () => {
     const { JOB_EVENTS, EVENT_DISPATCHER_JOB_IDS } = await import("../jobs/runtime-events");

@@ -1,10 +1,6 @@
-// Section drill-down navigation transitions for the settings and admin
-// shells. We drive `document.startViewTransition` ourselves and use
-// `flushSync` to force Tanstack Router's commit to land inside the
-// transition callback — without the flush, Tanstack defers the route swap
-// via useSyncExternalStore, the "after" snapshot matches the "before", and
-// the browser skips the animation. We also call `addTransitionType` so a
-// future `<ViewTransition>` integration can pick directional classes.
+// Section drill-down transitions: manually call `document.startViewTransition` and
+// use `flushSync` to commit Tanstack's route swap inside the callback — without it,
+// Tanstack defers via useSyncExternalStore and "after" snapshot matches "before".
 
 import { addTransitionType, startTransition } from "react";
 import { flushSync } from "react-dom";
@@ -36,12 +32,9 @@ export function isExpectedTransitionAbort(err: unknown): boolean {
 }
 
 /**
- * Trigger a directional section navigation. On a supporting browser at a
- * narrow viewport we mark <html> with `data-vt=nav-forward|nav-back` so
- * `globals.css` can pick the right slide, kick off
- * `document.startViewTransition`, and use `flushSync` to commit Tanstack's
- * route change synchronously inside the callback so the browser sees the
- * post-navigation tree as the "after" snapshot.
+ * Trigger directional section nav. On a supporting browser at narrow viewport,
+ * mark <html> with `data-vt=nav-forward|nav-back` for `globals.css` to pick the
+ * slide, and use `flushSync` to commit Tanstack's route change inside the transition.
  */
 export async function startSectionNav(
   direction: SectionDirection,

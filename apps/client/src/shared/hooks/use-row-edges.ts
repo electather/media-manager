@@ -2,13 +2,7 @@ import { useEffect, type RefObject } from "react";
 
 const EDGE_SLACK_PX = 8;
 
-/**
- * Toggles `data-at-start` / `data-at-end` data-attrs on the scope element
- * via an rAF-throttled scroll listener + ResizeObserver. Re-runs when
- * `revalidationKey` changes so scrollWidth changes (e.g. items appended)
- * are picked up immediately. RTL is handled by the browser flipping
- * `scrollLeft` sign; `Math.abs()` normalises it.
- */
+/** Toggles `data-at-start`/`data-at-end` on scope element via rAF-throttled scroll + ResizeObserver. RTL: `Math.abs(scrollLeft)` handles browser's sign flip. */
 export function useRowEdges(
   trackRef: RefObject<HTMLElement | null>,
   scopeRef: RefObject<HTMLElement | null>,

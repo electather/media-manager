@@ -61,12 +61,8 @@ export function getSeasonActionModel(
   return { kind: "status", status };
 }
 
-/**
- * Infer a season-level status from per-episode counts. Mirrors the existing
- * `inferSeasonStatus` from `modal-seasons.tsx` but emits the request-flow's
- * widened status set (`missing` instead of `unavailable`, `in-progress`
- * instead of `requested`).
- */
+// Infer season status from per-episode counts, mirroring modal-seasons.tsx but
+// emitting request-flow's widened status set (missing vs unavailable, in-progress vs requested).
 export function inferSeasonStatus(season: Season): RequestStatus {
   const { counts, episodeCount } = season;
   const available = counts.available ?? 0;

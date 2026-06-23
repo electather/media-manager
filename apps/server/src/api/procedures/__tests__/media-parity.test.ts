@@ -154,12 +154,9 @@ describe("media resolver read parity vs the old endpoints (US-003, RISK-202)", (
     expect(tonight.status).toBe(200);
   });
 
-  // Home read parity rides on the shared `buildRowPipeline` (US-002): each home
-  // registration's `build` and the row provider's `load` (what the old
-  // `composeRow` runs) feed `listRows` the same source + cfg, and the resolver
-  // decodes a home cursor with the same expected mode the old `decodeRowCursor`
-  // used. We assert that equivalence directly (the resolver's home eligibility
-  // gate needs live plugins, so we don't drive it over HTTP here).
+  // Home read parity via shared buildRowPipeline (US-002): registration build + row provider load
+  // feed listRows the same source + cfg; resolver decodes cursors with same mode as old decodeRowCursor.
+  // Asserted directly here (eligibility gate needs live plugins, so not HTTP-driven).
   it("home registration build matches the row provider's pipeline wiring", () => {
     for (const rowId of Object.keys(homeMediaSources)) {
       const provider = ROW_PROVIDERS[rowId]!;

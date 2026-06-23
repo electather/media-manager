@@ -18,12 +18,7 @@ export interface ExportArtifact {
   filename: string;
 }
 
-/**
- * Builds the user's data-export ZIP. All reads happen inside a single
- * transaction so the snapshot is point-in-time consistent. The ZIP body
- * is buffered into an ArrayBuffer (Workers-compatible) — self-hosted users'
- * data is small enough that streaming is not worth the complexity for v1.
- */
+/** Builds user data-export ZIP in single transaction for point-in-time consistency. Buffers to ArrayBuffer (Workers-compatible); streaming not needed for v1. */
 export async function buildUserExport(db: Db, userId: string): Promise<ExportArtifact> {
   const snapshot = await readUserSnapshot(db, userId);
   const zip = packIntoZip(snapshot);

@@ -7,15 +7,9 @@ import { mediaKeys } from "./query-keys";
 export const WATCHLIST_ITEMS_SOURCE_ID = "watchlist-items" as const;
 
 /**
- * Source ids whose every item is, by construction, on the user's watchlist
- * (#514). Membership reads scope to THESE caches — NOT all of `mediaKeys.root`,
- * which also spans home rows (recommendations, trending, continue-watching, …)
- * whose items are NOT on the watchlist. Beyond the canonical all-items list this
- * also covers the watchlist page's sibling feeds (mood / tonight / recently) and
- * the home `yourWatchlist` row — all of which read through the same watchlist
- * source, so an item loaded via any of them is genuinely saved. Without them an
- * item paged in only by, say, a mood cluster read as "not on the watchlist" in
- * the peek modal even though it was. Add new watchlist-origin sources here.
+ * Source ids guaranteed on-watchlist (#514). Scoped to these caches, not all `mediaKeys.root`
+ * (which includes home rows: recommendations, trending, etc. — not watchlist items).
+ * Without them, items from mood/tonight/recently read as "not on watchlist" in peek modal.
  */
 const WATCHLIST_ORIGIN_SOURCE_IDS: readonly MediaSourceId[] = [
   WATCHLIST_ITEMS_SOURCE_ID,
@@ -37,19 +31,12 @@ type MediaPages = InfiniteData<Page, string | undefined>;
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
 /**
- * Composite-id snapshot for cross-feature consumers, scoped to the watchlist-
- * origin sources (#514). Walks every loaded watchlist-origin sub-cache and
- * unions the ids the user has seen. Best-effort: surfaces that read this set
- * before any page loads get an empty set and rely on the server's idempotent
- * `addItem` to absorb add-when-already-saved.
+ * Composite-id snapshot, scoped to watchlist-origin sources (#514). Best-effort:
+ * pre-page-load reads get empty set; server's idempotent `addItem` absorbs add-when-already-saved.
  */
 /**
- * Reactive version counter for the watchlist-origin sub-caches. Subscribes to
- * the query cache and snapshots the summed `dataUpdatedAt` over just the
- * watchlist-origin queries — scoped on purpose so it advances only when this
- * set can actually change, not on every unrelated query landing (home rows,
- * detail fetches) the way a whole-cache `getAll().length` would. Shared by both
- * membership reads so the subscribe/snapshot wiring lives in one place.
+ * Reactive version counter summing `dataUpdatedAt` over watchlist-origin queries only,
+ * so it advances when this set changes, not on unrelated queries (home rows, detail fetches).
  */
 function useWatchlistOriginVersion(qc: QueryClient): number {
   return useSyncExternalStore(
@@ -80,10 +67,8 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
 }
 
 /**
- * Reactive membership check across every loaded watchlist-origin sub-cache
- * (#514). The snapshot derives from `dataUpdatedAt` so mutation events
- * (setQueryData, refetch, invalidate-refresh) advance the value even when the
- * cache size is unchanged.
+ * Reactive membership check across watchlist-origin caches (#514).
+ * Snapshot from `dataUpdatedAt` so mutations advance it even if cache size unchanged.
  */
 export function useIsInWatchlist(id: string): boolean {
   const qc = useQueryClient();

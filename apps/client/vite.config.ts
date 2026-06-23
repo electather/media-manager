@@ -1,4 +1,3 @@
-// fallow-ignore-file unresolved-import
 import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { Plugin } from "vite-plus";
@@ -18,16 +17,9 @@ function findSourcemaps(root: string): string[] {
     .map((entry) => join(entry.parentPath, entry.name));
 }
 
-/** Moves every emitted `.map` file out of the served `dist/` tree into a
- *  sibling `dist-sourcemaps/` directory after the build completes.
- *
- *  `build.sourcemap: "hidden"` only strips the `sourceMappingURL` comment; the
- *  `.map` files are still written next to each bundle. The deploy serves
- *  `dist/` verbatim from the Hono `serveStatic` root — so leaving the maps
- *  there would let anyone fetch `index-<hash>.js.map` and recover the original
- *  sources, defeating the
- *  "private diagnostics input" design. Relocating them keeps the maps on disk
- *  for the CI upload step while ensuring they are never served. */
+// Move emitted .map files from dist/ to dist-sourcemaps/ after build. sourcemap: "hidden"
+// only strips the sourceMappingURL comment; files still exist next to bundles. Without
+// relocating, maps would be served (defeating "private diagnostics input" design).
 function extractSourcemaps(): Plugin {
   return {
     name: "extract-hidden-sourcemaps",

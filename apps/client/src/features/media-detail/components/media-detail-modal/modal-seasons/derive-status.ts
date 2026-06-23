@@ -4,11 +4,8 @@ import type { Episode, EpisodeStatus, Season } from "@/features/request-flow";
 export type DerivedSeasonStatus = "available" | "partial" | "unavailable" | "upcoming";
 
 /**
- * Best-of-N season status across the user's connected library servers.
- *   - `available`   — at least one server holds every episode.
- *   - `partial`     — at least one server holds at least one episode.
- *   - `upcoming`    — every episode airs in the future and no server has it.
- *   - `unavailable` — every server returned zero presence (or no servers).
+ * Best-of-N season status: available (all episodes on ≥1 server), partial (≥1 episode on ≥1 server),
+ * upcoming (all future, none on servers), unavailable (zero presence or no servers).
  */
 // fallow-ignore-next-line complexity
 export function deriveSeasonStatus(
@@ -44,10 +41,9 @@ export function deriveSeasonStatus(
 }
 
 /**
- * Joins canonical seasons with per-server presence (best-of-N for episodes,
- * per-server for season status). Filters unaired specials (seasonNumber === 0).
- * Note: split-library edge case (A has E1–6, B has E7–12) shows all episodes
- * available but season status `partial` — correct, no single library has it all.
+ * Joins canonical seasons with per-server presence (best-of-N episodes, per-server season status).
+ * Filters unaired specials (seasonNumber === 0). Edge case: split-library (A has E1–6, B has E7–12)
+ * shows all episodes available but season status `partial` since no single library has the full set.
  */
 // fallow-ignore-next-line complexity
 export function joinSeasonAvailability(

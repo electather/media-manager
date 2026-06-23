@@ -1,18 +1,7 @@
 /**
- * Client re-export of the one shared cursor codec (design §B1, invariant
- * V.WIRE1). Importing through this module keeps the layer's surface coherent —
- * the client mints and inspects cursors with the exact bytes the server
- * resolver decodes.
- *
- * NOTE: CLAUDE.md prefers importing shared symbols directly over a local
- * re-export shim. Design §B1 specifies this module as the layer's single cursor
- * surface, so it is retained as a deliberate, documented exception — see the
- * acknowledgement in the design doc §B1.
- *
- * `encodeSeedCursor` closes the `similarTo` seed-cursor gap (consolidation §H):
- * the detail page's "More like this" row builds the seeded row's initial cursor
- * with the same helper the server `similar-paged` source uses (see
- * `features/media-detail/lib/related-items.ts`), so the client-built cursor is
- * accepted by the resolver's `decode` unchanged.
+ * Re-export of shared cursor codec (design §B1, V.WIRE1). Deliberate exception to CLAUDE.md
+ * direct-import rule — design §B1 specifies this as the single cursor surface to keep layer
+ * coherent (client/server mint/inspect with exact bytes). `encodeSeedCursor` closes similarTo
+ * gap (§H): detail page "More like this" uses same helper as server `similar-paged` source.
  */
 export { type Cursor, type CursorMode, decode, encode, encodeSeedCursor } from "@nama/shared/media";
