@@ -44,23 +44,10 @@ export function deriveSeasonStatus(
 }
 
 /**
- * Adapter that joins canonical seasons + per-server presence into the shape
- * `RequestableSeasons` expects. `counts` is computed from best-of-N presence:
- * each episode contributes `available` when at least one server has it,
- * `upcoming` when its airDate is in the future, otherwise `unavailable`.
- *
- * Specials (`seasonNumber === 0`) are filtered when no server has any
- * episode of them — keeps the accordion clean for shows whose specials are
- * canonical-only.
- *
- * Intentional split with `deriveSeasonStatus`: episode chips use the *union*
- * across servers ("can I watch this episode somewhere?"). Season status uses
- * a *per-server* check (does any single server cover the whole season?) so
- * the request flow can surface a "request the rest" affordance against one
- * library. The split-library edge case where Server A has S1E1–6 and Server
- * B has S1E7–12 will therefore show every episode chip green while the
- * season badge reports `partial` — that is correct: no single library has
- * the season, so a request would still fill a gap.
+ * Joins canonical seasons with per-server presence (best-of-N for episodes,
+ * per-server for season status). Filters unaired specials (seasonNumber === 0).
+ * Note: split-library edge case (A has E1–6, B has E7–12) shows all episodes
+ * available but season status `partial` — correct, no single library has it all.
  */
 // fallow-ignore-next-line complexity
 export function joinSeasonAvailability(

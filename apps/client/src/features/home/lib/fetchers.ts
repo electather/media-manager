@@ -8,12 +8,7 @@ export async function fetchHomeLayout(): Promise<HomeLayoutResponse> {
   return (await res.json()) as HomeLayoutResponse;
 }
 
-/**
- * Detail-modal read. Routes through the shared media title resource
- * (`GET /api/media/:type/:tmdbId/details`, design §A2/§B3) — a one-line bridge
- * to the same `home.composeDetails` the old `/home/details` endpoint called, so
- * the payload (`{ summary, details }`) is byte-identical.
- */
+/** Routes through shared media title resource; payload is byte-identical to legacy `/home/details`. */
 export async function fetchHomeDetails(
   tmdbId: string,
   mediaType: "movie" | "tv",

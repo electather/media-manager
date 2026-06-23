@@ -3,13 +3,8 @@ import type { HomeLayoutResponse } from "@nama/shared/home";
 import { homeLayoutQueryOptions } from "../lib/queries";
 
 /**
- * Non-blocking variant of `useHomeFeed` for the authenticated app shell.
- * Shares the layout cache key (via `homeLayoutQueryOptions`) so the route
- * loader's prefetch and the page's suspense read coalesce with this read
- * into a single network request. Kept separate from `useHomeFeed` because
- * the app-shell consumer must NOT suspend the entire authenticated layout
- * while the feed loads — that would gate every route (settings, admin,
- * etc.) on the home payload.
+ * Non-blocking variant for app shell to avoid suspending entire authenticated layout.
+ * Shares cache key so loader prefetch, page suspense, and this read coalesce into one network request.
  */
 export function useHomeFeedPool(): UseQueryResult<HomeLayoutResponse, Error> {
   return useQuery(homeLayoutQueryOptions());

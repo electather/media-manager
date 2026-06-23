@@ -3,13 +3,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { filtersToSearch, librarySearchSchema, searchToFilters } from "../lib/search";
 import { EMPTY_FILTERS, type LibraryFilters } from "../lib/types";
 
-/**
- * Reads the active facet filters from the URL search params shared by the
- * `/library/*` route family and writes changes back. `strict: false` lets the
- * hook sit in the layout header above every lens route without a per-route
- * binding. Writes target the current route (`to: "."`) so toggling a filter
- * keeps the active lens, and `replace` keeps rapid pill toggles out of history.
- */
+/** Syncs facet filters to URL; `strict: false` allows use in shared layout; `replace` prevents history spam. */
 export function useLibraryFilters() {
   const navigate = useNavigate();
   // `strict: false` lets this hook sit in the shared `/library/*` layout header

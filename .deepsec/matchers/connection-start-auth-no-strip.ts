@@ -1,18 +1,9 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * Plugin-owned `userConfig` fields are marked `x-plugin-resolved: true`.
- * Client payloads MUST flow through `stripRequestFields(schema, value)`
- * before they reach `pluginRuntime.runAuth(pluginId, "startAuth", ...)` or
- * are persisted via `writeConnection(...)` — otherwise a hostile client can
- * spoof plugin-managed values (e.g. impersonate another Jellyfin account by
- * supplying `userId` directly).
- *
- * Flags any file that calls `runAuth(..., "startAuth", ...)` or persists a
- * userConfig via `writeConnection` without calling `stripRequestFields`
- * anywhere in the same file. The AI confirms the call path actually feeds
- * unsanitized input.
- */
+// Plugin-owned userConfig fields (marked `x-plugin-resolved: true`) MUST be stripped via
+// stripRequestFields before runAuth("startAuth") or writeConnection — else a client can spoof
+// them (e.g. impersonate another Jellyfin account via userId). The AI verifies the call path
+// actually feeds unsanitized input.
 export const connectionStartAuthNoStrip: MatcherPlugin = {
   slug: "connection-start-auth-no-strip",
   description: "startAuth/writeConnection callsite without stripRequestFields",

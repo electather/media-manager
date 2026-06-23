@@ -5,12 +5,7 @@ import type { FormFieldValue } from "./types";
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, JobsApiError);
 
-/** Sends a trigger request for the given job and returns the server response.
- *
- * Throws a `JobsApiError` on any non-OK HTTP response so callers receive a
- * typed error with status and server-provided message rather than a bare
- * string.
- */
+// Throws JobsApiError with typed status and message, not bare strings.
 export async function fetchTriggerJob(
   jobId: string,
   input: Record<string, FormFieldValue> | null,

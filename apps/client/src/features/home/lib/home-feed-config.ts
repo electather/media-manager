@@ -3,10 +3,9 @@ import { MATCH_REASON_KEYS, type MatchReasonKey, type RowKind } from "@nama/shar
 import type { RowData } from "./types";
 
 /**
- * Initial vertical-virtualization estimate per home row. The values combine
- * the section head (~80px), the card area (180 for 16/9 backdrops, 300 for
- * 2/3 posters), the per-card meta strip (~48px), and the `mb-8` margin
- * (~40px). `measureElement` corrects the estimate after first paint.
+ * Initial vertical-virtualization estimate per home row; `measureElement` refines
+ * after first paint. The literals below: 80 section head + card (180 for 16/9
+ * backdrops, 300 for 2/3 posters) + 48 per-card meta strip + 40 `mb-8` margin.
  */
 export function estimateHomeRowHeight(row: RowData): number {
   const card = row.defaultAspect === "16/9" ? 180 : 300;

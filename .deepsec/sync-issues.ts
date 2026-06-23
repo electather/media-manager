@@ -1,17 +1,5 @@
 #!/usr/bin/env -S npx tsx
-/**
- * Syncs deepsec report findings to GitHub issues.
- * Reads data/nama/reports/report.json, fetches existing issue titles,
- * and creates issues for any finding not already tracked.
- *
- * Dedup key: title + filePath. Existing issues are matched by title + the
- * "**File:** `path`" line in the body (format written by this script).
- * For issues that predate this script (no structured body), falls back to
- * title-count matching: if #existing-with-title >= #report-with-title, skip.
- *
- * Usage: pnpm sync-issues
- * Requires: gh CLI authenticated, run from .deepsec/ directory.
- */
+/** Syncs deepsec report findings to GitHub issues; dedup via title+filePath or legacy title-count fallback. */
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";

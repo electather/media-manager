@@ -1,14 +1,6 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * `decryptJson(iv, data)` returns `null` whenever either input is null/empty
- * (no encrypted blob yet, or a partial row). Treating the result as a
- * non-null object silently produces undefined credential fields, which then
- * flow into unauthenticated plugin upstream calls.
- *
- * Flags callsites that destructure or property-access the awaited result of
- * `decryptJson(...)` without an intervening null/`isNil` guard.
- */
+/** Flags unguarded access to `decryptJson` result (returns null for empty/partial rows, risking undefined credentials flowing to plugin calls). */
 export const decryptJsonUnguarded: MatcherPlugin = {
   slug: "decrypt-json-unguarded",
   description: "decryptJson result accessed without null guard",

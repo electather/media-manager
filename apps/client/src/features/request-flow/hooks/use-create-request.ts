@@ -20,22 +20,11 @@ interface CreateContext {
 }
 
 /**
- * Submission mutation. Writes an optimistic `__optimistic-*` row into the
- * history cache so the UI flips to pending instantly; rolls back on error.
- * On success the optimistic row is replaced with the real `requestId` and
- * the labels carried in `vars`, then we deliberately skip invalidating
- * `requestFlowKeys.history()` — Seerr can lag indexing a freshly-created
- * request, so refetching here races against a still-empty list and reverts
- * the UI to the request button. The seeded row plus `staleTime` +
- * focus-refetch on `useUserRequests` reconcile labels later without that
- * flicker.
- *
- * The one exception is a success that settles without a `requestId` (the
- * response schema allows null): there is no real id to swap in, so that
- * branch instead drops the optimistic row and *does* invalidate to recover
- * the live request under its real id. It knowingly trades the no-invalidate
- * flicker guarantee here, because in that rare path an uncancellable phantom
- * row is worse than a transient revert. Do not "unify" the two branches.
+ * Optimistic `__optimistic-*` row, swapped with real requestId on success.
+ * No invalidation (Seerr can lag) — seeded row + staleTime reconcile.
+ * Exception: if response lacks requestId (schema allows null), invalidate
+ * to recover live request (phantom row worse than transient revert).
+ * Do not unify branches.
  */
 export function useCreateRequest() {
   const qc = useQueryClient();

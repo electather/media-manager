@@ -3,21 +3,10 @@ import type { CompactMediaItem, MediaType } from "@nama/shared/media";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
 
-/**
- * The library renders the shared wire item directly — quality tiers ride on
- * `tags` and server availability on `availability.servers`, so no feature-local
- * extension is needed. Kept as an alias the card/grid components read; new code
- * should import `CompactMediaItem` from `@nama/shared/media` directly.
- */
+/** Alias for `CompactMediaItem`; new code should import from `@nama/shared/media` directly. */
 export type LibraryItem = CompactMediaItem;
 
-/**
- * The facet axes a user can narrow the catalog by, in addition to free-text
- * search. This is UI-local filter state (the URL search params hydrate it), so
- * it stays in the feature; the lens/quality/watched tuples it draws from live
- * in `@nama/shared/library` and are imported directly (never re-exported
- * through this module — see the shared-package rules).
- */
+/** UI-local filter state hydrated from URL; shared enums imported directly (never re-exported). */
 export interface LibraryFilters {
   kinds: MediaType[];
   genres: string[];
@@ -35,18 +24,7 @@ export const EMPTY_FILTERS: LibraryFilters = {
   watched: [],
 };
 
-/**
- * The one client-side library error (rule 3, mirrors the shared media
- * `MediaApiError`). Every library read — the lens pages routed through the
- * shared media source, the collections feed, and the facets query — surfaces
- * the same typed envelope: the HTTP `status`, the parsed `body`, and the stable
- * `code` the ErrorBoundary keys its retry copy off.
- *
- * The lens pages reuse the shared media source (`defineMediaSource`), which
- * throws `MediaApiError`; the collections + facets fetchers below throw this.
- * Both extend `Error` with the identical `{ status, body, code }` surface, so a
- * shared boundary handles either uniformly.
- */
+/** Mirrors `MediaApiError` to unify error handling across lens, collections, and facets reads. */
 export class LibraryApiError extends Error {
   readonly status: number;
   readonly body: ApiErrorBody | null;
@@ -61,12 +39,7 @@ export class LibraryApiError extends Error {
   }
 }
 
-/**
- * The one library `throwOnError` tail. Delegates to the shared
- * `throwOnApiError` idiom (so this module carries no local copy of the
- * read-envelope-and-throw dance) bound to {@link LibraryApiError}. The
- * collections + facets fetchers call this on a non-OK response.
- */
+/** Delegates to shared `throwOnApiError` bound to `LibraryApiError`. */
 export async function throwOnError(res: Response): Promise<never> {
   return throwOnApiError(res, LibraryApiError);
 }

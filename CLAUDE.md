@@ -70,6 +70,27 @@ Anything used by both client + server live in `packages/shared/` — domain enum
 - **Adding new domain**: create `packages/shared/src/<domain>/{enums,types,schemas,index}.ts` and wire subpath export in `packages/shared/package.json`.
 - **Shared has no runtime deps besides zod** (catalog). No `drizzle-orm`, `hono`, framework deps — keep isomorphic.
 
+## Comment Conventions
+
+Keep every comment to **3 lines or fewer**. A comment earns its space only by recording what a future reader could NOT reconstruct from the code itself. Exceed 3 lines only when a 4th/5th line is the only way to preserve something in the "include" list below — never pad, never truncate load-bearing detail to hit the count.
+
+**Include (the reason comments exist):**
+
+- Design choices and rejected alternatives, with the reason — "uses A instead of B because B breaks on Z". Stops the next dev from undoing it.
+- Design-doc / spec references verbatim: section anchors (`design §B3`), invariant names (`V.CL1`), issue/PR numbers (`#505`).
+- The meaning of magic numbers/literals not named in the code, and stepped progressions whose steps encode intent (`5s → 10s → 20s → cap 30s`, not `5s→30s`).
+- Marker/constant/field names that bridge to a convention (`x-plugin-resolved: true`, `SYSTEM_ADMIN_ROLE_NAME`), and required call shapes (`new Hono().use("*", requireSession)`).
+- Exact failure modes, security consequences, and threat models — never soften "immediate privilege escalation" into "a problem".
+- Edge cases, gotchas, business/domain requirements, invariants, the non-obvious "why", known limitations.
+
+**Skip (delete on sight):**
+
+- Restating what the next line of code plainly does; narration; decorative banners.
+- `@param`/`@returns` that just echo the signature and types.
+- Anything obvious from names and types.
+
+When unsure whether a detail is obvious, keep it. Preserve the original delimiter style (`/** */` vs `//`) when shortening.
+
 ## Rule 1 — Think Before Coding
 
 State assumptions explicitly. If uncertain, ask rather than guess.

@@ -14,12 +14,7 @@ export interface HomeErrorView {
   code: string;
   /** Server status when known, else `null`. */
   status: number | null;
-  /**
-   * Server-shipped technical detail surfaced under the variant body. Resolved
-   * as `body.message ?? body.devMessage` — so this may carry the user-facing
-   * `message` when present, falling back to the dev diagnostic when only that
-   * is shipped. Name is kept for compatibility with the `MediaApiError` field.
-   */
+  /** Resolves as `body.message ?? body.devMessage` for compatibility with `MediaApiError`. */
   devMessage: string | null;
   /** When `true`, the fallback should offer a "re-login" affordance. */
   needsRelogin: boolean;
@@ -48,13 +43,7 @@ function readDevMessage(body: ApiErrorBody | null): string | null {
   return body ? (nonEmptyString(body.message) ?? nonEmptyString(body.devMessage)) : null;
 }
 
-/**
- * Classifies a thrown error into a presentation-ready view. Reads the
- * server-shipped `code` from `MediaApiError.body` when available and falls back
- * to status-based inference (401/403 → auth, 5xx → server, network → offline).
- * Title / body copy is resolved from `variant` via the keyed `home_error_title`
- * / `home_error_body` ICU variants at render time.
- */
+/** Classifies error into a variant; falls back to status-based inference (401/403 → auth, 5xx → server, network → offline). */
 // fallow-ignore-next-line complexity
 export function classifyHomeError(error: Error): HomeErrorView {
   const apiError = error instanceof MediaApiError ? error : null;

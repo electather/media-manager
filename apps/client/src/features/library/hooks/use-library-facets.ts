@@ -17,18 +17,7 @@ export const facetsQueryOptions = () =>
     queryFn: fetchFacets,
   });
 
-/**
- * The non-blocking facets read (skill rule 5: facets use `useQuery`, never a
- * Suspense reader, so a slow/failing facet fetch degrades the header to empty
- * pills instead of suspending the whole library route). One hook, one query
- * (rule 7). The count maps drive the popover badges + the A→Z letter rail +
- * the timeline decade markers; `facetValues` is the derived option list the
- * popover iterates, memoed off the query data so the popover does not re-derive
- * on unrelated re-renders.
- *
- * The query takes no filters — the totals are whole-library (not filter-aware,
- * matching the mock look) — so its key is a bare `libraryKeys.facets()`.
- */
+/** Non-blocking read: slow/failing fetch degrades header to empty pills instead of suspending route. Totals are whole-library (not filter-aware). */
 export function useLibraryFacets() {
   const query = useQuery(facetsQueryOptions());
   const facetValues = useMemo(() => deriveFacetValues(query.data), [query.data]);

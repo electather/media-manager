@@ -3,16 +3,7 @@ import { readOkJson } from "@/shared/lib/api/throw-on-error";
 
 import { ConnectionsApiError } from "./types";
 
-/**
- * Centralised connections API calls, per the frontend-feature-architecture
- * hard rule 2: no `api.*` access in components. Most are thin wrappers that
- * return the Hono `Response` so the connection modal can keep its existing
- * typed-error routing — the form-save and verify paths read the body even on
- * a non-OK status to surface field-level errors, so those wrappers
- * deliberately do not throw on `!res.ok`. The device-poll wrapper carries no
- * field errors, so it throws the typed `ConnectionsApiError` on HTTP failure
- * (hard rule 3) and returns the parsed status envelope.
- */
+/** Most wrappers return Response for typed-error routing; device-poll throws ConnectionsApiError. */
 
 type DevicePollResult =
   | { status: "pending" }

@@ -68,12 +68,7 @@ function invalidateInboxAndCount(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: notificationsKeys.unreadCount() });
 }
 
-/**
- * Shared optimistic-mutation shape for inbox writes: snapshot every inbox
- * query, apply `update` to each page, restore on error, invalidate inbox +
- * unread-count once settled. Lets each hook just declare its fetcher + the
- * cache transform.
- */
+/** Optimistic inbox mutation pattern: snapshot, transform, restore on error, invalidate on settle. */
 function useOptimisticInboxMutation<TInput>(args: {
   mutationFn: (input: TInput) => Promise<unknown>;
   update: (data: InboxLikeData | undefined, input: TInput) => InboxLikeData | undefined;

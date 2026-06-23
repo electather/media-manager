@@ -6,13 +6,8 @@ import {
   type FormErrorResult,
 } from "@/shared/lib/diagnostics/form-errors";
 
-/**
- * Specialised copy for the typed `plugin.credentials_empty` error from the
- * connection-modal flow: substitutes the offending field's schema title
- * (so "apiKey" surfaces as "API Key") and routes it to both the top-of-form
- * banner and the input. Returns null when the body is unrelated, letting
- * the generic `splitFormError` handle the rest.
- */
+// Rewrites plugin.credentials_empty with schema field title substitution (e.g. "apiKey" → "API Key")
+// for both banner and field-level errors; returns null to delegate to splitFormError.
 function rewriteCredentialsEmpty(
   body: FormErrorBody | null,
   schemaFieldNames: ReadonlyArray<string>,
@@ -43,11 +38,7 @@ function formatCredentialsEmptyMessage(fieldTitle: string): string {
     : m.settings_connections_modal_error_credentials_empty_a({ field: fieldTitle });
 }
 
-/**
- * Routes a form error body into the modal's banner + field-error state.
- * Applies the typed `plugin.credentials_empty` rewrite first, then falls
- * back to the generic field/banner splitter.
- */
+// Applies credentials_empty rewrite first, then falls back to generic splitter.
 export function routeFormError(
   body: FormErrorBody | null,
   schemaFieldNames: ReadonlyArray<string>,
@@ -60,22 +51,13 @@ export function routeFormError(
   );
 }
 
-/**
- * Extracts a human-readable message from an error response, delegating to
- * `parseFormErrorResponse` so all error-body parsing shares a single
- * implementation. The empty `knownFields` array opts the caller out of
- * field routing — it always wants a single banner message.
- */
+// Extracts banner-only message via parseFormErrorResponse (empty knownFields skips field routing).
 export async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const routed = await parseFormErrorResponse(res, [], fallback);
   return routed.message ?? fallback;
 }
 
-/**
- * Reads a Response's JSON body without throwing on malformed payloads. Used
- * for the form-save path where we need the raw body to inspect `code` for
- * typed-error rewriting before falling back to the generic splitter.
- */
+// Silent JSON parse — used to inspect error body code before generic fallback.
 export async function readErrorBody(res: Response): Promise<unknown> {
   try {
     return await res.json();
@@ -84,11 +66,7 @@ export async function readErrorBody(res: Response): Promise<unknown> {
   }
 }
 
-/**
- * Looks up the JSON-Schema `title` for a field so the typed-error rewrite
- * can substitute it into the user-facing copy. Falls back to the property
- * name (already a useful string for plugin-authored ids).
- */
+// Looks up JSON-Schema title for field substitution in error text; falls back to field name.
 export function readFieldTitle(
   properties: Record<string, Record<string, unknown> | undefined>,
   name: string,

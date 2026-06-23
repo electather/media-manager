@@ -11,14 +11,7 @@ const LOCALE_LABEL_KEYS = {
   fa: "locale_fa_label",
 } satisfies Record<Locale, StaticMessageKey>;
 
-/**
- * Locale picker contribution. `useBoundSettings()` binds `write` to
- * `setLocale(next, { reload: false })` so the locale swaps in-place — no
- * page reload, no navigation. The bind site re-applies the locale-driven
- * `<html dir|lang>` + font side-effects via `applyLocaleStyling()`.
- * Typed as `SettingItem<string>` so the heterogenous `COMMAND_SETTINGS`
- * array unifies.
- */
+// `useBoundSettings()` binds write to setLocale(next, {reload:false}) for in-place swap. Bind site re-applies dir/lang/font via applyLocaleStyling().
 export const LOCALE_SETTING: SettingItem<string> = {
   kind: "setting",
   id: "setting:locale",

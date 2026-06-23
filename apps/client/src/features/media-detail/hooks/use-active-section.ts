@@ -1,16 +1,10 @@
 import { useEffect, useState } from "react";
 
 /**
- * Tracks which in-page section is above the sticky-nav trigger line so the
- * section nav highlights the correct anchor.
- *
- * We pick the last (deepest in DOM order) section whose top has crossed the
- * trigger line. State is recomputed on scroll/resize, throttled to one read
- * per frame via rAF. We tried `IntersectionObserver` first but it fights
- * this UI: a thin slice at the trigger line is skipped on instant scrolls,
- * and a wide band misses crossings that happen while the section is still
- * intersecting. Recomputing 5 bounding rects per frame is well under the
- * cost of either workaround.
+ * Tracks which section is above the sticky-nav trigger line. Uses rAF-throttled
+ * bounding-rect reads, not IntersectionObserver: IO skips the trigger line on
+ * instant scrolls and misses crossings that happen while a section is still
+ * intersecting — switching back to IO re-introduces both bugs.
  */
 export function useActiveSection(sectionIds: readonly string[], topOffsetPx: number): string {
   const [active, setActive] = useState(sectionIds[0] ?? "");

@@ -5,12 +5,7 @@ import { fetchTriggerJob } from "../lib/fetchers";
 import { jobsKeys } from "../lib/query-keys";
 import type { FormFieldValue } from "../lib/types";
 
-/** Fires a manual trigger for a job.
- *
- * On success, invalidates all jobs queries so the run list refreshes.
- * On error, surfaces the server-provided message (or a generic fallback)
- * via a sonner error toast so the user always knows the trigger failed.
- */
+/** Triggers a job. On error: `JobsApiError` provides message, or shows generic toast fallback. */
 export function useTriggerJob() {
   const qc = useQueryClient();
   return useMutation({

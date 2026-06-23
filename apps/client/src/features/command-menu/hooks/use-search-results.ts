@@ -33,13 +33,9 @@ export interface UseSearchResultsResult {
 }
 
 /**
- * Live `/api/search` results scoped to the current frame.
- * `useDebouncedValue` keeps the network off the path for typeahead bursts.
- * Falls back to no-op when the query is short.
- *
- * Placeholder data is only kept when the previous query shared the same scope
- * (kind). Carrying over results from a different scope would briefly present
- * the wrong titles under the new scope's heading before the fresh fetch lands.
+ * Debounced live search, scoped to current frame.
+ * Placeholder data only carries over within same scope (kind) to avoid
+ * mismatched titles under new scope heading.
  */
 export function useSearchResults(rawQuery: string, scope: CommandScope): UseSearchResultsResult {
   const debounced = useDebouncedValue(rawQuery, DEBOUNCE_MS);

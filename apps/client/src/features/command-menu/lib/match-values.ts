@@ -11,12 +11,7 @@ import type {
   SettingOption,
 } from "../types";
 
-/**
- * cmdk fuzzy-matches against the `value` string. Title comes first so prefix
- * matches score highest; year, genres, and tags are appended to broaden hits —
- * a query for "atmos" still finds the right title. We leave `item.id` out so
- * id strings like `tv:tt0898266` don't leak into fuzzy space.
- */
+/** Fuzzy-matches on title, year, genres, tags (not id) to avoid id-format noise. */
 export function mediaMatchValue(item: MediaItem): string {
   return compact([
     item.title,

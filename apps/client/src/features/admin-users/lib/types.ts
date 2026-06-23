@@ -18,12 +18,8 @@ export interface AdminUserDetail extends AdminUserSummary {
 
 export type AdminUsersFilter = "all" | "admins" | "invites";
 
-// Selectable roles in the invite drawer and user-detail role picker, in display
-// order. Mirrors the seed roles in features/admin-roles. The backend exposes no
-// list-roles endpoint yet; once `GET /api/admin/roles` lands, replace this static
-// list with the fetched roles. Names and descriptions live in the
-// admin_users_role_name / admin_users_role_description Paraglide variants, which
-// are keyed on these ids.
+// TODO: replace with fetched roles from `GET /api/admin/roles` when available.
+// Names/descriptions keyed on these ids in Paraglide variants.
 export const ADMIN_USER_ROLE_IDS = ["role_admin", "role_member", "role_viewer"] as const;
 
 export type AdminUserRoleId = (typeof ADMIN_USER_ROLE_IDS)[number];
@@ -50,13 +46,9 @@ export interface AdminInvite {
   expired: boolean;
 }
 
-// AdminUsersApiError carries status/body/code so the fetcher layer can throw a
-// typed error (it is bound via createReadJson in lib/fetchers.ts). Mutation
-// onError handlers surface the message through the shared errorMessage helper,
-// and render errors from Suspense reads bubble to SettingsErrorBoundary which
-// shows error.message — the typed fields are not consumed there. A feature-local
-// boundary that narrows on 403/404 is a future improvement; the shared boundary
-// is acceptable for now.
+// Carries status/body/code for typed error routing in fetcher layer (createReadJson).
+// Only error.message is consumed by SettingsErrorBoundary; feature-local 403/404
+// narrowing is a future improvement.
 export class AdminUsersApiError extends BaseApiError {
   constructor(status: number, body: ApiErrorBody | null) {
     super("AdminUsersApiError", status, body, `admin users request failed (${status})`);

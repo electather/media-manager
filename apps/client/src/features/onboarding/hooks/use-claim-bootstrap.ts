@@ -8,12 +8,7 @@ export function useClaimBootstrap() {
   return useMutation({
     mutationFn: claimBootstrap,
     onSuccess: async () => {
-      // The claim just created the first user, so `needsBootstrap` is now false.
-      // The root and /bootstrap guards cached the pre-claim `true` with an
-      // immortal `staleTime`; without invalidating it here the next guard read
-      // (on navigation to /setup) would still see `true` and bounce the new admin
-      // back to /bootstrap until a full page reload. Invalidating before the
-      // caller navigates forces that read to refetch the now-false config.
+      // Invalidate pre-claim config cache (guards use immortal `staleTime`); otherwise next read would still see `needsBootstrap: true` and bounce user back to /bootstrap.
       await queryClient.invalidateQueries({ queryKey: onboardingKeys.publicConfig() });
     },
   });

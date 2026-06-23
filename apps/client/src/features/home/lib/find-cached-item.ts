@@ -4,22 +4,9 @@ import type { Page } from "@nama/shared/media";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { homeKeys } from "./query-keys";
 
-/**
- * Walks the hero + media-source caches looking for an item with the given
- * composite `id`. Returns the cached `CompactMediaItem` or null if no row
- * has hydrated it yet. Used to seed `useHomeDetails` placeholder data so
- * the detail modal can render summary fields instantly while the rich
- * `media.getDetails` fetch is still in flight.
- *
- * Hero slides ride on the home layout cache; row items now ride on the shared
- * infinite source caches under `[...mediaKeys.root, "source"]` (design §B3).
- * That prefix also covers watchlist sections — harmless, since a hit returns
- * the same `CompactMediaItem` regardless of which list cached it. This relies on
- * every media source under `mediaKeys.root → "source"` paging the one
- * `Page`/`CompactMediaItem` shape (invariant V.WIRE1); if a source ever returned
- * a richer page item, the `getQueriesData<InfiniteData<Page>>` assertion below
- * would no longer hold.
- */
+// Seeds useHomeDetails placeholder from the hero cache + media source caches under
+// mediaKeys.root/"source" (design §B3). Relies on invariant V.WIRE1 — every source must
+// page the identical Page/CompactMediaItem shape, else the InfiniteData<Page> assertion breaks.
 export function findCachedMediaItem(qc: QueryClient, id: string): CompactMediaItem | null {
   const layout = qc.getQueryData<HomeLayoutResponse>(homeKeys.layout());
   const heroHit = layout?.hero?.slides?.find((slide) => slide.item.id === id)?.item;
