@@ -35,6 +35,13 @@ COPY packages/shared ./packages/shared
 COPY apps/client ./apps/client
 COPY tsconfig.base.json ./
 
+# Vite+ (`vp build`) eagerly builds an HTTP client on startup and panics with
+# "No CA certificates were loaded from the system" — oven/bun (Debian slim)
+# ships without ca-certificates, so install them before the build runs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN bun run --cwd apps/client build
 
 # ── Stage 3: compile server binary ───────────────────────────────────────────
