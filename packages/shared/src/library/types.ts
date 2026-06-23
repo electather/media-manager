@@ -2,12 +2,7 @@ import type { CompactMediaItem } from "../media/page";
 import type { MediaType } from "../media/enums";
 import type { WatchedState } from "./enums";
 
-/**
- * One owned franchise grouping returned by the Collections lens. `preview`
- * holds up to four enriched items so the card can fan their posters without a
- * second fetch (design §Collections lens). `count` is the total owned titles in
- * the franchise, which may exceed `preview.length`.
- */
+/** Franchise grouping from Collections lens. `preview`: up to 4 items to fan posters without second fetch (design §Collections lens). `count`: total owned titles in franchise (may exceed preview.length). */
 export interface LibraryCollection {
   /** Composite id `collection:<tmdbCollectionId>`. */
   id: string;
@@ -16,13 +11,7 @@ export interface LibraryCollection {
   preview: CompactMediaItem[];
 }
 
-/**
- * Unfiltered facet totals for the library, served by `/api/library/facets`.
- * Counts are whole-library totals (not filter-aware) to match the mock look
- * (design §Facets). `letters` and `decades` are present-only — they list only
- * the buckets that have at least one owned title, powering the A→Z rail and the
- * timeline decade markers respectively.
- */
+/** Unfiltered facet totals from `/api/library/facets`. Whole-library counts (not filter-aware, design §Facets). `letters` and `decades`: present-only buckets with owned titles, powering A→Z rail and timeline markers. */
 export interface LibraryFacetCounts {
   /** Owned titles per media type, keyed by `MediaType`. */
   kinds: Record<MediaType, number>;

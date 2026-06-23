@@ -30,11 +30,9 @@ const KIND_KEYS = {
 const KINDS: readonly ArtworkKind[] = ["poster", "backdrop", "clearLogo", "thumb"];
 
 /**
- * Rewrites the origin of a fanart asset URL to the admin-configured CDN
- * proxy when present. Only the origin is replaced; the path stays as fanart
- * returned it so the proxy can route the asset 1:1. URLs from other origins
- * (none expected today, defensive against future API shape changes) are
- * returned unchanged.
+ * Rewrites asset origin to the admin-configured CDN proxy when present;
+ * path stays the same so the proxy can route 1:1. URLs from other origins
+ * are returned unchanged.
  */
 function rewriteCdn(url: string, override: string | undefined): string {
   if (!override || override === DEFAULT_ASSET_CDN_PREFIX) return url;
@@ -45,26 +43,19 @@ function rewriteCdn(url: string, override: string | undefined): string {
 }
 
 function toVariant(entry: FanartImage, cdnOverride: string | undefined): ArtworkVariant {
-  // Fanart writes the language tag as `lang` (two-letter ISO 639-1 code, or
-  // "00" for textless variants). The artwork@v1 contract keeps the same
-  // "00" convention so consumers don't have to special-case across
-  // providers. The 2-char minimum also normalises single-character
-  // garbage values (e.g. "e" from a truncated payload) to textless rather
-  // than letting them through and failing the wire-schema's `min(2)` check
-  // downstream.
+  // Fanart uses `lang` (ISO 639-1 or "00" for textless); normalize short
+  // garbage values ("e" from truncation) to "00" to pass artwork@v1's min(2)
+  // wire schema, matching the provider-agnostic "00" convention.
   const language = entry.lang && entry.lang.length >= 2 ? entry.lang : "00";
-  // Fanart serialises `likes` as a string; coerce so the sort comparator
-  // and downstream consumers always see a number. Missing/invalid → 0.
+  // Fanart returns likes as string; coerce to number for consistency (missing/invalid → 0).
   const parsed = Number(entry.likes);
   const likes = Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
   return { url: rewriteCdn(entry.url, cdnOverride), language, likes };
 }
 
 /**
- * Ranks a list of variants by the caller's preferred language order, breaking
- * ties on `likes` descending. Missing/unknown languages fall to the tail so
- * `["en", "00"]` callers still see English first, textless second, then
- * everything else.
+ * Sorts variants by preferred language order, breaking ties on likes (desc).
+ * Unknown languages fall to tail, so ["en", "00"] sees English, textless, then rest.
  */
 function compareByLanguageThenLikes(
   languages: readonly string[],
@@ -94,19 +85,17 @@ function mapKind(
 }
 
 /**
- * Empty bundle returned when a 404 response indicates the title is absent
- * from fanart's catalog. Always returns a fresh object so callers can mutate
- * it without aliasing a shared default.
+ * Returns a fresh empty bundle so callers can mutate without aliasing
+ * a shared default (404 → title not in fanart catalog).
  */
 export function emptyBundle(): ArtworkBundle {
   return { poster: [], backdrop: [], clearLogo: [], thumb: [] };
 }
 
 /**
- * Shapes a fanart `/v3/movies/{id}` or `/v3/tv/{id}` payload into the
- * `artwork@v1` bundle. Empty input keeps the bundle's per-kind arrays
- * present (per spec, "asked, none found" is distinct from "didn't ask"), so
- * the dispatcher's per-kind merge keeps a stable shape to walk.
+ * Maps fanart `/v3/{movies,tv}/{id}` to artwork@v1 bundle; empty input
+ * preserves per-kind arrays (spec: "asked, none found" ≠ "didn't ask")
+ * so dispatcher merge stays stable.
  */
 export function shapeBundle(
   json: FanartResponse,

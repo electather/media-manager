@@ -2,10 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { decode, encode, encodeSeedCursor, type Cursor } from "../cursor";
 
 /**
- * Re-implements the codec's own base64url encoding so a test can mint a
- * *foreign* payload (one the codec would never produce) without leaning on
- * Node `Buffer` — the shared package is isomorphic, so its tests stay
- * runtime-neutral too.
+ * Custom base64url for foreign payloads; avoids Node `Buffer` so shared package
+ * tests stay isomorphic (runtime-neutral).
  */
 function rawBase64Url(text: string): string {
   const bytes = new TextEncoder().encode(text);

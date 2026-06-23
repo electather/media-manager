@@ -27,11 +27,8 @@ const idResolveOutput = z.object({
 });
 
 /**
- * Internal-only capability (MediaService id_map gap-fill, not direct caller).
- * Mixed-scope: `scopeForInput` routes by `from` field — `:` in kind = user-scoped
- * (Plex/Jellyfin), no `:` = global (Trakt/TMDB/TVDB). Dispatcher uses this for
- * provider lookup and cache keying; user-A server-local resolutions don't leak to
- * user B via global cache.
+ * Internal-only, mixed-scope: routes by `from` field (`:` = user-scoped Plex/Jellyfin,
+ * no `:` = global Trakt/TMDB/TVDB). Prevents user-A resolutions leaking to user-B via cache.
  */
 export const IdResolveV1 = defineCapability({
   id: "idResolve",

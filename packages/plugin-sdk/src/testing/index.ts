@@ -1,9 +1,4 @@
-/**
- * Plugin testing kit. Extracted from `makeCtx` and fetch-helper patterns that
- * were duplicated across every plugin's `__tests__/contract.test.ts`. Plugin
- * authors import from `@nama/plugin-sdk/testing` to write contract tests
- * without re-implementing the host-side mocks.
- */
+/** Plugin testing kit — extracted from duplicated `makeCtx` patterns across plugin tests. Authors import from `@nama/plugin-sdk/testing` to avoid re-implementing host-side mocks. */
 
 import type { PluginContext } from "../types";
 import type { NotificationEvent } from "@nama/shared/notifications";
@@ -36,12 +31,7 @@ export interface TestNotificationContext extends TestContext {
   emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[];
 }
 
-/**
- * Builds a fully-typed `PluginContext` backed by an in-memory store and a
- * queued-response fetch shim. Defaults match the host's "global call, no
- * shared credentials configured" baseline; override `credentials` /
- * `sharedCredentials` / `config` per-test.
- */
+/** Builds a fully-typed `PluginContext` with in-memory store and queued-response fetch. Defaults: global call, no credentials. Override `credentials` / `sharedCredentials` / `config` per-test. */
 export function makeTestContext(opts: MakeTestContextOptions = {}): TestContext {
   const { responses = [], overrides = {} } = opts;
   const calls: FakeCall[] = [];
@@ -96,13 +86,7 @@ export function jsonRes(body: unknown, init?: ResponseInit): Response {
   });
 }
 
-/**
- * Builds a `Response` with a status code and an optional plain-text body.
- * Status codes that semantically forbid a body (204 / 205 / 304) always send
- * a `null` body regardless of what the caller passes, matching how real
- * fetch implementations behave. Used by tests that exercise non-2xx error
- * paths and want to assert against a response body.
- */
+/** Builds a `Response` with status code and optional body. Enforces HTTP spec: 204/205/304 always send null body even if caller passes one. For testing non-2xx error paths. */
 export function statusRes(status: number, body: string = "", init?: ResponseInit): Response {
   const nullBody = status === 204 || status === 205 || status === 304;
   return new Response(nullBody ? null : body, { status, ...init });

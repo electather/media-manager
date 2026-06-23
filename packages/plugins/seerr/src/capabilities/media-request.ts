@@ -14,17 +14,9 @@ function assertNonNegativeIntId(id: string, label: string): void {
 }
 
 /**
- * Per-connection job that detects request-status transitions in Seerr and
- * emits `media.request.available` / `media.request.denied` events.
- *
- * State is kept in `ctx.store` keyed per connection (the host scopes the
- * store by user automatically). On the first run for a connection no events
- * fire — the job simply records the baseline. Subsequent runs emit when a
- * request transitions into the `available` or `failed` terminal states.
- *
- * Emits run via `ctx.notify` so the host's `emit()` handles enrichment,
- * permission gating, and delivery scheduling. Emit failures are logged by
- * the host wrapper and do not break the sweep.
+ * Detects request-status transitions and emits `media.request.available`/`denied` events.
+ * First run records baseline (no emit); subsequent runs emit on `available`/`failed` transitions.
+ * Emit via `ctx.notify` so host handles enrichment, gating, scheduling; failures logged, don't break sweep.
  */
 export async function syncRequestStatuses(ctx: Ctx): Promise<void> {
   if (!ctx.userId) return;

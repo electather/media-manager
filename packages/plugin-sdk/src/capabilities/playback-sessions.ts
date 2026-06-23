@@ -15,12 +15,9 @@ const sessionTranscoding = z.object({
   reason: z.string().optional(),
 });
 
-// Server-local user identity. Distinct from the nama user running the
-// query — a Plex home-user or a Jellyfin managed user may be the one actually
-// playing, even though the connection is authed as the owning account. Plugins
-// MUST only return sessions for users the connection is allowed to see and
-// MUST drop sessions from other accounts even when the underlying token could
-// see them (see design doc for per-server filtering rules).
+// Server-local user identity, not the nama user — Plex home-user or
+// Jellyfin managed user may be playing under an owning-account token.
+// Plugins MUST filter by visibility and drop cross-account sessions (design §M.1).
 const sessionUser = z.object({
   id: z.string(),
   name: z.string(),
@@ -61,15 +58,9 @@ const stopSessionOutput = z.object({
 });
 
 /**
- * playbackSessions@v1 — currently-playing sessions across the user's media
- * servers, plus a per-session stop action. Transcoding details ride inline on
- * each session so a dedicated `transcoding@v1` capability is unnecessary.
- *
- * Distinct from `playback@v1`, which returns historical resume positions from
- * sync APIs (Trakt). Sessions here are live, server-observed, and short-lived.
- *
- * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
- * implementations (#22, #23).
+ * Live currently-playing sessions across user's media servers + stop action.
+ * Transcoding details inline (no separate `transcoding@v1` needed).
+ * Distinct from `playback@v1` (historical resume from Trakt); mcpTools land in Plex/Jellyfin impls (#22, #23).
  */
 export const PlaybackSessionsV1 = defineCapability({
   id: "playbackSessions",

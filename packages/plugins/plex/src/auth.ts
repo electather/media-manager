@@ -122,12 +122,9 @@ export async function pollAuth(ctx: PluginContext, pollState: unknown): Promise<
       const firstServer = resources.find((r) => r.provides?.includes("server") && r.owned === true);
       if (firstServer) {
         userConfigPatch["machineIdentifier"] = firstServer.clientIdentifier;
-        // Auto-fill `externalServerUrl` from the first public connection so
-        // the user does not have to copy-paste their server URL after the
-        // PIN flow completes. Prefer `local: false` (a public/internet URL)
-        // over local URLs; fall back to the first connection when Plex does
-        // not annotate locality. Only set when not already populated so a
-        // manual override survives re-auth.
+        // Auto-fill externalServerUrl from first public (local:false) conn,
+        // fall back to first conn if Plex doesn't annotate, skip if already
+        // set so manual override survives re-auth.
         const publicConn =
           firstServer.connections?.find((c) => c.local === false && Boolean(c.uri)) ??
           firstServer.connections?.find((c) => Boolean(c.uri));

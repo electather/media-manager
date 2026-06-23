@@ -2,10 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { NAME_MAX_LENGTH, createUserSchema, updateUserSchema } from "../schemas";
 
 /**
- * Name fields must be trimmed before length validation so that
- * whitespace-only values (e.g. "   ") are rejected rather than accepted
- * as non-empty strings. Bounds are pinned here: a regression that drops the
- * cap or removes the floor is a validation change and must break a test.
+ * Name fields trimmed before length validation so whitespace-only values are rejected.
+ * Bounds pinned: regressions to cap/floor must break a test.
  */
 describe("createUserSchema", () => {
   it("exposes the documented name bound", () => {

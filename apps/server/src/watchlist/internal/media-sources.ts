@@ -16,11 +16,9 @@ import { tonightCfg, tonightSource } from "../sources/tonight";
 import { clampLimit } from "./context";
 
 /**
- * Surface four watchlist sections as `MediaSourceRegistration`s for `/api/media` resolver
- * (design §A4) to compose home + watchlist registry. Wiring stays in `watchlist` (V.A1).
- * Shared policy: `rateLimit: "read"` (§A7), `cursorOnNull: "firstPage"` (V.CU1).
- * Cursor mode: `"keyset"` for all EXCEPT `watchlist-items` flips to `"offset"` on
- * non-recent sort or bucket/mood filter; resolver decodes `stages.cursorMode` per-request.
+ * Watchlist sections as MediaSourceRegistrations for /api/media resolver (design §A4).
+ * Shared policy: rateLimit: "read" (§A7), cursorOnNull: "firstPage" (V.CU1).
+ * watchlist-items flips to "offset" cursorMode on non-recent sort or bucket/mood filter (V.A1).
  */
 const itemsRegistration: MediaSourceRegistration<WatchlistItemsParams, ItemsParams> = {
   sourceId: "watchlist-items",

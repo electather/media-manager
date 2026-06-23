@@ -13,12 +13,8 @@ export const playbackSessions = {
     const sessions = body.MediaContainer?.Metadata ?? [];
     const out = [];
     for (const s of sessions) {
-      // Privacy guarantee: drop sessions whose User.id does not match the
-      // connection's own account id, even if the Plex token could technically
-      // see them. `plexAccountId` is cached at auth time — if it's missing
-      // (older connections, auth that could not reach /user), keep the
-      // session since we cannot verify ownership and stripping everything
-      // would make the capability unusable for those users.
+      // Privacy: drop sessions not owned by connection's account.
+      // If `plexAccountId` missing (older conns or /user unreachable), keep session—no ownership check.
       if (cfg.plexAccountId && s.User?.id && String(s.User.id) !== cfg.plexAccountId) {
         continue;
       }
@@ -44,12 +40,8 @@ export const playbackSessions = {
               reason: s.TranscodeSession.transcodeReason,
             }
           : undefined,
-        // `startedAt` is a required string on the capability schema, but
-        // Plex's `/status/sessions` does not expose the session-start
-        // timestamp. Emit the Unix epoch as a schema-valid sentinel so
-        // callers can detect "unknown" rather than silently receive a
-        // fabricated value; promoting the schema to an optional field is
-        // tracked separately.
+        // Schema requires startedAt string, but Plex /status/sessions omits session-start timestamp.
+        // Use Unix epoch as sentinel so callers detect "unknown" vs fabricated value.
         startedAt: new Date(0).toISOString(),
       });
     }

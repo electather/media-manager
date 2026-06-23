@@ -34,11 +34,9 @@ function buildDiscoverParams(
 }
 
 /**
- * Round-robin merge so a mixed-media row alternates movie / TV / movie /
- * TV rather than dumping every movie before the first show. Both upstream
- * arrays already arrive sorted by the same key (`sort_by` is identical
- * across endpoints), so alternating preserves the relative order of each
- * side without a numeric merge key the raw responses don't carry.
+ * Round-robin merge for mixed-media rows: alternates movie/TV instead of all
+ * movies first. Both inputs sorted by same key (sort_by identical across endpoints),
+ * so alternating preserves relative order without a numeric merge key.
  */
 function interleave<A, B>(a: A[], b: B[]): Array<A | B> {
   const out: Array<A | B> = [];

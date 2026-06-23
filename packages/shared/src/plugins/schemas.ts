@@ -119,12 +119,9 @@ export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) =>
     return;
   }
 
-  // Notification-delivery channels carry auth inside their `userConfigSchema`
-  // (e.g. ntfy `authHeader`, Telegram `botToken`, Discord webhook secret in
-  // the URL itself). The plugin runtime never needs to mint or refresh
-  // credentials, so an `auth.kind: "none"` + missing `credentialsSchema`
-  // combination is intentional. We exempt plugins whose only user-scoped
-  // capability is `notificationDelivery` from the credential rules below.
+  // Notification-delivery channels carry auth in `userConfigSchema` (e.g. ntfy `authHeader`, Discord webhook URL).
+  // Runtime never mints/refreshes credentials, so `auth.kind: "none"` + missing `credentialsSchema` is intentional.
+  // Exempt notificationDelivery-only plugins from credential rules below.
   const userScopedCapabilityIds = capabilityEntries
     .filter(([, c]) => c.scope === "user")
     .map(([id]) => id);

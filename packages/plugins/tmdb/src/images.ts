@@ -69,14 +69,9 @@ export function mapTmdbImages(
 }
 
 /**
- * Translates the capability's `languages` preference list into TMDB's
- * `include_image_language` query string. TMDB writes textless ("no
- * language") variants under the literal string "null"; the caller's "00"
- * convention maps to that. Always includes "null" so textless art is a
- * valid fallback when localised art is missing.
- *
- * Example: `["fr", "en", "00"]` → `"fr,en,null"`.
- *          `["en"]`            → `"en,null"`.
+ * Translates `languages` preference list to TMDB's `include_image_language` query string.
+ * TMDB uses literal "null" for textless; caller's "00" convention maps to that. Always include "null" as fallback.
+ * Examples: `["fr", "en", "00"]` → `"fr,en,null"`; `["en"]` → `"en,null"`.
  */
 export function buildIncludeImageLanguage(langs: string[]): string {
   const seen = new Set<string>();

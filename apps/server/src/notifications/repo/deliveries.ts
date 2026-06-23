@@ -13,10 +13,8 @@ import { notificationDeliveries } from "../../db/schema/notifications";
 import type { Recipient } from "../types";
 
 /**
- * Atomically inserts one delivery row per recipient for a single event. Returns
- * the generated delivery ids in insertion order so the caller can dispatch the
- * delivery job per row. Runs in a single transaction so a partial failure does
- * not leave a half-fanned-out event in the queue.
+ * Inserts one delivery row per recipient in a single transaction, returning ids
+ * in order for job dispatch. Transactionality prevents partial fan-out.
  */
 export async function createDeliveriesForEvent(
   event: NotificationEvent,

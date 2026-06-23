@@ -3,10 +3,9 @@ import type { MediaType } from "@nama/shared/media";
 import { keyToId, type MoodId, type WatchlistKey } from "@nama/shared/watchlist";
 
 /**
- * Deterministic scenario for parity tests (US-014..US-017, RISK-103 / design §T).
- * Proves refactor is behavior-neutral by comparing pre/post output against
- * `section-parity.json` golden fixture. {@link installIncrementingClock}
- * ensures distinct, increasing `addedAt` per insert; stubs block real clock/network.
+ * Parity test scenario (US-014..US-017, RISK-103 / design §T): compares pre/post
+ * output vs section-parity.json golden fixture. {@link installIncrementingClock}
+ * ensures distinct increasing addedAt; stubs block real clock/network.
  */
 export const PARITY_USER_ID = "parity-user";
 

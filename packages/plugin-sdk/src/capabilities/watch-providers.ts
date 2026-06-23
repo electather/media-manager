@@ -8,12 +8,7 @@ const watchProviders = z.object({
   buy: z.array(z.string()).default([]),
 });
 
-/** watchProviders@v1 — streaming/rent/buy availability per media item per region.
- *  Provider-name arrays only; does not carry deep links.
- *
- *  `region` is an ISO 3166-1 alpha-2 country code. When omitted, plugins fall
- *  back to "US" — callers that need different geography should pass the code
- *  explicitly. */
+/** watchProviders@v1 — streaming/rent/buy availability per media/region (provider names only, no deep links). `region` ISO 3166-1 alpha-2; defaults to "US" when omitted. */
 export const WatchProvidersV1 = defineCapability({
   id: "watchProviders",
   version: "v1",

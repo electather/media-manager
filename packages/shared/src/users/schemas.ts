@@ -2,10 +2,8 @@ import { z } from "zod";
 import { passwordSchema } from "../auth";
 
 /**
- * Upper bound for user-supplied display names, shared across every write path
- * (bootstrap claim, invite accept, admin create/update). Mirrors
- * `PASSWORD_MAX_LENGTH` — one constant for schema validation, client
- * `maxLength` bindings, and test assertions.
+ * Upper bound for user-supplied display names, shared across all write paths.
+ * Mirrors PASSWORD_MAX_LENGTH — single constant for schema, client maxLength, and tests.
  */
 export const NAME_MAX_LENGTH = 100;
 

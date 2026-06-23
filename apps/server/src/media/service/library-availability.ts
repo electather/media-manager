@@ -27,10 +27,8 @@ export class LibraryAvailability {
   constructor(private readonly userId: string) {}
 
   /**
-   * Per-server availability for home-feed chip strip. Walks every `libraryAvailability@v1` provider,
-   * calling `checkAvailability(idType: "tmdb")` on the first usable connection per plugin. Returns
-   * deduped `{ id, label }` chips sorted by label, memoized per `(tmdbId, type)`. Per-plugin failures
-   * are silently dropped (best-effort; missing chip > transient 5xx in UI).
+   * Server chips for home-feed. Probes libraryAvailability@v1 providers via checkAvailability(idType: "tmdb"),
+   * returns deduped { id, label } sorted by label, memoized per (tmdbId, type). Per-plugin failures dropped.
    */
   // fallow-ignore-next-line complexity
   async getMatchingServers(
@@ -55,10 +53,8 @@ export class LibraryAvailability {
   }
 
   /**
-   * Per-copy quality lookup for every `libraryAvailability@v1` provider. Unlike getMatchingServers,
-   * returns raw quality descriptors so the hydrate job can derive `qualityTiers` (design §Sync:
-   * "quality ← checkAvailability PER item"). One call per provider per title (flagged N-call fan-out,
-   * background only, never hot path). Per-plugin failures dropped; no copies → empty array.
+   * Per-copy quality lookup via libraryAvailability@v1. Returns raw quality descriptors for hydrate job to derive qualityTiers
+   * (design §Sync: "quality ← checkAvailability PER item"). N-call fan-out background only.
    */
   async getAvailabilityQuality(
     tmdbId: string,
@@ -185,11 +181,8 @@ export class LibraryAvailability {
   }
 
   /**
-   * Memoized one-shot index for `(pluginId, queryType)`. Cached even on null (failed dispatch)
-   * so second lookup doesn't re-probe. Cache key is deadline-agnostic: first caller's deadline
-   * wins for the shared probe. Safe today (MediaService scoped to one HTTP request), but if
-   * shared across requests with differing deadlines, tighter deadline gets ignored — add
-   * deadlineMs to key then.
+   * Memoized one-shot index for (pluginId, queryType). Cache key is deadline-agnostic: first caller's deadline
+   * wins. Safe today (MediaService request-scoped), but if shared across requests, add deadlineMs to key.
    */
   // fallow-ignore-next-line complexity
   private async getLibraryIndex(

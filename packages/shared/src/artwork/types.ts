@@ -2,10 +2,8 @@ import type { ArtworkErrorCode } from "./enums";
 import type { MediaType } from "@nama/shared/media";
 
 /**
- * One ranked artwork variant. Providers return up to five per kind sorted by
- * language preference then likes; consumers typically render index 0.
- *
- * `language` is a 2-8 char tag such as `"en"`, `"fr"`, or `"00"` (textless).
+ * Ranked artwork variant (providers return up to 5 per kind, sorted by language + likes).
+ * Consumers render index 0; `language` is 2-8 chars: `"en"`, `"fr"`, `"00"` (textless).
  */
 export interface ArtworkVariant {
   url: string;

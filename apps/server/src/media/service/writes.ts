@@ -15,10 +15,8 @@ import { clearSeedLock, trySeedLock } from "../repo/seed";
 import { bulkInsertActiveRows, softRemoveRow, upsertActiveRow } from "../repo/writes";
 
 /**
- * Cross-module events emitted by media's `watchlist_items` writes (design §M.2).
- * NOT declared in `media/events.ts` because handler lives in `watchlist/jobs/`,
- * outside the boot-time handler-coverage scan that pairs `<MODULE>_EVENTS` with
- * `on(...)` handlers under module `jobs/` dirs.
+ * Cross-module events from media's `watchlist_items` writes (design §M.2).
+ * Not in `media/events.ts` — handler lives in `watchlist/jobs/` outside boot scan.
  */
 export const WATCHLIST_EVENTS = {
   ITEM_ADDED: "watchlist.itemAdded" as EventName,

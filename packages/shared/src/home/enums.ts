@@ -1,11 +1,6 @@
-/**
- * Row kinds shipped in v1 of the home feed. The tuple is the source of truth:
- * Zod inputs that need an enum (`HomeRowStub.kind`) reuse it directly so adding
- * a row kind in one place forces it in the other. Note the wire-level `rowId`
- * is now an opaque string slug — the registry can ship multiple rows per kind
- * (e.g. `recommendedForYou-tv` and `recommendedForYou-movies` both carry
- * `kind: "recommendedForYou"`).
- */
+/** Row kinds for v1 home feed. Tuple is source of truth; Zod reuses it directly
+ * (adding a kind forces sync in both places). Wire `rowId` is opaque slug; registry
+ * can ship multiple rows per kind (e.g. recommendedForYou-tv and -movies share kind). */
 export const ROW_KINDS = [
   "continueWatching",
   "recommendedForYou",

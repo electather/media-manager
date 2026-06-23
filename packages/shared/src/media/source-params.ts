@@ -3,17 +3,9 @@ import { MOOD_IDS } from "../watchlist/enums";
 import { itemsQuerySchema, moodItemsQuerySchema } from "../watchlist/schemas";
 import { mediaTypeSchema } from "./schema-base";
 
-/**
- * Per-source request param schemas, discriminated per source (design §A5). The
- * generic resolver picks the schema off the source registration and parses
- * `c.req.query` against it (invalid → 400 `http.invalid_input`).
- *
- * The watchlist shapes reuse today's `itemsQuerySchema` / `moodItemsQuerySchema`
- * verbatim so the unified wire keeps the exact validation the per-product
- * endpoints enforce. The home shapes (seeded / bounded / void) are
- * additive — they strip the opaque `cursor` query key (the resolver decodes it
- * separately, design §A3), so they are intentionally not `.strict()`.
- */
+/** Per-source param schemas, discriminated per source (design §A5). Resolver picks schema off source registration, parses `c.req.query` (invalid → 400 `http.invalid_input`).
+ * Watchlist shapes reuse `itemsQuerySchema`/`moodItemsQuerySchema` verbatim for unified wire validation.
+ * Home shapes (seeded/bounded/void) are additive—strip opaque `cursor` (design §A3), intentionally not `.strict()`. */
 
 /** `watchlist-items` params: `{ bucket?, sort, mood?, limit, cursor? }`. */
 export const watchlistItemsParamsSchema = itemsQuerySchema;

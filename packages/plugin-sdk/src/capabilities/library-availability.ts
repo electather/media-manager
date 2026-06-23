@@ -3,12 +3,8 @@ import { libraryItemSchema } from "@nama/shared/plugins/library";
 import { defineCapability, method } from "../define";
 import { MIN, libraryItemQueryType } from "./shared-schemas";
 
-/**
- * Id-type accepted by `libraryAvailability@v1.checkAvailability`. Covers the
- * cross-service ids media-server plugins can look up (`tmdb`, `imdb`, `tvdb`)
- * plus their own server-local ids so a caller holding e.g. a Plex ratingKey
- * can skip the resolve step.
- */
+// Covers cross-service ids (tmdb, imdb, tvdb) and server-local ids (plex, jellyfin)
+// so callers can skip the resolve step; accepted by libraryAvailability@v1.checkAvailability.
 const libraryAvailabilityIdType = z.enum(["tmdb", "imdb", "tvdb", "plex", "jellyfin"]);
 
 const checkInput = z.object({
@@ -69,27 +65,16 @@ const listShowEpisodesOutput = z.object({
   episodes: z.array(z.object({ season: z.number(), episode: z.number() })),
 });
 
-/**
- * Bulk presence index. Returns the set of TMDB ids present on the user's
- * library so the host can answer N `getMatchingServers` calls with one network
- * round-trip + N O(1) set lookups instead of N independent
- * `checkAvailability` probes. Plugins that do not have TMDB ids on their items
- * (or cannot enumerate the library) emit an empty list — callers fall back to
- * `checkAvailability` per-id.
- */
+// Bulk presence index: returns TMDB ids from the library for N lookups
+// in one round-trip + O(1) set lookups, vs N checkAvailability probes.
+// Empty list falls back to per-id checks.
 const listAvailableOutput = z.object({
   tmdbIds: z.array(z.string()),
 });
 
-/**
- * libraryAvailability@v1 — does the user's self-hosted media server (Plex,
- * Jellyfin, …) have this item, and what's new on it? See the design doc's
- * "New capability contracts" section for backing endpoints and rationale.
- *
- * No `mcpTools` in this revision — they will land alongside the Plex/Jellyfin
- * plugin implementations (#22, #23) so the tool surface can reference real
- * backing methods rather than stubs.
- */
+// libraryAvailability@v1: does the user's self-hosted media server have this item?
+// See design doc's "New capability contracts" section for backing endpoints.
+// No mcpTools yet (#22, #23); tools will reference real backing methods, not stubs.
 export const LibraryAvailabilityV1 = defineCapability({
   id: "libraryAvailability",
   version: "v1",

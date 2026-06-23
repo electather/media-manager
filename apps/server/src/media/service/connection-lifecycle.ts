@@ -71,12 +71,9 @@ interface RefreshArgs {
   attemptedCredentials: unknown;
 }
 
-/**
- * Refreshes credentials, coalescing concurrent callers. Adopts another
- * refresher's rotated token (scheduled job / burst) rather than replaying
- * consumed token. Surfaces error as terminal only if stored token unchanged
- * (failure reflects grant, not lost rotation race).
- */
+/** Refreshes credentials, coalescing concurrent callers. Adopts another refresher's rotated
+ * token (scheduled job / burst) rather than replaying consumed. Surfaces error as terminal only
+ * if stored token unchanged (failure reflects grant, not lost rotation race). */
 export async function refreshConnectionCredentials(args: RefreshArgs): Promise<unknown> {
   const existing = inFlightRefreshes.get(args.connectionId);
   if (existing) return existing;

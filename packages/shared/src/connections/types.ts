@@ -3,10 +3,9 @@ import type { AuthKind } from "../plugins/enums";
 import type { MediaType } from "../media/enums";
 
 /**
- * Embedded plugin shape on every `ConnectionListItem` and the entries returned
- * by `GET /api/connections/available`. Authoritative for the user-facing UI:
- * available cards, connected cards, and the connection modal all render off of
- * this. Admin-only fields live on the `PluginRow` shape used by `/api/plugins/`.
+ * Embedded plugin shape on `ConnectionListItem` and `GET /api/connections/available`.
+ * Authoritative for the user-facing UI (available cards, connected cards, connection modal).
+ * Admin-only fields live on `PluginRow` (`/api/plugins/`).
  */
 export interface PluginSummary {
   id: string;

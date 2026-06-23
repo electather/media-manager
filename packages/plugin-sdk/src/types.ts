@@ -28,10 +28,8 @@ export interface PluginStoreApi {
 
 export interface PoolSignalingApi {
   /**
-   * Signals that the currently-injected credential (shared or user) is
-   * rate-limited or temporarily unusable. Purely advisory: the host uses this
-   * to update bookkeeping and rotate on the next retry attempt of the same
-   * invocation.
+   * Signals credential is rate-limited or temporarily unusable. The host uses
+   * this to update bookkeeping and rotate on the next retry of the invocation.
    */
   markExhausted(opts?: { retryAfterSec?: number }): void;
 }
@@ -45,10 +43,9 @@ export interface PluginContext<
   fetch(url: string, init?: RequestInit): Promise<Response>;
   log: PluginLogger;
   /**
-   * The user this invocation is running on behalf of, or `null` for
-   * unauthenticated / global-scoped calls. Plugins use this when emitting
-   * user-targeted notifications (e.g. `connection.sync.succeeded` from a
-   * per-connection sync job needs the connection owner in `audience.userId`).
+   * The user this invocation runs on behalf of, or `null` for global-scoped
+   * calls. Plugins use this for user-targeted notifications (e.g.
+   * `connection.sync.succeeded` needs `audience.userId`).
    */
   userId: string | null;
   /**
@@ -65,19 +62,15 @@ export interface PluginContext<
   store: PluginStoreApi;
   pool: PoolSignalingApi;
   /**
-   * Public-facing base URL of this deployment (e.g. `https://media.example.com`).
-   * Sourced from `APP_EXTERNAL_URL` and normalised at env-parse time: scheme
-   * is guaranteed to be `http(s)`, and any trailing slash is stripped. Plugins
-   * can safely append path segments with a leading `/` (e.g.
-   * `${ctx.appBaseUrl}/oauth/callback`) when building OAuth redirect URIs and
-   * outward-facing deep links.
+   * Public-facing base URL (e.g. `https://media.example.com`). Normalized at
+   * env-parse from `APP_EXTERNAL_URL`: scheme is `http(s)`, trailing slash
+   * stripped. Safe to append `/path` for OAuth callbacks and deep links.
    */
   appBaseUrl: string;
   /**
-   * Emit a pre-registered notification event. The host handles enrichment
-   * (id, occurredAt), validation, recipient resolution, and delivery.
-   * Plugins can only emit events declared in the core registry — plugin-declared
-   * event types are deferred to v2.
+   * Emit a pre-registered notification event. Host handles enrichment (id,
+   * occurredAt), validation, and delivery. Only core-registry events; plugin-
+   * declared types deferred to v2.
    */
   notify: (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void>;
 }
@@ -88,17 +81,12 @@ export type AuthResult =
       status: "completed";
       credentials: unknown;
       /**
-       * Optional patch merged into the submitted `userConfig` before the
-       * `service_connections` row is written. Used by plugins that resolve
-       * server-side identifiers during auth (e.g. Plex's `machineIdentifier`
-       * and account id, Jellyfin's `userId` from `/Users/Me`) without
-       * round-tripping through the client, or to strip submitted secrets
-       * that the plugin has promoted into the encrypted `credentials` blob
-       * (set the key to `null` to delete it from the persisted
-       * `userConfig`). Built-in plugins are trusted to only set keys that
-       * are either declared on `userConfigSchema` or explicitly cleared via
-       * `null`; schema-level validation for user-installed plugins is
-       * planned but not yet implemented.
+       * Optional patch merged into `userConfig` before `service_connections`
+       * row write. Avoids round-tripping server-resolved IDs (Plex
+       * `machineIdentifier`, Jellyfin `userId` from `/Users/Me`) through
+       * client. Set key to `null` to delete from persisted `userConfig`.
+       * Built-in plugins trusted to only set `userConfigSchema` keys or
+       * clear via `null`; user-plugin schema validation not yet implemented.
        */
       userConfigPatch?: Record<string, unknown>;
     }
@@ -117,10 +105,9 @@ export type AuthResult =
       code: HostErrorCode;
       devMessage: string;
       /**
-       * Interpolation values and routing hints per the error design doc's
-       * wire format (docs/2026-04-19-error-management-design.md §Wire
-       * format). Used today to carry a `field` hint back to the frontend so
-       * a form-submission failure can highlight the offending input.
+       * Interpolation values per error design doc's wire format
+       * (docs/2026-04-19-error-management-design.md §Wire format). Carries
+       * `field` hint for frontend form-submission failures.
        */
       params?: Record<string, string | number>;
     };
@@ -146,11 +133,9 @@ export type McpToolHandler<I = unknown, O = unknown> = (ctx: PluginContext, inpu
 export interface PluginModule {
   manifest: PluginManifest;
   /**
-   * Required when `manifest.auth.kind !== "none"`. The host invokes it during
-   * connection creation (and re-runs it on form-auth edits) to exchange the
-   * submitted `userConfig` for the persisted credentials blob. Omit for
-   * `auth.kind: "none"` plugins — the host skips the call entirely and
-   * persists the connection with empty credentials.
+   * Required when `manifest.auth.kind !== "none"`. Host invokes during
+   * connection creation (and form-auth edits) to exchange `userConfig` for
+   * encrypted `credentials`. Omit for `auth.kind: "none"`; host skips call.
    */
   startAuth?: (ctx: PluginContext, input: unknown) => Promise<AuthResult>;
   completeAuth?: (
@@ -192,17 +177,15 @@ export interface CapabilityMethodSpec<
   O extends z.ZodTypeAny = z.ZodTypeAny,
 > extends CapabilitySpec<I, O> {
   /**
-   * Cache prefixes (e.g. `"watchHistory@v1"`) to invalidate on a successful call.
+   * Cache prefixes (e.g. `"watchHistory@v1"`) to invalidate on success.
    * Only meaningful for mutating methods.
    */
   invalidates?: string[];
   /**
-   * When true, the host treats this method as a backward-compatible
-   * addition: plugins that already implement the capability may omit the
-   * implementation, and the dispatcher surfaces `plugin.missing_method`
-   * which the aggregate strategy tolerates by skipping the contributor.
-   * Used for the home-feed extensions to `watchHistory@v1.getInProgress`
-   * and `mediaRequest@v1.getStatusBatch` so existing plugins keep loading.
+   * When true, existing plugins can omit the implementation. Dispatcher
+   * surfaces `plugin.missing_method` which aggregate strategy skips.
+   * Used for home-feed extensions (`watchHistory@v1.getInProgress`,
+   * `mediaRequest@v1.getStatusBatch`) so existing plugins keep loading.
    */
   optional?: boolean;
 }
@@ -235,17 +218,11 @@ export interface CapabilityMcpTool {
 }
 
 /**
- * The scope a dispatched call is routed at.
- *
- * - `"global"`: one shared result across all callers; cache key is not
- *   userId-qualified; providers register under the global scope.
- * - `"user"`: result depends on the caller; cache key is userId-qualified;
- *   providers register under the user scope.
- * - `"mixed"`: the capability accepts either — providers can register under
- *   either scope and the dispatcher chooses per-request from the input via
- *   `scopeForInput`. Required for capabilities like `idResolve@v1` where a
- *   `from: "tmdb"` input is global but a `from: "plex:ratingKey"` input
- *   must resolve against a user's own Plex server.
+ * Scope a dispatched call is routed at. `"global"`: one shared result,
+ * cache not userId-qualified. `"user"`: result per caller, cache
+ * userId-qualified. `"mixed"`: dispatcher chooses per-request via
+ * `scopeForInput` (e.g. `idResolve@v1`: `from: "tmdb"` is global,
+ * `from: "plex:ratingKey"` must resolve against user's own server).
  */
 export type CapabilityScopeMode = "global" | "user" | "mixed";
 
@@ -268,17 +245,11 @@ interface CapabilityDefinitionBase {
 }
 
 /**
- * A dispatched capability is one of three shapes:
- *
- * - Fixed-scope (`"global"` or `"user"`): every call resolves to the same
- *   scope and `scopeForInput` is prohibited at the type level.
- * - `"mixed"`: the scope depends on the request, so `scopeForInput` is
- *   **required**. The classifier must be pure and side-effect free — the
- *   dispatcher calls it once per dispatch and threads the result through
- *   both provider lookup (`listProviders` is indexed by scope) and cache
- *   keying (the key is only userId-qualified when the resolved scope is
- *   `"user"`), so a user-scoped result can never be served from a global
- *   cache entry.
+ * Fixed-scope (`"global"` or `"user"`): every call resolves same scope,
+ * `scopeForInput` prohibited. `"mixed"`: scope per-request via `scopeForInput`
+ * (must be pure, side-effect free). Dispatcher calls once per dispatch,
+ * threads result through provider lookup and cache keying (userId-qualified
+ * only for `"user"` scope) — user result never served from global cache.
  */
 export type CapabilityDefinition = CapabilityDefinitionBase &
   (

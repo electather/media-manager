@@ -10,12 +10,7 @@ export const DEFAULT_ARTWORK_SIZES = {
 
 export type ArtworkSizeKind = keyof typeof DEFAULT_ARTWORK_SIZES;
 
-/**
- * TMDB uses different sort and date keys for `/discover/movie` vs
- * `/discover/tv`. Movies sort on `primary_release_date`; TV sorts on
- * `first_air_date`. The capability's `sort` enum is endpoint-agnostic; these
- * maps project each variant onto the native key TMDB expects per endpoint.
- */
+/** TMDB `/discover/movie` uses `primary_release_date`, `/discover/tv` uses `first_air_date`. Maps project endpoint-agnostic `sort` enum to native TMDB keys. */
 export const SORT_MAP_MOVIE: Record<string, string> = {
   popularity_desc: "popularity.desc",
   popularity_asc: "popularity.asc",

@@ -75,14 +75,8 @@ export const MediaRequestV1 = defineCapability({
       z.object({ ok: z.boolean(), message: z.string().optional() }),
       { invalidates: ["mediaRequest@v1"] },
     ),
-    /**
-     * `getStatusBatch` — bulk variant used by the home feed dataloader to
-     * enrich every visible row with `status` in a single underlying call. The
-     * keyspace mirrors the request: callers pass composite media ids
-     * (`"movie:550"` / `"tv:1396"`) and receive the same strings back as keys
-     * in the `statuses` map. Plugins that do not implement this method are
-     * skipped; the host falls back to `"unknown"` per item.
-     */
+    // Bulk variant for home feed dataloader: pass composite ids ("movie:550"/"tv:1396"),
+    // get same strings back as keys in statuses map. Plugins skipping this fallback to "unknown".
     getStatusBatch: method(
       z.object({ ids: z.array(z.string()) }),
       z.object({ statuses: z.record(z.string(), statusEnum) }),

@@ -1,10 +1,9 @@
 import type { CoalescedJobHandle } from "../../jobs/types";
 
 /**
- * Module-local storage for the `CoalescedJobHandle` from `registerCoalesced`.
- * Registry entry deliberately omits `trigger()` to prevent silent-drop bugs (Pre-Phase-3a).
- * Leaf module avoids import cycle: `service.ts` → `triggerIncremental` without
- * touching `incremental-rebuild.ts` (which imports `getPreferencesService`).
+ * Module-local storage for `CoalescedJobHandle`. Registry deliberately omits `trigger()`
+ * to prevent silent-drop bugs (Pre-Phase-3a). Leaf module breaks cycle with
+ * `incremental-rebuild.ts` (which imports `getPreferencesService`).
  */
 let handle: CoalescedJobHandle | undefined;
 

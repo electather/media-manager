@@ -44,10 +44,8 @@ export function readUserConfig(ctx: Ctx): PlexUserCfg {
 }
 
 /**
- * URL base used by the host for outbound server-to-server calls. Falls back to
- * the external URL when the admin has not configured an internal one — a
- * self-hosted deployment without a docker-network shortcut still works, it
- * just routes through the public URL.
+ * Fetch URL base (internal if configured, else external).
+ * Fallback allows self-hosted without docker-network shortcut to route via public URL.
  */
 export function pickFetchBase(cfg: PlexUserCfg): string {
   const base = cfg.internalServerUrl ?? cfg.externalServerUrl;
@@ -93,11 +91,9 @@ export async function plexServerFetch(
 }
 
 /**
- * Signals the shared-credentials pool when Plex returns 429 and then throws
- * `plugin.rate_limited`. Every direct-fetch call site must route through this
- * (or `plexServerJson`, which wraps it) so the host can back off / rotate
- * credentials — a bare `throw pluginError("plugin.rate_limited", …)` without
- * `markExhausted` would leave the pool unaware and retries would stampede.
+ * Signal pool on 429, then throw `plugin.rate_limited`.
+ * Must route all fetches through this (or `plexServerJson`) — bare throw without
+ * `markExhausted` leaves pool unaware and causes retry stampede.
  */
 export function throwIfRateLimited(res: Response, ctx: Ctx): void {
   if (res.status !== 429) return;

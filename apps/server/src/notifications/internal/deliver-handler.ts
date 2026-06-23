@@ -49,10 +49,8 @@ export function parseUserConfig(raw: string | null): unknown {
 }
 
 /**
- * Merge decrypted credentials back into channel config for plugins. No-auth plugins
- * (Telegram, ntfy, …) store secrets like `botToken` (x-secret: true) encrypted,
- * but still read from `args.channelConfig`. Credentials win on key collisions.
- * Non-object credentials (inbox sentinel, plain string) are ignored.
+ * Merge decrypted credentials into channel config. No-auth plugins (Telegram, ntfy, …) store secrets (x-secret: true) encrypted but read from `args.channelConfig`.
+ * Credentials win on collisions; non-object credentials ignored.
  */
 // fallow-ignore-next-line complexity
 export function mergeSecretCredentials(channelConfig: unknown, credentials: unknown): unknown {

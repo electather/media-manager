@@ -2,10 +2,9 @@ import { definePlugin } from "@nama/plugin-sdk";
 import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 
 /**
- * Host-privileged inbox capability injected onto the plugin context by the
- * server. The plugin only knows about message fields; the host pre-binds the
- * recipient user id and delivery id so third-party plugins (which never
- * receive `ctx.inbox`) cannot persist server-owned state.
+ * Host-privileged inbox injected by server. Plugin sees only message fields;
+ * host pre-binds recipient/delivery ids so third-party plugins cannot persist
+ * server-owned state.
  */
 interface InboxInsertArgs {
   title: string;

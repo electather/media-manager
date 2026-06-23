@@ -1,28 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Finds comments longer than 5 lines across the TypeScript source.
- * Run from repo root: `bun tools/find-long-comments.ts [--limit <n>]`.
- *
- * Scope:
- *   - Only `.ts` files (includes `.d.ts`) are scanned.
- *   - Only files tracked by git are considered (via `git ls-files`), so
- *     untracked/ignored files are skipped.
- *
- * A "long comment" is a contiguous comment region spanning more than
- * MIN_LINES lines:
- *   - a single block comment (`/* ... *\/`) that spans 6+ lines, or
- *   - 6+ consecutive whole-line comments (`//`) on adjacent lines. A trailing
- *     comment (`code(); // note`) stands alone and never merges, so a code line
- *     can't bridge two separate comment runs into one over-counted region.
- *
- * The scanner is string-aware: it ignores `//` and `/*` that appear inside
- * single-, double-, or template-quoted strings. Known limitation: comment
- * tokens inside template-literal `${...}` interpolations are treated as part
- * of the template string rather than parsed — these are vanishingly rare.
- *
- * Output: structured JSON array on stdout, one object per long comment:
- *   { "start_line": number, "end_line": number, "file_address": string }
- * `file_address` is the repo-relative path reported by git.
+ * Finds comments longer than MIN_LINES (5) in git-tracked .ts files.
+ * Run: `bun tools/find-long-comments.ts [--limit <n>]`.
+ * Merges 6+ consecutive line comments; blocks stand alone; trailing comments don't merge.
+ * String-aware (ignores `//` and `/*` in quotes); limitation: comment tokens in `${...}` treated as string.
+ * Outputs JSON: `[{ start_line, end_line, file_address (repo-relative from git) }]`.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

@@ -85,12 +85,9 @@ function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-/**
- * Encodes ntfy view-actions per https://docs.ntfy.sh/publish/#using-a-header.
- * Each action is `view, <label>, <url>` and multiple actions are joined with
- * `;`. Commas and semicolons inside labels are stripped because ntfy uses
- * them as the field/action separators with no escape mechanism.
- */
+// Encodes ntfy view-actions per https://docs.ntfy.sh/publish/#using-a-header.
+// Format: `view, <label>, <url>` joined by `;`. Commas/semis in labels are
+// stripped — ntfy uses them as separators with no escape mechanism.
 function formatActionsHeader(actions: NotificationAction[]): string {
   return actions.map((a) => `view, ${a.label.replace(/[,;]/g, " ")}, ${a.url}`).join("; ");
 }

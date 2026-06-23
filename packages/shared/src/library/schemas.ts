@@ -5,14 +5,9 @@ import { WATCHED_STATES } from "./enums";
 export const LIBRARY_LIST_DEFAULT_LIMIT = 60;
 export const LIBRARY_LIST_MAX_LIMIT = 200;
 
-/**
- * A tolerant array query param. Hono yields a bare string for a single
- * occurrence (`?genres=Drama`) and an array for a repeated one, so this coerces
- * the single value to a one-element array. Anything that fails item validation
- * (a stray value from a hand-edited link) degrades to an open axis rather than
- * 400-ing the request, matching the client's URL parsing. Mirrors
- * `apps/client/src/features/library/lib/search.ts`.
- */
+// Tolerant array param: Hono yields bare string for `?genres=Drama` but array for repeated.
+// Coerces single value to one-element array; validation failure degrades to open axis
+// (matching client URL parsing); mirrors apps/client/src/features/library/lib/search.ts.
 function arrayParam<T extends z.ZodTypeAny>(item: T) {
   return z
     .preprocess(
@@ -40,12 +35,8 @@ const limitSchema = z.coerce
   .max(LIBRARY_LIST_MAX_LIMIT)
   .default(LIBRARY_LIST_DEFAULT_LIMIT);
 
-/**
- * Query schema shared by the four item lenses (`library-az`, `library-timeline`,
- * `library-server`, `library-quality`) served through the unified
- * `/api/media/sources/:sourceId` route. The opaque `cursor` is decoded
- * separately by the source resolver, so this is intentionally not `.strict()`.
- */
+// Shared by four item lenses (library-az, library-timeline, library-server, library-quality)
+// via /api/media/sources/:sourceId route. Cursor decoded separately; not .strict() by design.
 export const libraryLensQuerySchema = z.object({
   cursor: cursorSchema,
   limit: limitSchema,

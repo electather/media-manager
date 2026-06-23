@@ -88,15 +88,10 @@ export function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
 }
 
 /**
- * Shapes a Plex metadata row as a cross-service `MediaItem` (the shape used by
- * `playback@v1` and `watchHistory@v1`). Distinct from `toLibraryItem`, which
- * emits the server-local `LibraryItem` shape — the two capabilities have
- * different schemas and a single mapper would obscure the difference.
- *
- * `cfg` is intentionally kept on the signature even though the current body
- * only uses its ratingKey output — future enrichment (e.g. per-item poster
- * URLs built off `externalBase(cfg)`) should land without rethreading call
- * sites.
+ * Maps Plex metadata to cross-service `MediaItem` (playback@v1, watchHistory@v1),
+ * distinct from `toLibraryItem` which emits server-local shape to avoid obscuring
+ * schema differences. `cfg` kept on signature for future poster-URL enrichment
+ * without rethreading callsites.
  */
 export function toItemShape(
   _cfg: PlexUserCfg,
@@ -146,11 +141,9 @@ export function normalizeDecision(raw: string | undefined): "direct-play" | "cop
 }
 
 /**
- * Pulls a Plex ratingKey off a media item. Prefers the explicit
- * `ids.plex_ratingKey` hint used by the id-map; falls back to the `id` field
- * when it looks like a bare Plex ratingKey (digits only). Returns null when
- * the caller has only a cross-service id — they need to route through the
- * plugin's own `idResolve` first (tracked by #29 for the host wiring).
+ * Extracts Plex ratingKey: prefers `ids.plex_ratingKey`, falls back to `id` if
+ * all digits. Returns null for cross-service IDs; route through `idResolve` first
+ * (#29 for host wiring).
  */
 export function extractRatingKey(item: {
   id?: string;

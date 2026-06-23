@@ -15,23 +15,15 @@ const refreshItemInput = z.object({
   serverItemId: z.string().min(1),
 });
 
-// Both operations are fire-and-forget: the backing endpoints return empty
-// bodies with no scan id or progress handle, so the contract is only "the
-// server accepted the request". Intentionally no `invalidates` — invalidating
-// libraryAvailability@v1 here would surface stale re-fetches until the scan
-// actually completes server-side, which can take seconds to minutes. Hosts
-// that need to force a fresh read after a refresh should do so explicitly.
+// Fire-and-forget: endpoints return empty bodies, no progress handle.
+// Intentionally no `invalidates` — would cause stale re-fetches until
+// server-side scan completes (seconds to minutes).
 const refreshOutput = z.object({ ok: z.boolean() });
 
 /**
  * libraryAdmin@v1 — trigger server-side rescan / metadata refresh on demand.
- * Intended caller is the host itself, invoked after a successful
- * `mediaRequest@v1` fulfilment so the new file lands in the library without
- * waiting on the periodic scan. That host wiring is tracked as a follow-up
- * (see issue #21) — this packet only declares the capability contract.
- *
- * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
- * implementations (#22, #23).
+ * Intended caller is the host after `mediaRequest@v1` fulfilment (#21).
+ * No `mcpTools` in this revision — they land with Plex/Jellyfin implementations (#22, #23).
  */
 export const LibraryAdminV1 = defineCapability({
   id: "libraryAdmin",

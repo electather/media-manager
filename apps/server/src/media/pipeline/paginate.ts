@@ -4,11 +4,9 @@ import { encode, type Cursor, type CursorMode } from "../cursor";
 import type { RawPageToken } from "../types";
 
 /**
- * Pagination stage (design §C/§E) with two modes: `keyset` uses source's `nextRaw`
- * hop token (source exhaustion → no cursor, invariant V.PG1); `offset` slices `[n, n+limit)`.
- * Filter runs upstream over the full set, so offset fills from the whole sorted tail
- * in a single slice (preserves #501, single-pass sparse-bucket fix). Keyset preserves
- * #500 (empty-streak → `cursor:null`).
+ * Pagination stage (design §C/§E): keyset mode uses source's `nextRaw` hop token
+ * (exhaustion → no cursor, V.PG1); offset slices [n, n+limit) from full sorted tail
+ * (upstream filter, #501 sparse-bucket fix). Keyset: #500 empty-streak → cursor:null.
  */
 
 /**

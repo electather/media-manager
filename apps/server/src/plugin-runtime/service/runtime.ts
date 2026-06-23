@@ -444,11 +444,10 @@ export class PluginRuntime {
   }
 
   /**
-   * Probe for the "test" button and health cron. Resolution order:
-   * 1. `testConnection` — standard path (`auth.kind !== "none"`).
-   * 2. `notificationDelivery.testDelivery` — notification channels use `auth.kind: "none"`; without
-   *    this fallback Telegram/Discord/ntfy/inbox falsely report "plugin has no testConnection".
-   * 3. `{ ok: true, message: "plugin has no testConnection" }`.
+   * Probe for the "test" button and health cron. Tries `testConnection`, then
+   * `notificationDelivery.testDelivery` (notification channels use `auth.kind: "none"` and
+   * lack `testConnection`; without this fallback Telegram/Discord/ntfy/inbox falsely pass),
+   * then returns `{ ok: true, message: "plugin has no testConnection" }`.
    */
   // fallow-ignore-next-line complexity
   async testConnection(

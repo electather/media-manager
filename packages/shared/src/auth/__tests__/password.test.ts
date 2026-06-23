@@ -2,10 +2,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordSchema } from "../password";
 
 /**
- * The shared new-password policy is the single source of truth reused by the
- * bootstrap-claim and admin-create schemas, so its bounds are pinned here:
- * a regression in either direction (lowering the floor, dropping the cap) is a
- * security change and must break a test.
+ * Pins the bounds of the shared new-password policy (reused by bootstrap-claim and
+ * admin-create schemas): lowering the floor or dropping the cap is a security change
+ * and must break a test.
  */
 describe("passwordSchema", () => {
   it("exposes the documented bounds", () => {

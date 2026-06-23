@@ -3,10 +3,7 @@ import { NAME_MAX_LENGTH } from "../../users/schemas";
 import { acceptInviteSchema } from "../schemas";
 
 /**
- * The name field on acceptInviteSchema must enforce the shared NAME_MAX_LENGTH
- * upper bound so that invite acceptance is consistent with every other
- * account-creation path. Pinned here: a regression that drops the cap is a
- * validation change and must break this test.
+ * acceptInviteSchema.name must enforce shared NAME_MAX_LENGTH; regression breaking it fails here.
  */
 describe("acceptInviteSchema name field", () => {
   const base = {

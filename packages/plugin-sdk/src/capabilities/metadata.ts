@@ -64,12 +64,7 @@ export const MetadataV1 = defineCapability({
     getSimilar: method(z.object({ id: z.string(), type: mediaType }), z.array(mediaItem)),
     getTrending: method(mediaListQuery, z.array(mediaItem)),
     discover: method(discoverFilters, z.array(mediaItem)),
-    /**
-     * Canonical TV season + episode list. Day-cached metadata: stable across
-     * a release window, expensive to repeat. Plugin returns the full eager
-     * episode list (titles, air dates, runtimes); host bundles into
-     * `home.getDetails`.
-     */
+    /** Canonical TV season + episode list, day-cached (stable, expensive). Plugin returns eager full list (titles, air dates, runtimes); host bundles into `home.getDetails`. */
     getShowSeasons: method(
       z.object({ id: z.string() }),
       z.object({ seasons: z.array(seasonInfoShape) }),

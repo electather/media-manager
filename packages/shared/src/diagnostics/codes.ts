@@ -1,19 +1,9 @@
 import type { ErrorSeverity } from "./enums";
 
-/** Severity classification attached to each stable error code.
- *
- * - `error`   — genuine bug or infrastructure failure. Surfaced on the
- *               admin viewer's default filter.
- * - `warning` — unexpected but recovered from (e.g. plugin returned malformed
- *               output, fell back to a secondary).
- * - `info`    — expected user-input failure (bad URL, wrong password, stale
- *               404). Stored alongside the other severities so admins can
- *               filter them in when debugging, but excluded from the default
- *               error view per the error design doc §Severity model.
- *
- * The registry's classification is the default severity applied at the
- * `captureError` boundary. Callers can still pass an explicit `severity` to
- * bump a normally-error code down to `warning` for recovered paths.
+/** Severity classification: `error` (bug/infra failure, shown by default),
+ * `warning` (unexpected but recovered), `info` (expected user-input failure,
+ * per error design doc §Severity model). Default applied at `captureError`
+ * boundary; callers can override to bump errors down for recovered paths.
  */
 export interface ErrorCodeSpec {
   severity: ErrorSeverity;

@@ -16,13 +16,10 @@ export const WatchHistoryV1 = defineCapability({
       z.array(historyEntry),
     ),
     /**
-     * `getInProgress` — used by the home feed's "Continue Watching" row.
-     * Aggregate strategy: each plugin returns the items it can see; the host
-     * dedupes by `(tmdbId, mediaType)` and sorts by `lastWatchedAt`, then
-     * paginates with an offset cursor. `limit` is a per-plugin hint, not a
-     * global cap. Plugins not implementing it surface `plugin.missing_method`,
-     * which the aggregate dispatcher skips, so adding the method is
-     * backward-compatible.
+     * Home feed "Continue Watching" row. Aggregate strategy: each plugin returns visible
+     * items, host dedupes by (tmdbId, mediaType) and sorts by lastWatchedAt, then
+     * paginates via offset cursor. `limit` is per-plugin hint, not global cap.
+     * Missing plugins surface plugin.missing_method (skipped); backward-compatible.
      */
     getInProgress: method(z.object({ limit: z.number().optional() }), z.array(inProgressEntry), {
       optional: true,
