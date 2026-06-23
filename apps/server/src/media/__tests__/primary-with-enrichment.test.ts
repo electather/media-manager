@@ -271,11 +271,8 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
 
 // ---------------------------------------------------------------------------
 // Prototype pollution defense — issue #451.
-// Plugin responses may carry an own `__proto__` key when the plugin forwards
-// a `JSON.parse` result from an external API. Both safeClone (used to copy
-// primary + enrichment data) and fillGaps (used to merge them) must filter
-// `__proto__`, `constructor`, and `prototype` so attacker-controlled keys
-// never reach the worker's `Object.prototype`.
+// Plugin responses from JSON.parse may carry own `__proto__`, `constructor`, `prototype` keys.
+// safeClone and fillGaps must filter these so attacker-controlled keys never reach Object.prototype.
 // ---------------------------------------------------------------------------
 
 describe("prototype pollution defense (issue #451)", () => {

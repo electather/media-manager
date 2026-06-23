@@ -11,11 +11,8 @@ type Handler = (raw: unknown) => Promise<void>;
  */
 const handlerLists = new Map<string, Handler[]>();
 
-/**
- * Dispatcher rethrows handler errors to the runner so retry semantics apply
- * to the whole event. Side effect: event name is a triggerable job id, making
- * every event admin-triggerable under `requiredPermission: "admin:jobs"`
- * (intentional for manual replay + debugging).
+/** Dispatcher rethrows to runner for whole-event retry. Event name doubles as triggerable job id
+ * (intentional for manual replay + debugging under `requiredPermission: "admin:jobs"`).
  */
 function registerJob(name: string, handler: Handler): void {
   registerTriggerable<unknown, void>({

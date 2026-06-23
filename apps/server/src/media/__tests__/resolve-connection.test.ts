@@ -1,14 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
 /**
- * `resolveConnections` gates the admin shared-credential fallback on the
- * request scope. A shared-credential entry is the admin's app/OAuth identity
- * (e.g. Trakt `clientId`), never a per-user access token — so it can satisfy a
- * `global`-scoped request but never a `user`-scoped one. Surfacing it for a
- * user-scoped capability makes the dispatcher "attempt" a provider that can
- * only fail auth, which downgrades a home row to `all_failed` (the regression:
- * the `calendar@v1` "coming up" row 503'd for users with no Trakt connection
- * once admin shared Trakt creds existed). These tests lock that contract.
+ * Gates admin shared-credential fallback on request scope. Shared credentials are app/OAuth
+ * identities (e.g. Trakt `clientId`), never per-user tokens — satisfy `global` but never
+ * `user` scope. Using for user-scoped requests causes guaranteed auth failure, downgrading
+ * home rows to `all_failed` instead of clean drop (regression: #503 on users with no Trakt
+ * connection once admin creds existed). Tests lock that contract.
  */
 
 const queryEnabledConnectionsForPluginMock = vi.fn();

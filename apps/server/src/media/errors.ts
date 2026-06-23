@@ -3,14 +3,9 @@ import { isPluginError } from "@nama/plugin-sdk";
 import { HttpError } from "../diagnostics/http-errors";
 
 /**
- * Plugin error codes that reflect a transient/retryable condition rather than a
- * terminal one. Two dispatcher decisions key off this set:
- *   - A token refresh failing with one of these must NOT degrade the connection
- *     or emit an auth-expired notification (see `invoke.ts` `handleRefresh`) —
- *     e.g. Trakt rate-limits `/oauth/token` independent of token validity.
- *   - An aggregate where EVERY provider failed with one of these soft-degrades
- *     to an empty partial result instead of throwing `AllPluginsFailedError`
- *     (see `interpretAggregate`): the data is temporarily unavailable, not gone.
+ * Error codes for transient/retryable conditions. Two dispatcher decisions use this:
+ * (1) Token refresh failures don't degrade the connection (see `invoke.ts` `handleRefresh`).
+ * (2) Aggregate with ALL providers failing these soft-degrades to empty partial instead of throwing `AllPluginsFailedError`.
  */
 export const TRANSIENT_PLUGIN_CODES = new Set<HostErrorCode>([
   "plugin.rate_limited",
@@ -48,13 +43,8 @@ export class PluginCallError extends Error {
 }
 
 /**
- * Thrown by aggregate `MediaService` methods when every contributing plugin
- * returned an error. The home feed orchestrator catches this and downgrades
- * the affected row to `partial: true` with an empty page so the surface
- * stays visible. For any other caller it escapes to `errorHandler` as a
- * 503 `media.providers_failed` with the per-provider `errors[]` exposed in
- * `details`, so the client can render per-provider hints instead of a
- * generic 500.
+ * Thrown when every contributing plugin fails. Home feed downgrades to `partial: true`.
+ * Other callers get 503 `media.providers_failed` with `errors[]` in details for per-provider hints.
  */
 export class AllPluginsFailedError extends HttpError {
   constructor(
@@ -73,10 +63,8 @@ export class AllPluginsFailedError extends HttpError {
 }
 
 /**
- * Maps a `PluginCallError` thrown by a `mediaRequest@v1` dispatch to the
- * request-flow HTTP error envelope. Returns `null` for non-`PluginCallError`
- * inputs and for `PluginCallError` codes outside the documented map so
- * callers can rethrow.
+ * Maps `PluginCallError` from `mediaRequest@v1` dispatch to HTTP error envelope.
+ * Returns `null` for non-`PluginCallError` or unmapped codes so callers can rethrow.
  */
 // fallow-ignore-next-line complexity
 export function mapRequestPluginError(err: unknown): HttpError | null {

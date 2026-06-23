@@ -4,10 +4,9 @@ import { getDb, type Db } from "../../db/client";
 import { homeLayoutCache } from "../../db/schema/home";
 
 /**
- * Bump when `HomeLayoutResponse`/`HomeRowStub`/`LayoutHero` change in
- * render-affecting ways; stale blobs fall through to cold recompose. v3:
- * `LayoutHero` reshaped to `{ slides: HeroSlide[] }` (design §2026-05-05,
- * amendment 3, rev 4); PR #227 shipped without invalidating.
+ * Bump when render-affecting changes occur; stale blobs recompose. v3: `LayoutHero` reshaped
+ * to `{ slides: HeroSlide[] }` (design §2026-05-05, amendment 3, rev 4); PR #227 shipped
+ * without invalidating.
  */
 export const CURRENT_SCHEMA_VERSION = 3;
 

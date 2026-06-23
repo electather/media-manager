@@ -9,16 +9,9 @@ import type { InvocationOutcome } from "../../errors";
 import type { DispatchRequest, AggregateResult } from "../../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
 
-// Plugin responses cross a trust boundary: payloads may come from external
-// HTTP APIs via JSON.parse, which preserves `__proto__` as an own property.
-// Naive recursive copy/merge would set the target's prototype to attacker
-// input, polluting every object in the worker. See docs/media-service.md
-// "Response Merge Safety" and issue #451.
-//
-// `__proto__` is the live attack vector. `constructor` is included to block
-// constructor-chain attacks (`obj.constructor.prototype.x = ...`). `prototype`
-// is harmless on a plain object but kept here as a cheap belt-and-braces
-// guard in case a future merge path ever runs against a function.
+// Plugin responses cross a trust boundary; JSON.parse preserves `__proto__` as own property.
+// See docs/media-service.md "Response Merge Safety" (#451). Blocks prototype pollution via
+// `__proto__`, constructor-chain attacks, and future function-prototype edge cases.
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 function isEmptyValue(v: unknown): boolean {
@@ -33,12 +26,8 @@ function safeCloneValue(value: unknown): unknown {
 }
 
 function safeClone(src: Record<string, unknown>): Record<string, unknown> {
-  // Plain `{}` is intentional. The real defense is the `DANGEROUS_KEYS` filter
-  // below — it prevents the only assignment that could touch `Object.prototype`
-  // (`out["__proto__"] = ...`). A null-prototype base would force every nested
-  // object to be null-proto too, breaking callers that rely on
-  // `Object.prototype` methods (`hasOwnProperty`, `toString`, ...) on
-  // sub-objects like `result.data.ids`.
+  // Plain `{}` is intentional; null-prototype base would break callers relying on
+  // `Object.prototype` methods (`hasOwnProperty`, `toString`) on nested objects like `result.data.ids`.
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(src)) {
     if (DANGEROUS_KEYS.has(key)) continue;
@@ -131,15 +120,9 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
     const empty: AggregateResult<T> = { data: null, errors, attempted: outcomes.length };
-    // Distinguish two no-data cases. All-fail (every provider errored) is
-    // transient — a TMDB rate-limit storm should not poison the 24h positive
-    // cache. All-succeed-with-no-data is a stable absence and uses the
-    // capability's normal TTL via ttlMsFor.
-    //
-    // `errors` excludes `plugin.item_not_found` (see filter above), so a
-    // provider that returns "no such item" does not count toward all-fail —
-    // that outcome is a stable absence, not a transient failure, and should
-    // use the capability's regular TTL.
+    // All-fail (every provider errored) uses NEGATIVE_TTL_MS (transient);
+    // all-succeed-with-no-data uses normal TTL. `errors` excludes `plugin.item_not_found`
+    // (stable absence, not transient failure).
     const isAllFail = outcomes.length > 0 && errors.length === outcomes.length;
     await writeCache(req, capability, scope, empty, isAllFail ? NEGATIVE_TTL_MS : undefined);
     return empty;

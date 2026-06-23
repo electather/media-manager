@@ -1,12 +1,9 @@
 import type { MatchingServer, MediaAvailabilityService } from "./types";
 
 /**
- * Process-local 30 s TTL cache for `getMatchingServers` keyed by
- * `${userId}:${tmdbId}:${mediaType}`. Lets the multiple `/watchlist` section
- * reads on a single page-load share one plugin probe per row instead of
- * multiplying the fan-out. Per-`MediaService` instance
- * memoization in `media/` is request-scoped and so cannot bridge two HTTP
- * handlers; this module sits above that boundary on purpose.
+ * Process-local 30s TTL cache for `getMatchingServers` (key: `${userId}:${tmdbId}:${mediaType}`).
+ * Lets multiple `/watchlist` section reads share one plugin probe per row.
+ * Sits above request-scoped `MediaService` memoization to bridge HTTP handlers.
  */
 const TTL_MS = 30_000;
 const MAX_ENTRIES = 5000;

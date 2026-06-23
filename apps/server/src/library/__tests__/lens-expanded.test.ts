@@ -214,12 +214,9 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(plexMulti?.section.label).toBe("Plex");
   });
 
-  // SERVER KEYSET COMPLETENESS — paging the whole expanded set, threading
-  // `nextRow` back as cursor EXACTLY as `sources/server.ts` does, must
-  // reconstruct each `(title, server)` pair with NO drop/duplicate, order
-  // `(section.id, sortTitle, id)`. Off-by-one in `toExpandedPage` (encoding
-  // dropped-overflow instead of last-returned) drops or repeats boundary row.
-  // Title on two servers makes boundary fall mid-fan.
+  // SERVER KEYSET COMPLETENESS — threading `nextRow` cursor EXACTLY as `sources/server.ts`,
+  // no drop/duplicate across order `(section.id, sortTitle, id)` boundaries.
+  // Off-by-one (dropped-overflow vs last-returned) fails at mid-fan boundary.
   it("pages the whole expanded Server set across boundaries with no drops or duplicates", async () => {
     await seed([
       // `movie:ab` fans into both `alpha` and `beta`; the rest sit in one section
@@ -364,12 +361,9 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(decodeQuality(decode("@@@not-base64-json@@@"))).toBeUndefined();
   });
 
-  // FILTERS NARROW THE EXPANDED TITLE SET — applied as row-scoped `json_each EXISTS`
-  // (design §Filters; §Schema). `servers` axis matches `label` not connection id
-  // (agrees with facet key and FE popover — see regression test). `servers: ["Plex"]`
-  // keeps titles available on Plex, DROPS others entirely; kept multi-server titles
-  // still fan across ALL sections (filter narrows titles, not sections). Invariant:
-  // title NOT on Plex vanishes completely; title ON Plex keeps every section.
+  // FILTERS NARROW THE EXPANDED TITLE SET — row-scoped `json_each EXISTS` (design §Filters; §Schema).
+  // `servers` matches `label` not id (agrees with facet key and FE popover).
+  // Filter narrows titles, not sections — kept multi-server titles fan across ALL sections.
   it("narrows the expanded Server set to titles matching the filter, fanning kept titles across all sections", async () => {
     await seed([
       {

@@ -146,10 +146,8 @@ export async function dispatchTool(
 }
 
 /**
- * Thin wrapper used by the Streamable HTTP layer: produces the MCP tool
- * result payload whether the dispatch succeeded or failed. Failures are
- * returned as `content: [{ type: "text", text: <serialized error> }]` with
- * `isError: true` per the MCP spec.
+ * Wrapper for Streamable HTTP layer: produces MCP result payload (success or failure).
+ * Errors returned as `content: [{ type: "text", text: <serialized error> }]`, `isError: true`.
  */
 export async function dispatchForMcpHandler(
   toolName: string,

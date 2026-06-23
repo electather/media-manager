@@ -1,9 +1,5 @@
-/**
- * Verifies that `invokeOne` only writes a terminal "error" connection status
- * for non-recoverable codes (`plugin.bad_credentials`, `plugin.internal`) —
- * not for transient codes like `plugin.upstream_error`. A transient upstream
- * outage must not permanently degrade the connection's status in the database.
- */
+// Verify invokeOne writes terminal "error" status only for non-recoverable codes
+// (plugin.bad_credentials, plugin.internal), not transient ones (plugin.upstream_error).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vite-plus/test";
 import { PluginError } from "@nama/plugin-sdk";
 
@@ -102,12 +98,8 @@ describe("invokeOne connection status on terminal error", () => {
   });
 
   it("marks connection as error when plugin.internal is returned", async () => {
-    // plugin.internal signals a bug or unexpected state in the plugin — it is
-    // non-recoverable and must permanently mark the connection "error" so the
-    // user knows something is wrong, per the Error Handling table in
-    // docs/media-service.md.
-    // Use a duck-typed object because "plugin.internal" is not in HostErrorCode
-    // (plugins emit it as a raw string; normalizeError casts with "as HostErrorCode").
+    // plugin.internal: non-recoverable bug/unexpected state, per docs/media-service.md
+    // Error Handling. Duck-type object since not in HostErrorCode (raw plugin string).
     const internalErr = Object.assign(new Error("unexpected state"), {
       name: "PluginError",
       code: "plugin.internal",

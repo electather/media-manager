@@ -7,10 +7,9 @@ const LEADING_ARTICLE_RE = /^(the|a|an)\s+/;
 const COMBINING_MARKS_RE = /[̀-ͯ]/g;
 
 /**
- * Normalizes display title into `sort_title` browse key for A–Z lens/letter rail.
- * Pure/deterministic (Rule 9) for unit testing + stable keyset across hydrate runs.
- * Steps: (1) strip leading article, (2) lowercase, (3) NFD + drop combining marks, (4) trim.
- * Returns "" for null/blank so unresolved metadata still groups under "#".
+ * Normalizes display title to `sort_title` browse key for A–Z lens. Pure/deterministic (Rule 9).
+ * Steps: strip leading article, lowercase, NFD + drop combining marks, trim.
+ * Returns "" for null/blank so unresolved metadata groups under "#".
  */
 export function normalizeSortTitle(title: string | null | undefined): string {
   if (!title) return "";

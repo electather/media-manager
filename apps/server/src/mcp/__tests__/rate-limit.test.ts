@@ -2,13 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { TokenBucketLimiter } from "../rate-limit";
 
-// `TokenBucketLimiter` must reclaim buckets it no longer needs when keyed by an
-// unbounded internet-facing namespace (e.g. public client IPs). Eviction is
-// deliberately invisible to the limiting *decision*: a bucket that has refilled
-// to capacity and gone idle is indistinguishable from a never-seen key
-// (recreating it yields the same full bucket), so `check()` alone cannot reveal
-// whether a stale entry was reclaimed. These tests observe the bucket count
-// (`size`) directly to pin the eviction down.
+// Must reclaim buckets when keyed by unbounded namespace (e.g. public IPs). Eviction is
+// invisible to limiting *decision*: full+idle bucket is indistinguishable from never-seen key
+// (recreating yields same full bucket), so `check()` alone cannot reveal eviction. Tests
+// observe bucket count (`size`) directly to pin eviction down.
 describe("TokenBucketLimiter — idle bucket eviction", () => {
   beforeEach(() => {
     vi.useFakeTimers();

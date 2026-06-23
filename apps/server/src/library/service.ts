@@ -48,32 +48,18 @@ interface ParsedFeed {
 }
 
 /**
- * Phase-1 owned-library membership sync (design §Sync + hydrate, phase 1).
- * Diffs the `collection@v1` feed against the known projection:
- *   - keys in the feed but not yet known become new owned rows
- *     (`ownedAt = parseEpoch(entry.addedAt)`); denormalized columns stay at
- *     their defaults until the phase-2 hydrate job runs.
- *   - keys known-and-owned but absent from a COMPLETE feed are tombstoned. A
- *     tombstoned row is never resurrected (`upsertOwned` conflicts do nothing).
- *     A partial or empty/absent feed never tombstones — absence there is not
- *     evidence of un-ownership (see the sweep guard below).
- *
- * Idempotent: a re-run with the same feed inserts and tombstones nothing.
- * Tolerant of an empty/absent feed (no `collection@v1` provider) — no-op,
- * zero counts, never throws to the caller, and never wipes the owned library.
+ * Phase-1 membership sync (design §Sync + hydrate, phase 1). Diffs `collection@v1` feed:
+ * new keys become owned rows; keys absent from COMPLETE feed are tombstoned.
+ * Partial/empty feeds never tombstone (absence != un-ownership). Idempotent.
  */
 export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMembershipResult> {
   const c = asLibraryContext(ctx);
   const known = await allKnownKeys(c.userId);
   const parsed = await fetchAndParseFeed(c, known);
   const added = await upsertOwned(parsed.newRows);
-  // Only sweep tombstones from a COMPLETE, non-empty feed. A `partial` feed (a
-  // provider errored mid-fan-out) or an empty/absent feed (no provider, a
-  // disconnected provider, or a terminal all-providers failure swallowed in
-  // `fetchAndParseFeed`) cannot distinguish "left the collection" from
-  // "temporarily unreachable" — absence is then not evidence of un-ownership.
-  // Sweeping on it would tombstone the entire owned library on a transient
-  // outage, so it is skipped; a later complete sync reconciles real removals.
+  // Only sweep tombstones from COMPLETE, non-empty feeds; partial/empty feeds
+  // cannot distinguish "left collection" from "temporarily unreachable".
+  // Sweeping a transient outage would wipe the owned library.
   const removed =
     parsed.partial || parsed.feedKeys.length === 0
       ? 0
@@ -88,25 +74,10 @@ export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMemb
 }
 
 /**
- * Eager-seed trigger run on the first page of a library read (the lens sources'
- * `fetchRawSet` and `/facets`), mirroring `watchlist/internal/reads.ts` (whose
- * `getItems` seeds on its first page). A brand-new user has no `library_items`
- * rows until the 6-hourly cron runs, so the first read would otherwise show an
- * empty library; this seeds membership inline so the page is populated on first
- * paint.
- *
- * `trySeedLock` claims the per-user seed marker atomically — only the caller
- * that wins the race runs the membership fetch, so concurrent first reads do
- * not double-fetch. On success the lock stays so later reads skip seeding (the
- * 6-hourly cron owns ongoing reconciliation). On a feed error the lock is
- * rolled back so the next read retries. Hydration is deliberately NOT awaited
- * here — it stays lazy/async (the hourly job and the post-sync hydrate fill the
- * denormalized columns), so the first paint may show un-hydrated rows (no
- * servers/quality/franchise). That is acceptable per design §Known fuzzy areas.
- *
- * The membership sync swallows feed errors internally and busts the facets
- * cache on success, so this returns void — a seed failure must never fail the
- * read it rode in on.
+ * Eager-seed on first library read (mirrors watchlist/internal/reads.ts).
+ * Atomically claims seed lock (only one caller fetches); on error rolls back
+ * so next read retries. Hydration stays lazy/async per design §Known fuzzy areas.
+ * Never fails the read it rode in on.
  */
 export async function ensureSeeded(ctx: MaybeLibraryContext): Promise<void> {
   const c = asLibraryContext(ctx);
@@ -124,17 +95,9 @@ export async function ensureSeeded(ctx: MaybeLibraryContext): Promise<void> {
 }
 
 /**
- * Phase-2 denormalized hydrate (design §Sync + hydrate, phase 2). Resolves the
- * loose context and delegates to the `internal/hydrate` orchestrator, which
- * fills the browse projection (sortTitle, year, genres, servers, qualityTiers,
- * watchedState, franchise) for the user's new and stale owned rows. Thin by
- * design: no drizzle, no fan-out logic here — `internal/hydrate` owns the
- * orchestration and `repo/hydrate` owns the SQL.
- *
- * The 6-hourly membership sync calls this after reconciling membership so freshly
- * inserted rows hydrate promptly; the hourly `library.hydrate` job calls it with
- * a 1-hour window to refresh availability staleness (availability moves faster
- * than membership).
+ * Phase-2 hydrate (design §Sync + hydrate, phase 2). Fills browse projection
+ * (sortTitle, year, genres, servers, qualityTiers, watchedState, franchise).
+ * Called post-sync (6h) or hourly for availability refresh.
  */
 export async function hydrateLibrary(
   ctx: MaybeLibraryContext,
@@ -144,16 +107,8 @@ export async function hydrateLibrary(
 }
 
 /**
- * Returns the unfiltered facet totals for a user's owned library (design
- * §Facets), served behind a short-TTL per-user cache. The FE re-reads facets
- * whenever the popover re-opens or the rail re-renders, so the cache keeps that
- * off the GROUP-BY fan-out; the membership sync busts the entry on a real
- * change. Counts are whole-library totals, NOT filter-aware (matches the mock).
- *
- * Unlike the lens reads, this does NOT eager-seed: a brand-new user's facets are
- * empty until the lens read's `fetchRawSet` seeds membership (the watchlist
- * precedent — seed rides the primary list read, not every read), at which point
- * the sync busts this cache and the next `/facets` read reflects the seed.
+ * Unfiltered facet totals cached per-user (design §Facets). Does NOT eager-seed;
+ * waits for lens read's `fetchRawSet` to seed membership (per watchlist precedent).
  */
 export async function getFacets(ctx: MaybeLibraryContext): Promise<LibraryFacetCounts> {
   const c = asLibraryContext(ctx);
@@ -165,15 +120,9 @@ export async function getFacets(ctx: MaybeLibraryContext): Promise<LibraryFacetC
 }
 
 /**
- * Lists the user's owned franchises group-first (design §Collections lens).
- * Eager-seeds membership on a first read exactly as the lens path does (so a
- * brand-new user's collections are not empty on first paint), pages the owned
- * franchises via the repo keyset, then enriches each group's preview ids into
- * `CompactMediaItem`s through the SAME dedup-free enrich the lenses use — no
- * availability re-probe, reading the denormalized columns. Owned-only and
- * TV/standalone-excluded are enforced in SQL (`owned = true` +
- * `collection_id IS NOT NULL`); preview is capped at four in SQL. Thin by
- * design: no drizzle here — the repo owns the SQL, this orchestrates.
+ * Lists owned franchises group-first (design §Collections lens). Eager-seeds
+ * membership on first read, pages via repo, enriches previews through lens'
+ * dedup-free builder (no re-probe). SQL enforces owned-only + TV/standalone-excluded.
  */
 export async function listCollections(
   ctx: MaybeLibraryContext,
@@ -193,12 +142,8 @@ export async function listCollections(
 }
 
 /**
- * Enriches every group's preview ids in ONE batch into a `id → CompactMediaItem`
- * lookup. Pooling all groups' previews into a single `selectRowsByIds` +
- * `buildEnrichRows` call keeps the metadata/progress fan-out to one round trip
- * for the whole page rather than one per franchise. The enrich is the lens'
- * dedup-free builder, so it reads the denormalized `servers`/`qualityTiers`
- * columns and never re-probes availability.
+ * Batches all groups' preview ids into one `selectRowsByIds` + `buildEnrichRows` call,
+ * keeping metadata fan-out to one round trip (not per-franchise).
  */
 async function enrichPreviews(
   ctx: LibraryContext,
@@ -212,11 +157,8 @@ async function enrichPreviews(
 }
 
 /**
- * Maps a repo group + the enriched preview lookup onto the wire
- * `LibraryCollection`. The preview keeps the repo's `(sortTitle, id)` ordering
- * (it walks `group.previewIds`, not the lookup) and drops any id the enrich
- * could not resolve, so a missing-metadata preview shrinks the fan rather than
- * surfacing a blank card.
+ * Maps repo group + enriched preview lookup to `LibraryCollection`.
+ * Preview walks `group.previewIds`, drops unresolved ids (no blank cards).
  */
 function toLibraryCollection(
   group: CollectionGroup,
@@ -234,11 +176,8 @@ function toLibraryCollection(
 }
 
 /**
- * Fetches the `collection@v1` feed and parses it into insertable new rows plus
- * the full set of feed keys. A feed error (terminal all-providers failure) is
- * swallowed at this boundary: it logs at info severity and reports an empty,
- * `partial` feed so the sync no-ops rather than throwing — the run still
- * surfaces the degradation via `partial`, and a later sync self-heals.
+ * Fetches and parses `collection@v1` feed into new rows + keys.
+ * Feed errors swallowed (logs info, reports empty `partial` feed for sync no-op).
  */
 async function fetchAndParseFeed(ctx: LibraryContext, known: Set<string>): Promise<ParsedFeed> {
   const opts: { deadlineMs?: number } = {};

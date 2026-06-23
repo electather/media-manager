@@ -47,9 +47,8 @@ export interface RunOutcome {
   durationMs: number;
 }
 
-// Active run registry keyed by `${jobId}::${scopeKey ?? ""}`. Stores abort
-// controllers for skip-if-running checks and cancel. In-memory only; doc
-// §Non-goals defers multi-instance coordination to v2.
+// Active run registry by `${jobId}::${scopeKey ?? ""}` keyed by abort controllers for skip-if-running/cancel.
+// In-memory only; doc §Non-goals defers multi-instance coordination to v2.
 const active = new Map<string, AbortController>();
 
 function activeKey(jobId: string, scopeKey: string | null | undefined): string {

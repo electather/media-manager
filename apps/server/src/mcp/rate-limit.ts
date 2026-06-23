@@ -6,14 +6,9 @@ export interface RateLimitOptions {
   /** Tokens refilled per second. A call consumes one token. */
   refillPerSec: number;
   /**
-   * Drop a bucket once it has refilled to capacity and gone untouched for at
-   * least this many milliseconds. A full, idle bucket is indistinguishable from
-   * a never-seen key — recreating it on the next access yields the same full
-   * bucket — so eviction never changes a limiting decision; it only reclaims
-   * memory. This bounds the key→bucket map by the keys *active* within the
-   * window (or still draining) rather than by every key ever seen, which
-   * matters for the IP-keyed public limiter facing the internet. Non-positive
-   * values are clamped to 1 ms. Defaults to {@link DEFAULT_IDLE_EVICTION_MS}.
+   * Drop a full, idle bucket after at least this many ms; eviction never changes a limiting decision (recreating a full bucket is indistinguishable from it never being seen).
+   * Bounds the key→bucket map by active keys, not all keys ever seen — critical for IP-keyed public limiter.
+   * Non-positive values clamped to 1 ms. Defaults to {@link DEFAULT_IDLE_EVICTION_MS}.
    */
   idleEvictionMs?: number;
 }
@@ -27,15 +22,9 @@ interface Bucket {
 const DEFAULT_IDLE_EVICTION_MS = 10 * 60 * 1000;
 
 /**
- * Per-user token-bucket rate limiter. Keyed by a caller-provided subject
- * (typically the JWT `sub` claim). Entirely in-process; multi-instance
- * deployments will want a shared store in a follow-up, but the current
- * behavior is already correct for a single-replica deployment.
- *
- * The key→bucket map is kept bounded by evicting buckets that have refilled to
- * full and gone idle (see {@link RateLimitOptions.idleEvictionMs}), so a
- * limiter keyed by an unbounded namespace (e.g. public client IPs) cannot
- * accumulate an entry per key ever seen.
+ * Per-user token-bucket rate limiter keyed by caller-provided subject (typically JWT `sub` claim).
+ * In-process only; single-replica correct, multi-instance needs shared store follow-up.
+ * Bounded via idle eviction so unbounded namespaces (e.g. public IPs) cannot accumulate per-key entry.
  */
 export class TokenBucketLimiter {
   private readonly capacity: number;
@@ -53,13 +42,8 @@ export class TokenBucketLimiter {
   }
 
   /**
-   * Evicts every bucket that has refilled to capacity and not been touched for
-   * at least `idleEvictionMs`. Throttled to one pass per window: the first call
-   * after a window elapses pays the O(n) walk, every other call is O(1). A
-   * still-draining bucket (would not be full even after the idle gap) is always
-   * retained — it is actively limiting — so eviction can never reset a caller
-   * mid-throttle; dropping a full+idle bucket is a no-op since recreating it
-   * yields the same full bucket.
+   * Evicts buckets full and idle ≥ idleEvictionMs, throttled to one O(n) pass per window (others O(1)).
+   * Retains still-draining buckets (actively limiting), so eviction never resets mid-throttle; dropping full+idle is a no-op anyway.
    */
   private sweepIdle(now: number): void {
     if (now - this.lastSweepAt < this.idleEvictionMs) return;
@@ -94,10 +78,8 @@ export class TokenBucketLimiter {
   }
 
   /**
-   * Consumes `count` tokens for `key` (defaults to 1). Returns `null` on
-   * success; on failure returns an `McpError` with `details.retry_after`
-   * (seconds, rounded up). `count` larger than `capacity` always fails so
-   * the bucket can never go more than empty.
+   * Consumes `count` tokens (default 1); returns null on success, McpError with `details.retry_after` (seconds, rounded up) on failure.
+   * `count > capacity` always fails, so bucket never goes below empty.
    */
   check(key: string, count = 1): ReturnType<typeof rateLimited> | null {
     const now = Date.now();

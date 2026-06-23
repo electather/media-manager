@@ -1,12 +1,9 @@
 import type { LibraryFacetCounts } from "@nama/shared/library";
 import { MemoryCache } from "../../cache/memory";
 
-/**
- * Short-TTL per-user cache for unfiltered facet totals (design §Facets).
- * Module-singleton `MemoryCache` (not dispatch cache) so FE's repeated reads
- * (popover re-open, rail re-render) ride cache instead of re-aggregating.
- * Membership sync busts entry directly via `bustFacets`, no event bus needed.
- */
+// Short-TTL per-user cache for unfiltered facet totals (design §Facets).
+// Module-singleton MemoryCache (not dispatch cache) so FE's repeated reads cache
+// instead of re-aggregating. Membership sync busts via bustFacets directly.
 const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 5000;
 const cache = new MemoryCache(CACHE_MAX_ENTRIES);

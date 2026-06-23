@@ -33,11 +33,8 @@ let testDb: Db;
 const USER_ID = "u1";
 
 /**
- * Fields needed for a denormalized row to land in a facet bucket. Direct insert
- * (not `upsertOwned` + `writeHydration`) because `upsertOwned` leaves facet
- * columns at schema defaults — only a direct insert drives `genres`/`servers`/
- * `qualityTiers`/`watchedState`/`sortTitle`/`year` across the exact shapes
- * each invariant needs.
+ * Direct insert (not `upsertOwned` + `writeHydration`) because `upsertOwned` leaves
+ * facet columns at schema defaults; direct insert needed to drive exact shapes.
  */
 interface SeedRow {
   id: string;

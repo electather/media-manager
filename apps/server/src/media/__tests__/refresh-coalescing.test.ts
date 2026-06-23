@@ -1,14 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { PluginError } from "@nama/plugin-sdk";
 
-// Regression for the recurring "Trakt keeps expiring" report. Trakt (and any
-// OAuth provider that rotates refresh tokens) invalidates the previous refresh
-// token the instant a new one is issued. A home-feed load fans capability calls
-// out in parallel, so when the access token has expired every concurrent call
-// observes `token_expired` and tries to refresh at once. Before coalescing, the
-// first refresh consumed the shared token and every loser presented an
-// already-dead one — Trakt answered 4xx (`plugin.token_expired`), which flipped
-// a healthy connection to "expired" and emitted an auth-expired notification.
+// Regression: when token expires, concurrent calls all observe `token_expired` and try to refresh.
+// Before coalescing, first refresh consumed the shared token; losers presented already-dead token,
+// Trakt answered 4xx, and connection flipped to "expired" (masking availability).
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

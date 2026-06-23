@@ -10,17 +10,8 @@ export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
   return progress.watched > 0 && progress.watched < progress.total;
 }
 
-/**
- * Server-side mirror of the client's classifier (see
- * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
- * `?bucket=` decisions match what the client would draw from
- * the same row. Rev 6: every row classifies into one of the five visible
- * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
- *
- * #502: `"upcoming"` is reserved for unreleased titles only (a future
- * `releaseDate`). Info-only rows — released, no server copy, and not on a
- * request path — fall through to `"unavailable"` rather than being mistaken
- * for upcoming.
+/** Server-side mirror of client's classifier (apps/client/.../classify.ts); kept in lockstep for `?bucket=` match.
+ * #502: `"upcoming"` reserved for unreleased only; info-only released rows fall to `"unavailable"`.
  */
 // fallow-ignore-next-line complexity
 export function classifyBucket(
@@ -42,12 +33,7 @@ export interface PreviewMeta {
   runtimeMinutes?: number | null;
 }
 
-/**
- * Cheap-signal preview of a `CompactMediaItem` shared by `enrich`'s filter
- * pre-pass and the `classifyRows` pass. Both paths derive the same bucket
- * from `(meta, status, matching servers, progress)` — extracting the shape
- * here keeps the two callers from drifting.
- */
+/** Shared preview shape for `enrich` pre-pass and `classifyRows`; prevents caller drift on bucket derivation. */
 // fallow-ignore-next-line complexity
 export function previewForClassify(
   meta: PreviewMeta | undefined,

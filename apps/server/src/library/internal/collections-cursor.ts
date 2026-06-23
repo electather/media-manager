@@ -1,11 +1,8 @@
 import type { CollectionCursor } from "../repo";
 
 /**
- * Opaque keyset cursor codec for group-first Collections endpoint (not via media
- * `paginate`). Token packs `"<collectionName> <collectionId>"`, split on LAST
- * space: `collectionId` (numeric) never has spaces, but `collectionName` can, so
- * prefix is name, suffix is id. `decodeCollectionsCursor` is total: null/empty/
- * malformed returns `undefined` (service reads as "first page", no 400).
+ * Keyset cursor: `"<collectionName> <collectionId>"` split on LAST space
+ * (name can have spaces, id cannot). `decodeCollectionsCursor` is total: returns undefined on null/empty/malformed.
  */
 export function encodeCollectionsCursor(cursor: CollectionCursor): string {
   return `${cursor.collectionName} ${cursor.collectionId}`;

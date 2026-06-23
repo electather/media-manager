@@ -4,18 +4,9 @@ import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import type { Cursor, RawPageToken } from "../../media";
 
 /**
- * Per-lens keyset hop-token codecs, mirroring `watchlist/sources/keyset.ts`. The
- * opaque `k` a keyset {@link Cursor} carries is the lens's resume position; the
- * source decodes the incoming cursor with the matching `decode*` and threads the
- * next page's position back as a {@link RawPageToken} via the matching `*Token`,
- * which `media.paginate` mints into the next cursor.
- *
- * The token packs `<sortKey> <id>` joined on a single space. The library `id`
- * (`"movie:550"`) never contains a space, but a `sortTitle` can, so every decode
- * splits on the LAST space to recover the id and treats the prefix as the sort
- * key. Like watchlist, every `decode*` is total — a bad, foreign, or
- * non-keyset cursor returns `undefined`, which the source reads as "first page"
- * and NEVER throws (invariant: a hand-edited cursor degrades, never 400s).
+ * Per-lens keyset hop-token codecs, mirroring `watchlist/sources/keyset.ts`.
+ * Token format `<sortKey> <id>` split on LAST space (library id and sortTitle can have spaces).
+ * Every `decode*` is total — bad cursors return undefined (first page), never throw (invariant: hand-edited cursors degrade, never 400s).
  */
 
 /** A–Z hop token: `"<sortTitle> <id>"`. */
@@ -36,10 +27,8 @@ export function decodeAz(cursor: Cursor | null): AzCursor | undefined {
 }
 
 /**
- * Decode a Timeline cursor back to its `(year, id)` resume position, or
- * undefined. The year must parse to a finite integer; anything else (a
- * hand-edited token) takes the first-page path rather than flowing a `NaN` into
- * the keyset comparison.
+ * Decode a Timeline cursor back to its `(year, id)` resume position, or undefined.
+ * Year must parse to finite integer; hand-edited non-numeric tokens take first-page path, never NaN into keyset comparison.
  */
 export function decodeTimeline(cursor: Cursor | null): TimelineCursor | undefined {
   const parts = splitToken(cursor);
@@ -50,23 +39,16 @@ export function decodeTimeline(cursor: Cursor | null): TimelineCursor | undefine
 }
 
 /**
- * Server hop token: `"<sectionId> <sortTitle> <id>"`. The leading section is the
- * server connection id (the `json_each` value's `id`), which never contains a
- * space; the trailing `id` is the composite library id, also space-free; only
- * the middle `sortTitle` can contain spaces, so the decode peels the first and
- * last spaces off (see {@link splitTriToken}).
+ * Server hop token: `"<sectionId> <sortTitle> <id>"`.
+ * Only sortTitle can have spaces; decode splits first and last space off (see {@link splitTriToken}).
  */
 export function serverToken(row: ExpandedLibraryRow): RawPageToken {
   return `${row.section.id} ${row.sortTitle} ${row.id}`;
 }
 
 /**
- * Quality hop token: `"<tierRank> <sortTitle> <id>"`. The rank is the EXACT
- * `QUALITY_TIERS` ordinal the SQL `CASE` produced — taken from the expanded
- * row's `rank` when present, else re-derived from the tier label via
- * `rankQualityTier` (the two agree value-for-value by construction). Encoding the
- * ordinal, not the label, keeps the token comparable to the cursor predicate's
- * numeric rank.
+ * Quality hop token: `"<tierRank> <sortTitle> <id>"`.
+ * Encodes `QUALITY_TIERS` ordinal (from row.rank or re-derived via rankQualityTier) so token stays comparable to numeric cursor predicates.
  */
 export function qualityToken(row: ExpandedLibraryRow): RawPageToken {
   const rank = row.rank ?? rankQualityTier(row.section.id);
@@ -85,10 +67,8 @@ export function decodeServer(cursor: Cursor | null): ServerCursor | undefined {
 }
 
 /**
- * Decode a Quality cursor back to its `(tierRank, sortTitle, id)` resume
- * position, or undefined. The rank must parse to a finite integer; a hand-edited
- * non-numeric rank takes the first-page path rather than flowing `NaN` into the
- * keyset comparison.
+ * Decode a Quality cursor back to its `(tierRank, sortTitle, id)` resume position, or undefined.
+ * Rank must parse to finite integer; hand-edited non-numeric rank takes first-page path, never NaN into keyset comparison.
  */
 export function decodeQuality(cursor: Cursor | null): QualityCursor | undefined {
   const parts = splitTriToken(cursor);
@@ -99,10 +79,8 @@ export function decodeQuality(cursor: Cursor | null): QualityCursor | undefined 
 }
 
 /**
- * Pull the keyset `k` off a cursor and split it on the LAST space into the sort
- * key prefix (`head`) and the trailing composite `id`. Returns undefined for a
- * null/non-keyset cursor, a token with no space, or an empty id — every
- * bad-cursor path the `decode*` functions fold into "first page".
+ * Split keyset `k` on LAST space into sort key (`head`) and `id`.
+ * Returns undefined for null/non-keyset cursor, missing space, or empty id — bad cursors fold to "first page".
  */
 function splitToken(cursor: Cursor | null): { head: string; id: string } | undefined {
   if (!cursor || cursor.mode !== "keyset") return undefined;
@@ -115,13 +93,8 @@ function splitToken(cursor: Cursor | null): { head: string; id: string } | undef
 }
 
 /**
- * Split a three-part grouped-lens token `"<head> <mid> <id>"` into its leading
- * section/rank key (`head`), the middle `sortTitle` (`mid`, the only part that
- * may contain spaces), and the trailing composite `id`. The split peels the
- * FIRST space (head) and the LAST space (id); whatever lies between is the sort
- * title. Returns undefined for a null/non-keyset cursor, fewer than three parts,
- * or an empty id — every bad-cursor path the grouped `decode*` functions fold
- * into "first page", never a throw.
+ * Split three-part token `"<head> <mid> <id>"` by FIRST and LAST space.
+ * Returns undefined for null/non-keyset cursor, <3 parts, or empty id — bad cursors fold to "first page", never throw.
  */
 function splitTriToken(
   cursor: Cursor | null,

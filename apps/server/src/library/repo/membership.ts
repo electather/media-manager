@@ -3,20 +3,13 @@ import type { MediaType } from "@nama/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 
-/**
- * SQLite's default `SQLITE_MAX_VARIABLE_NUMBER` is 999. Stay conservatively
- * below it so a single `notInArray` predicate never exceeds the bound
- * regardless of SQLite build version. {@link tombstoneMissing} chunks
- * `keepKeys` to this limit.
- */
+// Stay below SQLite's SQLITE_MAX_VARIABLE_NUMBER (999) so notInArray never
+// exceeds the bound regardless of build. tombstoneMissing chunks to this limit.
 const SQLITE_VARIABLE_LIMIT = 900;
 
-/**
- * A new owned row to insert during membership sync. `id` is the composite
- * `"<mediaType>:<tmdbId>"`. Denormalized columns (sort/facet keys, franchise,
- * `hydratedAt`) are left at their schema defaults — the phase-2 hydrate job
- * fills them in.
- */
+// New owned row for membership sync. id is "<mediaType>:<tmdbId>" composite.
+// Denormalized columns (sort/facet keys, franchise, hydratedAt) left at schema
+// defaults — phase-2 hydrate job fills them in.
 export interface OwnedRowInput {
   id: string;
   userId: string;
@@ -25,15 +18,9 @@ export interface OwnedRowInput {
   ownedAt: number;
 }
 
-/**
- * Inserts new owned rows. Conflicts on the `(user_id, id)` primary key do
- * NOTHING, so a previously-tombstoned row (`owned = false`) is never resurrected
- * by a later sync (design §Sync + hydrate, watchlist tombstone pattern). The
- * composite key means the same title owned by another user is a distinct row,
- * not a conflict. Callers pre-filter
- * to keys absent from `allKnownKeys`, so the conflict path only guards against
- * a concurrent racing sync. Returns the number of rows actually inserted.
- */
+// Inserts owned rows. Conflict on (user_id, id) does NOTHING — previously-
+// tombstoned rows never resurrect (design §Sync + hydrate, watchlist tombstone
+// pattern). Conflict path guards against racing concurrent syncs only.
 export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Promise<number> {
   if (rows.length === 0) return 0;
   const inserted = await db
@@ -44,18 +31,9 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
   return inserted.length;
 }
 
-/**
- * Tombstones every currently-owned row for `userId` whose composite id is
- * absent from `keepKeys` (the keys present in the latest feed). Sets
- * `owned = false` and stamps `unownedAt`. Already-tombstoned rows are untouched
- * (the `owned = true` predicate excludes them). Returns the number tombstoned.
- *
- * When `keepKeys` exceeds {@link SQLITE_VARIABLE_LIMIT} the function falls
- * back to a two-step approach: (1) read all currently-owned ids for the user,
- * (2) compute the absent set in JS (owned minus keepKeys), then tombstone those
- * specific ids in bounded `IN` chunks. This stays within SQLite's
- * bound-parameter limit for arbitrarily large libraries.
- */
+// Tombstones owned rows for userId absent from keepKeys (latest feed).
+// When keepKeys exceeds SQLITE_VARIABLE_LIMIT: read owned ids, compute absent set in JS,
+// tombstone in bounded chunks to stay within SQLite's bound-parameter limit.
 // fallow's coverage-free CRAP estimate flags the three-path overflow guard
 // (empty / fast `notInArray` / slow chunked `inArray`) the SQLite variable
 // limit intrinsically needs.
@@ -97,23 +75,13 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: keepKeys exceeds the SQLite variable limit so a single NOT IN
-  // predicate is not safe. Instead, fetch the owned id set, compute the absent
-  // ids in JS, and tombstone them by id using bounded IN predicates.
+  // Slow path: read-then-update (not atomic). Safe ONLY because caller holds
+  // per-user seed lock across both upsert + tombstone (library.sync sole writer,
+  // design §Sync). The owned=true predicate prevents double-tombstone but NOT a
+  // TOCTOU window: a row inserted-then-absent-from-keepKeys after step 1 escapes
+  // if a second writer runs concurrently. Future callers outside seed lock risk that.
   //
-  // This splits the atomic fast-path UPDATE into read-then-update with no
-  // enclosing transaction. That is safe ONLY because the caller holds the
-  // per-user seed lock across both phase-1 upsert and this phase-2 tombstone
-  // (`library.sync` is the lone writer, design §Sync), so no concurrent writer
-  // can insert or own a row between step 1 and step 2. The lock — not the
-  // `owned = true` predicate below — is what closes the gap: that predicate only
-  // prevents double-tombstoning a row already tombstoned between the steps; it
-  // does NOT catch a row inserted-and-absent-from-`keepKeys` after step 1, which
-  // would escape the sweep entirely if a second writer could run concurrently. A
-  // future caller invoking `tombstoneMissing` outside the seed-locked sync job
-  // therefore opens a TOCTOU window (missed tombstone) the fast path does not have.
-  //
-  // Step 1: collect currently-owned ids for this user.
+  // Step 1: collect currently-owned ids.
   const ownedRows = await db
     .select({ id: libraryItems.id })
     .from(libraryItems)

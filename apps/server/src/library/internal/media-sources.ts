@@ -9,11 +9,9 @@ import { asLibraryReadContext } from "./context";
 import { buildEnrichRows } from "./enrich";
 import { toLensFilters } from "./lens-filters";
 
-/**
- * Library lenses as `MediaSourceRegistration`s (design §The 5 lenses).
- * Every lens: `rateLimit: "read"`, `cursorMode: "keyset"`, `cursorOnNull: "firstPage"`
- * (bad/foreign cursor → first page, never 400). Each `build` wires the library enrich
- * override so the pipeline reads denormalized columns instead of re-probing (design §Enrich).
+/** Library lenses as `MediaSourceRegistration`s (design §The 5 lenses). All use `rateLimit: "read"`,
+ * `cursorMode: "keyset"`, `cursorOnNull: "firstPage"` (bad/foreign cursor → first page, never 400);
+ * each wires enrich override to read denormalized columns (design §Enrich).
  */
 // The four lens registrations share the `MediaSourceRegistration` skeleton by
 // design — each differs only in its source, params type, and Row type, so a

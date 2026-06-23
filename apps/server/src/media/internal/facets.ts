@@ -1,11 +1,7 @@
 import type { CompactMediaItem } from "@nama/shared/home";
 
-/**
- * Builds the shared `runtimeMin` + `releaseDate` facets from canonical
- * metadata. `releaseDate` doubles as the "upcoming?" flag on the client, so it
- * is only emitted when the release year is in the future — already-released
- * items must not land in the upcoming bucket.
- */
+// Builds runtimeMin + releaseDate facets. releaseDate doubles as "upcoming?" flag
+// on client, only emitted when release year is in future (no already-released items).
 export function buildFacets(meta: {
   runtimeMinutes?: number | null;
   year?: number | null;

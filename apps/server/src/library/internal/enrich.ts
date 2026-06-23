@@ -4,13 +4,9 @@ import { loadProgressMap, type EnrichRowsFn, type ProgressMap } from "../../medi
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import type { LibraryContext } from "../types";
 
-// Custom enrich path (design §Enrich): avoids default's live re-probe (`getMatchingServersCached`),
-// which defeats denormalized projection and collapses rows to one per `(tmdbId, mediaType)`,
-// killing phase-3 server/quality `json_each` fan-out. Instead reads `availability.servers` and
-// quality `tags` from denormalized columns. Produces exactly one `CompactMediaItem` per input row,
-// NEVER dedups on `(tmdbId, mediaType)` — allows FE to insert headers on `section.id` change
-// (design §Enrich dup rules; §FE). Typed on `LibraryRow`; grouped sources pass `ExpandedLibraryRow`s
-// (subtype with optional `section` structurally absent on flat lenses).
+// Custom enrich path (design §Enrich): reads servers + quality tags from denormalized columns instead of live re-probe,
+// avoiding collapse to one per (tmdbId, mediaType) that kills json_each fan-out. Never dedups (design §Enrich dup rules; §FE)
+// so FE can insert headers on section.id change. Grouped sources pass ExpandedLibraryRow (subtype with optional section).
 export function buildEnrichRows(ctx: LibraryContext): EnrichRowsFn<LibraryRow> {
   return async (rows) => {
     if (rows.length === 0) return { items: [], partial: false };

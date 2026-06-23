@@ -42,9 +42,7 @@ export const HYDRATE_CONCURRENCY = 25;
 
 /**
  * Hydrates denormalized projection for new/stale rows (design §Sync + hydrate, phase 2).
- * Folds catalog metadata, per-key availability probes, and progress—each source optional.
- * Runs in HYDRATE_CONCURRENCY chunks; per-chunk writes allow rows that timeout mid-pass
- * to keep finished chunks (hydratedAt stamp skips them on resume).
+ * Chunks at HYDRATE_CONCURRENCY; per-chunk writes let timed-out rows keep finished chunks via hydratedAt stamp.
  */
 export async function hydrate(
   ctx: LibraryContext,

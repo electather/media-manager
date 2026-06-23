@@ -39,13 +39,9 @@ function seedNextRaw(seed: SeedToken, candidateCount: number): string | undefine
   return candidateCount > nextOffset ? JSON.stringify({ ...seed, offset: nextOffset }) : undefined;
 }
 
-// Seed-paged similar-feed source (design §H/§S, Phase 5). One keyset source serves both
-// `becauseYouWatched` and `similarTo` rows, differing only in seed derivation (history vs detail page).
-// Reads seed+offset from cursor `k`, resolves cached `metadata@v1.getSimilar`, windows by offset,
-// threads back next-offset token as `nextRaw` (omitted at end so `paginate` mints `cursor:null`, #500).
-// Stashes seed title on `ctx.seedTitle` for match-reason chip (`similar_to_seed`).
-// Candidate slice + `nextRaw` are the keyset source's resume position (V.MC1 reserves enrich/sort to pipeline;
-// keyset source owns its window, like watchlist mood source); `paginate` keyset passes already-windowed rows through.
+// Seed-paged similar-feed source (design §H/§S, Phase 5). Reads seed+offset from cursor `k`,
+// resolves `metadata@v1.getSimilar`, windows by offset, threads back next-offset as `nextRaw` (omitted at end → cursor:null, #500).
+// Stashes seedTitle on ctx.seedTitle for match-reason chip. Candidate slice + nextRaw are keyset resume position (V.MC1: enrich/sort reserved to pipeline).
 export const similarPagedSource: MediaSource<void, MediaKey> = {
   sourceId: "home.similarPaged",
   async fetchRawSet(ctx, _params, cursor) {

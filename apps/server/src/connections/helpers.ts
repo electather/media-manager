@@ -93,10 +93,9 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
 }
 
 /**
- * Builds the display-field list for a connection card: excludes `x-secret`, redacts `x-private`
- * as `"••••"`, marks URI-typed fields as `mono`, and preserves schema declaration order.
- * Order relies on `Object.entries()` insertion order for string keys — not spec-guaranteed but
- * consistent across V8/SpiderMonkey/JSC and every JS runtime this repo targets.
+ * Builds the display-field list for a connection card: excludes `x-secret`, redacts `x-private` as `"••••"`,
+ * marks URI-typed fields as `mono`, preserving schema declaration order via `Object.entries()` insertion order
+ * (not spec-guaranteed but consistent across V8/SpiderMonkey/JSC and every JS runtime this repo targets).
  */
 // fallow-ignore-next-line complexity
 export function computeDisplayFields(
