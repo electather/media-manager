@@ -18,24 +18,10 @@ export function requireCapability(id: string, version: string): CapabilityDefini
 }
 
 /**
- * Resolves which scope a single dispatch request should execute under. This
- * value drives two parallel lookups that MUST agree for correctness:
- *   1. Provider enumeration (`capabilityRegistry.listProviders(…, scope)`).
- *   2. Cache keying (`cacheKey({ …, scope })`) — a user-scoped result must
- *      live in a userId-qualified key so it can't be served to other users.
- *
- * For `scope: "global"` / `"user"` capabilities this is a constant; for
- * `"mixed"` capabilities (today: `idResolve@v1`) the capability's
- * `scopeForInput` classifies the request — typically by looking at the
- * input's id kind. Each dispatch strategy computes this once at entry and
- * threads the result through every subsequent step so a future impure
- * classifier cannot observe or diverge across the lookups.
- *
- * The discriminated union on `CapabilityDefinition` guarantees at the type
- * level that `scopeForInput` is present whenever `scope === "mixed"`, so
- * no runtime guard is needed here — a malformed capability defined via an
- * `as any` cast would fail on the subsequent call with a descriptive
- * TypeError.
+ * Resolves dispatch scope; drives provider enumeration and cache keying (MUST agree).
+ * For constant scopes ("global"/"user"), is trivial; for "mixed" capabilities (idResolve@v1),
+ * uses `scopeForInput` to classify request (computed once, threaded through all steps to prevent impure divergence).
+ * CapabilityDefinition union guarantees scopeForInput when scope==="mixed", so no runtime guard needed.
  */
 export function scopeForRequest(
   capability: CapabilityDefinition,

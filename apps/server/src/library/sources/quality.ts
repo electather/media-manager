@@ -15,16 +15,10 @@ export interface QualityParams {
 }
 
 /**
- * The Quality library lens `MediaSource` (design §The 5 lenses). It pages the
- * owned set EXPANDED across `json_each(quality_tiers)`, so a title held in two
- * tiers appears once per tier section — the row set is intentionally not
- * distinct by title. Its row type is {@link ExpandedLibraryRow}: each row
- * carries the tier section (the tier label is both id and label) and the SQL
- * rank ordinal the page sorted by, which the keyset codec reuses verbatim so the
- * hop token never re-derives a rank that could disagree with the `ORDER BY`. The
- * SQL pre-sorts by `(tierRank, sortTitle, id)`, so the pipeline runs
- * `sort: "none"`; `cursorMode: "keyset"` mints the next cursor from the
- * rank-keyed hop token.
+ * Quality library lens (design §The 5 lenses): pages owned set EXPANDED across
+ * `json_each(quality_tiers)`, so a title in two tiers appears once per tier.
+ * {@link ExpandedLibraryRow} carries tier section and SQL rank ordinal;
+ * keyset codec reuses rank verbatim so hop token never disagrees with `ORDER BY`.
  */
 export const qualitySource: MediaSource<QualityParams, ExpandedLibraryRow> = {
   sourceId: "library-quality",
@@ -33,13 +27,9 @@ export const qualitySource: MediaSource<QualityParams, ExpandedLibraryRow> = {
 };
 
 /**
- * Fetches one Quality page from the repo (no drizzle here — R2), threading the
- * decoded `(tierRank, sortTitle, id)` keyset cursor and the requested filters. A
- * first-page read eagerly seeds a not-yet-seeded user inline (design §Sync +
- * hydrate: eager-seed). `partial` is always false (a pure indexed table read).
- * `nextRaw` is built from the LAST RETURNED expanded row — never the dropped
- * overflow row — via {@link qualityToken}, and only on a full page so the cursor
- * ends on a short read.
+ * Fetches one Quality page threading keyset `(tierRank, sortTitle, id)` cursor and filters.
+ * First page eagerly seeds (design §Sync + hydrate: eager-seed). `partial` always false.
+ * `nextRaw` built from last-returned row (never overflow) via {@link qualityToken}, only on full page.
  */
 async function fetchRawSet(
   ctx: SourceContext,

@@ -7,12 +7,9 @@ import { loadProgressMap, type ProgressMap } from "../progress";
 import type { MediaEnrichService, MediaProgressService } from "../types";
 
 /**
- * Minimal per-call surface `batchLoad` needs. Deliberately structural rather
- * than the full `SourceContext` so the existing watchlist fan-out sites (which
- * carry `log`) and the pipeline's `listRows` (which carries `logger`) can both
- * feed it — `listRows` bridges `logger` → `log` when it calls in (US-007).
- * `loadProgressMap` is reused unchanged, so `log`/`deadlineMs` match its
- * `MediaProgressContext`.
+ * Deliberately structural so both watchlist sites (`log`) and pipeline's `listRows` (`logger`)
+ * can feed it — `listRows` bridges them (US-007). Reuses `loadProgressMap` unchanged,
+ * so `log`/`deadlineMs` match `MediaProgressContext`.
  */
 export interface BatchLoadContext {
   mediaService: MediaEnrichService & MediaProgressService;
@@ -22,10 +19,9 @@ export interface BatchLoadContext {
 }
 
 /**
- * The shared status + metadata + progress fan-out result. `progress` is the
- * bare resume-position map (the `{ map, partial }` wrapper's `partial` is
- * folded into the top-level `partial`); `partial` is true when any sub-load
- * soft-failed and the row set was filled from a degraded signal.
+ * Shared status + metadata + progress fan-out result. `progress` is the bare map
+ * (wrapper's `partial` is folded into top-level `partial`). `partial` is true when any
+ * sub-load soft-failed, indicating degraded signal.
  */
 export interface BatchLoadResult {
   statuses: Record<string, string>;
@@ -35,15 +31,9 @@ export interface BatchLoadResult {
 }
 
 /**
- * The single status-batch + metadata-batch + progress-map fan-out (design
- * §C/§F), collapsing the hand-written `Promise.all([...])` copies in
- * `watchlist` (`listItemsOffset`, `tonight/section`, `filterByMood`) and
- * `enrich`'s internal call into one definition.
- *
- * Each sub-load is warn-and-fallback: a rejected lookup is logged, replaced
- * with an empty result, and flips `partial` so the consumer envelope surfaces
- * the degraded read instead of throwing. A single failed sub-load never sinks
- * the other two — the page still renders from whatever signals resolved.
+ * Single status + metadata + progress fan-out (design §C/§F), collapsing copies in
+ * `watchlist` and `enrich`. Each sub-load is warn-and-fallback: logs rejection, returns empty,
+ * flips `partial`. Single failures never sink others — page renders from resolved signals.
  */
 export async function batchLoad(
   rows: ReadonlyArray<Pick<ActiveRow, "tmdbId" | "mediaType">>,

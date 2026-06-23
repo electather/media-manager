@@ -9,12 +9,10 @@ export interface RecommendedKey extends MediaKey {
 }
 
 /**
- * Recommendations source (design §H/§M.5). One source serves both
- * `recommendedForYou-tv` and `-movies` (differ only in `mediaType` partition in
- * `params`). Loads default rec list, filters to requested type, drops available
- * titles (`mediaRequest@v1` status), returns survivors as raw keys in rec-list
- * order (invariant V.MC1). Catalog is source of truth; per-row slice + projection
- * + `topContributors` hookup stay home-side until US-022.
+ * Recommendations source (design §H/§M.5). One source serves both TV and movies
+ * (differ by `mediaType` partition). Loads default list, filters type, drops available
+ * titles, returns survivors in rec-list order (invariant V.MC1). Catalog is source of
+ * truth; per-row slice + `topContributors` hookup stay home-side until US-022.
  */
 export const recommendedForYouSource: MediaSource<MediaType, RecommendedKey> = {
   sourceId: "recommendedForYou",

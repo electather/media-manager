@@ -5,9 +5,8 @@ import type { Cursor, MediaSource, RawPageToken, SourceContext } from "../../med
 import { azToken, decodeAz } from "./keyset";
 
 /**
- * Source params for the A–Z lens: the filter axes plus the page size. The opaque
- * cursor is decoded separately by the `paginate` stage / the keyset codec, so it
- * is not on this shape (mirrors the watchlist `ItemsParams` split).
+ * A–Z lens params: filters + page size. Opaque cursor is decoded separately by `paginate` stage,
+ * mirrors watchlist `ItemsParams` split.
  */
 export interface AzParams {
   filters: LensFilters;
@@ -15,12 +14,9 @@ export interface AzParams {
 }
 
 /**
- * The A–Z library lens `MediaSource` (design §The 5 lenses). It produces ONLY a
- * raw, SQL-pre-sorted page of `library_items` rows; the shared media pipeline
- * (`listRows`) owns enrich (via the library `enrichRows` override) / sort /
- * paginate. Because the SQL already ordered by `(sort_title, id)`, the source
- * declares `sort: "none"` so the pipeline preserves that order, and
- * `cursorMode: "keyset"` so `paginate` mints the next cursor from `nextRaw`.
+ * A–Z `MediaSource` (design §The 5 lenses). Returns raw SQL-pre-sorted `library_items` rows.
+ * Pipeline owns enrich/sort/paginate. Declares `sort: "none"` to preserve SQL order by `(sort_title, id)`.
+ * Declares `cursorMode: "keyset"` so `paginate` uses `nextRaw` for cursor minting.
  */
 export const azSource: MediaSource<AzParams, LibraryRow> = {
   sourceId: "library-az",
@@ -29,14 +25,9 @@ export const azSource: MediaSource<AzParams, LibraryRow> = {
 };
 
 /**
- * Fetches one A–Z page from the repo (no drizzle here — R2), threading the
- * decoded keyset cursor and the requested filters. A first-page read for a
- * not-yet-seeded user eagerly seeds membership inline so the page is not empty
- * on first paint (design §Sync + hydrate: eager-seed). `partial` is always
- * false: the page is a pure indexed table read with no plugin fan-out. The last
- * row becomes `nextRaw` only when the page was full (another page may follow);
- * a short page exhausts the scan and emits no token so `paginate` ends the
- * cursor.
+ * Fetches one A–Z page, threading keyset cursor and filters. First page for unseeded user
+ * eagerly seeds inline (design §Sync + hydrate: eager-seed). Always `partial: false`.
+ * `nextRaw` only when page full (indicating more pages); short page emits no token to end cursor.
  */
 async function fetchRawSet(
   ctx: SourceContext,

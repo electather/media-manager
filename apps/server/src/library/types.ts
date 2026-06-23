@@ -4,13 +4,8 @@ import type { WatchedState } from "@nama/shared/library";
 import type { CatalogService } from "../catalog";
 import type { MediaService } from "../media";
 
-/**
- * One row the lens sources page off the `library_items` browse projection. It
- * is the raw row a `MediaSource.fetchRawSet` emits and the `enrichRows` hook
- * consumes; the denormalized columns (`servers`, `qualityTiers`, `watchedState`)
- * are read straight off it during enrich rather than re-probed live, which is
- * the whole point of the projection (design §Enrich). It is NOT the wire shape —
- * `enrichRows` maps it to a `CompactMediaItem`.
+/** Raw row from lens sources; `enrichRows` reads denormalized columns instead of re-probing (design §Enrich).
+ * Not the wire shape — maps to `CompactMediaItem`.
  */
 export interface LibraryRow {
   id: string;
@@ -26,34 +21,16 @@ export interface LibraryRow {
   collectionName: string | null;
 }
 
-/**
- * A `LibraryRow` carrying the section it expanded into for the `json_each`
- * grouped lenses (server/quality). The server/quality SQL joins each owned row
- * against `json_each(servers)` / `json_each(quality_tiers)`, so one title yields
- * one expanded row per value; `section` is that value (design §The 5 lenses:
- * "row dup per value is INTENDED"). `section.id` is the keyset/group key (the
- * server connection id, or the quality tier label — which is its own id);
- * `section.label` is the human-readable header (the server label, or the tier
- * label). `rank` carries the Quality lens's SQL `CASE` ordinal back to the
- * source so the hop token reuses the EXACT rank that ordered the page; it is
- * absent on the Server lens, whose section id IS the sort key.
+/** LibraryRow + section from `json_each(servers)`/`json_each(quality_tiers)` expansion (design §The 5 lenses).
+ * One title yields one row per section; `rank` carries SQL `CASE` ordinal for Quality lens cursor threading.
  */
 export interface ExpandedLibraryRow extends LibraryRow {
   section: { id: string; label: string };
   rank?: number;
 }
 
-/**
- * Per-request context the library sync surface consumes. Mirrors
- * `WatchlistContext`: the resolved handles the read/sync paths need
- * (`mediaService` for the `collection@v1` feed, `catalog` for the metadata
- * pipeline that later phases hydrate from, and a logger). `log`/`logger` are
- * both accepted on the loose input so a home-style `RowContext` flows in
- * unchanged; `asLibraryContext` resolves it into this canonical shape.
- *
- * Phase 1 (membership sync) only needs `userId`, `mediaService`, and `log`;
- * `catalog` is carried so the phase-2 hydrate path can read it without
- * widening the context again.
+/** Per-request context for library sync; mirrors `WatchlistContext`. Carries `mediaService` for `collection@v1` feed
+ * and `catalog` for metadata hydration. `asLibraryContext` resolves `log`/`logger` variants to canonical shape.
  */
 export interface LibraryContext {
   userId: string;

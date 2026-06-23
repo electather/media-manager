@@ -4,10 +4,8 @@ import { isActiveContinueWatchingEntry } from "../../media";
 import type { MediaSource } from "../../media";
 
 /**
- * Continue-watching feed source (design §H/§M.5). One factory serves both rows
- * — `select` picks (and orders, for active row) entries. `fetchRawSet` returns
- * selected entries only (invariant V.MC1); per-row slice/cursor stays until
- * US-022 folds into shared pipeline. Plugin soft-failures ride through as `partial: true`.
+ * Continue-watching feed source (design §H/§M.5, invariant V.MC1). One factory, `select` picks and orders entries; soft-failures → `partial: true`.
+ * Per-row slice/cursor stays until US-022.
  */
 function makeContinueWatchingSource(config: {
   sourceId: string;

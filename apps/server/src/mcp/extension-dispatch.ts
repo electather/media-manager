@@ -64,10 +64,8 @@ async function loadSpecificConnection(
 }
 
 /**
- * Resolves the user's connection for a plugin, decrypts the credentials, and
- * hands the input to the plugin's `mcpTools[handlerKey]`. Throws
- * `mcp.not_connected` when there is no connection; other failures bubble up
- * as `PluginError`.
+ * Resolves user's plugin connection, decrypts credentials, invokes `mcpTools[handlerKey]`.
+ * Throws `mcp.not_connected` when no connection; other failures as `PluginError`.
  */
 export async function callExtension<T = unknown>(req: ExtensionCallRequest): Promise<T> {
   const chosen = req.connectionId

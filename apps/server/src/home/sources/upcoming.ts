@@ -7,12 +7,8 @@ export interface UpcomingHit extends MediaKey {
   episode?: { season: number; episode: number; airsAt: number; name?: string };
 }
 
-/**
- * Reads `calendar@v1` feed for `upcomingForYou` row (design §H/§M.5). Calendar
- * plugin emits one entry per episode, so `fetchRawSet` dedupes by tmdbId (`uniqBy`,
- * preserving feed order) — dedup is content-defining so it lives in source, not home.
- * Soft-failure rides through as `partial: true`.
- */
+// Reads calendar@v1 feed for upcomingForYou row (design §H/§M.5). Dedupes by tmdbId
+// (uniqBy, preserving order) — dedup is content-defining so it lives here, not home.
 export const upcomingForYouSource: MediaSource<void, UpcomingHit> = {
   sourceId: "upcomingForYou",
   async fetchRawSet(ctx) {

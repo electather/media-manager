@@ -1,10 +1,7 @@
 // fallow-ignore-file code-duplication
 
-/**
- * Host-encoded `serviceId` codec. The wire format is
- * `${connectionId}:${pluginTargetId}` where `pluginTargetId` is plugin-controlled
- * and constrained to TARGET_ID_RE so the colon is the only delimiter the host
- * needs to reason about. The client treats `serviceId` as opaque.
+/** Host-encoded `serviceId` codec: `${connectionId}:${pluginTargetId}` where `pluginTargetId` matches TARGET_ID_RE.
+ * Colon is the only delimiter; client treats `serviceId` as opaque.
  */
 export const TARGET_ID_RE = /^[A-Za-z0-9_-]+$/;
 

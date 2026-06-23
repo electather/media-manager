@@ -14,11 +14,9 @@ export function resolveCapabilityScope(req: DispatchRequest) {
 }
 
 /**
- * Resolves the capability/scope, reads the cache, and lists registered
- * providers. Callers check `cached !== undefined` for an early return and
- * `providers.length === 0` for a no-provider guard; both checks are
- * intentionally left to the caller so each strategy can apply its own
- * semantics (return vs throw).
+ * Resolves capability/scope, reads cache, lists providers. Callers check `cached !== undefined`
+ * for early return and `providers.length === 0` for no-provider guard—left to caller so each
+ * strategy applies its own semantics (return vs throw).
  */
 export async function resolveDispatchPreamble<T>(req: DispatchRequest) {
   const { capability, scope } = resolveCapabilityScope(req);

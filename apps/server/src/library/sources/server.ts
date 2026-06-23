@@ -5,9 +5,7 @@ import type { Cursor, MediaSource, RawPageToken, SourceContext } from "../../med
 import { decodeServer, serverToken } from "./keyset";
 
 /**
- * Source params for the Server lens: the filter axes plus the page size. Same
- * split as the flat lenses — the opaque cursor is decoded by the keyset codec,
- * not carried here.
+ * Filter axes + page size. Opaque cursor is decoded by keyset codec, not carried here.
  */
 export interface ServerParams {
   filters: LensFilters;
@@ -31,13 +29,10 @@ export const serverSource: MediaSource<ServerParams, ExpandedLibraryRow> = {
 };
 
 /**
- * Fetches one Server page from the repo (no drizzle here — R2), threading the
- * decoded `(sectionId, sortTitle, id)` keyset cursor and the requested filters.
- * A first-page read eagerly seeds a not-yet-seeded user inline (design §Sync +
- * hydrate: eager-seed). `partial` is always false (a pure indexed table read).
- * `nextRaw` is built from the LAST RETURNED expanded row — never the dropped
- * overflow row — via {@link serverToken}, and only on a full page so the cursor
- * ends on a short read.
+ * Fetches one Server page, threading decoded `(sectionId, sortTitle, id)` cursor
+ * and filters. First page eagerly seeds user (design §Sync + hydrate: eager-seed).
+ * `partial` always false (pure indexed read). `nextRaw` built from LAST RETURNED
+ * row via {@link serverToken}, only on full page (cursor ends on short read).
  */
 async function fetchRawSet(
   ctx: SourceContext,

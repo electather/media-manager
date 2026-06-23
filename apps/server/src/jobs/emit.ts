@@ -4,10 +4,8 @@ import { newRequestId } from "../diagnostics/request-context";
 import type { EventName } from "./event-name";
 
 /**
- * Schedules an immediate run of an event's dispatcher. Throws if no consumer
- * registered — wiring bug (producer's `registerJobs` incomplete).
- * Kept in a file depending only on `./registry` to avoid `events → triggerable →
- * runner → events` cycle that would trigger `circular-deps: error`.
+ * Schedules immediate event dispatcher run; throws if no consumer registered (wiring bug in `registerJobs`).
+ * Isolated to avoid `events → triggerable → runner → events` circular-deps cycle.
  */
 async function enqueue(name: string, payload: unknown): Promise<void> {
   const entry = findEntry(name);

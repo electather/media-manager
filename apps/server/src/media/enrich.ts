@@ -61,27 +61,17 @@ export interface EnrichResult<Row extends MediaEnrichRow = MediaEnrichRow> {
 
 export interface EnrichOptions {
   /**
-   * When set, the server pre-classifies each row using metadata + status +
-   * cached matching-server lookups and drops rows whose bucket does not
-   * match. The artwork hydration round-trip then runs on the smaller set —
-   * matches the v2 "skip enrichment for buckets the user is not viewing"
-   * goal in #420.
+   * Pre-classifies rows and drops non-matching buckets before artwork hydration (v2 goal #420).
    */
   filter?: WatchlistBucket;
   /**
-   * Catalog metadata already fetched by the caller (e.g. `filterByMood`
-   * resolved it to evaluate the mood predicate). When supplied, enrich
-   * skips its own `getMetadataBatch` round-trip and seeds the cold-fill
-   * loop from this map so callers don't pay for two fetches per hop.
+   * Catalog metadata already fetched by caller (e.g., `filterByMood`). Avoids double fetch; seeds cold-fill.
    */
   prefetchedMetadata?: Record<string, CanonicalMetadata>;
   /**
-   * Status + metadata + progress already loaded by the shared `batchLoad`
-   * fan-out (design §C). Supplied by the `listRows` pipeline so enrich consumes
-   * the single fan-out instead of re-issuing its own status/metadata/progress
-   * round-trips; cold-fill, matching-server probes, and artwork still run. The
-   * batch's own `partial` is folded in by the pipeline, so the progress leg is
-   * treated as complete here.
+   * Status + metadata + progress already loaded by `batchLoad` (design §C).
+   * Supplied by `listRows` pipeline to avoid re-issuing; cold-fill, matching-servers, artwork still run.
+   * Batch `partial` folded by pipeline — progress treated as complete here.
    */
   prefetchedBatch?: {
     statuses: Record<string, string>;
@@ -112,14 +102,9 @@ export interface CompactMediaEnrichResult {
 }
 
 /**
- * Build wire-shape `CompactMediaItem`s for `rows`. Single status-batch call,
- * one catalog metadata-batch call, one artwork dispatch for items missing
- * canonical poster/backdrop/clearLogo, and a per-row matching-server probe
- * (cross-request cached at 30 s TTL so a page-load's `/watchlist` reads share the work).
- *
- * When `opts.filter` is set we pre-classify with the cheap signals and
- * shrink the row set before artwork dispatch — the most expensive call on
- * the cold path.
+ * Build `CompactMediaItem`s via one status batch, metadata batch, artwork dispatch, and per-row
+ * matching-server probe (30s cached TTL shared across `/watchlist` page-loads).
+ * When `opts.filter` set, pre-classifies and shrinks rows before artwork dispatch (most expensive call).
  */
 // fallow-ignore-next-line complexity
 export async function enrich<Row extends MediaEnrichRow>(
@@ -131,13 +116,9 @@ export async function enrich<Row extends MediaEnrichRow>(
 
   let partial = false;
 
-  // Status + metadata + progress come from the single shared `batchLoad`
-  // fan-out (design §C/§F — the one definition). The `listRows` pipeline
-  // pre-loads them and threads the result in as `prefetchedBatch`; direct
-  // callers (addItem / getItems / listAvailable) let enrich run `batchLoad`
-  // itself. Either way the read hits one fan-out, not three hand-rolled
-  // round-trips. `prefetchedMetadata` stays the narrower metadata-only seed
-  // used by the mood path.
+  // Status + metadata + progress from single `batchLoad` fan-out (design §C/§F).
+  // `listRows` pre-loads via `prefetchedBatch`; direct callers run `batchLoad` themselves.
+  // Either way: one fan-out, not three round-trips. `prefetchedMetadata` is mood-path-only seed.
   let statuses: Record<string, string>;
   let metadata: Record<string, CanonicalMetadata>;
   let progressMap: ProgressMap;
@@ -329,13 +310,8 @@ async function enrichOne(
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
 
-  // No canonical metadata could be resolved for this row — neither the catalog
-  // cache nor a live plugin cold-fill returned anything. In practice this means
-  // the persisted tmdb id no longer exists on TMDB (e.g. a stale Trakt
-  // extended-edition watchlist entry whose tmdb id 404s). Drop the row instead
-  // of fabricating a "Movie <id>" placeholder card; the caller logs the id, and
-  // the row stays in `watchlist_items` so it self-heals if TMDB ever gains the
-  // id.
+  // No canonical metadata resolved (stale/dead TMDB id from Trakt extended-edition entries).
+  // Drop instead of "Movie <id>" placeholder; row stays in `watchlist_items` to self-heal.
   if (!meta) return null;
 
   const serversPartial = serverProbe.status === "rejected";
@@ -368,11 +344,8 @@ async function enrichOne(
 }
 
 /**
- * Dispatches `artwork@v1.getArtwork` for rows whose canonical metadata is
- * missing any of `posterUrl` / `backdropUrl` / `clearLogoUrl`. The artwork
- * service writes resolved URLs back to `canonical_metadata` so subsequent
- * reads hit the cached copy. Failures are swallowed — artwork is best-effort
- * and must never break a watchlist response.
+ * Dispatches `artwork@v1.getArtwork` for rows missing poster/backdrop/clearLogo.
+ * Failures swallowed — artwork is best-effort, must never break watchlist response.
  */
 async function hydrateArtwork(
   rows: Array<Pick<MediaEnrichRow, "tmdbId" | "mediaType">>,

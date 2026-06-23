@@ -68,10 +68,8 @@ async function handleJsonRpc(
 }
 
 /**
- * Streamable HTTP transport for the MCP endpoint. Auth is enforced via OAuth
- * 2.1 bearer-token verification; the JWT's `sub` (userId) and `scope` flow
- * directly into the dispatcher. This is a JSON-only transport — SSE streaming
- * is not needed for the current synchronous tool set.
+ * MCP endpoint with OAuth 2.1 bearer-token auth (JWT `sub`/`scope` → dispatcher).
+ * JSON-only transport (no SSE streaming needed for synchronous tool set).
  */
 export function createMcpHandler() {
   return async (c: Context) => {

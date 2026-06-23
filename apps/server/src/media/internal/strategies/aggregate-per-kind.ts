@@ -106,20 +106,14 @@ function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
   return orderBy(providers, [(p) => p.providerPriority, (p) => p.pluginId], ["asc", "asc"]);
 }
 
-/** A `media.no_connection` PluginCallError means the provider has no usable
- *  connection for this user — not a failure, just unconfigured — so the caller
- *  skips it rather than counting it toward the all-failed outcome. Any other
- *  throw is a real error and must propagate. */
+/** `media.no_connection` = provider unconfigured (skip it); any other error propagates. */
 function isNoConnection(err: unknown): boolean {
   return err instanceof PluginCallError && err.code === "media.no_connection";
 }
 
 /**
- * `null` is returned when the provider has no usable connection for this user.
- * That is not a failure — the provider was simply not configured — so the
- * caller skips it entirely rather than counting it toward the all-failed
- * outcome (which would short-TTL negative-cache an empty bundle and mask the
- * fact that other providers may have served data).
+ * Returns `null` when provider unconfigured (not a failure); skip entirely to avoid
+ * masking other providers' data with a short-TTL negative cache.
  */
 async function invokeProvider(
   req: DispatchRequest,
@@ -210,14 +204,10 @@ function mergeBundle(
 }
 
 /**
- * `aggregate_per_kind`: dispatch to every eligible provider in parallel and
- * merge per-kind in priority order. First non-empty array wins per kind.
- *
- * Eligibility = manifest's `supportedIdTypes[type]` overlaps the request's
- * `ids` map. Zero eligible providers throws `artwork.unsupported_id_combo`
- * (caller-side bug — the call should never have made it here). All-fail and
- * all-empty paths return an empty bundle (the per-kind fields list defaults
- * to empty arrays); all-empty is cached as a negative, all-fail is not.
+ * Dispatches every eligible provider in parallel, merges per-kind by priority (first
+ * non-empty array wins). Eligibility = manifest's `supportedIdTypes[type]` overlaps
+ * request's `ids`. Zero eligible = caller bug (`artwork.unsupported_id_combo`).
+ * All-empty cached negative; all-fail not cached.
  */
 // fallow-ignore-next-line complexity
 export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(

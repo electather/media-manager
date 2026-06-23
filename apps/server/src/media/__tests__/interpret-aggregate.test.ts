@@ -18,10 +18,8 @@ import { AllPluginsFailedError } from "../errors";
 import type { AggregateResult } from "../service";
 
 /**
- * Direct unit tests for the four-branch decision matrix in
- * `interpretAggregate`. The function consumes only `(data, errors, attempted)`
- * — covering it in isolation here pins each branch independently of the
- * fetcher stubs used in the higher-level home-feed integration tests.
+ * Unit tests for `interpretAggregate`'s four-branch matrix, isolated from home-feed stubs.
+ * Pins each branch via `(data, errors, attempted)` independently.
  */
 function build<T>(overrides: Partial<AggregateResult<T[]>>): AggregateResult<T[]> {
   return {

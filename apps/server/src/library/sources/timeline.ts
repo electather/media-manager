@@ -5,9 +5,7 @@ import type { Cursor, MediaSource, RawPageToken, SourceContext } from "../../med
 import { decodeTimeline, timelineToken } from "./keyset";
 
 /**
- * Source params for the Timeline lens: the filter axes plus the page size. Same
- * split as {@link AzParams} — the opaque cursor is handled by the keyset codec,
- * not carried here.
+ * Timeline lens source params: filter axes + page size. Cursor handled by keyset codec, not carried here (same pattern as {@link AzParams}).
  */
 export interface TimelineParams {
   filters: LensFilters;
@@ -15,10 +13,8 @@ export interface TimelineParams {
 }
 
 /**
- * The Timeline library lens `MediaSource` (design §The 5 lenses). Identical in
- * shape to the A–Z source but pages in `(year DESC, id)` order. The SQL
- * pre-sorts, so the pipeline runs `sort: "none"`; `cursorMode: "keyset"` lets
- * `paginate` mint the next cursor from the year-keyed hop token.
+ * Timeline library lens (design §The 5 lenses), pages in `(year DESC, id)` order via pre-sorted SQL.
+ * Uses `sort: "none"` and `cursorMode: "keyset"` to mint next cursor from year-keyed hop token.
  */
 export const timelineSource: MediaSource<TimelineParams, LibraryRow> = {
   sourceId: "library-timeline",
@@ -27,11 +23,9 @@ export const timelineSource: MediaSource<TimelineParams, LibraryRow> = {
 };
 
 /**
- * Fetches one Timeline page from the repo (no drizzle here — R2), threading the
- * decoded `(year, id)` keyset cursor and the requested filters. A first-page
- * read eagerly seeds a not-yet-seeded user inline (design §Sync + hydrate:
- * eager-seed). `partial` is always false (a pure indexed table read); `nextRaw`
- * is emitted only on a full page so the cursor ends on a short read.
+ * Fetches one Timeline page from repo (R2, no drizzle), threads `(year, id)` keyset cursor and filters.
+ * First-page read eagerly seeds unseeded user (design §Sync + hydrate: eager-seed).
+ * `partial` always false (indexed read); `nextRaw` emitted only on full page.
  */
 async function fetchRawSet(
   ctx: SourceContext,

@@ -503,13 +503,9 @@ describe("id harvest", () => {
 });
 
 describe("dispatchSingle — mixed-scope routing for idResolve@v1", () => {
-  // Registry is mocked: `listProvidersMock` is how we observe which scope the
-  // dispatcher asked about. The host-side capability is real (`idResolve@v1`
-  // lives in `capabilities.ts` with `scope: "mixed"`), so the assertions pin
-  // the contract: for a `from: "tmdb"` input the dispatcher must look up
-  // global providers, and for a `from: "plex:ratingKey"` input it must look
-  // up user-scoped providers — otherwise Plex/Jellyfin idResolve providers
-  // stay unreachable.
+  // Registry mocked: listProvidersMock observes dispatcher scope. Capability real
+  // (idResolve@v1 in capabilities.ts, scope: "mixed"). Assertions: from:"tmdb" → global
+  // providers, from:"plex:ratingKey" → user-scoped (otherwise Plex/Jellyfin unreachable).
   it("queries global providers when input.from is a cross-service id (tmdb)", async () => {
     listProvidersMock.mockImplementation((_cap: string, _ver: string, scope: "user" | "global") =>
       scope === "global" ? ["tmdb"] : [],

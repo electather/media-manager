@@ -9,15 +9,9 @@ import { user } from "../../db/schema/auth";
 import { plugins, serviceConnections } from "../../db/schema";
 import { primaryConnections } from "../../db/schema/preferences/user-preferences";
 
-// Issue #458 regression: `setPrimaryConnection` previously did a SELECT-then
-// INSERT/UPDATE outside a transaction. Two concurrent calls for the same
-// (userId, capabilityKey, mediaType) tuple could both observe `existing==null`
-// and both attempt the INSERT, hitting the composite primary key and surfacing
-// a 500 to one caller (a user double-clicking the connection picker).
-//
-// The fix replaces the two-query path with a single `onConflictDoUpdate` upsert
-// keyed on the table's primary key. This test races two concurrent calls and
-// asserts neither rejects and exactly one row exists afterwards.
+// Issue #458 regression: #458: prior SELECT-then-INSERT outside transaction allowed
+// concurrent race to both INSERT, hitting PK and 500-ing. Fix: single `onConflictDoUpdate`
+// upsert. Test races concurrent calls and asserts no reject + one row after.
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

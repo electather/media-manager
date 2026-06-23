@@ -246,12 +246,10 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     }
   });
 
-  // PER-CHUNK PERSISTENCE — writes each chunk as it resolves (not after loop).
-  // Critical because scheduled jobs timeout rows mid-flight; buffering till loop-end
-  // would lose all earlier chunks' work. Test models a stalled 2nd chunk via
-  // deterministic gate (chunk-2's first probe fires only after chunk-1's
-  // `Promise.all` AND `writeHydration` commit). Asserts chunk-1 stamped (skipped
-  // next run) while chunk-2 stays un-stamped and retried.
+  // PER-CHUNK PERSISTENCE — writes each chunk as it resolves, not after loop. Critical
+  // because jobs timeout mid-flight; buffering would lose earlier chunks. Deterministic gate
+  // (chunk-2 probe fires only after chunk-1's `Promise.all` + `writeHydration`) asserts
+  // chunk-1 stamped (skipped next run) while chunk-2 stays un-stamped and retried.
   it("persists completed chunks before a later chunk stalls", async () => {
     // One full chunk (HYDRATE_CONCURRENCY rows) plus a partial second chunk, so
     // the loop spans exactly two chunks regardless of the constant's value.
