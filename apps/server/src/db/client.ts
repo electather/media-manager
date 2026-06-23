@@ -29,8 +29,9 @@ export function getDb(): Db {
 /**
  * Call once at startup before runMigrations. Sets WAL (concurrent reads during writes)
  * and busy_timeout=5000 (retry on lock instead of SQLITE_BUSY).
- * Foreign keys NOT set here: libSQL already enables them per-connection by default.
- * Locked by regression test in `api/procedures/__tests__/invites.test.ts` (#852 M1).
+ * Foreign keys NOT set here: libSQL enables them per-connection by default — unlike vanilla
+ * SQLite C, whose default is OFF. Locked by regression test in
+ * `api/procedures/__tests__/invites.test.ts` (#852 M1).
  */
 export async function initDb(): Promise<void> {
   const db = getDb();
