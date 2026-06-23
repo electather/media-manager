@@ -10,6 +10,7 @@ COPY apps/client/package.json ./apps/client/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/package.json
 COPY packages/plugins/discord/package.json ./packages/plugins/discord/package.json
+COPY packages/plugins/fanart/package.json ./packages/plugins/fanart/package.json
 COPY packages/plugins/inbox/package.json ./packages/plugins/inbox/package.json
 COPY packages/plugins/jellyfin/package.json ./packages/plugins/jellyfin/package.json
 COPY packages/plugins/ntfy/package.json ./packages/plugins/ntfy/package.json
