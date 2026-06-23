@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 // Track which section is above the sticky-nav trigger line using rAF-throttled
-// bounding-rect reads, not IntersectionObserver: IO skips trigger on instant
-// scrolls and misses crossings while section is intersecting.
+// bounding-rect reads, not IntersectionObserver: IO skips trigger on instant scrolls
+// and misses crossings while intersecting — switching back to IO re-introduces both.
 export function useActiveSection(sectionIds: readonly string[], topOffsetPx: number): string {
   const [active, setActive] = useState(sectionIds[0] ?? "");
 

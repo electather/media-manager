@@ -1,3 +1,4 @@
+// fallow-ignore-file unresolved-import
 import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { Plugin } from "vite-plus";
