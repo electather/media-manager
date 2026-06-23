@@ -17,7 +17,9 @@ env:
 
 jobs:
   ci:
-    if: github.head_ref != 'changeset-release/main'
+    if: >-
+      !startsWith(github.head_ref, 'changeset-release/') ||
+      github.event.pull_request.user.login != 'github-actions[bot]'
     permissions:
       contents: read
       pull-requests: write # fallow comment: true
