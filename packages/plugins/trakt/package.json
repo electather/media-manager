@@ -1,6 +1,6 @@
 {
   "name": "@nama/plugin-trakt",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "description": "nama plugin — Trakt watch history, watchlist, ratings, and recommendations.",
   "keywords": [

@@ -1,6 +1,6 @@
 {
   "name": "@nama/plugin-ntfy",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "description": "nama plugin — ntfy push notification delivery.",
   "keywords": [

@@ -1,5 +1,16 @@
 # @nama/plugin-trakt
 
+## 0.2.4
+
+### Patch Changes
+
+- 37bc35e: Fixed Trakt token refresh treating rate-limit responses as expired credentials; the connection no longer flips to "reconnect required" when Trakt returns 429, and the per-connection job runner now honours the rate-limit cooldown before retrying.
+- Updated dependencies [1b1c614]
+- Updated dependencies [e38746e]
+- Updated dependencies [68c85b3]
+- Updated dependencies [adaf118]
+  - @nama/plugin-sdk@0.5.0
+
 ## 0.2.3
 
 ### Patch Changes
