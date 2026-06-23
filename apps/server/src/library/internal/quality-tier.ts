@@ -1,20 +1,8 @@
 import type { LibraryItemQuality } from "@nama/shared/plugins";
 
-/**
- * Folds a structured plugin `quality` descriptor into the free-form tier label
- * the library stores in `qualityTiers` and the Quality lens ranks against
- * `QUALITY_TIERS` (design §Known fuzzy areas: quality tier rank). The label is
- * the resolution anchor with an HDR modifier appended so the Quality lens can
- * separate "4K HDR" from plain "4K":
- *   - resolution `4k` + a Dolby-Vision/HDR `hdr` flag → `"4K HDR"`,
- *   - resolution `4k` alone → `"4K"`, `1080p` → `"1080p"`, `720p` → `"720p"`,
- *     `sd` → `"SD"`,
- *   - no resolution but an HDR flag → `"HDR"`.
- *
- * Returns `null` when the descriptor carries no resolution and no HDR signal,
- * so a copy the server could not classify contributes no tier rather than a
- * bogus one. Pure and deterministic so it is unit-testable in isolation.
- */
+/** Folds plugin `quality` to tier label for `QUALITY_TIERS` (design §Known fuzzy areas: quality tier rank).
+ * Label = resolution anchor + optional HDR: "4K HDR", "4K", "1080p", "720p", "SD", or "HDR" if no resolution.
+ * Returns null if no resolution and no HDR, so unclassified copies don't create bogus tiers. */
 export function qualityToTier(quality: LibraryItemQuality): string | null {
   const hasHdr = quality.hdr != null && quality.hdr !== "none";
   switch (quality.resolution) {
@@ -31,12 +19,7 @@ export function qualityToTier(quality: LibraryItemQuality): string | null {
   }
 }
 
-/**
- * Maps every copy's quality into its tier label and de-duplicates, preserving
- * first-seen order. A title with both a 4K HDR and a 1080p copy yields
- * `["4K HDR", "1080p"]` — the Quality lens later expands that one row into a
- * section per tier via `json_each`.
- */
+/** Maps each copy's quality to tier label, deduplicates, preserves order. e.g., 4K HDR + 1080p → ["4K HDR", "1080p"]; Quality lens expands via json_each. */
 export function deriveQualityTiers(copies: LibraryItemQuality[]): string[] {
   const seen = new Set<string>();
   const tiers: string[] = [];

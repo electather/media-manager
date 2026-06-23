@@ -229,11 +229,9 @@ async function startAuthAndStore<S extends "redirect" | "display_code">(
 }
 
 /**
- * Atomically consumes the `pendingAuth` row via `DELETE ... RETURNING` before writing the
- * connection — only the caller that removes the row proceeds; concurrent completions get
- * `consumed: false`. DELETE filters on both `nonce` and `userId` — a leaked nonce cannot
- * be consumed by a different user (spoofing). DELETE runs BEFORE `writeConnection`: a
- * failed write is recoverable; a duplicate connection row is not. Do not swap the order.
+ * Atomically consumes the `pendingAuth` row via `DELETE ... RETURNING` — only the caller that removes the row
+ * proceeds; concurrent completions get `consumed: false`. Filters on both `nonce` and `userId` so a leaked nonce
+ * cannot be consumed by a different user (spoofing). DELETE runs BEFORE `writeConnection`: failed write is recoverable; duplicate connection row is not.
  */
 async function consumeAndWritePendingAuth(
   db: ReturnType<typeof getDb>,
@@ -258,10 +256,9 @@ async function consumeAndWritePendingAuth(
 }
 
 /**
- * Persists a completed auth result: reconnects to the existing row for non-poolable
- * plugins when one already exists for `(userId, pluginId)` — rebinding avoids
- * orphaning the original row's `isDefault`, `displayName`, and primary-provider
- * references. Poolable plugins and the no-existing-row case always insert a new row.
+ * Persists a completed auth result. For non-poolable plugins with an existing `(userId, pluginId)` row,
+ * reconnects in place — rebinding avoids orphaning the original row's `isDefault`, `displayName`, and primary-provider references.
+ * Poolable plugins and the no-existing-row case always insert a new row.
  */
 async function persistConnectionFromAuth(
   db: ReturnType<typeof getDb>,

@@ -10,11 +10,8 @@ const fakeRegistry = new Map<string, FakeEntry>();
 let nextRunId = 0;
 
 /**
- * Stub the underlying job infra so the typed wrapper can be exercised without
- * the real runner (which writes to job_runs / job_run_logs). The fake
- * registry stores each handler and triggerFromApi invokes it inline,
- * mirroring the runner's behavior closely enough to assert dispatch
- * semantics.
+ * Stub job infra so typed wrapper is exercised without real runner (writes to job_runs/logs).
+ * Fake registry stores handlers; triggerFromApi invokes inline, mirroring runner dispatch semantics.
  */
 vi.mock("../triggerable", () => ({
   registerTriggerable: (opts: {

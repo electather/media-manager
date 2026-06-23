@@ -8,19 +8,11 @@ export function todayBucket(): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-/**
- * Catalog discovery source (design §H/§M.5). Reimplements the `trendingNow` /
- * `newReleases` rows as a `MediaSource`: `fetchRawSet` returns the FULL
- * day-bucketed snapshot as raw `{ tmdbId, type }` keys in feed order and
- * nothing else (invariant V.MC1). The per-row slice + offset cursor that lived
- * in `rows/discover-snapshot.ts` move to the shared pipeline (`paginate`,
- * offset mode); the catalog metadata projection happens home-side after the
- * source.
- *
- * The catalog is the source of truth for these feeds, so the source never
- * partials — an empty or absent snapshot yields zero rows and the consumer
- * envelope drops the row via eligibility (unchanged).
- */
+// Catalog discovery source (design §H/§M.5) reimplements trendingNow/
+// newReleases as MediaSource. fetchRawSet returns day-bucketed snapshot as
+// {tmdbId, type} keys in feed order only (V.MC1). Per-row cursor moved to
+// shared pipeline (paginate, offset). Never partials: empty snapshot → zero
+// rows → dropped via eligibility.
 export function discoverSnapshotSource(config: {
   sourceId: string;
   feedKind: DiscoverFeedKind;

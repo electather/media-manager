@@ -42,11 +42,9 @@ export async function requireConnection(db: Db, connectionId: string, userId: st
 export const RESPONSE_STRIPPED_EXTENSIONS = ["x-secret", "x-private"] as const;
 
 /**
- * Extension marker for `userConfig` fields owned by the plugin, not the user. Incoming payloads
- * with a value for any `"x-plugin-resolved": true` field have that key stripped before reaching
- * `startAuth` or the persisted row — a hostile client cannot impersonate another account by
- * spoofing it. The plugin repopulates via `userConfigPatch` (e.g. Jellyfin resolving `userId`
- * from `/Users/Me`).
+ * Fields marked `"x-plugin-resolved": true` in `userConfig` are plugin-owned; stripping them from
+ * incoming payloads before `startAuth` or DB write prevents a hostile client from spoofing them
+ * (e.g. impersonating another account). The plugin repopulates via `userConfigPatch`.
  */
 export const REQUEST_STRIPPED_EXTENSIONS = ["x-plugin-resolved"] as const;
 
@@ -59,10 +57,9 @@ export function stripRequestFields(schema: unknown, value: unknown): unknown {
 }
 
 /**
- * Removes properties on `value` whose schema definition carries any of the given extension flags
- * set to `true`. Only walks top-level `properties` — nested object fields whose own properties
- * carry `x-private`/`x-secret` are NOT stripped (flag must be on the leaf). All built-in plugin
- * schemas are flat, so this is deliberate, not a gap to fill speculatively.
+ * Removes properties on `value` whose schema definition carries any of the given extension flags.
+ * Only walks top-level `properties` — nested fields are NOT stripped (flag must be on the leaf).
+ * All built-in plugin schemas are flat, so this is deliberate, not a gap to fill speculatively.
  */
 // fallow-ignore-next-line complexity
 export function stripExtensionFields(
@@ -98,8 +95,8 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
 /**
  * Builds the display-field list for a connection card: excludes `x-secret`, redacts `x-private`
  * as `"••••"`, marks URI-typed fields as `mono`, and preserves schema declaration order.
- * Order relies on `Object.entries()` preserving JSON insertion order for string keys (V8/SpiderMonkey/JSC
- * all honour this; not spec-guaranteed but reliable in every JS runtime this repo targets).
+ * Order relies on `Object.entries()` insertion order for string keys — not spec-guaranteed but
+ * consistent across V8/SpiderMonkey/JSC and every JS runtime this repo targets.
  */
 // fallow-ignore-next-line complexity
 export function computeDisplayFields(
@@ -174,11 +171,9 @@ function stringifyDisplayValue(v: unknown): string {
 }
 
 /**
- * Promotes the given connection to default within its plugin; demotes the rest.
- * The `connection.not_found` throw happens inside the transaction so the demotion UPDATE
- * rolls back too — without this, a row deleted between pre-check and promotion would leave
- * the plugin with zero default connections. `.returning()` on the promotion UPDATE makes
- * the existence check atomic.
+ * Promotes the given connection to default; demotes the rest. The existence check uses
+ * `.returning()` inside the transaction so a concurrent delete rolls back the demotion too —
+ * otherwise a missing row would leave the plugin with zero defaults.
  */
 export async function promoteToDefault(
   userId: string,
@@ -315,9 +310,8 @@ export async function findConnectionForPlugin(db: Db, userId: string, pluginId: 
 
 /**
  * Rebinds a successful auth result to an existing connection (OAuth reconnect path). Re-encrypts
- * credentials, replaces `userConfig`, flips status back to `connected`, and clears `errorMessage`
- * and `tokenExpiresAt`. Preserves `displayName`, `isDefault`, and `enabled` — only auth-bearing
- * fields change.
+ * credentials, replaces `userConfig`, flips status to `connected`, clears `errorMessage`/`tokenExpiresAt`.
+ * Preserves `displayName`, `isDefault`, and `enabled` — only auth-bearing fields change.
  */
 export async function reconnectConnection(args: {
   connectionId: string;

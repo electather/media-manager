@@ -3,15 +3,9 @@ import { similarPagedSource } from "../sources/similar-paged";
 import { loadCanonicalItems } from "./_shared";
 
 /**
- * "Similar to X" — title-specific row for the media detail page. The seed
- * `{ seedId, seedType }` rides on the keyset cursor (`similarPagedSource`),
- * constructed by the client from the detail item, so every detail page gets a
- * distinct query keyed to its own seed rather than a generic
- * recommended-for-you feed.
- *
- * `requiresInitialCursor: true` makes the orchestrator reject cursor-less
- * calls; `initialCursor` returns null because the client supplies the seed
- * rather than the server deriving it from history.
+ * "Similar to X" row for detail pages. Client supplies `{ seedId, seedType }` via keyset cursor,
+ * so each page queries its own seed, not a generic feed. `requiresInitialCursor: true` rejects
+ * cursor-less calls; `initialCursor` is null (client-supplied seed, not server-derived).
  */
 const provider = makePipelineRow({
   rowId: "similarTo",

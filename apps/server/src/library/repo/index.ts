@@ -2,11 +2,9 @@ import { getDb, type Db } from "../../db/client";
 import { libraryItems, userLibrarySeed } from "../../db/schema/library";
 
 /**
- * Repo barrel for `library/`. Drizzle lives only under `repo/` (one file per
- * concern) per the `backend-feature-architecture` skill (R2); `service.ts`,
- * `internal/`, `sources/`, and `jobs/` import these functions and never reach
- * for `drizzle-orm` directly. The path `"../repo"` stays stable for callers as
- * the file was promoted to a directory.
+ * Repo barrel: Drizzle only under `repo/` (one file per concern) per backend-feature-architecture
+ * (R2). Service, internal, sources, jobs import here — never reach for drizzle-orm directly.
+ * Path `"../repo"` stays stable as file was promoted to directory.
  */
 export { upsertOwned, tombstoneMissing, allKnownKeys, type OwnedRowInput } from "./membership";
 export { trySeedLock, clearSeedLock, listSeededUserIds } from "./seed";

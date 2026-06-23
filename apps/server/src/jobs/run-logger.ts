@@ -7,10 +7,8 @@ import { isPrimitive } from "es-toolkit/predicate";
 const BUFFER_MAX_BYTES = 500 * 1024;
 
 /**
- * Maps a consola log type name to its numeric verbosity (lower = more
- * severe, per `consola`'s `LogLevels` table). Mirrored locally rather than
- * imported so this module stays cheap and avoids pulling consola's runtime
- * for a value lookup.
+ * Maps consola log type to numeric verbosity (lower = more severe, per `consola`'s LogLevels).
+ * Mirrored locally (not imported) so module stays cheap and avoids consola runtime for lookup.
  */
 const CONSOLA_TYPE_VERBOSITY: Record<string, number> = {
   silent: Number.NEGATIVE_INFINITY,
@@ -30,13 +28,9 @@ const CONSOLA_TYPE_VERBOSITY: Record<string, number> = {
 };
 
 /**
- * Reads `JOB_CONSOLE_LOG_LEVEL` straight from `process.env` so this
- * low-level utility stays decoupled from `env.ts`'s validation chain
- * (importing the typed env up-front would crash test files that do not
- * inject the rest of the schema). Anything strictly more verbose than the
- * configured threshold is dropped on stdout. Default `warn` so per-run
- * completion banners don't clutter logs; buffer capture is unaffected so
- * the dashboard still sees every entry the per-job buffer level allows.
+ * Reads `JOB_CONSOLE_LOG_LEVEL` from process.env directly to decouple from `env.ts` validation
+ * (importing typed env up-front would crash tests that don't inject full schema). Drops log entries
+ * more verbose than threshold to stdout; default `warn` to avoid clutter. Buffer capture unaffected.
  */
 function loadStdoutLevelThreshold(): number {
   const raw = (process.env.JOB_CONSOLE_LOG_LEVEL ?? "warn").trim().toLowerCase();

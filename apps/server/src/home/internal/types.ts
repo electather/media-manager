@@ -12,11 +12,8 @@ import type {
 } from "../../media";
 
 /**
- * Internal projection passed between rows + the orchestrator. We let rows
- * stash row-only context (e.g. seedTitle for `becauseYouWatched`,
- * topContributors snapshot for `recommendedForYou-*`) on this shape, the
- * orchestrator strips the doubled-underscore prefix before serialize so the
- * client wire stays clean.
+ * Internal projection with row-specific context (seedTitle, topContributors).
+ * Orchestrator strips `__` prefix before serializing so client wire stays clean.
  */
 export interface InternalCompactMediaItem extends CompactMediaItem {
   /** Catalog rec-list `top_contributors` snapshot — drives match-reason chip. */
@@ -42,13 +39,7 @@ export interface RowContext {
   deadlineMs?: number;
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
-  /**
-   * Request-scoped memo for the user's `"default"` recommendation list. The
-   * `recommendedForYou-*` rows (eligibility + source) and the hero cascade all
-   * read it, across the tv + movies partitions, so a single compose fetches it
-   * once instead of up to four times. Built once in `buildContext`; callers
-   * fall back to `catalog.getRecommendations` when it is unset.
-   */
+  /** Request-scoped memo for `"default"` recommendations; fetched once across tv+movies partitions instead of up to 4 times. Built in `buildContext`; falls back to `catalog.getRecommendations` if unset. */
   recommendations?: () => Promise<RecommendationList | null>;
   logger: ConsolaInstance;
   /** Filled by `becauseYouWatched` and `similarTo` from their cursor seed; consumed by match-reason. */
@@ -58,15 +49,8 @@ export interface RowContext {
 }
 
 /**
- * Row pipeline contract (post media-pipeline consolidation, design §H). Each
- * row file exports a default `RowProvider` and registers it in `rows/index.ts`.
- * Adding a row is one drop-in file plus a test under `rows/__tests__/`.
- *
- * The row no longer owns sort/slice/cursor: those live in the shared media
- * pipeline (`media.listRows`). A row supplies eligibility, the initial cursor,
- * its pagination `cursorMode` (so the envelope can decode the cursor, V.CU1),
- * and a `load` that runs the row through `listRows` with its source + raw-row
- * projection + the row-aware match-reason enrichment captured inside.
+ * Row pipeline contract (design §H). Sort/slice/cursor live in shared media pipeline (`media.listRows`).
+ * Row supplies eligibility, initial cursor, pagination `cursorMode` (V.CU1), and `load` that runs through `listRows`.
  */
 export interface RowProvider {
   /** Stable wire slug, e.g. `"recommendedForYou-tv"`. Unique across the registry. */
@@ -88,30 +72,11 @@ export interface RowProvider {
    * fetches.
    */
   eligibility(ctx: RowContext): Promise<boolean>;
-  /**
-   * Cursor the orchestrator stamps onto `HomeRowStub.initialCursor`. Most
-   * rows return null (cursor-less first page); seeded rows like
-   * `becauseYouWatched` encode a non-null seed payload (a keyset cursor whose
-   * `k` carries the seed).
-   */
+  /** Cursor for `HomeRowStub.initialCursor`. Most rows return null; seeded rows like `becauseYouWatched` encode seed in keyset cursor `k`. */
   initialCursor(ctx: RowContext): Promise<string | null>;
-  /**
-   * Load one page through the shared media pipeline (`listRows`), returning the
-   * enriched `Page`. The source, the raw-row → compact projection, and the
-   * row-aware match-reason live inside; `cursor` is already decoded (the
-   * envelope owns the `null → 400` mapping). Bounded rows project a single
-   * page so the pipeline mints `cursor: null`.
-   */
+  /** Load one page through media pipeline; cursor already decoded (envelope owns null→400 mapping). Bounded rows mint cursor: null. */
   load(ctx: RowContext, cursor: Cursor | null): Promise<Page>;
-  /**
-   * Assemble the same pipeline pieces `load` runs — the source, the
-   * decoded-cursor config, and the home enrich override — WITHOUT executing
-   * them. The `/api/media` resolver (design §A3/§A4) feeds these straight into
-   * `media.listRows`, so the home registration map (`homeMediaSources`) surfaces
-   * a row through the generic resolver without re-deriving its wiring (invariant
-   * V.A1: the assembly stays home-side). `load` is defined in terms of this, so
-   * the two never drift.
-   */
+  /** Assemble pipeline pieces (source, decoded-cursor, home enrich) without executing. `/api/media` feeds into `media.listRows` via `homeMediaSources`; stays home-side (V.A1). `load` defined in terms of this to avoid drift (design §A3/§A4). */
   buildPipeline(ctx: RowContext, cursor: Cursor | null): BuiltMediaSource<any, any>;
   /**
    * When true, the orchestrator rejects cursor-less `composeRow` calls with

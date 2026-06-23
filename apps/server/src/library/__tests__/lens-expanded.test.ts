@@ -8,13 +8,10 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// The grouped lens repos resolve their database handle through `getDb()`. Mirror
-// the `lens-pages.test.ts` / `sync.test.ts` harness EXACTLY: stub `env` (the db
-// client imports it transitively) and point `getDb()` at the real migrated
-// in-memory database. The `json_each` expansion, the `sv.value ->> 'id'` /
-// `qt.value` keyset ORDER BY, and the quality rank `CASE` can only be proven
-// against the real SQLite query planner — the expanded off-by-one boundary and
-// the rank-vs-cursor mismatch never reproduce against a mocked repo.
+// Stub `env` and point `getDb()` at real in-memory db (not mocked repo). The
+// `json_each` expansion, keyset ORDER BY, and quality rank CASE can only be
+// proven against the real SQLite query planner — off-by-one boundary and
+// rank-vs-cursor mismatch never reproduce with a mock.
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -62,13 +59,9 @@ interface SeedRow {
   owned?: boolean;
 }
 
-/**
- * Inserts owned library rows directly into `library_items`, filling every
- * not-null column with a defaultable value so a test only sets the axis it
- * asserts on. The denormalized `servers` / `quality_tiers` columns are set
- * explicitly per test so the `json_each` expansion has real values to fan out
- * over. `owned` defaults to true so the rows land in the lens base
- * `owned = true` set; a test can override it to seed a tombstone.
+/** Inserts owned library rows with denormalized `servers` / `quality_tiers` set
+ * explicitly so `json_each` expansion has real values. `owned` defaults to true;
+ * override to seed a tombstone.
  */
 async function seed(rows: SeedRow[]): Promise<void> {
   await testDb.insert(libraryItems).values(
@@ -89,12 +82,9 @@ async function seed(rows: SeedRow[]): Promise<void> {
   );
 }
 
-/**
- * A stable per-expanded-row key for assertions: `"<sectionId>|<id>"`. The Server
- * lens fans a title out once per server, so the distinguishing identity of an
- * expanded row is the `(section.id, library id)` pair — `id` alone repeats
- * across sections. This key lets the completeness assertions detect a drop or a
- * duplicate of any single expanded row.
+/** Stable per-expanded-row key `"<sectionId>|<id>"` for assertions: the Server
+ * lens fans a title per server, so identity is `(section.id, library id)` —
+ * `id` alone repeats across sections. Detects dropped/duplicated rows.
  */
 function serverKey(row: { section: { id: string }; id: string }): string {
   return `${row.section.id}|${row.id}`;
@@ -109,14 +99,10 @@ function qualityKey(row: { section: { id: string }; id: string }): string {
   return `${row.section.id}|${row.id}`;
 }
 
-/**
- * Walks every Server page from the first, threading the next cursor EXACTLY as
- * `sources/server.ts` does: the page's `nextRow` is encoded with `serverToken`,
- * wrapped in the opaque `{ mode: "keyset", k }` cursor, round-tripped through the
- * shared `encode`/`decode` codec a real request traverses, and decoded back to a
- * `ServerCursor` with `decodeServer`. Returns the ordered expanded rows the loop
- * emitted plus whether the final page exhausted the scan (no `nextRow`). A safety
- * cap turns an accidental infinite/duplicating loop into a failure, not a hang.
+/** Walks every Server page, threading the next cursor EXACTLY as
+ * `sources/server.ts` does: encode `nextRow` with `serverToken`, wrap in
+ * `{ mode: "keyset", k }`, round-trip through real `encode`/`decode` codec,
+ * decode back to `ServerCursor`. Safety cap prevents infinite/duplicate loops.
  */
 async function walkServer(
   limit: number,
@@ -141,10 +127,9 @@ async function walkServer(
   return { rows, exhausted };
 }
 
-/**
- * Quality twin of {@link walkServer}, threading `qualityToken`/`decodeQuality`
- * EXACTLY as `sources/quality.ts` does — including carrying the expanded row's
- * SQL `rank` ordinal back through the token rather than re-deriving it.
+/** Quality twin of {@link walkServer}, threading `qualityToken`/`decodeQuality`
+ * EXACTLY as `sources/quality.ts` does — carry SQL `rank` ordinal through the
+ * token rather than re-deriving it.
  */
 async function walkQuality(
   limit: number,
@@ -194,12 +179,10 @@ beforeEach(async () => {
 
 describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each expansion)", () => {
   // SERVER MULTI-SECTION — the load-bearing expansion invariant. A title owned on
-  // TWO servers must appear in BOTH server sections (two expanded rows), and a
-  // title on ONE server must appear exactly once. The `json_each(servers)` join
-  // fans each owned row out once per server `{ id, label }`; if the expansion
-  // collapsed to distinct-by-title (or only the first server), the two-server
-  // title would lose a section and this fails. The section id/label must come
-  // from the server object, not the library row.
+  // TWO servers must appear in BOTH server sections. The `json_each(servers)` join
+  // fans each row once per server; collapsed-to-distinct-by-title or only-first
+  // server would drop a section. Section id/label must come from server object.
+  // (design §The 5 lenses, phase 3 json_each expansion)
   it("expands a title across every server section, and a single-server title once", async () => {
     await seed([
       {
@@ -224,23 +207,19 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
       "plex|movie:solo",
     ]);
 
-    // The section label rides through from the server object, distinct per
-    // section — proving the label is read off `sv.value ->> 'label'`, not the
-    // library id.
+    // Section label comes from server object via `sv.value ->> 'label'`, not library id.
     const jelly = rows.find((r) => r.section.id === "jelly");
     expect(jelly?.section.label).toBe("Jellyfin");
     const plexMulti = rows.find((r) => r.section.id === "plex" && r.id === "movie:multi");
     expect(plexMulti?.section.label).toBe("Plex");
   });
 
-  // SERVER KEYSET COMPLETENESS across boundaries — paging the whole EXPANDED set
-  // in `limit`-sized hops, threading each page's `nextRow` back as the next cursor
-  // EXACTLY as `sources/server.ts` does, must reconstruct one row per
-  // `(title, server)` with NO drop and NO duplicate, ordered `(section.id,
-  // sortTitle, id)`. With 5 expanded rows at limit 2 the loop crosses >=2 page
-  // boundaries (pages of 2,2,1); an off-by-one in `toExpandedPage` (encoding the
-  // dropped overflow row instead of the last returned one) drops or repeats the
-  // boundary expanded row. A title on two servers makes the boundary fall mid-fan.
+  // SERVER KEYSET COMPLETENESS — paging the whole expanded set, threading
+  // `nextRow` back as cursor EXACTLY as `sources/server.ts` does, must
+  // reconstruct each `(title, server)` pair with NO drop/duplicate, order
+  // `(section.id, sortTitle, id)`. Off-by-one in `toExpandedPage` (encoding
+  // dropped-overflow instead of last-returned) drops or repeats boundary row.
+  // Title on two servers makes boundary fall mid-fan.
   it("pages the whole expanded Server set across boundaries with no drops or duplicates", async () => {
     await seed([
       // `movie:ab` fans into both `alpha` and `beta`; the rest sit in one section
@@ -282,21 +261,14 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(exhausted).toBe(true);
   });
 
-  // QUALITY KEYSET + RANK — the expanded set is ordered HIGHEST-FIDELITY FIRST by
-  // the `QUALITY_TIERS` ordinal (rank ascending), an UNKNOWN label sorts LAST
-  // (rank == QUALITY_TIERS.length), ties broken by `(sortTitle, id)`, and the full
-  // set reconstructs with no drop/dup across a boundary. Paging in hops of 2
-  // crosses tier-section boundaries; because the cursor predicate and the
-  // `ORDER BY` share ONE rank `CASE`, the boundary is stable. If the rank were
-  // re-derived (or the unknown label ranked above a known tier) the order or the
-  // boundary would break and this fails.
+  // QUALITY KEYSET + RANK — ordered HIGHEST-FIDELITY FIRST by `QUALITY_TIERS`
+  // ordinal (rank ascending), UNKNOWN label sorts LAST (rank == QUALITY_TIERS.length),
+  // ties broken by `(sortTitle, id)`, full set reconstructs no drop/dup. Cursor
+  // predicate and ORDER BY share ONE rank CASE → stable boundary. If rank were
+  // re-derived or unknown ranked above known tier, order/boundary breaks.
   it("pages the expanded Quality set highest-fidelity first, unknown last, no drops or duplicates", async () => {
-    // "4K HDR" is rank 0 (highest), "1080p" is rank 4, "Bootleg" is unknown
-    // (rank == QUALITY_TIERS.length). `movie:dual` is held in both "4K HDR" and
-    // "1080p", so it fans into two tier sections. Expected expanded order:
-    //   4K HDR : movie:dual (rank 0)
-    //   1080p  : movie:dual, movie:hd (rank 4, tie-broken by sortTitle/id)
-    //   Bootleg: movie:low (rank UNKNOWN_RANK)
+    // "4K HDR" rank 0, "1080p" rank 4, "Bootleg" unknown (rank == QUALITY_TIERS.length).
+    // `movie:dual` fans into two tier sections. Expected: 4K HDR|dual, 1080p|{dual, hd}, Bootleg|low.
     await seed([
       { id: "movie:dual", sortTitle: "Dual", qualityTiers: ["1080p", "4K HDR"] },
       { id: "movie:hd", sortTitle: "Hd", qualityTiers: ["1080p"] },
@@ -305,9 +277,8 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
 
     const { rows, exhausted } = await walkQuality(2);
 
-    // Highest-fidelity first by rank ordinal; the unknown tier last; the 1080p
-    // tie broken by `(sortTitle, id)`. `toEqual` on the ordered keys asserts the
-    // ordering, no-skip and no-duplicate across the boundary in one shot.
+    // Highest-fidelity first by rank; unknown tier last; 1080p tie broken by
+    // `(sortTitle, id)`. `toEqual` asserts ordering, no-skip, no-duplicate across boundary.
     expect(rows.map(qualityKey)).toEqual([
       "4K HDR|movie:dual",
       "1080p|movie:dual",
@@ -318,11 +289,8 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(rows).toHaveLength(4);
     expect(exhausted).toBe(true);
 
-    // The rank ordinal the source threaded through the token is the SQL `CASE`
-    // value: 0 for "4K HDR", 4 for "1080p", and the bottom sentinel for the
-    // unknown label. This is what keeps the hop token comparable to the cursor
-    // predicate's numeric rank — assert it explicitly so a re-derived-or-dropped
-    // rank fails here, not silently.
+    // The rank ordinal threaded through token is the SQL CASE value: 0, 4,
+    // UNKNOWN_RANK. Assert explicitly so a re-derived-or-dropped rank fails here.
     const byKey = new Map(rows.map((r) => [qualityKey(r), r] as const));
     expect(byKey.get("4K HDR|movie:dual")?.rank).toBe(QUALITY_TIERS.indexOf("4K HDR"));
     expect(byKey.get("1080p|movie:hd")?.rank).toBe(QUALITY_TIERS.indexOf("1080p"));
@@ -331,15 +299,12 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(rows[rows.length - 1]?.section.id).toBe("Bootleg");
   });
 
-  // CURSOR CODEC — the grouped resume tuples must survive a full encode->decode
-  // round-trip for both lenses, and EVERY bad-cursor path must degrade to
-  // `undefined` (read as "first page") and NEVER throw. This is the V.CU1
-  // "a hand-edited cursor degrades, never 400s" invariant, applied to the
-  // three-part grouped tokens.
+  // CURSOR CODEC — grouped resume tuples survive full encode->decode round-trip,
+  // EVERY bad-cursor path degrades to `undefined` (first page), never throws
+  // (V.CU1 invariant: hand-edited cursor degrades, never 400s).
   it("round-trips a grouped keyset cursor and folds every bad cursor to first-page", () => {
-    // Server round-trip: a `sortTitle` WITH a space proves `splitTriToken` peels
-    // the FIRST space (section id) and the LAST space (library id), recovering the
-    // full middle sortTitle.
+    // Server round-trip: a `sortTitle` with a space proves `splitTriToken` peels
+    // FIRST space (section id) and LAST space (library id), recovering middle sortTitle.
     const serverRow = {
       section: { id: "plex", label: "Plex" },
       sortTitle: "The Matrix",
@@ -351,8 +316,7 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
       id: "movie:603",
     });
 
-    // Quality round-trip: the rank ordinal parses back to a finite integer, the
-    // middle sortTitle (with a space) survives, and the id survives.
+    // Quality round-trip: rank ordinal, sortTitle with space, and id all survive.
     const qualityRow = {
       section: { id: "4K HDR", label: "4K HDR" },
       sortTitle: "The Matrix",
@@ -400,17 +364,12 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
     expect(decodeQuality(decode("@@@not-base64-json@@@"))).toBeUndefined();
   });
 
-  // FILTERS NARROW THE EXPANDED TITLE SET — a filter axis narrows which TITLES
-  // appear, applied in SQL as a row-scoped `json_each EXISTS` membership (design
-  // §Filters; §Schema line: "servers=json_each EXISTS"). The `servers` axis
-  // matches on the human-readable `label` (`"Plex"`), NOT the connection id, so
-  // it agrees with the facet key and the FE popover value (see the regression
-  // test below). A `servers: ["Plex"]` filter keeps every title available on
-  // Plex and DROPS every title not on Plex entirely; a kept multi-server title
-  // still fans out across ALL its sections (the filter narrows titles, not
-  // sections — the expansion is unchanged). The mutation-sensitive invariant: a
-  // title NOT on Plex must vanish completely, while a title ON Plex keeps every
-  // one of its sections.
+  // FILTERS NARROW THE EXPANDED TITLE SET — applied as row-scoped `json_each EXISTS`
+  // (design §Filters; §Schema). `servers` axis matches `label` not connection id
+  // (agrees with facet key and FE popover — see regression test). `servers: ["Plex"]`
+  // keeps titles available on Plex, DROPS others entirely; kept multi-server titles
+  // still fan across ALL sections (filter narrows titles, not sections). Invariant:
+  // title NOT on Plex vanishes completely; title ON Plex keeps every section.
   it("narrows the expanded Server set to titles matching the filter, fanning kept titles across all sections", async () => {
     await seed([
       {
@@ -430,48 +389,34 @@ describe("library grouped lens pages (design §The 5 lenses, phase 3 json_each e
 
     const { rows } = await walkServer(100, { servers: ["Plex"] });
 
-    // `movie:jellyonly` (not on Plex) is dropped ENTIRELY — the filter's
-    // row-scoped `EXISTS` excludes the whole title. `movie:both` (on Plex) is
-    // kept and still expands across BOTH its server sections, because the filter
-    // narrows the title set, never the per-title expansion. A filter that leaked
-    // the jelly-only title, or one that collapsed `movie:both` to just its plex
-    // section, both fail here.
+    // `movie:jellyonly` (not on Plex) is dropped ENTIRELY via row-scoped `EXISTS`.
+    // `movie:both` (on Plex) is kept and expands across BOTH sections (filter
+    // narrows titles, never per-title expansion). Leak or collapse both fail.
     expect(rows.map(serverKey)).toEqual(["jelly|movie:both", "plex|movie:both"]);
     // The excluded title contributes no section at all.
     expect(rows.some((r) => r.id === "movie:jellyonly")).toBe(false);
   });
 
-  // SERVERS FILTER MATCHES ON LABEL, NOT ID — the regression guard for the
-  // facet-key / filter-value mismatch. The facets repo keys the `servers` count
-  // map on `je.value ->> 'label'`, and the FE popover sends that same label back
-  // as `filters.servers`; the lens filter predicate (`ownedFilterConditions`'s
-  // servers arm) must therefore match on `label` too, or selecting any server
-  // facet matches NO row. We seed one owned title on `{ id: "conn-1", label:
-  // "Plex" }` and prove the two axes now agree: filtering by the LABEL the facet
-  // surfaces keeps the title, while filtering by the connection id keeps nothing.
-  // If the predicate regressed to `value ->> 'id'`, the label filter would match
-  // nothing and the first assertion would fail. The Server LENS still SECTIONS on
-  // the id (asserted via `section.id` below) — that grouping axis is unchanged.
+  // SERVERS FILTER MATCHES ON LABEL, NOT ID — regression guard for facet-key /
+  // filter-value mismatch. Facets repo keys `servers` map on `je.value ->> 'label'`,
+  // FE popover sends that label back as `filters.servers`, predicate must match on
+  // `label` too. Regression to `value ->> 'id'` → label filter matches nothing.
+  // Server LENS still SECTIONS on id (asserted via `section.id` below).
   it("filters the Server lens on the server LABEL (facet key), not the connection id", async () => {
     await seed([{ id: "movie:1", sortTitle: "Alpha", servers: [{ id: "conn-1", label: "Plex" }] }]);
 
-    // (a) The facets `servers` map keys on the human LABEL, so the popover badge
-    // and the filter value both read "Plex" — never the opaque "conn-1" id.
+    // (a) Facets `servers` map keys on human LABEL, never opaque "conn-1" id.
     const facets = await selectFacets(USER_ID);
     expect(facets.servers).toEqual({ Plex: 1 });
 
-    // The LABEL is what the facet map keys on and what the popover sends back, so
-    // it must KEEP the title.
+    // LABEL keys facet map and popover value, so it must KEEP the title.
     const byLabel = await walkServer(100, { servers: ["Plex"] });
     expect(byLabel.rows.map((r) => r.id)).toEqual(["movie:1"]);
-    // The lens still SECTIONS on the connection id — the section grouping axis is
-    // separate from the (now label-keyed) filter axis.
+    // Lens SECTIONS on connection id (grouping axis separate from filter axis).
     expect(byLabel.rows[0]?.section).toEqual({ id: "conn-1", label: "Plex" });
 
-    // The connection id is NO LONGER the filter value: it matches nothing, since
-    // the predicate now compares `value ->> 'label'`. This is the half of the
-    // pair that proves the bug is fixed — under the old `value ->> 'id'`
-    // predicate this filter would have (wrongly) kept the title.
+    // Connection id is NO LONGER the filter value (predicate compares `value ->> 'label'`).
+    // This half proves the bug is fixed — old `value ->> 'id'` would wrongly keep title.
     const byId = await walkServer(100, { servers: ["conn-1"] });
     expect(byId.rows).toHaveLength(0);
   });

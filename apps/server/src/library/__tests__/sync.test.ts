@@ -52,22 +52,12 @@ function entry(tmdbId: string, type: "movie" | "tv" = "movie", addedAt?: string)
   return { item: { ids: { tmdb_id: tmdbId }, type }, addedAt: addedAt ?? "2024-01-01T00:00:00Z" };
 }
 
-/**
- * A media-service stub whose only sync-relevant method is `getCollectionFeed`.
- * The default resolves an empty, complete feed; callers override per test to
- * drive the membership diff. Phase-1 membership sync touches nothing else on
- * the service, so the rest is deliberately absent.
- */
+/** Stub with only `getCollectionFeed` — phase-1 sync uses nothing else. */
 function makeMediaService(feed: CollectionFeed = { items: [], partial: false }) {
   return { getCollectionFeed: vi.fn().mockResolvedValue(feed) };
 }
 
-/**
- * Builds the loose `MaybeLibraryContext` the public surface accepts. The
- * `catalog` handle is unused by phase-1 membership sync (it is carried for the
- * phase-2 hydrate path), so an empty stub is sufficient and is cast through the
- * resolver's expected type. Each call gets a fresh media-service stub.
- */
+/** Builds the test context; `catalog` stub is unused by phase-1 (phase-2 hydrate only). */
 function makeCtx(feed?: CollectionFeed) {
   const mediaService = makeMediaService(feed);
   const ctx = {
@@ -137,21 +127,9 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect(after?.unownedAt).toBeNull();
   });
 
-  // NO-RESURRECT — the load-bearing invariant. A key that was owned, then
-  // dropped from the feed (tombstoned), MUST stay tombstoned when the feed
-  // re-includes it. The tombstone survives ONLY because `upsertOwned` uses
-  // `onConflictDoNothing` on the primary key. This test runs against the real
-  // SQLite conflict path (repo is NOT mocked).
-  //
-  // It exercises the conflict TWO ways:
-  //   1. End-to-end through `syncMembership`, mirroring the real lifecycle
-  //      (present -> dropped -> re-included).
-  //   2. A direct `upsertOwned([tombstonedKey])` call. This is the assertion
-  //      that actually FAILS if `onConflictDoNothing` is ever replaced with an
-  //      upsert: the service pre-filters re-included keys against
-  //      `allKnownKeys`, so the full-sync path alone would never reach the
-  //      conflict and could not catch a regression. Inserting the existing pk
-  //      directly forces the conflict and proves it is a no-op.
+  // NO-RESURRECT invariant: tombstoned key must stay tombstoned when feed re-includes it.
+  // `onConflictDoNothing` is the sole guard; the direct `upsertOwned([tombstonedKey])` call
+  // at lines 188-191 would flip `owned=true` if ever replaced with upsert (regression guard).
   it("does not resurrect a tombstoned key when the feed re-includes it", async () => {
     // Run 1: key K1 + anchor A2 present -> both owned. The anchor keeps every
     // later feed non-empty so the tombstone sweep fires (an empty feed is a
@@ -215,11 +193,8 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect(third.removed).toBe(0);
   });
 
-  // TOMBSTONE ON REMOVAL — the direct half of the lifecycle: a key present in
-  // one feed then absent from the next flips owned=false with `unownedAt`
-  // populated. `removed` must count exactly that one transition. A bug that
-  // hard-deleted instead of tombstoning would lose the row entirely (and so
-  // lose the no-resurrect guard); this asserts the row survives, flipped.
+  // TOMBSTONE ON REMOVAL: key absent from next feed flips owned=false with `unownedAt`.
+  // Hard-delete would lose the row and break no-resurrect guard; this asserts it survives.
   it("tombstones a key that leaves the feed and stamps unownedAt", async () => {
     const present = await syncMembership(
       makeCtx({ items: [entry("700"), entry("701")], partial: false }).ctx,
@@ -240,12 +215,8 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect(gone?.unownedAt).not.toBeNull();
   });
 
-  // EMPTY / ABSENT FEED — no `collection@v1` provider (or a provider that
-  // disconnected) yields an empty, complete feed: the sync must be a no-op with
-  // zero counts, must not throw, and CRUCIALLY must not tombstone any existing
-  // owned row. An empty `feedKeys` would otherwise match every owned row in the
-  // sweep and wipe the whole library on a provider outage; the sweep guard
-  // forbids it. Verifies the design §Errors "no provider -> eager-seed no-op".
+  // EMPTY/ABSENT FEED: provider gone → empty complete feed → no-op (never tombstone existing rows).
+  // Empty `feedKeys` would wipe whole library; design §Errors "no provider -> eager-seed no-op".
   it("treats an empty feed as a no-op and never tombstones existing owned rows", async () => {
     // Pre-seed owned rows from a complete feed.
     await syncMembership(makeCtx({ items: [entry("900"), entry("901")], partial: false }).ctx);
@@ -257,12 +228,8 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect((await rowById("movie:901"))?.owned).toBe(true);
   });
 
-  // PARTIAL FEED — a degraded fan-out (a provider errored) surfaces
-  // `partial: true` but MUST still apply the rows that did arrive and MUST NOT
-  // throw. It must ALSO NOT tombstone keys merely absent from the incomplete
-  // feed: absence under partial is untrusted (the missing provider may own
-  // them). The degradation is reported, not swallowed; a later complete sync
-  // reconciles any real removals.
+  // PARTIAL FEED: incomplete feed must apply rows but never tombstone absent keys (untrusted absence).
+  // Degradation reported, later complete sync reconciles real removals.
   it("on a partial feed applies delivered rows but tombstones nothing absent", async () => {
     // Pre-seed two owned rows from a complete feed.
     await syncMembership(makeCtx({ items: [entry("800"), entry("801")], partial: false }).ctx);
@@ -275,12 +242,8 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect((await rowById("movie:801"))?.owned).toBe(true);
   });
 
-  // CHUNKED TOMBSTONE — `tombstoneMissing` must correctly tombstone absent rows
-  // even when `keepKeys` exceeds SQLite's variable limit (900 in the chunking
-  // implementation). The owned set has N > 900 rows; keepKeys lists all but one;
-  // the one absent row must be tombstoned and all others must stay owned. If the
-  // chunking were wrong (e.g. tombstoned rows absent from only a single chunk),
-  // far more than one row would be tombstoned.
+  // CHUNKED TOMBSTONE: `tombstoneMissing` must handle `keepKeys` > 900 (SQLite variable limit).
+  // Wrong chunking would tombstone multiple rows; test asserts exactly one absent row is tombstoned.
   it("tombstones exactly the rows absent from a keepKeys set larger than the chunk size", async () => {
     const OVER_LIMIT = 950;
     const ownedIds: string[] = [];
@@ -317,13 +280,8 @@ describe("library membership sync (design §Sync + hydrate, phase 1)", () => {
     expect((await rowById(keptLast))?.owned).toBe(true);
   });
 
-  // FEED THROW — a terminal all-providers failure inside `getCollectionFeed`
-  // must be swallowed at the sync boundary: the run reports `partial: true`,
-  // does NOT throw to the caller, and MUST NOT tombstone the owned library.
-  // The swallowed error returns `feedKeys: []` with `partial: true`; the sweep
-  // guard skips the tombstone pass so a transient outage cannot wipe owned
-  // rows. (Before the guard, the empty `keepKeys` matched every owned row and
-  // a single outage erased the whole library — this is the regression guard.)
+  // FEED THROW: terminal error must be swallowed, return `partial: true`, never tombstone library.
+  // Before sweep guard, empty `keepKeys` erased whole library on outage (regression guard).
   it("does not tombstone the owned library when the feed errors terminally", async () => {
     // Pre-seed an owned row from a healthy feed.
     await syncMembership(makeCtx({ items: [entry("802")], partial: false }).ctx);

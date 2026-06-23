@@ -3,12 +3,8 @@ import { getConfig } from "./config";
 import { recordSkipped } from "./history";
 import { isRunning } from "./runner";
 
-/**
- * Returns true when the tick should be skipped: either the job is disabled or
- * an instance is already running (in which case a skipped record is persisted).
- * Callers do `if (await shouldSkipTick(id)) return;` at the top of their
- * onTick handler.
- */
+// Returns true when tick should be skipped: job disabled or instance already running.
+// When running, persists skipped record. Callers: `if (await shouldSkipTick(id)) return;` at top of onTick handler.
 export async function shouldSkipTick(jobId: string): Promise<boolean> {
   const cfg = await getConfig(jobId);
   if (!cfg.enabled) return true;

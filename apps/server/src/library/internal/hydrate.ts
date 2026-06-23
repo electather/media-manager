@@ -37,31 +37,14 @@ interface BatchSources {
   progress: ProgressMap;
 }
 
-/**
- * Maximum number of rows whose availability probes run concurrently in one
- * hydrate pass. Each row fires two plugin calls (`getMatchingServers` +
- * `getAvailabilityQuality`), so a large stale-row set could otherwise launch
- * unbounded concurrent requests and trigger provider rate-limit bans or
- * socket exhaustion. Matches the `BATCH_SIZE` convention in the catalog
- * metadata-refresh job.
- */
+/** Caps concurrent availability probes (each row = 2 plugin calls). Matches catalog's BATCH_SIZE. */
 export const HYDRATE_CONCURRENCY = 25;
 
 /**
- * Hydrates the denormalized browse projection for a user's new and stale owned
- * rows (design §Sync + hydrate, phase 2). For each stale row it folds together
- * three independent sources and tolerates any of them being absent — a partial
- * hydrate is valid and self-heals on the next pass:
- *   - catalog metadata (`getMetadataBatch`) → sortTitle, year, genres, franchise,
- *   - per-key `getMatchingServers` → server chips,
- *   - per-key `getAvailabilityQuality` → quality tiers (the N-call fan-out),
- *   - `loadProgressMap` → watchedState.
- *
- * The availability fan-out runs in chunks of {@link HYDRATE_CONCURRENCY} rows so
- * at most 2 × HYDRATE_CONCURRENCY plugin calls are in-flight at once, preventing
- * provider rate-limit bans and socket exhaustion for large libraries. Returns
- * counts for run-status visibility. A fully-fresh library short-circuits to
- * zero work.
+ * Hydrates denormalized projection for new/stale rows (design §Sync + hydrate, phase 2).
+ * Folds catalog metadata, per-key availability probes, and progress—each source optional.
+ * Runs in HYDRATE_CONCURRENCY chunks; per-chunk writes allow rows that timeout mid-pass
+ * to keep finished chunks (hydratedAt stamp skips them on resume).
  */
 export async function hydrate(
   ctx: LibraryContext,
@@ -75,19 +58,9 @@ export async function hydrate(
     metadata: await loadMetadata(ctx, targets),
     progress: await loadProgress(ctx),
   };
-  // Fan out in bounded chunks to cap concurrent plugin calls. Each chunk runs
-  // its rows fully before the next chunk starts, so at most
-  // 2 × HYDRATE_CONCURRENCY plugin requests are in-flight at once.
-  //
-  // Persist each chunk's projection as soon as it resolves rather than buffering
-  // every update for one write after the loop. The hydrate jobs cap a user row
-  // at a wall-clock timeout (30s for `library.sync`, 60s for `library.hydrate`)
-  // and abandon the row's in-flight work when it fires, while the availability
-  // probes run unbounded (no per-probe deadline in the scheduled path). Writing
-  // per chunk means a row that times out mid-pass keeps the chunks that already
-  // finished — `writeHydration` stamps `hydratedAt`, so the next run's
-  // `staleOrNew` skips them and resumes from where this pass stopped instead of
-  // redoing completed work.
+  // Chunked: at most 2 × HYDRATE_CONCURRENCY plugin calls in-flight.
+  // Write per chunk: row timeout (30s sync, 60s hydrate) keeps finished chunks; hydratedAt
+  // stamp makes staleOrNew resume from stop point, not redo completed work.
   let hydrated = 0;
   for (let i = 0; i < targets.length; i += HYDRATE_CONCURRENCY) {
     const slice = targets.slice(i, i + HYDRATE_CONCURRENCY);
@@ -99,12 +72,7 @@ export async function hydrate(
   return { considered: targets.length, hydrated };
 }
 
-/**
- * Fetches catalog metadata for every stale row in one batch, keyed by the
- * composite id so `buildUpdate` does an O(1) lookup. Tolerates a metadata miss:
- * a key absent from the result simply hydrates its metadata-sourced columns to
- * their empty/null shape.
- */
+/** Batch-loads catalog metadata keyed by composite id. Miss tolerates: absent keys hydrate to null/[]. */
 async function loadMetadata(
   ctx: LibraryContext,
   targets: HydrateTarget[],
@@ -128,12 +96,7 @@ async function loadProgress(ctx: LibraryContext): Promise<ProgressMap> {
   return map;
 }
 
-/**
- * Folds the three sources into one row's denormalized projection. The
- * availability lookups (`getMatchingServers`, `getAvailabilityQuality`) are the
- * only awaits here; metadata and progress are already loaded. Each source is
- * null-safe so any single failure degrades that column, not the row.
- */
+/** Folds metadata, progress, and availability probes into row's denormalized projection. Null-safe per column. */
 async function buildUpdate(
   ctx: LibraryContext,
   target: HydrateTarget,

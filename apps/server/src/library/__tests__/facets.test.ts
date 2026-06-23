@@ -7,12 +7,9 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// `selectFacets` resolves its database handle through `getDb()`. Point it at the
-// real migrated in-memory database (which applies every drizzle migration,
-// including `library_items`) so each aggregation runs against actual SQLite. The
-// dedup invariant (test 3) can only be proven against the real `json_each`
-// expansion and `count(DISTINCT id)` semantics — a mocked repo would let a
-// `count(*)` regression slip through unnoticed.
+// Uses real DB (not mocked) so aggregations run against actual SQLite. Only the
+// real `json_each` and `count(DISTINCT id)` semantics can prove dedup (test 3);
+// a mocked repo would let `count(*)` regressions slip unnoticed.
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -36,13 +33,11 @@ let testDb: Db;
 const USER_ID = "u1";
 
 /**
- * The fields a denormalized library row needs to land in a facet bucket. Every
- * column `selectFacets` reads is overridable; the rest fall back to a sensible
- * owned-row default. Seeding `libraryItems` directly (rather than through
- * `upsertOwned` + `writeHydration`) is deliberate: `upsertOwned` leaves the
- * facet columns at their schema defaults, so a direct insert is the only way to
- * drive `genres`/`servers`/`qualityTiers`/`watchedState`/`sortTitle`/`year`
- * across the exact shapes each invariant needs.
+ * Fields needed for a denormalized row to land in a facet bucket. Direct insert
+ * (not `upsertOwned` + `writeHydration`) because `upsertOwned` leaves facet
+ * columns at schema defaults — only a direct insert drives `genres`/`servers`/
+ * `qualityTiers`/`watchedState`/`sortTitle`/`year` across the exact shapes
+ * each invariant needs.
  */
 interface SeedRow {
   id: string;
@@ -94,13 +89,9 @@ beforeEach(async () => {
 });
 
 describe("library facets (design §Facets)", () => {
-  // SINGLE-VALUED GROUP BY — `kinds` and `watched` are one bucket per row,
-  // counted with `count(*)` over the owned set. A `tv` row and two `movie` rows
-  // yield `{ movie: 2, tv: 1 }`; the watched buckets count one each per state.
-  // CRUCIALLY a row with a null `watchedState` must be DROPPED from the watched
-  // map (`rowsToMap` skips the null bucket) rather than surfacing as a phantom
-  // key — if the null filter regressed, `watched` would carry an extra entry and
-  // the strict `toEqual` below would fail.
+  // SINGLE-VALUED GROUP BY — `kinds`/`watched` count one per row with `count(*)`.
+  // CRUCIALLY: null `watchedState` must be DROPPED (not phantom key) — if the
+  // null filter regressed, `watched` would have an extra entry and `toEqual` fail.
   it("counts single-valued kinds and watched, dropping the null watched bucket", async () => {
     await seed({ id: "movie:1", tmdbId: "1", mediaType: "movie", watchedState: "watched" });
     await seed({ id: "movie:2", tmdbId: "2", mediaType: "movie", watchedState: "partial" });
@@ -115,12 +106,9 @@ describe("library facets (design §Facets)", () => {
     expect(facets.watched).toEqual({ watched: 1, partial: 1, unwatched: 1 });
   });
 
-  // MULTI-VALUED json_each — `servers`, `genres`, and `qualities` expand each row
-  // through `json_each`, so a SINGLE title present on two servers contributes one
-  // count to EACH server bucket (a title count per value, not a row count). The
-  // same holds for two distinct genres and two distinct quality tiers on one row.
-  // If the `json_each` cross-join regressed to a plain column read, only the
-  // first array element would surface and the second bucket would be absent.
+  // MULTI-VALUED json_each — `servers`/`genres`/`qualities` expand via `json_each`:
+  // one title on two servers counts per bucket (title count per value, not row count).
+  // If `json_each` regressed to plain column read, only first element would surface.
   it("expands multi-valued servers, genres and qualities so one title hits every bucket", async () => {
     await seed({
       id: "movie:10",
@@ -142,13 +130,9 @@ describe("library facets (design §Facets)", () => {
     expect(facets.qualities).toEqual({ "4K": 1, "1080p": 1 });
   });
 
-  // DEDUP — locks the `count(DISTINCT id)` fix. A single owned row whose `genres`
-  // JSON repeats a value (dirty plugin metadata returning `["Drama","Drama"]`)
-  // must count that genre EXACTLY ONCE: a facet is a title count, not an
-  // array-element count. `json_each` emits one expanded row per array element, so
-  // under `count(*)` this would tally `Drama: 2` from a single title. This test
-  // is the mutation-sensitive heart of the dedup guard — it FAILS the moment the
-  // aggregation reverts to `count(*)`.
+  // DEDUP — `count(DISTINCT id)` ensures repeated genres (dirty metadata like
+  // `["Drama","Drama"]`) count ONCE per title, not per array element. If
+  // aggregation regresses to `count(*)`, this test FAILS — mutation-sensitive guard.
   it("counts a repeated genre on one title exactly once (count(DISTINCT id))", async () => {
     await seed({ id: "movie:20", tmdbId: "20", genres: ["Drama", "Drama"] });
 
@@ -157,13 +141,10 @@ describe("library facets (design §Facets)", () => {
     expect(facets.genres).toEqual({ Drama: 1 });
   });
 
-  // OWNED-ONLY — every aggregation is scoped to `owned = true`, so a tombstoned
-  // row (`owned = false`) must contribute to NO facet bucket: not `kinds`, not
-  // the multi-valued axes, not `letters`, not `decades`. If the owned predicate
-  // were dropped, the tombstone's media type, genre, server, leading letter, and
-  // decade would all leak into the maps and rails — every assertion below would
-  // fail. We pair the tombstone with one live owned row so the maps are non-empty
-  // and prove the tombstone is the only thing excluded.
+  // OWNED-ONLY — aggregations scoped to `owned = true`, so tombstones contribute
+  // to no bucket. If the owned predicate dropped, tombstone values would leak into
+  // all facets. Pairs tombstone + live row so non-empty maps prove tombstone alone
+  // is excluded.
   it("excludes tombstoned (owned=false) rows from every facet, letter and decade", async () => {
     // Live owned anchor: contributes a movie, a genre, a server, letter A, 2020s.
     await seed({
@@ -205,12 +186,9 @@ describe("library facets (design §Facets)", () => {
     expect(facets.decades).toEqual([2010]);
   });
 
-  // LETTERS present-only — the A→Z rail lists the DISTINCT uppercased first
-  // characters of `sortTitle` that have at least one owned title. A leading
-  // non-alphabetic character (a digit, a symbol) or a blank `sortTitle` folds to
-  // the catch-all `"#"`, and `"#"` must sort LAST so it trails the letters. A
-  // letter with no owned title is absent (present-only). This pins the fold, the
-  // distinct-uppercase collapse, and the `"#"`-trails-letters sort all at once.
+  // LETTERS present-only — A→Z rail lists distinct uppercased first chars of owned
+  // titles. Non-alpha (digit/symbol) or blank folds to `"#"`, which sorts LAST.
+  // Pins the fold, distinct-uppercase collapse, and `"#"`-trailing sort.
   it("lists distinct uppercased leading letters, folding non-alpha to a trailing '#'", async () => {
     await seed({ id: "movie:40", tmdbId: "40", sortTitle: "alpha" }); // A
     await seed({ id: "movie:41", tmdbId: "41", sortTitle: "Avengers" }); // also A — collapses
@@ -225,12 +203,10 @@ describe("library facets (design §Facets)", () => {
     expect(facets.letters).toEqual(["A", "B", "#"]);
   });
 
-  // DECADES present-only, newest first — the timeline rail lists the DISTINCT
-  // decades (`floor(year / 10) * 10`) that have an owned title, sorted DESC so
-  // the newest decade leads. A row with a null `year` contributes NO decade
-  // (it is excluded by the `year IS NOT NULL` predicate). Two titles in the same
-  // decade collapse to one entry. This fails if the sort direction flips, if the
-  // decade arithmetic regresses, or if null-year rows leak a phantom decade.
+  // DECADES present-only, newest first — timeline rail lists distinct decades
+  // (`floor(year / 10) * 10`) for owned titles, sorted DESC. Null `year` excluded
+  // by `year IS NOT NULL` predicate. Fails if sort direction flips, decade math
+  // regresses, or null-year rows leak phantom decade.
   it("lists distinct decades newest-first, dropping null-year rows", async () => {
     await seed({ id: "movie:50", tmdbId: "50", year: 2021 }); // 2020s
     await seed({ id: "movie:51", tmdbId: "51", year: 2024 }); // also 2020s — collapses

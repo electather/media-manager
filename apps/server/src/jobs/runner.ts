@@ -47,11 +47,9 @@ export interface RunOutcome {
   durationMs: number;
 }
 
-/**
- * Active run registry. Keyed by `${jobId}::${scopeKey ?? ""}`. Value is the abort
- * controller for the in-flight handler. Used for skip-if-running checks and for
- * cancel. In-memory only; doc §Non-goals says multi-instance coordination is v2.
- */
+// Active run registry keyed by `${jobId}::${scopeKey ?? ""}`. Stores abort
+// controllers for skip-if-running checks and cancel. In-memory only; doc
+// §Non-goals defers multi-instance coordination to v2.
 const active = new Map<string, AbortController>();
 
 function activeKey(jobId: string, scopeKey: string | null | undefined): string {
@@ -88,12 +86,9 @@ export function requestCancel(jobId: string, scopeKey?: string | null): boolean 
   return true;
 }
 
-/**
- * Core execution wrapper. Handles concurrency gating, request context,
- * timeout/cancel, error capture, log capture, and history writes. Callers
- * provide the handler and the dispatch-specific policy (e.g. per-row status
- * resolution).
- */
+// Core execution wrapper: concurrency gating, timeout/cancel, error capture,
+// log capture, history writes. Callers provide handler + dispatch-specific
+// status policy (e.g. per-row resolution).
 // fallow-ignore-next-line complexity
 export async function run(req: RunRequest): Promise<RunOutcome> {
   if (isRunning(req.jobId, req.scopeKey)) {
@@ -252,21 +247,9 @@ function resolveStatus(outcome: {
   return "succeeded";
 }
 
-/**
- * Notification emit hook fired after every run finishes. Two typed events
- * surface on the typed bus:
- *   - `jobs.run.failed` for any non-success terminal status. Consumed by
- *     `notifications/jobs/on-jobs-run-failed.ts`, which routes to an admin
- *     `job.run.failed` notification.
- *   - `jobs.sync.succeeded` for sync-classified jobs whose user trigger
- *     completed. Consumed by `notifications/jobs/on-jobs-sync-succeeded.ts`,
- *     which routes to a user `connection.sync.succeeded` notification.
- *     Cron-fired runs (no `triggeredByUserId`) are skipped silently per
- *     design.
- *
- * Emit failures must never propagate to the host operation — logged and
- * swallowed.
- */
+// Emits `jobs.run.failed` (non-success → admin notification) and
+// `jobs.sync.succeeded` (user-triggered sync only → user notification).
+// Cron runs skip silently by design. Emit failures logged + swallowed.
 // fallow-ignore-next-line complexity
 async function emitJobOutcome(
   req: RunRequest,

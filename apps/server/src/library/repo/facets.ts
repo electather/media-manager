@@ -11,13 +11,9 @@ interface CountRow {
 }
 
 /**
- * Computes the unfiltered facet totals for a user's owned library in a handful
- * of indexed aggregations (design §Facets). Counts are whole-library totals,
- * NOT filter-aware, matching the mock look — the filter axes never narrow the
- * facet query. Every aggregation is scoped to `owned = true` so tombstones never
- * inflate a count. The multi-valued `genres`/`qualities`/`servers` axes expand
- * each row via `json_each`, so a title on two servers contributes to both server
- * buckets (and to one `kinds`/`watched` bucket).
+ * Unfiltered facet totals (design §Facets): whole-library counts, NOT filter-aware.
+ * Multi-valued axes (`genres`/`qualities`/`servers`) expand via `json_each` so a
+ * title on two servers contributes to both; scoped to `owned = true` to skip tombstones.
  */
 export async function selectFacets(userId: string, db: Db = getDb()): Promise<LibraryFacetCounts> {
   const [kinds, genres, qualities, servers, watched, letters, decades] = await Promise.all([
@@ -71,10 +67,8 @@ async function countByJsonValue(db: Db, userId: string, column: Column): Promise
 }
 
 /**
- * `GROUP BY` over the `servers` JSON column, whose elements are `{ id, label }`
- * objects. The facet keys on the human-readable `label` so the popover badge
- * reads "Plex (12)" rather than an opaque connection id; a title present on two
- * servers contributes to both server buckets.
+ * `GROUP BY` over `servers` JSON column elements `{ id, label }`. Facet keys on
+ * human-readable `label` so badge reads "Plex (12)" not opaque connection id.
  */
 async function countByServerLabel(db: Db, userId: string): Promise<CountRow[]> {
   return db
@@ -90,10 +84,9 @@ async function countByServerLabel(db: Db, userId: string): Promise<CountRow[]> {
 }
 
 /**
- * The distinct first characters present on the A–Z rail, uppercased, with every
- * non-alphabetic leading character (a digit, a symbol, or an empty `sort_title`)
- * folded to `"#"`. Present-only: a letter with no owned title is omitted so the
- * rail renders only navigable anchors. Sorted so `"#"` trails the letters.
+ * Distinct first characters for A–Z rail, uppercased; non-alphabetic + empty
+ * `sort_title` fold to `"#"`. Present-only (letters with no owned title omitted).
+ * Sorted with `"#"` trailing.
  */
 async function selectLetters(db: Db, userId: string): Promise<string[]> {
   // `substr(sort_title, 1, 1)` is empty-safe (returns "" for a blank title),

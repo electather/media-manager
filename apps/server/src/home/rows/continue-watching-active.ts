@@ -3,11 +3,9 @@ import { makePipelineRow } from "../internal/pipeline";
 import { continueWatchingActiveSource } from "../sources/continue-watching";
 
 /**
- * Active-resume entries: any item with non-zero progress under the
- * "finishing soon" threshold. The filter + `lastPlayedAt` ordering live in
- * `continueWatchingActiveSource.fetchRawSet`; this row projects every selected
- * entry to a `CompactMediaItem` and the shared pipeline owns the offset slice +
- * cursor (`media.listRows`).
+ * Active-resume entries: non-zero progress under "finishing soon" threshold.
+ * Filter + ordering in `continueWatchingActiveSource.fetchRawSet`; projects to
+ * `CompactMediaItem`. Pipeline owns offset slice + cursor.
  */
 const provider = makePipelineRow({
   rowId: "continueWatching-active",

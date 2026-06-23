@@ -2,11 +2,8 @@ import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 import type { MediaType } from "@nama/shared/media";
 
 /**
- * Deterministic parity test scenario (design §T, RISK-103). Feeds via
- * `mediaService` / `catalog` aggregate methods, `yourWatchlist` via module
- * boundary mock. Asserts against the `home-layout-parity.json` golden fixture to
- * prove the US-020..US-022 MediaSource migration is behavior-neutral.
- * No wall-clock dependency: `lastPlayedAt` / `watchedAt` / feed insertion order are fixed.
+ * Deterministic parity test (design §T, RISK-103). Proves US-020..US-022
+ * MediaSource migration is behavior-neutral. No wall-clock dependency.
  */
 export const PARITY_USER_ID = "home-parity-user";
 

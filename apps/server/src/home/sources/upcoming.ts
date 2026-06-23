@@ -8,14 +8,10 @@ export interface UpcomingHit extends MediaKey {
 }
 
 /**
- * Upcoming-feed source (design §H/§M.5). Reads the `calendar@v1` feed for the
- * `upcomingForYou` row. The calendar plugin emits one entry per upcoming
- * episode, so a show with several queued episodes returns N hits sharing the
- * same `tmdbId`; the row renders one card per show, so `fetchRawSet` collapses
- * to the earliest hit per show (`uniqBy`, feed order preserved) — that
- * dedupe is content-defining (it decides which keys exist), so it lives in the
- * source. The bounded slice + catalog projection stay home-side until US-022.
- * A calendar-plugin soft-failure rides through as `partial: true`.
+ * Reads `calendar@v1` feed for `upcomingForYou` row (design §H/§M.5). Calendar
+ * plugin emits one entry per episode, so `fetchRawSet` dedupes by tmdbId (`uniqBy`,
+ * preserving feed order) — dedup is content-defining so it lives in source, not home.
+ * Soft-failure rides through as `partial: true`.
  */
 export const upcomingForYouSource: MediaSource<void, UpcomingHit> = {
   sourceId: "upcomingForYou",

@@ -9,10 +9,8 @@ export interface SimilarSeedParams {
 }
 
 /**
- * Probes a raw `metadata@v1.getSimilar` result entry for `{ tmdbId, type }`.
- * Owned here (the similar source is its only producer) so the entry-shape
- * rules live next to the source that emits them; `_shared.fetchSimilarPage`
- * resolves its candidates through this source rather than re-walking entries.
+ * Probes `metadata@v1.getSimilar` entry for `{ tmdbId, type }`.
+ * Owned here so entry-shape rules live next to producer.
  */
 function toSimilarHit(value: unknown): MediaKey | null {
   const tmdbId = extractTmdbId(value);
@@ -23,19 +21,9 @@ function toSimilarHit(value: unknown): MediaKey | null {
 }
 
 /**
- * Similar-feed source (design §H/§M.5). One source serves both the
- * `becauseYouWatched` and `similarTo` rows — they differ only in how the
- * consumer derives the seed (recent history vs a detail page), which lives in
- * the envelope's params/cursor, not the source. `fetchRawSet` fetches the
- * `metadata@v1.getSimilar` candidates for the seed and returns them as raw
- * `{ tmdbId, type }` keys in feed (relevance) order and nothing else (invariant
- * V.MC1). The offset slice + seed-bearing cursor still live in the consumer
- * (`_shared.fetchSimilarPage` + the row cursor) until US-022/US-023 fold them
- * into the shared pipeline; the catalog projection + `seedTitle` match-reason
- * hookup also stay home-side.
- *
- * A plugin soft-failure surfaces as `partial: true` (from `getSimilarFeed`),
- * propagated so the consumer envelope can keep a degraded row.
+ * Serves both `becauseYouWatched` and `similarTo` rows (design §H/§M.5).
+ * Returns `{ tmdbId, type }` keys in feed order (invariant V.MC1).
+ * Plugin soft-failure surfaces as `partial: true` for degraded row (US-022/US-023).
  */
 export const similarSource: MediaSource<SimilarSeedParams, MediaKey> = {
   sourceId: "similar",

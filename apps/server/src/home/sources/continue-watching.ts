@@ -4,14 +4,10 @@ import { isActiveContinueWatchingEntry } from "../../media";
 import type { MediaSource } from "../../media";
 
 /**
- * Continue-watching feed source (design §H/§M.5). Both home continue-watching
- * rows read the same `continueWatching@v1` feed and differ only in the
- * content-defining selection over it, so one factory serves both — `select`
- * picks (and, for the active row, orders) the entries the way `feedKind`
- * differentiates the discover sources. `fetchRawSet` returns the selected
- * entries as raw rows and nothing else (invariant V.MC1); the per-row
- * slice/cursor/projection stays in the row until US-022 folds it into the
- * shared pipeline. A plugin soft-failure rides through as `partial: true`.
+ * Continue-watching feed source (design §H/§M.5). One factory serves both rows
+ * — `select` picks (and orders, for active row) entries. `fetchRawSet` returns
+ * selected entries only (invariant V.MC1); per-row slice/cursor stays until
+ * US-022 folds into shared pipeline. Plugin soft-failures ride through as `partial: true`.
  */
 function makeContinueWatchingSource(config: {
   sourceId: string;

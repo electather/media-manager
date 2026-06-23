@@ -3,21 +3,13 @@ import { mediaTypeSchema } from "@nama/shared";
 import type { Cursor, MediaSource } from "../../media";
 import { resolveSimilarCandidates, ROW_PAGE_SIZE, type MediaKey } from "../rows/_shared";
 
-/**
- * `encodeSeedCursor` is the relocated shared codec helper (design §A5). It is
- * re-exported here so `because-you-watched.ts` keeps importing it from this
- * source module unchanged; `decodeSeedToken` / `SeedToken` below stay
- * home-source-private (they would drag home paging across the boundary).
- */
+// `encodeSeedCursor` is the relocated shared codec helper (design §A5).
+// Re-exported here so `because-you-watched.ts` keeps importing unchanged;
+// `decodeSeedToken`/`SeedToken` stay home-source-private (would drag home paging across boundary).
 export { encodeSeedCursor } from "../../media";
 
-/**
- * The seed + page offset a similar-feed row threads through its cursor. It
- * rides inside the unified keyset cursor's `k` as JSON (design §E: "source
- * seed rides inside `k` for keyset sources, exactly as `becauseYouWatched`
- * carries its seed today"). `becauseYouWatched` derives the seed from history
- * in `initialCursor`; `similarTo` gets it from the client (the detail page).
- */
+// Seed + page offset ride inside keyset cursor's `k` as JSON (design §E).
+// `becauseYouWatched` derives seed from history; `similarTo` gets it from client (detail page).
 export const seedTokenSchema = z.object({
   seedId: z.string().min(1),
   seedType: mediaTypeSchema,
@@ -47,22 +39,13 @@ function seedNextRaw(seed: SeedToken, candidateCount: number): string | undefine
   return candidateCount > nextOffset ? JSON.stringify({ ...seed, offset: nextOffset }) : undefined;
 }
 
-/**
- * Seed-paged similar-feed source (design §H/§S, Phase 5). One keyset source
- * serves both the `becauseYouWatched` and `similarTo` rows — they differ only
- * in how the consumer derives the seed (recent history vs a detail page), which
- * rides in the cursor `k`, not the source. `fetchRawSet` reads the seed +
- * offset out of `k`, resolves the cached `metadata@v1.getSimilar` candidates,
- * windows them by `offset`, and threads back the next-offset token as `nextRaw`
- * (omitted when the window reaches the end so `paginate` mints `cursor:null`,
- * #500). It stashes the seed title on `ctx.seedTitle` so the home enrich
- * override's match-reason chip (`similar_to_seed`) can surface it.
- *
- * The candidate slice + `nextRaw` are the keyset source's legitimate resume
- * position (V.MC1 reserves enrich/sort to the pipeline, but a keyset source
- * owns its window, like the watchlist mood source); `paginate` keyset then
- * passes the already-windowed rows through and mints the next cursor.
- */
+// Seed-paged similar-feed source (design §H/§S, Phase 5). One keyset source serves both
+// `becauseYouWatched` and `similarTo` rows, differing only in seed derivation (history vs detail page).
+// Reads seed+offset from cursor `k`, resolves cached `metadata@v1.getSimilar`, windows by offset,
+// threads back next-offset token as `nextRaw` (omitted at end so `paginate` mints `cursor:null`, #500).
+// Stashes seed title on `ctx.seedTitle` for match-reason chip (`similar_to_seed`).
+// Candidate slice + `nextRaw` are the keyset source's resume position (V.MC1 reserves enrich/sort to pipeline;
+// keyset source owns its window, like watchlist mood source); `paginate` keyset passes already-windowed rows through.
 export const similarPagedSource: MediaSource<void, MediaKey> = {
   sourceId: "home.similarPaged",
   async fetchRawSet(ctx, _params, cursor) {

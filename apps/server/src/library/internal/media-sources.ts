@@ -10,20 +10,10 @@ import { buildEnrichRows } from "./enrich";
 import { toLensFilters } from "./lens-filters";
 
 /**
- * Surfaces the library item lenses as `MediaSourceRegistration`s so the
- * `/api/media/sources/:sourceId` resolver composes them into the one registry
- * alongside `homeMediaSources` / `watchlistMediaSources` (design §The 5 lenses:
- * "Register in media unified REGISTRY … zero new read-routing"). Mirrors
- * `watchlistMediaSources` exactly: every lens is `rateLimit: "read"` (the shared
- * read limiter), `cursorMode: "keyset"`, and `cursorOnNull: "firstPage"` (a
- * bad/foreign cursor falls back to the first page, never 400 — matching the
- * keyset codec's total decode).
- *
- * Each `build` maps the parsed wire query onto the source's internal params,
- * decodes nothing (the source's keyset codec parses the seed payload out of the
- * outer cursor the resolver already decoded), and wires the library enrich
- * override so the pipeline reads the denormalized columns instead of re-probing
- * availability (design §Enrich).
+ * Library lenses as `MediaSourceRegistration`s (design §The 5 lenses).
+ * Every lens: `rateLimit: "read"`, `cursorMode: "keyset"`, `cursorOnNull: "firstPage"`
+ * (bad/foreign cursor → first page, never 400). Each `build` wires the library enrich
+ * override so the pipeline reads denormalized columns instead of re-probing (design §Enrich).
  */
 // The four lens registrations share the `MediaSourceRegistration` skeleton by
 // design — each differs only in its source, params type, and Row type, so a
@@ -69,11 +59,8 @@ const timelineRegistration: MediaSourceRegistration<
 };
 
 /**
- * The Server lens registration (design §The 5 lenses, json_each). Identical
- * surface to the flat lenses, but its `Row` is `ExpandedLibraryRow`: the source
- * emits one row per `(title, server)` and the SAME `buildEnrichRows` override
- * (dedup-free) maps each expanded row to its own `CompactMediaItem`, surfacing
- * the server section — so a title repeats across server sections (intended).
+ * Server lens registration (design §The 5 lenses, json_each). Emits one row per
+ * `(title, server)` with dedup-free enrich so a title repeats across sections (intended).
  */
 const serverRegistration: MediaSourceRegistration<
   LibraryLensQueryParsed,
@@ -123,10 +110,8 @@ const qualityRegistration: MediaSourceRegistration<
 };
 
 /**
- * Registration map keyed by `sourceId`, one per library item lens. The flat
- * lenses (az/timeline) emit one row per title; the `json_each` lenses
- * (server/quality) expand each title once per section, so the same title can
- * appear multiple times in one page (intended — design §Enrich dup rules).
+ * Flat lenses (az/timeline): one row per title. `json_each` lenses
+ * (server/quality): expand each title once per section (intended — design §Enrich dup rules).
  */
 export const libraryMediaSources: Record<string, AnyMediaSourceRegistration> = {
   "library-az": azRegistration,

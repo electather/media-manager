@@ -1,12 +1,7 @@
 import type { JobKind } from "@nama/shared/jobs";
 import type { AdminOrFeaturePermission, TriggerSource } from "./types";
 
-/**
- * An entry is the internal, runtime-owned view of a registered job. The public
- * JobHandle surface is derived from this. Each entry carries the kind-specific
- * trigger/cancel behavior so consumers of the registry do not need to switch
- * on kind when dispatching.
- */
+/** Runtime view of a registered job. Public JobHandle is derived from this. Carries kind-specific trigger/cancel behavior. */
 export interface RegistryEntry {
   id: string;
   name: string;

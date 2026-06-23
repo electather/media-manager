@@ -9,14 +9,9 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// Membership reads/writes resolve their database handle through `getDb()`.
-// Mirror the sync/lens-pages harness EXACTLY: stub `env` (the db client imports
-// it transitively) and point `getDb()` at the real migrated in-memory database
-// so the composite-PK conflict path is exercised against actual SQLite. The
-// "same title, two owners" invariant can only be proven against the real
-// `(user_id, id)` primary key the migration 0004 declares — a single global
-// `id` PK would silently drop the second owner's insert under
-// `onConflictDoNothing`, and only the real query planner reveals that.
+// Stub `env` and point `getDb()` at real migrated in-memory db to exercise
+// composite-PK conflict against actual SQLite. A global `id` PK (migration 0004
+// declares `(user_id, id)`) would silently drop the second owner's insert.
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -66,11 +61,9 @@ function makeMediaService(feed: CollectionFeed = { items: [], partial: false }) 
 }
 
 /**
- * Builds the loose `MaybeLibraryContext` the public surface accepts for a given
- * user. The `catalog` handle is unused by phase-1 membership sync (carried for
- * the phase-2 hydrate path), so an empty stub cast through the resolver's
- * expected type is sufficient. Each call gets a fresh media-service stub bound
- * to `userId` so two users never share a feed.
+ * Builds `MaybeLibraryContext` for a user. `catalog` is unused by phase-1 membership
+ * sync (carried for phase-2 hydrate). Each call gets a fresh media-service stub
+ * bound to `userId` so two users never share a feed.
  */
 function makeCtx(userId: string, feed?: CollectionFeed) {
   const mediaService = makeMediaService(feed);
@@ -120,15 +113,8 @@ beforeEach(async () => {
 });
 
 describe("library multi-user membership (design §Sync + hydrate, composite-PK isolation)", () => {
-  // SAME TITLE, TWO OWNERS — the core regression. `id` ("movie:550") is unique
-  // only WITHIN a user, so two users owning the same title are TWO distinct rows
-  // under the `(user_id, id)` primary key. Both inserts MUST report 1 inserted
-  // and both per-user rows MUST be owned. If the table ever reverts to a single
-  // global `id` PK, uB's insert collides on the existing `movie:550` pk; the
-  // repo's `onConflictDoNothing` then silently drops it, `upsertOwned` returns 0,
-  // and uB has no row — this test fails on the `expect(insertedB).toBe(1)`
-  // assertion and again on uB's `owned === true`. That is the mutation-sensitive
-  // heart of the fix.
+  // Core regression: `(user_id, id)` composite PK keeps two users' identical titles
+  // as distinct rows. A global `id` PK would drop uB's insert via `onConflictDoNothing`.
   it("lets two users each own the same title as distinct rows", async () => {
     const insertedA = await upsertOwned(
       [{ id: "movie:550", userId: USER_A, tmdbId: "550", mediaType: "movie", ownedAt: Date.now() }],
@@ -161,12 +147,8 @@ describe("library multi-user membership (design §Sync + hydrate, composite-PK i
     expect(allWithId).toHaveLength(2);
   });
 
-  // PER-USER allKnownKeys ISOLATION — the diff key set is userId-scoped. uA and
-  // uB each own a disjoint set plus one shared title; `allKnownKeys(uA)` must
-  // return ONLY uA's keys and `allKnownKeys(uB)` ONLY uB's. If the query ever
-  // dropped its `user_id` predicate, each set would leak the other user's keys
-  // and a brand-new owned title for one user could be wrongly pre-filtered as
-  // "already known" because the OTHER user owns it — silently never inserted.
+  // `allKnownKeys` is userId-scoped. Dropping the `user_id` predicate would leak
+  // the other user's keys, wrongly pre-filtering a new title as "already known".
   it("scopes allKnownKeys to a single user", async () => {
     await upsertOwned(
       [
@@ -189,12 +171,8 @@ describe("library multi-user membership (design §Sync + hydrate, composite-PK i
     expect(await allKnownKeys(USER_B)).toEqual(new Set(["movie:550", "movie:603"]));
   });
 
-  // PER-USER TOMBSTONE ISOLATION — `tombstoneMissing` is userId-scoped, so
-  // tombstoning a title for uA MUST NOT touch uB's row for the same title. After
-  // both own "movie:550", a tombstone sweep for uA that keeps nothing flips uA's
-  // row to owned=false; uB's identically-keyed row stays owned=true. If the
-  // update ever dropped its `user_id` predicate, uB's row would be collateral
-  // damage — one user's un-ownership would silently erase another's library.
+  // `tombstoneMissing` is userId-scoped. Dropping the `user_id` predicate would
+  // collateral-damage the other user's row — one user's un-ownership erasing another's.
   it("tombstones a title for one user without touching the other owner", async () => {
     await upsertOwned(
       [{ id: "movie:550", userId: USER_A, tmdbId: "550", mediaType: "movie", ownedAt: Date.now() }],
@@ -219,16 +197,9 @@ describe("library multi-user membership (design §Sync + hydrate, composite-PK i
     expect(bRow?.unownedAt).toBeNull();
   });
 
-  // PER-USER HYDRATION ISOLATION — `writeHydration` is userId-scoped, so
-  // hydrating a title for uA MUST NOT touch uB's identically-keyed row. The
-  // projection mixes movie-global columns (sortTitle, year, …) with per-user
-  // ones (`watchedState`, `servers`, `qualityTiers`): uA's resume position and
-  // connected backends are NOT uB's, so leaking the write across users corrupts
-  // uB's continue-watching and availability chips. Worse, it stamps uB's
-  // `hydratedAt`, so uB's own next hydrate pass skips the row as fresh and the
-  // corruption persists for a full TTL instead of self-healing. If the update
-  // ever dropped its `user_id` predicate again, uB's row would carry uA's
-  // projection and a non-null `hydratedAt` — both assertions below fail.
+  // `writeHydration` is userId-scoped. Projection mixes global (sortTitle, year)
+  // with per-user (`watchedState`, `servers`, `qualityTiers`). Leaking across
+  // users corrupts uB's continue-watching and stamps `hydratedAt`, suppressing self-heal.
   it("hydrates a title for one user without touching the other owner's row", async () => {
     await upsertOwned(
       [{ id: "movie:550", userId: USER_A, tmdbId: "550", mediaType: "movie", ownedAt: Date.now() }],
@@ -277,14 +248,8 @@ describe("library multi-user membership (design §Sync + hydrate, composite-PK i
     expect(bRow?.hydratedAt).toBeNull();
   });
 
-  // END-TO-END via syncMembership — two users each sync a feed that contains the
-  // SAME title plus a private one. Each user must end with its own owned row for
-  // the shared title and independent counts: each sync sees only its own feed
-  // (its own `getCollectionFeed` stub) and inserts only its own rows. A
-  // regression to a global `id` PK would surface here as uB's sync reporting
-  // `added: 1` instead of `2` (the shared title's insert dropped on conflict),
-  // and uB missing the shared owned row. This walks the real public lifecycle,
-  // not the repo directly.
+  // End-to-end via syncMembership: each user syncs its own feed with shared title.
+  // A global `id` PK would drop uB's shared-title insert, reporting `added: 1` not `2`.
   it("syncs each user's feed independently when feeds share a title", async () => {
     // uA owns the shared title plus a private one.
     const resultA = await syncMembership(

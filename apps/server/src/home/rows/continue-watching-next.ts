@@ -3,13 +3,7 @@ import { makeBoundedRow } from "../internal/pipeline";
 import { ROW_PAGE_SIZE } from "./_shared";
 import { continueWatchingNextSource } from "../sources/continue-watching";
 
-/**
- * "Up next" entries — server-stitched `nextUp` episodes plus shows the user
- * has on the shelf with no resume position yet. The selection lives in
- * `continueWatchingNextSource.fetchRawSet`; this row projects the entries and
- * bounds to a single page (so the shared pipeline mints `cursor: null` — it
- * never paginates).
- */
+/** Projects "up next" entries and bounds to single page (selection in `continueWatchingNextSource`). */
 const provider = makeBoundedRow({
   rowId: "continueWatching-next",
   kind: "continueWatching",
@@ -18,10 +12,8 @@ const provider = makeBoundedRow({
   capability: "continueWatching",
   source: continueWatchingNextSource,
   project: (_ctx, rows) =>
-    // Slice the projected list to one page BEFORE enrich runs — the pipeline's
-    // `paginate` also trims to `ROW_PAGE_SIZE`, but only after `enrichHomeItems`
-    // has paid the per-item enrichment cost. Bounding here keeps the bounded
-    // row bounded for enrich too, not just for the final page slice.
+    // Bound to one page before enrich to avoid per-item cost on full list;
+    // pipeline's `paginate` trims after `enrichHomeItems`.
     rows
       .map((entry) => fromContinueWatchingEntry(entry, { useNextUp: entry.nextUp != null }))
       .filter((item): item is NonNullable<typeof item> => item !== null)

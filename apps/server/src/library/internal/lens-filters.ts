@@ -1,18 +1,9 @@
 import type { LensFilters } from "../repo";
 
 /**
- * Projects a parsed wire query onto the repo {@link LensFilters} shape, dropping
- * omitted axes so the repo applies no filter for them. The single source of
- * truth for the filter-axis set: both the collections service path and the
- * item-lens media-source registrations call this, so adding a new filter axis
- * requires a change here only. Accepts `Partial<LensFilters>` directly — both
- * parsed query types (`LibraryLensQueryParsed`, `LibraryCollectionsQueryParsed`)
- * are structurally wider, so no hand-maintained mirror interface is needed.
- *
- * The one-line-per-axis copy is the established conditional-assignment idiom
- * (mirrors home/internal/adapters.ts#applyOptionalFields); fallow's
- * coverage-free CRAP estimate and clone detector flag it, but extracting it
- * would obscure this single source of truth for the filter-axis set.
+ * Single source of truth for filter axes (both collections + item-lens call this).
+ * One-line-per-axis copy is established idiom (mirrors home/internal/adapters.ts#applyOptionalFields);
+ * not extracted despite fallow flags because extracting obscures the single source.
  */
 // fallow-ignore-next-line complexity
 export function toLensFilters(query: Partial<LensFilters>): LensFilters {

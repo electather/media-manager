@@ -3,11 +3,8 @@ import { loadCanonicalItems, ROW_PAGE_SIZE } from "./_shared";
 import { upcomingForYouSource } from "../sources/upcoming";
 
 /**
- * Upcoming releases tagged off the calendar plugin. Bounded — the row ships
- * a single page. The feed fetch, entry-shape probe, and per-show dedupe live in
- * `upcomingForYouSource.fetchRawSet`; this row projects the bounded slice (so
- * the shared pipeline mints `cursor: null`) and decorates each card with its
- * episode payload.
+ * Bounded row (single page) for upcoming releases from calendar plugin.
+ * Decorates cards with episode payload; deduping in upcomingForYouSource.
  */
 const provider = makeBoundedRow({
   rowId: "upcomingForYou",

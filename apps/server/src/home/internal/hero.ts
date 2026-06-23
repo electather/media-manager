@@ -43,12 +43,10 @@ function stampSlide(
   return { item, source, reason, resumeUrl: null };
 }
 
-/**
- * Amendment 3 (rev 5) of `docs/2026-05-05-home-page-backend-design.md`.
- * Fixed-quota mix: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1 newReleases.
- * Dedup pools by `${mediaType}:${tmdbId}` (higher priority wins); backfill unmet quotas in priority order;
- * order as: lead (first non-empty source) + round-robin interleave of remainder.
- */
+// Amendment 3 (rev 5) of `docs/2026-05-05-home-page-backend-design.md`.
+// Fixed quota: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1 newReleases.
+// Dedup pools by `${mediaType}:${tmdbId}` (higher priority wins); backfill unmet quotas; order as:
+// lead (first non-empty source) + round-robin interleave of remainder.
 export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   // Per-pool catches: a single slow / failing source must not null the whole
   // hero. Each loadPool rejection collapses to `[]`, mixer + backfill then

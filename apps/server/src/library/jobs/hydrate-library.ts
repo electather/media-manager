@@ -15,18 +15,9 @@ const PER_ROW_TIMEOUT_SEC = 60;
 // staleness window — every row older than an hour is re-projected.
 const HYDRATE_STALE_TTL_MS = 60 * 60 * 1000;
 
-/**
- * Registers the hourly per-row job that re-hydrates each seeded user's stale
- * browse projection (design §Sync + hydrate: "availability re-hydrate hourly").
- * Distinct from the 6-hourly `library.sync` job, which reconciles membership and
- * hydrates only freshly inserted rows: this pass exists because availability
- * (server presence, quality copies) goes stale faster than membership, and its
- * `checkAvailability` fan-out is the design's flagged N-call cost — acceptable in
- * a background job, never on a read path. Iterates exactly the seeded users so a
- * fresh install fans out to nobody; row failures do not block the run. The
- * per-row timeout is wider than the sync job's because of that fan-out. Mirrors
- * `jobs/sync-library.ts`.
- */
+/** Hourly per-row job re-hydrating stale availability (design §Sync + hydrate: "hourly").
+ * Distinct from 6-hourly `library.sync`; availability changes faster than membership.
+ * `checkAvailability` fan-out is design's N-call cost — acceptable here, never on read path. */
 export function registerHydrateLibraryJob(): void {
   registerScheduledPerRow<{ userId: string }>({
     id: LIBRARY_HYDRATE_JOB_ID,

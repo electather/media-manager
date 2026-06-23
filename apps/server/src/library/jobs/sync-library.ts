@@ -10,16 +10,9 @@ export const LIBRARY_SYNC_JOB_ID = "library.sync";
 const RUN_TIMEOUT_SEC = 30 * 60;
 const PER_ROW_TIMEOUT_SEC = 30;
 
-/**
- * Registers the 6-hourly per-row job that re-syncs owned-library membership
- * for every previously-seeded user (design §Sync + hydrate). Iterates exactly
- * the seeded users so a fresh install fans out to nobody. After reconciling
- * membership it hydrates the user's new and stale rows so freshly inserted
- * titles get their browse projection without waiting for the hourly hydrate
- * pass. Row failures do not block the run — the run-status aggregate captures
- * partials so admins can inspect them. Mirrors
- * `watchlist/jobs/sync-plugin-watchlist.ts`.
- */
+/** 6-hourly job re-syncing owned-library membership for seeded users (design §Sync + hydrate).
+ * After reconciling membership, hydrates new/stale rows so freshly inserted titles get browse projection on same run.
+ * Row failures don't block; run-status aggregate captures partials for admin inspection. Mirrors watchlist/jobs/sync-plugin-watchlist.ts. */
 export function registerSyncLibraryJob(): void {
   registerScheduledPerRow<{ userId: string }>({
     id: LIBRARY_SYNC_JOB_ID,

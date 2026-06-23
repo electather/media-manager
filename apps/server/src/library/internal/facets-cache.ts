@@ -2,14 +2,10 @@ import type { LibraryFacetCounts } from "@nama/shared/library";
 import { MemoryCache } from "../../cache/memory";
 
 /**
- * Short-TTL per-user cache for the unfiltered facet totals (design §Facets:
- * "cache short-TTL, invalidate on sync"). The facet query fans out a handful of
- * GROUP BYs, so the FE's repeated reads (the popover re-opens, the rail
- * re-renders) ride the cache instead of re-aggregating. It is a module-singleton
- * `MemoryCache` mirroring `watchlist/tonight/section.ts` rather than the media
- * dispatch cache, because the facets are a same-module concern with no
- * cross-process invalidation need: the membership sync busts the entry directly
- * (`bustFacets`), no event bus required.
+ * Short-TTL per-user cache for unfiltered facet totals (design §Facets).
+ * Module-singleton `MemoryCache` (not dispatch cache) so FE's repeated reads
+ * (popover re-open, rail re-render) ride cache instead of re-aggregating.
+ * Membership sync busts entry directly via `bustFacets`, no event bus needed.
  */
 const CACHE_TTL_MS = 60_000;
 const CACHE_MAX_ENTRIES = 5000;
