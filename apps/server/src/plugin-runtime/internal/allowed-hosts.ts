@@ -7,7 +7,7 @@ import { isNil } from "es-toolkit/predicate";
  * `manifest.allowedHosts` per invocation. ⚠ User-controlled: any marked field lets the
  * authenticated user direct `ctx.fetch` to the hostname they supply — internal networks,
  * RFC1918 ranges, anything DNS resolves. Only apply to the plugin's own intended upstream
- * the plugin's own intended upstream (Plex/Jellyfin URL, self-hosted mirror), never free-form
+ * (Plex/Jellyfin URL, self-hosted mirror), never free-form
  * proxy targets — RFC1918 ranges are permitted (LAN deployments), but `isBlockedHostname` blocks
  * loopback, link-local, IMDS, and IPv4-mapped IPv6 forms. DNS-rebinding mitigation is deferred
  * to fetch time (tracked separately); plugin author owns the intent boundary.
