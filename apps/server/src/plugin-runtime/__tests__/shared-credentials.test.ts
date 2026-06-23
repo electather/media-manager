@@ -35,13 +35,10 @@ function chainable<T>(value: T) {
   });
 }
 
-// NOTE: this mock ignores `where(...)` predicates and returns the entire seeded
-// rowset on every query. Existing tests work because the duplicate-label /
-// not-poolable logic runs in JS *after* `list()` returns. Tests that need to
-// exercise the per-credentialId or per-pluginId predicates must seed multiple
-// rows and either pick their own row in JS, or upgrade this mock to honour the
-// drizzle filter identity. Without that, a regression in the `where` clause
-// would silently pass.
+// NOTE: this mock ignores `where(...)` predicates and returns the full seeded rowset. Existing
+// tests work because duplicate-label/not-poolable logic runs in JS after list() returns. Tests
+// that need per-credentialId or per-pluginId filtering must seed multiple rows and filter in JS,
+// or upgrade this mock to honour drizzle filter identity — otherwise where() regressions pass silently.
 const dbMock = {
   select() {
     return {

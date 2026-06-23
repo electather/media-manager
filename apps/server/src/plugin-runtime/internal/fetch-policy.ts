@@ -58,28 +58,13 @@ export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5):
 }
 
 /**
- * Builds a fetch function bound to a plugin's allowlist, rate limiter, and
- * admin policy.
- *
- * The allowlist is the union of the plugin's static `manifest.allowedHosts`
- * (`allowedHosts`) and any dynamic hosts resolved per-invocation from the
- * plugin's `userConfig` or shared-credential entry via `x-allowed-host`
- * (`dynamicHosts`). Admin policy layers on top:
- *
- * - `adminAllowlist` narrows the static side — the hostname must pass both
- *   `manifest.allowedHosts` AND `adminAllowlist`. `null` means the admin has
- *   not set a narrowing list (current behaviour; manifest-only). Dynamic
- *   `x-allowed-host` values are deliberately unaffected so user-supplied LAN
- *   server URLs remain reachable.
- * - `adminHeaders` are merged into the request after the allowlist check
- *   passes. Admin values override plugin-supplied headers on name collisions
- *   (`Headers.set` is case-insensitive, so admin-wins is uniform).
- *
- * When a call is rejected specifically because the admin list narrowed the
- * manifest, a `plugin.host_blocked_by_admin` error is captured at severity
- * `warning` so the admin errors dashboard carries the audit trail. The plugin
- * itself sees the pre-existing `plugin.upstream_error` — plugins treat that as
- * a terminal call failure already and do not need a new error shape.
+ * Builds a fetch bound to the plugin's allowlist, rate limiter, and admin policy.
+ * `adminAllowlist` narrows the static side (`manifest.allowedHosts` AND `adminAllowlist`);
+ * `null` = inherit manifest-only; dynamic `x-allowed-host` values are unaffected so
+ * user-supplied LAN URLs remain reachable. `adminHeaders` override plugin headers on
+ * collision (`Headers.set` is case-insensitive). Admin-list blocks are captured at
+ * `warning` severity as `plugin.host_blocked_by_admin` for the audit trail; the plugin
+ * sees the existing `plugin.upstream_error`.
  */
 export function buildFetch(
   pluginId: string,
@@ -97,12 +82,9 @@ export function buildFetch(
       throw new PluginError("plugin.input_invalid", `[${pluginId}] invalid URL: ${url}`);
     }
     const hostname = parsed.hostname;
-    // Hard SSRF reject before any allow decision. The dynamic `x-allowed-host`
-    // path already filters these at resolution time, but a static
-    // `manifest.allowedHosts` entry (e.g. `localhost`, `169.254.169.254`,
-    // `metadata.google.internal`) would otherwise reach loopback or
-    // instance-metadata endpoints. Reject regardless of which allow list a
-    // host appears on so the manifest can never opt out of the blocklist.
+    // Hard SSRF reject before any allow decision: a static `manifest.allowedHosts`
+    // entry (e.g. `localhost`, `169.254.169.254`, `metadata.google.internal`) must
+    // not reach loopback/instance-metadata. Manifest can never opt out of the blocklist.
     if (isBlockedHostname(hostname)) {
       // The host may *be* in the allowlist (even `*`) yet still be rejected
       // here, so the devMessage names the real reason rather than reusing the
@@ -156,10 +138,8 @@ export function buildFetch(
 }
 
 /**
- * Wraps fetch with redirect: 'manual' and throws a PluginError if the
- * upstream returns a 3xx response. This prevents redirect-based SSRF where
- * an attacker-controlled host redirects the server to an internal endpoint
- * (e.g. the cloud instance-metadata service).
+ * Prevents redirect-based SSRF: throws PluginError on any 3xx so an
+ * attacker-controlled host cannot redirect to an internal endpoint (e.g. cloud instance-metadata).
  */
 async function fetchNoRedirect(
   pluginId: string,

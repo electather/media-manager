@@ -395,12 +395,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", { redirect: "manual" });
   });
 
-  // Regression: a malformed x-allowed-host value (e.g. the user typed "asd"
-  // into an URL field) surfaces as a PluginError thrown by buildAuxContext
-  // during dynamic-host resolution — BEFORE the plugin's startAuth runs.
-  // That throw must be caught and funneled into an AuthResult error
-  // preserving params.field, otherwise it escapes as an uncaught 500 and
-  // the frontend loses the routing hint.
+  // Regression: malformed x-allowed-host (e.g. "asd") throws in buildAuxContext during
+  // dynamic-host resolution — before startAuth runs. Must be caught and funneled into an
+  // AuthResult error preserving params.field; otherwise escapes as a 500 (frontend loses routing).
   it("surfaces x-allowed-host resolution failures as AuthResult errors with params.field", async () => {
     pluginRows.set("plex-like", {
       id: "plex-like",
@@ -531,13 +528,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
   });
 
-  // Regression for PR #412 review feedback: an admin-set `globalConfig.baseUrl`
-  // pointing at a blocked address (cloud IMDS, loopback, link-local) must be
-  // rejected by `isBlockedHostname` before `ctx.fetch` executes. The SSRF block
-  // is enforced inside `hostnameFromValue` (covered by fetch-policy.test.ts at
-  // the unit level); this case locks it in through the full invoke() path so a
-  // future change to runtime context construction cannot silently lose the
-  // gate for the Seerr-shaped config.
+  // Regression (#412): admin-set globalConfig.baseUrl pointing at IMDS/loopback/link-local must
+  // be blocked by isBlockedHostname (inside hostnameFromValue) before ctx.fetch runs. Integration
+  // path locks the SSRF gate for Seerr-shaped globalConfig; unit coverage in fetch-policy.test.ts.
   it("rejects globalConfig.baseUrl pointing at a blocked address before ctx.fetch runs", async () => {
     pluginRows.set("seerr-like", {
       id: "seerr-like",

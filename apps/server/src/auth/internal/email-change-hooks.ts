@@ -43,10 +43,10 @@ export interface EmailChangeHooks {
 }
 
 /**
- * Better Auth 1.6 has no built-in post-switch email-change notification; synthesised via `before`/`after`
- * DB hooks. `before` captures old email into a Map keyed by `ctx.context.session.user.id` (only id source —
- * `update.before` payload is partial, no id field); `after` sends if changed. Crash leaks a Map entry
- * (acceptable); concurrent same-id updates clobber — at worst skips a notification, never misdirects.
+ * Better Auth 1.6 has no built-in email-change notification; synthesised via `before`/`after` DB hooks.
+ * `before` captures old email into a Map keyed by `ctx.context.session.user.id` — the only id source,
+ * since `update.before` payload is partial with no id field. Concurrent same-id updates clobber (may
+ * skip one notification, never misdirects); a crash leaks a Map entry (acceptable).
  */
 function extractTargetUserId(ctx: unknown): string | null {
   const id = (ctx as UpdateHookCtxLike)?.context?.session?.user?.id;
