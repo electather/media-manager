@@ -2,12 +2,10 @@ import { z } from "zod";
 import type { MediaType } from "./enums";
 
 /**
- * Single opaque cursor for media read pipeline (design §A5), replacing three forked codecs.
- * Lives in shared to ensure invariant V.WIRE1 (one definition), with V.RG1 barrel re-exports.
- * Keyset cursors carry hop + seed in `k`; offset cursors carry index `n`. `decode` never
- * throws (V.CU1)—returns `null` for bad input, letting consumers decide error response.
- * Uses isomorphic base64url (TextEncoder+btoa, no Node Buffer) for browser safety, with
- * bytes matching Node's Buffer.toString("base64url") for cross-boundary interop.
+ * Single opaque cursor for media read pipeline (design §A5, replaces three forked codecs).
+ * Shared for V.WIRE1 invariant; keyset mode carries seed in `k`, offset carries index `n`.
+ * `decode` never throws (V.CU1)—returns null for bad input. Uses isomorphic base64url
+ * (TextEncoder+btoa, no Node Buffer) for browser safety, matching Node's base64url for interop.
  */
 
 export type CursorMode = "keyset" | "offset";

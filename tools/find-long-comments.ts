@@ -1,10 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Finds comments longer than MIN_LINES (5) in git-tracked .ts files.
- * Run: `bun tools/find-long-comments.ts [--limit <n>]`.
- * Merges 6+ consecutive line comments; blocks stand alone; trailing comments don't merge.
- * String-aware (ignores `//` and `/*` in quotes); limitation: comment tokens in `${...}` treated as string.
- * Outputs JSON: `[{ start_line, end_line, file_address (repo-relative from git) }]`.
+ * Merges consecutive line comments; blocks stand alone; trailing comments don't merge.
+ * String-aware (ignores `//` and `/*` in quotes), but comments in `${...}` treated as code.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
