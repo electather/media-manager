@@ -79,12 +79,8 @@ function score(item: CompactMediaItem, prior: CompactMediaItem[], now: number): 
   return s;
 }
 
-/**
- * Reduce the flat ranked candidate page to `items[0]` hero + ≤4 alternates by
- * descending score with a diversity penalty (design §B3). Empty `candidates` →
- * empty result. Sort is stable: ties break by `id` so the output is
- * deterministic across renders (V.WL4).
- */
+/** Reduce candidates to hero + ≤4 alternates by descending score with diversity penalty (design §B3).
+ *  Stable sort by id ties for deterministic output (V.WL4). */
 // Reason: byte-identical mirror of the server's tonight pick reduce (V.TN1); the sort/cutoff branches must match the server copy.
 // fallow-ignore-next-line complexity
 export function pickTonight(

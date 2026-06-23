@@ -45,13 +45,8 @@ export const watchlistWriteLimiter = new TokenBucketLimiter({ capacity: 30, refi
  *  runaway poll loops while allowing the ~9-read landing-page fan-out. */
 export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 10 / 60 });
 
-/**
- * The one media source registry (design §A4). It is composed adapter-side from
- * the two consumer barrels, so `media` never imports a concrete source
- * (invariant V.RG1) and no composition logic moves between modules (invariant
- * V.A1 — each consumer only re-packages its own wiring). Keyed by `sourceId`;
- * unknown ids resolve to `undefined` → 404.
- */
+/** The one media source registry (design §A4). Composed adapter-side so media never imports
+ *  concrete sources (V.RG1); keyed by sourceId (unknown ids → 404). */
 const REGISTRY: Record<string, AnyMediaSourceRegistration | undefined> = {
   ...homeMediaSources,
   ...watchlistMediaSources,
@@ -61,14 +56,8 @@ const REGISTRY: Record<string, AnyMediaSourceRegistration | undefined> = {
 /** Per-request plugin-call deadline budget, matching the home feed's `buildContext`. */
 const REQUEST_DEADLINE_MS = 8000;
 
-/**
- * Path params for the title resource endpoints (design §A6). `:type` is the
- * media type (`movie`/`tv`) lifted out of today's `/home/details?mediaType=…`
- * query; `:tmdbId` is the catalog id, constrained to a numeric tmdb id (parity
- * with `watchlistWriteParamSchema`) so the details write-on-read path cannot be
- * driven by an opaque id. Invalid values fail the same `http.invalid_input` 400
- * the old query validation raised.
- */
+/** Path params for title resources (design §A6): `:type` lifted from `/home/details?mediaType=…`,
+ *  `:tmdbId` numeric-only (parity with watchlistWriteParamSchema) so write-on-read cannot use opaque ids. */
 const titleParamSchema = z
   .object({
     type: mediaTypeSchema,
@@ -76,12 +65,8 @@ const titleParamSchema = z
   })
   .strict();
 
-/**
- * Path params for the watchlist `DELETE` write (design §A6). `:type/:tmdbId` lift
- * the old `DELETE /watchlist/:tmdbId/:mediaType` route's params; `tmdbId` keeps
- * the old numeric-string validation so a non-numeric id still 400s rather than
- * silently no-opping (parity with `watchlistParamSchema`).
- */
+/** Watchlist DELETE params (design §A6): `:type/:tmdbId` relocated from old route;
+ *  numeric-only validation so non-numeric ids 400 not silently no-op (parity). */
 const watchlistWriteParamSchema = z
   .object({
     type: mediaTypeSchema,
@@ -89,17 +74,9 @@ const watchlistWriteParamSchema = z
   })
   .strict();
 
-/**
- * Permissive query validator for the generic resolver. The per-source param
- * shape is dynamic — it is picked off the registration at request time and
- * parsed against `reg.paramSchema` inside the handler — so the route cannot
- * statically validate the query. This static schema exists only so the typed
- * Hono RPC client can send `?<source params>&cursor` through
- * `api.media.sources[":sourceId"].$get({ query })`; a value may be a string or
- * a `string[]` (a multi-value axis emitted as repeated params), so it accepts
- * either and adds no behavioral validation (the handler's per-source
- * `reg.paramSchema.safeParse(c.req.valid("query"))` is authoritative).
- */
+/** Permissive query validator: per-source shape is dynamic, parsed at request time
+ *  against reg.paramSchema (authoritative). This schema exists only for RPC client typing —
+ *  accepts string | string[] for multi-value params; no behavioral validation here. */
 const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
 
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */

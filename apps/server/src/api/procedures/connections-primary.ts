@@ -5,14 +5,10 @@ import { primaryConnectionsService } from "../../connections/primary-service";
 import { zValidator } from "../../diagnostics/validator";
 
 /**
- * Sub-app mounted under `connectionsApp` at `/primary`. The parent's
- * `requireSession` + `requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS)`
- * middleware applies automatically — there are no anonymous or
- * unauthorized callers of these endpoints.
- *
- * Endpoints take a generic `(capabilityKey, mediaType)` so a future
- * `primary_with_enrichment` capability slots in without server changes.
- * Today the only consumer is `metadata@v1`.
+ * Sub-app at `/primary` with inherited `requireSession` +
+ * `requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS)` middleware (no anon/unauth
+ * callers). Endpoints generic `(capabilityKey, mediaType)` to slot future
+ * `primary_with_enrichment` without server changes; today only `metadata@v1`.
  */
 export const connectionsPrimaryApp = new Hono()
   .get("/", async (c) => {

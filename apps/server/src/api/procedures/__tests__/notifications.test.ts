@@ -40,12 +40,8 @@ vi.mock("../../../db/client", () => ({
 }));
 
 vi.mock("../../../auth", async () => {
-  // Reimplement the role / permission helpers against the in-memory db so
-  // tests drive permission semantics by seeding role_permissions rows. We
-  // avoid `importOriginal()` here because the real module pulls in
-  // better-auth, which fails to init under test env. The helpers are tiny
-  // and the duplication is intentional — keep the queries in lockstep with
-  // auth/middleware.ts when one of them changes.
+  // Reimplement role/permission helpers here: the real module imports better-auth,
+  // which fails to init in test. Duplication is intentional — keep queries in sync with auth/middleware.ts.
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../db/schema/auth/roles");

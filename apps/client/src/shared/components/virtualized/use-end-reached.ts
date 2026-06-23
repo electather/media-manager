@@ -1,15 +1,9 @@
 import { useEffect, useRef } from "react";
 import type { VirtualItem } from "@tanstack/react-virtual";
 
-/**
- * Calls `onReached` whenever the last rendered (overscanned) virtual row is the
- * final row — i.e. the scroll position nears the end of the list. It re-fires
- * each time `rowCount` grows while still at the end, so an appended page that
- * still ends inside the window chains another load. The callback lives in a ref
- * so the effect depends only on primitives and never re-runs on callback
- * identity (vercel `rerender-dependencies`). The callback owns its own
- * `hasNextPage` / in-flight guard — this hook only signals proximity.
- */
+// Call `onReached` when the last virtual row is final (scroll nears end).
+// Re-fires on `rowCount` growth while at end, so appended pages chain loads.
+// Callback in ref (primitives only, no identity re-runs); callback owns hasNextPage guard.
 export function useEndReached(
   virtualRows: readonly VirtualItem[],
   rowCount: number,

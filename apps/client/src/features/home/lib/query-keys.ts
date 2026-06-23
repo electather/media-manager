@@ -1,8 +1,5 @@
-/**
- * Only the layout key is home-owned; row/detail reads route through the shared
- * `mediaKeys` (design §B3 / invariant V.CL1). Layout must NOT be swept by the
- * `mediaKeys.root` invalidation a watchlist mutation fires (#505) — its hero +
- * row stubs don't depend on watchlist membership.
+/** Layout key is home-owned; row/detail route through shared `mediaKeys` (design §B3 / V.CL1).
+ *  Layout NOT swept by `mediaKeys.root` invalidation from watchlist mutation (#505).
  */
 export const homeKeys = {
   all: ["home"] as const,

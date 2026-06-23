@@ -108,12 +108,8 @@ export interface RevokeResult {
   apps: AuthorizedApp[];
 }
 
-/**
- * Revokes the user's authorization for one OAuth client. In a single
- * transaction: deletes access tokens, refresh tokens, and the consent row
- * for `(user, client)`. If the user owns the client AND no other consent
- * rows reference it, the client row is also deleted.
- */
+// In single transaction: delete access tokens, refresh tokens, consent row for
+// (user, client). If user owns client AND no other consent rows reference it, delete client row.
 export async function revokeAuthorizedApp(
   db: Db,
   userId: string,

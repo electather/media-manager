@@ -1,17 +1,11 @@
 import type { MediaSourceId, MediaType } from "@nama/shared/media";
 
 /**
- * The one media query-key root + factory (design §B1, invariant V.CL1). Every
- * media read — paginated source pages, title details, the watchlist mood
- * aggregate — nests under `mediaKeys.root`, so a single
- * `invalidateQueries({ queryKey: mediaKeys.root })` after a mutation sweeps the
- * whole surface once (#505). The home and watchlist key factories derive from
- * this root rather than keeping independent ones (#514).
- *
- * `source(sourceId, params)` folds the per-source request params into the key so
- * each `bucket` / `mood` / `sort` / seed combination has its own cache entry,
- * mirroring the old `watchlistKeys.items(opts)` + `homeKeys.row(rowId, cursor)`
- * discriminators under one root.
+ * One media query-key root + factory (design §B1, V.CL1). All media reads
+ * nest under `mediaKeys.root` so single `invalidateQueries(mediaKeys.root)`
+ * after mutation sweeps whole surface (#505); home/watchlist factories derive
+ * from this root (#514). `source(sourceId, params)` folds request params into
+ * key so each `bucket`/`mood`/`sort`/seed combo has own cache entry.
  */
 export const mediaKeys = {
   root: ["media"] as const,

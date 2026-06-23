@@ -13,10 +13,9 @@ interface UseCopyFeedbackResult {
 }
 
 /**
- * Wraps `navigator.clipboard.writeText` with a transient `copied` flag that
- * auto-resets after `resetMs`. Rapid invocations debounce the reset so the
- * indicator stays visible for the full window after the latest copy. Clipboard
- * failures are swallowed — secure-context-only APIs throw on http/iframes.
+ * Wraps clipboard write with transient `copied` flag, auto-resetting after
+ * `resetMs` (debounced on rapid copies). Failures swallowed — API unavailable
+ * on insecure contexts or denied in iframes.
  */
 export function useCopyFeedback({
   resetMs = 1500,

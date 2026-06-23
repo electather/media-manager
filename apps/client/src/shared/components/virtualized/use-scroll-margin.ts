@@ -1,12 +1,9 @@
 import { useLayoutEffect, useState, type RefObject } from "react";
 
 /**
- * Tracks an element's document-absolute top as the virtualizer's `scrollMargin`.
- * Uses `getBoundingClientRect().top + window.scrollY` (not `offsetTop`) so the
- * value stays correct when the element is nested inside a positioned ancestor
- * (e.g. a `VirtualWindowList` virtual item, which is `position: absolute`).
- * Re-reads on any body resize so sticky-header / hero-zone resizes don't
- * desync the translateY math.
+ * Tracks element's document-absolute top for virtualizer's `scrollMargin`.
+ * Uses `getBoundingClientRect().top + window.scrollY` (not offsetTop) for positioned ancestors.
+ * Re-reads on body resize to keep sticky-header/hero-zone resizes in sync with translateY.
  */
 export function useScrollMargin(ref: RefObject<HTMLElement | null>): number {
   const [scrollMargin, setScrollMargin] = useState(0);

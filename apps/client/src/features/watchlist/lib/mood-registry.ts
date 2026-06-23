@@ -10,10 +10,8 @@ export interface MoodCopy {
 }
 
 /**
- * Localized label + helper-note message functions for each `MoodId`. Kept
- * inside the feature because no cross-feature surface presents moods. Copy is
- * resolved through the keyed `watchlist_mood_label` / `watchlist_mood_note`
- * ICU variants (selector `moodId`), so one message per axis covers every mood.
+ * Localized mood label + note via `watchlist_mood_label`/`watchlist_mood_note`
+ * ICU variants (selector `moodId`); one message per axis covers all moods.
  */
 export const MOOD_REGISTRY: Record<MoodId, MoodCopy> = Object.fromEntries(
   MOOD_IDS.map((moodId): [MoodId, MoodCopy] => [

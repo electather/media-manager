@@ -8,12 +8,8 @@ export interface UseAllItemsArgs {
   mood?: MoodId;
 }
 
-/**
- * Paginated reader for the `watchlist-items` media source. Backs the flat
- * `/watchlist/all` view; sort/bucket/mood ride the source params so each
- * combination has its own cache. Reads through the shared media layer
- * (`api.media.sources/watchlist-items`) — no bespoke fetcher (design §B3).
- */
+// Paginated reader for `watchlist-items` source backing `/watchlist/all`.
+// Sort/bucket/mood ride source params for per-combo caching; no bespoke fetcher (design §B3).
 export function useAllItems(args: UseAllItemsArgs = {}) {
   return useMediaRows(watchlistItemsSource(args));
 }

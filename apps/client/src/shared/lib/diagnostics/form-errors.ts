@@ -11,15 +11,8 @@
  */
 
 /**
- * Loose shape covering the two error-bearing wire formats the backend
- * produces today:
- *  - HttpError JSON responses (`code` / `devMessage` / `params`, per the
- *    error design doc).
- *  - Service endpoints that surface a non-HttpError failure alongside a 2xx
- *    response (e.g. `/verify-config` returning
- *    `{ ok: false, message, field? }`).
- *
- * All fields are optional because a single parser handles both shapes.
+ * Wire formats: HttpError JSON (`code`/`devMessage`/`params`) or service-2xx
+ * (`message`/`field` keys). All fields optional so one parser handles both.
  */
 export interface FormErrorBody {
   code?: string;
@@ -43,11 +36,8 @@ export interface FormErrorResult {
 }
 
 /**
- * Splits a parsed error body into per-field errors vs a top-level message.
- * When the body names a field that matches one of `knownFields`, the error
- * routes to that field; otherwise it falls back to the top-level banner.
- *
- * Pure function — all I/O lives in `parseFormErrorResponse`.
+ * Routes error to a field if `params.field` matches `knownFields`, else top-level banner.
+ * Pure function — all I/O in `parseFormErrorResponse`.
  */
 export function splitFormError(
   body: FormErrorBody | null,

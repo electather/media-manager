@@ -3,15 +3,8 @@ import { z } from "zod";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 
-/**
- * Better Auth session shape, narrowed to the fields the security tab reads.
- * The full type lives in `better-auth/types`; we keep this local one to
- * decouple the UI from upstream churn.
- *
- * Better Auth serializes the date fields as `Date` on direct calls and as
- * ISO strings over the wire. `z.coerce.date()` accepts both and rejects
- * non-parseable strings, so a bad value throws at the trust boundary rather
- * than reaching `new Date(...)` and rendering "NaN years ago".
+/** Better Auth session shape narrowed to security-tab fields. Kept local to decouple from
+ *  upstream churn. Dates coerced at trust boundary (rejects bad ISO/Date, not `new Date(...)`).
  */
 export const authSessionSchema = z.object({
   id: z.string(),

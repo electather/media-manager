@@ -12,20 +12,11 @@ export interface DeleteAccountInput {
 }
 
 /**
- * Hard-deletes the authenticated user's account. Verifies password and email
- * confirmation before issuing a single `DELETE` on the user row — FK cascades
- * (audited in #77) handle every dependent table. `jobRuns.triggeredByUserId`
- * is `SET NULL` by design so history survives the user, anonymized.
- *
- * Why not `auth.api.deleteUser`? Better Auth's helper layers an extra round of
- * email-confirmation flows, which we already replace with our own
- * password-and-email gate above. The configured `jwt()` plugin signs short-lived
- * (default 15 min) JWTs with no server-side blacklist — so the cascade-driven
- * deletion of `session`, `oauthAccessToken`, and `oauthRefreshToken` rows
- * matches what `deleteUser` would do, and any in-flight JWT issued before the
- * delete naturally expires within the JWT lifetime. If we ever introduce a
- * longer-lived JWT or a token blacklist, switch to `auth.api.deleteUser` (or
- * call `auth.api.revokeUserSessions` first).
+ * Hard-deletes user account after password+email verification.
+ * FK cascades (#77) handle dependents; `jobRuns.triggeredByUserId` SET NULL preserves history.
+ * Avoids `auth.api.deleteUser` because we already gate via password+email; JWT deletion
+ * via expiry (default 15min, no blacklist) + cascade deletion of session/tokens matches.
+ * If longer-lived JWT or token blacklist introduced, switch to `auth.api.deleteUser` or call `revokeUserSessions` first.
  */
 export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<void> {
   const userRow = await db

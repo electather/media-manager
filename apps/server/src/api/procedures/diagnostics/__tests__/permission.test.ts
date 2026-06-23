@@ -36,12 +36,9 @@ vi.mock("../../../../diagnostics/capture", () => ({
   captureError: vi.fn(async () => "test-id"),
 }));
 
-// Tests drive permission semantics by seeding `role_permissions` / `user_roles`
-// and exercise the REAL gate. better-auth fails to init under vitest, so we
-// mirror the tiny role/permission helpers here exactly as production's
-// `requirePermission` enforces them (auth/service.ts:116-128): a missing role
-// or a missing permission throws `forbidden()` (403); the system-admin slug
-// bypasses. `requirePermission` is NOT a pass-through — that is the whole point.
+// better-auth fails to init under vitest, so we mirror production's role/permission
+// helpers exactly as `requirePermission` enforces them (auth/service.ts:116-128):
+// missing role or permission → forbidden() (403); system-admin slug bypasses. NOT a pass-through.
 vi.mock("../../../../auth", async () => {
   const { unauthorized, forbidden } = await import("../../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");

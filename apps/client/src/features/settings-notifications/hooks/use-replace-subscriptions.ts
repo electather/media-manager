@@ -40,12 +40,8 @@ function applyChanges(
   return { ...data, subscriptions: next };
 }
 
-// Toggling several categories at once (the normal multi-select ToggleGroup
-// interaction) used to fire one independent mutation per changed category
-// against the same `subscriptions` cache key, racing each other's optimistic
-// snapshots and invalidations. This applies the whole diff under a single
-// optimistic lifecycle: one snapshot, one patch, one rollback, one
-// invalidation, with the per-category PUTs issued together inside `mutationFn`.
+// Multi-select ToggleGroup used to fire per-category mutations racing each other.
+// Now applies whole diff under single optimistic lifecycle: one snapshot/patch/rollback/invalidation.
 export function useReplaceSubscriptions() {
   const qc = useQueryClient();
   return useMutation({

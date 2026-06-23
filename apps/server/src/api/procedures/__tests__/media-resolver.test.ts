@@ -311,24 +311,18 @@ describe("media source resolver (US-003, design §A3)", () => {
   });
 
   it("coerces a lone occurrence to a one-element array for a tolerant array schema", async () => {
-    // `c.req.valid("query")` hands a lone occurrence to the schema as a plain
-    // string (`{ genres: "Drama" }`); the lens's tolerant `arrayParam`
-    // (`Array.isArray(v) ? v : [v]`) then coerces it to `["Drama"]`. So a
-    // single-value selection reaches the source as a one-element array — the
-    // same axis shape a multi-value selection takes. (The strict single-value
-    // parity delta is pinned by the RISK-202 case below.)
+    // `c.req.valid("query")` passes plain string { genres: "Drama" }; tolerant `arrayParam`
+    // coerces to ["Drama"]. Single-value selection reaches source as one-element array, same shape
+    // as multi-value. (Strict single-value parity delta pinned by RISK-202 case below.)
     const res = await buildApp().request("/media/sources/fakeHomeMulti?genres=Drama");
     expect(res.status).toBe(200);
     expect(homeReg("fakeHomeMulti").build.mock.calls[0]![1]).toEqual({ genres: ["Drama"] });
   });
 
   it("400s a repeated param against a strict single-value schema (RISK-202 delta)", async () => {
-    // Reading `c.req.valid("query")` surfaces a repeated param as a `string[]`.
-    // A strict single-value schema (`z.string()`) rejects the array → 400, where
-    // the old `c.req.query()` read would have silently taken the first value.
-    // This is the intended, more-correct behavior: home/watchlist sources never
-    // emit repeated params, so a repeated one is a malformed request, not a
-    // value to quietly truncate. Pinned so the parity delta stays deliberate.
+    // `c.req.valid("query")` surfaces repeated param as string[]. Strict schema rejects → 400
+    // (old `c.req.query()` silently took first). Correct: home/watchlist never emit repeated params,
+    // so repeated = malformed request, not a value to quietly truncate. Pinned (RISK-202 intent).
     const res = await buildApp().request(
       "/media/sources/fakeWatchlistParams?required=a&required=b",
     );

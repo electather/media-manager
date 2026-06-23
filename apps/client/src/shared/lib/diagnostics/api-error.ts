@@ -1,10 +1,8 @@
 import type { ApiErrorBody } from "./api-error-body";
 
 /**
- * Base class for typed fetch errors. Subclasses pass a `name` + `fallback`
- * message and inherit `status` / `body` / `code` so each feature can throw
- * its own surface-specific error type without re-implementing the wire
- * shape parsing.
+ * Base class for typed fetch errors. Subclasses pass `name` + `fallback` message;
+ * inherit `status`/`body`/`code` so features throw their own error type without re-implementing wire parsing.
  */
 export class BaseApiError extends Error {
   readonly status: number;

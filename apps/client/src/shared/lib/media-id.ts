@@ -1,8 +1,5 @@
-/**
- * Composite media ids ("movie:slug" / "tv:slug") are the wire format used by
- * `CompactMediaItem`. These helpers are the single source of truth for
- * splitting and rebuilding them so the home feed, the detail page, and the
- * peek modal all parse the format identically.
+/** Composite IDs ("movie:slug" / "tv:slug") are the wire format for `CompactMediaItem`.
+ *  Single source of truth for parsing across home feed, detail page, peek modal.
  */
 
 export type MediaType = "movie" | "tv";
@@ -20,11 +17,8 @@ export function splitCompositeId(id: string): { mediaType: MediaType; mediaId: s
   return { mediaType, mediaId };
 }
 
-/**
- * Canonical detail-page URL for a composite id. Returns `null` when the id
- * cannot be parsed so callers can omit `href` rather than render a broken
- * link. Card surfaces use this so middle-click / cmd-click opens the detail
- * page in a new tab.
+/** Canonical detail-page URL for a composite id. Returns null if unparseable so callers
+ *  omit `href` rather than render broken links; supports middle-click / cmd-click.
  */
 export function buildMediaHref(compositeId: string): string | null {
   const parts = splitCompositeId(compositeId);

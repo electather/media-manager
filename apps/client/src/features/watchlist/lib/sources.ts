@@ -8,17 +8,7 @@ import {
   type WatchlistMoodItemsParams,
 } from "./query-keys";
 
-/**
- * The watchlist `ClientMediaSource`s (design §B3). Each list the watchlist
- * reads is declared once here and flows through the shared `defineMediaSource`
- * fetcher (`GET /api/media/sources/:sourceId`), replacing `lib/fetchers.ts`
- * (#509). All four are watchlist-origin sources, so a bad cursor falls to the
- * first page (`cursorOnNull: "firstPage"`), matching the resolver's per-source
- * policy.
- *
- * The default recently-added strip size; the old `fetchRecently` capped the
- * section at five rows so the strip stays a strip.
- */
+/** Watchlist `ClientMediaSource`s (design §B3) via `defineMediaSource` (#509). All use `cursorOnNull: "firstPage"` per watchlist-origin policy. RECENTLY_LIMIT = 5 keeps the section compact. */
 const RECENTLY_LIMIT = 5;
 
 /** The unfiltered + filtered all-items list (sort / bucket / mood ride the params). */

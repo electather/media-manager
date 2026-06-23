@@ -4,10 +4,8 @@ import { watchlistTonightSource } from "../lib/sources";
 import { pickTonight } from "../lib/tonight-pick";
 
 /**
- * Reader for tonight's watchable pool via the `watchlist-tonight` media source.
- * The resolver returns the FLAT enriched candidate page; the hero/alternate
- * ranking + split that used to run server-side now runs here (`pickTonight`),
- * so `items[0]` is the hero and the rest are the ≤4 alternates (design §B3).
+ * Tonight's watchable pool via `watchlist-tonight` source (design §B3).
+ * Hero/alternate ranking now runs here via `pickTonight`: items[0] is hero.
  */
 export function useTonight() {
   const { items, partial } = useMediaRows(watchlistTonightSource());

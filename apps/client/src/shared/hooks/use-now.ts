@@ -12,13 +12,9 @@ interface UseNowOptions {
 }
 
 /**
- * Returns a `Date.now()` snapshot that updates every `intervalMs`.
- *
- * Designed for the shared-credentials cooldown countdown: the
- * `<SharedCredentialsSection>` calls `useNow(1000, { active })` on every
- * render where `active` is `rows.some(r => r.retryAfter && r.retryAfter > now)`
- * — so the timer only ticks while at least one row is rate-limited and
- * stays idle on the admin page when nothing is in cooldown.
+ * Returns `Date.now()` snapshot updating every `intervalMs`.
+ * Designed for shared-credentials cooldown: timer ticks only while ≥1 row rate-limited,
+ * idle when nothing in cooldown.
  */
 export function useNow(intervalMs: number, opts: UseNowOptions = {}): number {
   const active = opts.active ?? true;

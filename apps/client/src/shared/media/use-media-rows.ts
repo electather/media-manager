@@ -10,10 +10,8 @@ import { mediaKeys } from "./query-keys";
 import type { ClientMediaSource } from "./source";
 
 /**
- * The flattened projection every media list renders: the concatenated items
- * across loaded pages plus the OR-reduced `partial` flag (once any page shipped
- * a partial-aggregate signal the list stays flagged so the UI can show a
- * non-blocking degraded marker).
+ * Concatenated items across pages + OR-reduced `partial` flag
+ * (stays true if any page signals partial to show degraded UI).
  */
 export interface MediaRows {
   items: CompactMediaItem[];
@@ -21,9 +19,8 @@ export interface MediaRows {
 }
 
 /**
- * The flatten + partial OR-reduce, defined exactly once (invariant V.CL1). A
- * module-level reference keeps React Query's `select` memoization stable, so it
- * only re-runs when the page set changes — not on every render.
+ * Flatten + OR-reduce (invariant V.CL1). Module-level ref keeps
+ * `select` memoization stable — only re-runs on page set changes.
  */
 const selectMediaRows = (data: InfiniteData<Page>): MediaRows => ({
   items: data.pages.flatMap((page) => page.items),
@@ -31,30 +28,24 @@ const selectMediaRows = (data: InfiniteData<Page>): MediaRows => ({
 });
 
 /**
- * Caller-tunable query options. Kept narrow on purpose: a feature can pick its
- * own `staleTime` (home rows cache 5min) without being able to clobber the
- * cursor / flatten / key wiring the core owns. Omitting it inherits the shared
- * QueryClient's 60s default, which is what the watchlist sections rely on.
+ * Caller-tunable options (e.g., `staleTime`). Kept narrow: features can tune
+ * cache (home rows 5min) without clobbering core's cursor/flatten/key wiring.
+ * Defaults to QueryClient's 60s (watchlist sections rely on this).
  */
 export interface MediaRowsOptions {
   staleTime?: number;
 }
 
 /**
- * The one infinite-query core for every media list (design §B1, invariant
- * V.CL1). Both wrappers below share this single definition of the cursor
- * threading (`getNextPageParam`), the flatten, and the `partial` OR-reduce, so
- * home rows and watchlist sections no longer maintain two near-identical hooks.
+ * One infinite-query core for all media lists (design §B1, V.CL1).
+ * Shared by home rows and watchlist sections to avoid duplicate hooks.
  */
 export function mediaRowsQueryOptions<P extends object>(
   source: ClientMediaSource<P>,
   options: MediaRowsOptions = {},
 ) {
-  // Seeded sources (`similarTo`) take no params — the only thing that
-  // distinguishes one title's related feed from another is `initialCursor`, so
-  // fold it into the cache key. Without it every detail page shares
-  // `['media','source','similarTo',null]` and title B renders title A's items
-  // (the old `homeKeys.row(rowId, cursor)` keyed on the cursor for this reason).
+  // Seeded sources (`similarTo`) fold `initialCursor` into the key to distinguish
+  // one title's feed from another (else title B renders title A's items).
   // Non-seeded sources keep their previous key (no `seed` entry).
   const params = source.params as Record<string, unknown>;
   const key = source.initialCursor != null ? { ...params, seed: source.initialCursor } : params;
@@ -69,11 +60,8 @@ export function mediaRowsQueryOptions<P extends object>(
 }
 
 /**
- * Loader-side counterpart of {@link useMediaRows} (design §B4, #513): warm the
- * first page of a media list into the cache before the route renders. A route
- * `loader` awaits this so the suspense section paints with data on first mount
- * instead of a fallback. It threads the SAME `mediaRowsQueryOptions` the hook
- * reads, so the cache key matches exactly and the component never refetches.
+ * Preload media list page into cache before route renders (design §B4, #513).
+ * Uses same `mediaRowsQueryOptions` as hook to avoid refetch on mount.
  */
 export function prefetchMediaRows<P extends object>(
   queryClient: QueryClient,
@@ -83,10 +71,8 @@ export function prefetchMediaRows<P extends object>(
 }
 
 /**
- * Suspense reader for a media list (design §B1). Backs watchlist sections, which
- * mount under a route-loader-prefetched Suspense boundary — the page renders
- * with data on first paint. Mirrors today's `useAllItems` / `useMoodCluster`
- * surface.
+ * Suspense reader for media lists (design §B1). Backs watchlist sections
+ * under prefetched Suspense boundaries with data on first paint.
  */
 export function useMediaRows<P extends object>(
   source: ClientMediaSource<P>,
@@ -103,10 +89,8 @@ export function useMediaRows<P extends object>(
 }
 
 /**
- * Lazy (non-suspense) reader for a media list (design §B1). Backs home rows,
- * which mount in parallel under the feed's single Suspense boundary so a slow
- * row shows a per-row skeleton without blocking the rest. Mirrors today's
- * `useHomeRow` surface (adds `isLoading` / `isRefetching` / `error` / `refetch`).
+ * Non-suspense reader for home rows (design §B1). Mounts in parallel under
+ * feed Suspense boundary; slow rows show per-row skeleton without blocking.
  */
 export function useMediaRowsLazy<P extends object>(
   source: ClientMediaSource<P>,

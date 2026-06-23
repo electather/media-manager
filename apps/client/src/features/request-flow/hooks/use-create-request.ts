@@ -20,11 +20,9 @@ interface CreateContext {
 }
 
 /**
- * Optimistic `__optimistic-*` row, swapped with real requestId on success.
- * No invalidation (Seerr can lag) — seeded row + staleTime reconcile.
- * Exception: if response lacks requestId (schema allows null), invalidate
- * to recover live request (phantom row worse than transient revert).
- * Do not unify branches.
+ * Optimistic `__optimistic-*` row swapped with real requestId on success. No invalidation (Seerr lag)
+ * — seeded row + staleTime reconcile. Exception: if response lacks requestId (nullable), invalidate
+ * to recover live request (phantom row worse than transient revert). Do not unify branches.
  */
 export function useCreateRequest() {
   const qc = useQueryClient();
@@ -56,12 +54,9 @@ export function useCreateRequest() {
       toastFromError(err);
     },
     onSuccess: (data, vars, ctx) => {
-      // The server may settle a create without a `requestId` (the response
-      // schema declares it nullable). In that case we have no real id to swap
-      // in, so retaining the synthetic `__optimistic-*` id would leave a row
-      // that Cancel can never reach (`useCancelRequest` short-circuits those
-      // ids without calling DELETE). Drop the optimistic row and invalidate so
-      // the next fetch reconciles the live server request under its real id.
+      // Server may settle without requestId (schema nullable). Swapping in no real id would leave a row
+      // unreachable by Cancel (`useCancelRequest` short-circuits `__optimistic-*` ids). Drop optimistic
+      // row and invalidate so next fetch reconciles under real id.
       if (data.requestId == null) {
         qc.setQueryData<MediaRequestsResponse>(requestFlowKeys.history(), (old) => ({
           items: (old?.items ?? []).filter((r) => r.id !== ctx?.optimisticId),
