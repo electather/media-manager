@@ -10,23 +10,9 @@ import { MEDIA_TYPES } from "@nama/shared/media";
 import { WATCHED_STATES } from "@nama/shared/library";
 import { user } from "../auth/auth";
 
-/**
- * Denormalized browse projection for the owned library. One row per
- * `(user_id, tmdb_id, media_type)`, keyed by the composite primary key
- * `(user_id, id)` where `id` is `"<mediaType>:<tmdbId>"` — the same title can be
- * owned by many users, so `id` is unique only WITHIN a user, never globally.
- * `owned` acts as a tombstone: a title that
- * leaves the owned collection stays at `owned = false` so a later sync does not
- * resurrect it (watchlist pattern). The sort/facet columns are hydrated from
- * the catalog metadata, availability, and progress pipelines so the lens
- * sources can page directly off the index without re-probing live.
- *
- * JSON columns store text on disk but carry a richer TS shape. `$type<T>()`
- * documents the serialization contract at the schema level. `servers` and
- * `quality_tiers` are multi-valued (an item on Plex+Jellyfin in 4K+1080p is one
- * row whose arrays hold every value); the server/quality lenses expand them via
- * `json_each`.
- */
+/** Denormalized browse projection for owned library.
+ *  PK: (user_id, id) where id="<mediaType>:<tmdbId>". `owned` is tombstone: false prevents resurrection on sync.
+ *  JSON columns (servers, quality_tiers) multi-valued; lenses expand via json_each. `$type<T>()` documents serialization contract. */
 export const libraryItems = sqliteTable(
   "library_items",
   {

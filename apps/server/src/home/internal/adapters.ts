@@ -5,19 +5,14 @@ import { extractTmdbId } from "../../media";
 import type { InternalCompactMediaItem } from "./types";
 
 /**
- * Adapters from heterogenous source shapes (catalog metadata, continueWatching
- * entries, watchlist items, calendar items) to the single `CompactMediaItem`
- * wire shape the home rows ship. Kept colocated with the rows so each pipeline
- * has a tight, readable mapping pass; expand when a row needs row-specific
- * fields. The stable card id is the shared `keyToId` (`${mediaType}:${tmdbId}`),
- * the same composite id watchlist + the catalog metadata batch key on.
+ * Adapters from catalog metadata, continueWatching, watchlist, calendar → `CompactMediaItem`.
+ * Colocated with rows for tight, readable mapping. Stable id: `keyToId` (uses `${mediaType}:${tmdbId}`,
+ * shared with watchlist + catalog batch key).
  */
 
 /**
- * Maps `canonical_metadata` → `CompactMediaItem`. Each optional field is
- * a separate branch by design: the wire spec omits absent fields rather
- * than emitting `null`, so the cyclomatic count tracks the number of
- * optional fields the catalog row carries.
+ * Maps `canonical_metadata` → `CompactMediaItem`. Each optional field branches by design:
+ * wire spec omits absent fields (no `null`), so cyclomatic count tracks optional field count.
  */
 export function fromCanonicalMetadata(
   meta: CanonicalMetadata,

@@ -25,20 +25,10 @@ type RowProjection<Row> = (
  */
 
 /**
- * Run a home row through the shared media pipeline (`media.listRows`, design
- * §C/§H). The row supplies its `MediaSource` (raw rows only), the request
- * `params`, and a `project` that maps those raw rows to enrichable compact
- * items; `loadRowPage` wires the home enrichment (`enrichHomeItems`, which adds
- * the row-aware match-reason chip) in as the pipeline's enrich override and lets
- * the pipeline own sort/filter/slice/cursor.
- *
- * The `RowContext` is passed straight through as the media `SourceContext` (it
- * is structurally a superset), so a seed source can stash `ctx.seedTitle` on it
- * during `fetchRawSet` and the match-reason callback reads it back off the same
- * object.
- *
- * Paginated rows `project` the full raw set (the pipeline slices); bounded rows
- * `project` a single page (`<= ROW_PAGE_SIZE`) so the pipeline mints `cursor:null`.
+ * Wires home row through `media.listRows` (design §C/§H); `RowContext` is structurally
+ * a superset of `SourceContext`, so seed source can stash `ctx.seedTitle` on it during
+ * `fetchRawSet` and match-reason reads it back. Paginated rows project full set (pipeline
+ * slices); bounded rows project single page (<= ROW_PAGE_SIZE) so pipeline mints `cursor:null`.
  */
 interface RowPipelineSpec<P, Row> {
   rowId: string;
@@ -50,13 +40,9 @@ interface RowPipelineSpec<P, Row> {
 }
 
 /**
- * Assemble the pieces a home row feeds `media.listRows` — the source, the
- * decoded-cursor config, and the home enrich override (which adds the row-aware
- * match-reason chip) — WITHOUT running them. `loadRowPage` runs them; the
- * `/api/media` resolver (via `RowProvider.buildPipeline` → `homeMediaSources`)
- * runs them itself. Defining both atop this one helper keeps the row → media
- * wiring in one place (invariant V.A1: it stays home-side) and stops `load` and
- * the registry path from drifting.
+ * Assembles pipeline pieces (source, cursor config, enrich override) without running.
+ * `loadRowPage` and `/api/media` resolver run separately; centralizing both here
+ * keeps row → media wiring in one place (invariant V.A1: home-side) and stops drift.
  */
 export function buildRowPipeline<P, Row>(
   ctx: RowContext,

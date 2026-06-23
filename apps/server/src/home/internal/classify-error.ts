@@ -4,15 +4,9 @@ import { AllPluginsFailedError, PluginCallError } from "../../media";
 import { HttpError } from "../../diagnostics/http-errors";
 
 /**
- * Maps a thrown value to the `HostErrorCode` the home-feed wire surfaces on
- * `MediaDetailsResponse.error`. The orchestrator catches plugin failures
- * during detail composition and stamps the code so the client can render the
- * correct retry copy.
- *
- * Order matters: structured plugin errors carry their own code, then
- * AbortError → timeout, then the generic upstream fallback. Unknown shapes
- * default to `home.internal` so the captureError boundary sees them with the
- * right severity.
+ * Maps thrown value to `HostErrorCode` for `MediaDetailsResponse.error`.
+ * Order matters: AllPluginsFailedError must be checked before HttpError (now extends HttpError with status 503),
+ * then AbortError → timeout, else generic fallback. Unknown → `home.internal` for correct captureError severity.
  */
 // fallow-ignore-next-line complexity
 export function classifyError(err: unknown): HostErrorCode {

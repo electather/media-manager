@@ -4,12 +4,7 @@ import { requireSession, sessionUserId } from "../../auth";
 import { MediaService } from "../../media";
 import { zValidator } from "../../diagnostics/validator";
 
-/**
- * GET /api/requests — list outstanding requests.
- * GET /api/requests/targets — aggregate plugin request services for picker.
- * POST /api/requests — submit new request through targeted connection.
- * DELETE /api/requests/:requestId — cancel in-flight request.
- */
+/** Requests API: list, submit, cancel, and aggregate request targets for the picker. */
 export const requestsApp = new Hono()
   .use("*", requireSession)
   .get("/", async (c) => {

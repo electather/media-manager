@@ -1,10 +1,9 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
 /**
- * isSystemAdmin short-circuits every permission check in `AuthService.roleHasPermission`,
- * so it must be set only when BOTH isSystem === 1 AND name === SYSTEM_ADMIN_ROLE_NAME —
- * setting it from either condition alone is immediate privilege escalation. Catches the
- * single-condition forms (isSystem-only, name-only, or ungated `true`).
+ * `isSystemAdmin` short-circuits every permission check in `AuthService.roleHasPermission`,
+ * so it must require BOTH `isSystem === 1` AND `name === SYSTEM_ADMIN_ROLE_NAME` — either
+ * condition alone is immediate privilege escalation. Catches isSystem-only, name-only, or ungated `true`.
  */
 export const isSystemAdminSingleCondition: MatcherPlugin = {
   slug: "is-system-admin-single-condition",

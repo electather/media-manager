@@ -19,11 +19,8 @@ import { isNil } from "es-toolkit/predicate";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
- * Returns the submitted value unchanged when the patch is absent so plugins
- * that don't need the feature stay on the zero-copy path. A `null` patch value
- * removes the key from the merged result, letting plugins strip submitted
- * secrets (e.g. a password that has been moved into the encrypted credentials
- * blob) from the persisted `userConfig` JSON.
+ * A `null` patch value removes the key — lets plugins strip submitted secrets
+ * (e.g. a password moved into the encrypted credentials blob) from persisted JSON.
  */
 // fallow-ignore-next-line complexity
 export function applyUserConfigPatch(
@@ -88,11 +85,9 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
 }
 
 /**
- * Loads the plugin module, strips `x-plugin-resolved` request fields from the
- * submitted `userConfig`, and rejects a blank required field with the typed
- * `plugin.credentials_empty` error before any plugin work runs. Shared by the
- * verify and create paths, which both gate on a populated payload and then need
- * the resolved `module` plus the `sanitized` config downstream.
+ * Strips `x-plugin-resolved` fields and rejects blank required fields with
+ * `plugin.credentials_empty` before any plugin work runs. Shared by the verify
+ * and create paths; both need the resolved `module` and `sanitized` config.
  */
 async function assertRequiredUserConfig(
   pluginId: string,
@@ -108,10 +103,8 @@ async function assertRequiredUserConfig(
 }
 
 /**
- * Maps an AuthResult error to the typed `plugin.invalid_base_url` HTTP error
- * when the underlying cause was an `x-allowed-host` validation failure. The
- * runtime maps that throw into `plugin.invalid_base_url` with `params.field`,
- * so we can route on the code without string-matching.
+ * Maps an AuthResult error to a typed HTTP error. Routes `plugin.invalid_base_url`
+ * (from `x-allowed-host` validation failures) to a 400; all other errors to 422.
  */
 // fallow-ignore-next-line complexity
 function rethrowAuthError(result: AuthResult): never {
@@ -133,11 +126,9 @@ function rethrowAuthError(result: AuthResult): never {
 }
 
 /**
- * Mirrors the runtime's `buildAuxContext` x-allowed-host check for the no-auth
- * create path. Plugins with `auth.kind !== "none"` go through `runAuth`, where
- * `buildAuxContext` resolves the same fields and `rethrowAuthError` maps the
- * resulting PluginError to a 400 — no-auth plugins skip that flow and would
- * persist malformed URLs without this guard.
+ * Mirrors `buildAuxContext`'s x-allowed-host check for the no-auth create path.
+ * Non-none auth kinds go through `runAuth` where `buildAuxContext` handles this;
+ * no-auth plugins skip that flow and would persist malformed URLs without this guard.
  */
 function validateAllowedHostFields(
   pluginId: string,
@@ -221,11 +212,9 @@ async function runStartAuth<S extends "redirect" | "display_code">(
 }
 
 /**
- * Folds the shared init sequence behind both `startAuth` entry points: open the
- * db, run `startAuth` expecting `mode`, then persist the pending row with the
- * mode-specific state field selected by `pickState`. Returns the generated
- * `nonce` alongside the narrowed `result` so each caller assembles its own
- * mode-specific response (redirect url vs device code fields).
+ * Shared init for both `startAuth` entry points: runs `startAuth` expecting
+ * `mode`, persists the pending row with `pickState(result)`, and returns the
+ * `nonce` + narrowed `result` so each caller builds its own response.
  */
 async function startAuthAndStore<S extends "redirect" | "display_code">(
   args: { userId: string; pluginId: string },
@@ -240,21 +229,11 @@ async function startAuthAndStore<S extends "redirect" | "display_code">(
 }
 
 /**
- * Atomically consumes the `pendingAuth` row before writing the connection.
- *
- * Uses `DELETE ... RETURNING` so only the caller that actually removes the
- * row proceeds to `writeConnection`. Concurrent completions for the same
- * nonce see zero rows returned and signal via `consumed: false`, allowing
- * callers to surface a typed error instead of creating duplicate rows.
- *
- * The DELETE filters on both `nonce` and `userId` to mirror `loadPendingAuth`'s
- * predicate — a request authenticated as one user cannot consume another
- * user's pending row even if the nonce somehow leaks.
- *
- * Order matters: the delete happens BEFORE `writeConnection`. If the write
- * throws, the nonce is already gone and the user must restart the OAuth flow.
- * That trade-off is deliberate — a failed write is recoverable, a duplicate
- * connection row is not. Do not "fix" this by swapping the order.
+ * Atomically consumes the `pendingAuth` row via `DELETE ... RETURNING` before writing the
+ * connection — only the caller that removes the row proceeds; concurrent completions get
+ * `consumed: false`. DELETE filters on both `nonce` and `userId` — a leaked nonce cannot
+ * be consumed by a different user (spoofing). DELETE runs BEFORE `writeConnection`: a
+ * failed write is recoverable; a duplicate connection row is not. Do not swap the order.
  */
 async function consumeAndWritePendingAuth(
   db: ReturnType<typeof getDb>,
@@ -279,19 +258,10 @@ async function consumeAndWritePendingAuth(
 }
 
 /**
- * Persists a completed auth result, choosing between updating an existing
- * connection (the reconnect path) and inserting a new row (first connect).
- *
- * Non-poolable plugins hold at most one connection per user, so when a row
- * already exists for `(userId, pluginId)` a re-run of the OAuth ceremony is a
- * reconnect: rebind fresh credentials to that row rather than inserting a
- * duplicate that would orphan the original (its `isDefault`, `displayName`,
- * and primary-provider references all live on the existing id). Poolable
- * plugins, and the no-existing-row case, fall through to a plain insert.
- *
- * The poolable check is read straight from the manifest so a future poolable
- * OAuth plugin keeps "add another instance" semantics instead of silently
- * overwriting its first connection.
+ * Persists a completed auth result: reconnects to the existing row for non-poolable
+ * plugins when one already exists for `(userId, pluginId)` — rebinding avoids
+ * orphaning the original row's `isDefault`, `displayName`, and primary-provider
+ * references. Poolable plugins and the no-existing-row case always insert a new row.
  */
 async function persistConnectionFromAuth(
   db: ReturnType<typeof getDb>,

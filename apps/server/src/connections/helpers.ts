@@ -24,9 +24,8 @@ export async function fetchConnectionByOwner(db: Db, connectionId: string, userI
 }
 
 /**
- * Loads the connection row owned by `userId` or throws `notFound(
- * "connection.not_found", ...)`. The 404 is returned for both "row does not
- * exist" and "row belongs to another user" so a hostile client can't probe
+ * Loads the connection row owned by `userId` or throws `notFound("connection.not_found", ...)`.
+ * Returns 404 for both "missing" and "owned by another user" so a hostile client can't probe
  * for foreign connection ids.
  */
 export async function requireConnection(db: Db, connectionId: string, userId: string) {
@@ -36,46 +35,34 @@ export async function requireConnection(db: Db, connectionId: string, userId: st
 }
 
 /**
- * Extension keys on a JSON Schema property that mark a field as
- * "do not return to the client" for one reason or another:
- *  - `x-secret` — encrypted at rest, never returned (credentials-like).
- *  - `x-private` — stored plaintext, never returned (internal-only).
+ * JSON Schema extension keys that mark a field as never-returned to clients:
+ * `x-secret` (encrypted at rest) and `x-private` (plaintext but internal-only).
  * A field may carry both; stripping is idempotent.
  */
 export const RESPONSE_STRIPPED_EXTENSIONS = ["x-secret", "x-private"] as const;
 
 /**
- * Extension marker for `userConfig` fields whose value is resolved and owned
- * by the plugin — the user never submits one through the form. Incoming
- * payloads that contain a value for a field carrying `"x-plugin-resolved":
- * true` have that key stripped before the payload reaches the plugin's
- * `startAuth` or the persisted row. The plugin repopulates the field via
- * `userConfigPatch` (e.g. Jellyfin resolving the caller's `userId` from
- * `/Users/Me`); a hostile client cannot impersonate another account by
- * spoofing the value.
+ * Extension marker for `userConfig` fields owned by the plugin, not the user. Incoming payloads
+ * with a value for any `"x-plugin-resolved": true` field have that key stripped before reaching
+ * `startAuth` or the persisted row — a hostile client cannot impersonate another account by
+ * spoofing it. The plugin repopulates via `userConfigPatch` (e.g. Jellyfin resolving `userId`
+ * from `/Users/Me`).
  */
 export const REQUEST_STRIPPED_EXTENSIONS = ["x-plugin-resolved"] as const;
 
 /**
- * Strips properties from an incoming client payload whose schema marks them
- * `x-plugin-resolved`. Used at the connection create/update boundary so a
- * plugin's `startAuth` and the persisted `userConfig` never see user-supplied
- * values for fields the plugin is the sole source of truth for.
+ * Strips `x-plugin-resolved` fields from an incoming client payload so `startAuth`
+ * and the persisted `userConfig` never see user-supplied values for plugin-owned fields.
  */
 export function stripRequestFields(schema: unknown, value: unknown): unknown {
   return stripExtensionFields(schema, value, REQUEST_STRIPPED_EXTENSIONS);
 }
 
 /**
- * Removes properties on `value` whose schema definition carries any of the
- * given extension flags set to `true`. Used so sensitive or internal-only
- * fields never travel back to clients via connection list/get responses.
- *
- * NOTE: Only walks the top-level `properties` of the schema. A nested
- * `object`-typed field whose own properties carry `x-private` / `x-secret`
- * will not be stripped — the flag must sit on the leaf field the host hands
- * back. All current built-in plugin schemas are flat, so this is a deliberate
- * simplification, not a gap to fill speculatively.
+ * Removes properties on `value` whose schema definition carries any of the given extension flags
+ * set to `true`. Only walks top-level `properties` — nested object fields whose own properties
+ * carry `x-private`/`x-secret` are NOT stripped (flag must be on the leaf). All built-in plugin
+ * schemas are flat, so this is deliberate, not a gap to fill speculatively.
  */
 // fallow-ignore-next-line complexity
 export function stripExtensionFields(
@@ -109,17 +96,10 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
 }
 
 /**
- * Computes the display-field list for a connection card from the plugin's
- * `userConfigSchema` and decrypted `userConfig`. Excludes `x-secret`, redacts
- * `x-private` as `"••••"`, marks URI-typed fields as `mono`, and preserves
- * schema declaration order. Returns `[]` when the schema has no displayable
- * fields or the user config is empty/missing.
- *
- * Schema-order output relies on `Object.entries()` preserving the JSON
- * insertion order of string-keyed properties (V8 / SpiderMonkey / JSC all
- * honour this for non-integer keys, and the manifest is JSON-parsed so all
- * keys are strings). Not formally guaranteed by the spec, but reliable in
- * every JS runtime this repo targets.
+ * Builds the display-field list for a connection card: excludes `x-secret`, redacts `x-private`
+ * as `"••••"`, marks URI-typed fields as `mono`, and preserves schema declaration order.
+ * Order relies on `Object.entries()` preserving JSON insertion order for string keys (V8/SpiderMonkey/JSC
+ * all honour this; not spec-guaranteed but reliable in every JS runtime this repo targets).
  */
 // fallow-ignore-next-line complexity
 export function computeDisplayFields(
@@ -194,14 +174,11 @@ function stringifyDisplayValue(v: unknown): string {
 }
 
 /**
- * Promotes the given connection id to default within its plugin; demotes the rest.
- * Throws `connection.not_found` when the target row matched zero rows (absent or
- * owned by another user). The throw happens *inside* the transaction so the
- * demotion UPDATE rolls back too — otherwise a row deleted between the caller's
- * pre-check and the promotion would leave the plugin with zero default
- * connections (the demotion committed, the promotion matched nothing). Using
- * `.returning()` on the promotion UPDATE makes the existence check atomic within
- * the transaction.
+ * Promotes the given connection to default within its plugin; demotes the rest.
+ * The `connection.not_found` throw happens inside the transaction so the demotion UPDATE
+ * rolls back too — without this, a row deleted between pre-check and promotion would leave
+ * the plugin with zero default connections. `.returning()` on the promotion UPDATE makes
+ * the existence check atomic.
  */
 export async function promoteToDefault(
   userId: string,
@@ -236,12 +213,9 @@ async function ensureDefaultIfFirst(
   connectionId: string,
 ): Promise<void> {
   const db = getDb();
-  // Single atomic conditional UPDATE: sets isDefault only when no other row for
-  // this (userId, pluginId) already carries isDefault=1, eliminating the
-  // SELECT→UPDATE race window. Bumps updatedAt so the row's audit timestamp
-  // reflects the silent promotion to default, matching promoteToDefault. The
-  // outer userId predicate is defense-in-depth so a forged connectionId can
-  // never flip a row owned by another user.
+  // Single atomic conditional UPDATE: sets isDefault only when no other (userId, pluginId) row
+  // already carries isDefault=1, eliminating the SELECT→UPDATE race. The outer userId predicate
+  // is defense-in-depth so a forged connectionId can't flip a row owned by another user.
   await db
     .update(serviceConnections)
     .set({ isDefault: 1, updatedAt: Date.now() })
@@ -325,10 +299,8 @@ export async function writeConnection(args: {
 }
 
 /**
- * Returns the most relevant existing connection for `(userId, pluginId)` — the
- * default if one is marked, otherwise the most recently created — or `null`
- * when the user has none. Non-poolable plugins hold at most one row per user,
- * so this deterministically resolves the row a reconnect should rebind to.
+ * Returns the default connection for `(userId, pluginId)`, falling back to most-recently-created,
+ * or `null` when the user has none. Deterministically resolves the row a reconnect should rebind to.
  */
 export async function findConnectionForPlugin(db: Db, userId: string, pluginId: string) {
   return (
@@ -342,13 +314,10 @@ export async function findConnectionForPlugin(db: Db, userId: string, pluginId: 
 }
 
 /**
- * Rebinds a successful auth result to an existing connection — the OAuth
- * reconnect path. Re-encrypts the fresh credentials, replaces the stored
- * `userConfig`, and flips the row back to `connected`, clearing any prior
- * `errorMessage` and stale `tokenExpiresAt` so a reconnected card no longer
- * renders as broken. Preserves the row's id, `displayName`, `isDefault`, and
- * `enabled` flags — only the auth-bearing fields change. Mirrors
- * `writeConnection`'s freshly-connected shape for the update case.
+ * Rebinds a successful auth result to an existing connection (OAuth reconnect path). Re-encrypts
+ * credentials, replaces `userConfig`, flips status back to `connected`, and clears `errorMessage`
+ * and `tokenExpiresAt`. Preserves `displayName`, `isDefault`, and `enabled` — only auth-bearing
+ * fields change.
  */
 export async function reconnectConnection(args: {
   connectionId: string;

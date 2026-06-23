@@ -2,19 +2,9 @@ import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { user } from "../auth/auth";
 
 /**
- * Per-user pre-rendered `HomeLayoutResponse` blob. Read-once on every
- * `home.getLayout` call: a fresh row short-circuits the live composition,
- * and a stale or missing row falls through to the orchestrator + writeback.
- *
- * `schema_version` pins the wire shape the blob was rendered against. The
- * orchestrator discards rows whose version disagrees with `CURRENT_SCHEMA_VERSION`
- * (defined in `home/layout-cache.ts`), so adding a field to
- * `HomeLayoutResponse` / `HomeRowStub` / `LayoutHero` is safe — bump the
- * constant and the fleet drains the next time each user pings the endpoint.
- *
- * `generated_at` is a wall-clock ms epoch the freshness check uses against a
- * 60-minute TTL; the `host.home.layout_warm` job rewrites blobs older than
- * that for active users.
+ * Per-user pre-rendered blob; fresh row short-circuits composition, stale/missing falls
+ * through to orchestrator. `schema_version` checked against `CURRENT_SCHEMA_VERSION` (home/layout-cache.ts);
+ * bump it to drain stale blobs. `generated_at` (ms epoch) vs 60-minute TTL; `host.home.layout_warm` rewrites.
  */
 export const homeLayoutCache = sqliteTable(
   "home_layout_cache",

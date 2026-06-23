@@ -126,11 +126,10 @@ export async function filterUsersWithPermission(
 
 /**
  * Deletes dynamic OAuth clients (RFC 7591, `userId IS NULL`) older than `cutoff` (epoch ms)
- * with no consent row — never removes a client a user has authorized. Bounds unbounded
- * table growth from the unauthenticated registration endpoint (only other control: per-IP
- * rate limit). Cascade on `client_id` cleans orphaned token rows. Null `createdAt` also
- * counts as stale: Better Auth always stamps it at registration, so null means a
- * manually-inserted/corrupted row that would otherwise escape the sweep forever.
+ * with no consent row — never removes a user-authorized client. Bounds unbounded growth
+ * from the unauthenticated registration endpoint (only other control: per-IP rate limit).
+ * Cascade on `client_id` cleans orphaned token rows. Null `createdAt` is treated as stale:
+ * Better Auth always stamps it, so null indicates a corrupted row that would escape the sweep.
  */
 export async function deleteStaleDynamicClients(cutoff: number): Promise<number> {
   const db = getDb();

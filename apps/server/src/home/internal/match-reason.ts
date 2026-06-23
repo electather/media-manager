@@ -6,12 +6,8 @@ import type { InternalCompactMediaItem, RowContext } from "./types";
 const RECENTLY_ADDED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Resolves a typed `MatchReason` for a row item. The orchestrator calls this
- * once per item during enrichment; the row's slug picks the branch and the
- * surrounding context (seed title, top contributors, server-stitched flag)
- * supplies the ICU params.
- *
- * Trending / new-release rows return null — the chip is hidden by design.
+ * Resolves typed `MatchReason` for a row item; row slug picks branch, context
+ * supplies ICU params. Trending / new-release rows return null (chip hidden by design).
  */
 // fallow-ignore-next-line complexity
 export function pickMatchReason(
@@ -50,10 +46,8 @@ export function pickMatchReason(
 }
 
 /**
- * Maps the leading `topContributors` entry to a chip. Falls back to
- * `highly_rated` when the snapshot is empty (legacy rec-list rows).
- * Non-genre categories collapse to `matches_recent_picks` rather than
- * inventing copy per category — keeps the v1 chip surface tight.
+ * Maps leading `topContributors` to chip; falls back to `highly_rated` when empty.
+ * Non-genre categories → `matches_recent_picks` (keeps v1 chip surface tight).
  */
 // fallow-ignore-next-line complexity
 export function mapTopContributor(contribs: readonly TopContributor[]): MatchReason {

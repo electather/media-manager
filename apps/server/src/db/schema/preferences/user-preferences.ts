@@ -4,10 +4,8 @@ import { user } from "../auth/auth";
 import { serviceConnections } from "../plugin-runtime/credentials";
 
 /**
- * Per-user primary-connection selection, used by capabilities with the
- * `primary_with_enrichment` strategy (metadata@v1). Rows are keyed by
- * `(userId, capabilityKey, mediaType)` where `capabilityKey` is "metadata@v1"
- * and `mediaType` is "movie"|"tv"|"_" (sentinel "_" when not segmented).
+ * Per-user primary-connection selection for `primary_with_enrichment` capabilities (e.g., metadata@v1).
+ * Keyed by `(userId, capabilityKey, mediaType)` where mediaType is "movie"|"tv"|"_" (unsegmented).
  */
 export const primaryConnections = sqliteTable(
   "primary_connections",

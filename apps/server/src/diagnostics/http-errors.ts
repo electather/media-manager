@@ -1,12 +1,8 @@
-/** Thrown by handlers and services to return a structured user-facing error.
- *  4xx bodies below 500 are treated as expected user-input failures and do NOT
- *  enter the error store; 5xx (and any unrecognized throw) is captured.
- *
- *  `params` carries flat translation values (`{ field: "name" }`); `details`
- *  carries code-specific structured payloads (`{ errors: [...] }` for
- *  `media.providers_failed`, `{ candidates: [...] }` for
- *  `mcp.ambiguous_target`) — matches `UserFacingError.details` from
- *  `@nama/shared/diagnostics`. */
+/**
+ * Structured user-facing error. 4xx NOT captured in error store (expected input failures);
+ * 5xx and unrecognized throws ARE captured. `params`: flat translation values;
+ * `details`: code-specific payloads (e.g., `{ errors: [...] }` for `media.providers_failed`).
+ */
 export class HttpError extends Error {
   readonly status: number;
   readonly code: string;

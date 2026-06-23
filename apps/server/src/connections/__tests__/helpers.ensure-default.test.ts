@@ -8,16 +8,9 @@ import {
 import { user } from "../../db/schema/auth";
 import { plugins, serviceConnections } from "../../db/schema";
 
-// Issue #302 regression: `ensureDefaultIfFirst` previously did a SELECT count
-// then a conditional UPDATE, leaving a race where two concurrent inserts could
-// both observe count==1 (and both set isDefault=1) or both observe count>1
-// (and neither set isDefault=1, leaving the plugin without a default).
-//
-// The fix replaces the two-query path with a single conditional UPDATE that
-// only sets isDefault=1 when no other row for (userId, pluginId) already
-// holds the default flag. This test seeds two rows, marks the first as the
-// existing default, and asserts the helper does not double-promote on the
-// second write.
+// Issue #302 regression: old `ensureDefaultIfFirst` used SELECT-count + conditional UPDATE, racing
+// to either double-promote (both observe count==1) or leave no default (both observe count>1).
+// Fix: single conditional UPDATE with `notExists` so only one row per (userId, pluginId) gets isDefault=1.
 
 const encryptionKey = "0123456789abcdef0123456789abcdef";
 vi.mock("../../env", () => ({
@@ -134,12 +127,9 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
   });
 
   it("auto-promotes a new write when existing rows all have isDefault=0", async () => {
-    // Semantic shift vs the old `count === 1` guard: if a prior bug or manual
-    // recovery left orphan rows for (user, plugin) with no row holding the
-    // default flag, the new `notExists` predicate promotes the next write
-    // instead of skipping. The old code would have left the plugin without
-    // any default. This locks in the behaviour change so a future refactor
-    // that resurrects the count-based guard fails loudly.
+    // Semantic shift from count===1: if orphan rows exist with no isDefault=1, the `notExists`
+    // predicate promotes the next write; the old count-based guard would have left the plugin
+    // with no default. This locks in the change so a resurrected count-based guard fails loudly.
     await testDb.insert(serviceConnections).values({
       id: "orphan-1",
       userId: "u1",
@@ -191,12 +181,9 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
   });
 
   it("rolls back the demotion when the promotion target no longer exists", async () => {
-    // Concurrent-delete regression: if the target row is deleted between the
-    // service's requireConnection pre-check and promoteToDefault, the promotion
-    // UPDATE matches zero rows. The demotion UPDATE (step 1) must roll back so
-    // the previously-default sibling keeps isDefault=1 — otherwise the plugin
-    // would be left with zero default connections. The throw inside the
-    // transaction is what triggers the rollback.
+    // Concurrent-delete regression: if the target is deleted between requireConnection and
+    // promoteToDefault, the promotion UPDATE matches zero rows. The demotion (step 1) must roll
+    // back so the previously-default sibling keeps isDefault=1; the throw inside the tx triggers it.
     const existing = await writeConnection({
       userId: "u1",
       pluginId: "p1",
