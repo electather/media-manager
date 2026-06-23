@@ -44,18 +44,10 @@ function stampSlide(
 }
 
 /**
- * Hero mixer — Amendment 3 (rev 5) of `docs/2026-05-05-home-page-backend-design.md`.
- *
- * Replaces the old first-source-wins cascade with a fixed-quota mix across all
- * four sources: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1
- * newReleases (= 6). When a source is short, `backfill` walks the priority
- * order `[CW, rec, trend, new]` taking the next unused candidate per pass
- * until either the target is reached or every pool is exhausted (degenerate
- * fill ships < 6). Final ordering: lead = first non-empty priority source;
- * remainder = round-robin interleave by priority. Pools are deduped across
- * sources by `${mediaType}:${tmdbId}` before quota draw, with the
- * higher-priority source winning so the same title cannot appear twice in
- * the hero. No dedup against the rows below.
+ * Amendment 3 (rev 5) of `docs/2026-05-05-home-page-backend-design.md`.
+ * Fixed-quota mix: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1 newReleases.
+ * Dedup pools by `${mediaType}:${tmdbId}` (higher priority wins); backfill unmet quotas in priority order;
+ * order as: lead (first non-empty source) + round-robin interleave of remainder.
  */
 export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   // Per-pool catches: a single slow / failing source must not null the whole
@@ -284,12 +276,8 @@ function interleaveRest(queues: Queues, priority: RowKind[]): HeroSlideInternal[
 }
 
 /**
- * After picking the lead, the remainder is round-robin-interleaved starting
- * from the priority slot AFTER the lead's source — matches the new-user
- * worked example in `docs/2026-05-05-home-page-backend-design.md` §Hero
- * composition (`[rec#1, trend#1, new#1, rec#2, trend#2, rec#3]`). The lead's
- * source falls to the end of the rotation so it does not double-fire on the
- * first pass.
+ * Interleave starting AFTER lead's source (matches design doc §Hero composition example).
+ * Lead's source rotates to the end to avoid double-firing on first pass.
  */
 export function orderCascadeLeadInterleave(
   slides: HeroSlideInternal[],

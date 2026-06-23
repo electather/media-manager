@@ -2,9 +2,8 @@ import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
 /**
  * URL-shaped schema fields MUST carry `"x-allowed-host": true` to gate them
- * in ctx.fetch allowlist; without it: visible bug (plugin can't reach host)
+ * in the ctx.fetch allowlist; without it: visible bug (plugin can't reach host)
  * + latent SSRF (no allowlist narrowing if URL used directly).
- * Flags missing flag on URL properties in packages/plugins/**.
  */
 export const pluginSchemaUrlNoAllowedHost: MatcherPlugin = {
   slug: "plugin-schema-url-no-allowed-host",

@@ -19,10 +19,9 @@ export interface CatalogMetadataRefreshDeps {
 }
 
 /**
- * Registers the nightly catalog metadata refresh. Reads up to `BATCH_LIMIT`
- * stale rows from `canonical_metadata`, fans them out in chunks of
- * `BATCH_SIZE` against the global-scope `metadata@v1` provider, and writes
- * the freshened rows back through `CatalogService.writeMetadata`.
+ * Nightly catalog metadata refresh: reads up to `BATCH_LIMIT` stale `canonical_metadata`
+ * rows, fans them out in `BATCH_SIZE` chunks against the `metadata@v1` provider, and writes
+ * the freshened rows back via `CatalogService.writeMetadata`.
  */
 export function registerCatalogMetadataRefreshJob(deps: CatalogMetadataRefreshDeps): void {
   registerScheduled({

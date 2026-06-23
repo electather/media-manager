@@ -8,13 +8,9 @@ export interface ActiveUserRow {
 }
 
 /**
- * Returns every user with activity in the last 14 days. "Activity" = either
- * a feedback event (likes / ratings) or a fresh history-mirror sync. The
- * union keeps users who watch but never rate eligible for warm fills.
- *
- * The two signals come from tables owned by other modules, so this reads
- * them through the owner barrels: feedback ids via the preferences service
- * and history-sync ids via the catalog service. No raw cross-module drizzle.
+ * Users active in last 14 days: feedback event OR history-mirror sync. Union
+ * includes watchers who never rate. Reads through service barrels (preferences
+ * feedback, catalog sync) — no cross-module drizzle.
  */
 export async function listActiveUsers(now: number = Date.now()): Promise<ActiveUserRow[]> {
   const cutoff = now - ACTIVE_WINDOW_MS;

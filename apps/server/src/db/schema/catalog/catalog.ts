@@ -67,13 +67,9 @@ export const insertDiscoverSnapshotSchema = createInsertSchema(discoverSnapshots
 export const selectDiscoverSnapshotSchema = createSelectSchema(discoverSnapshots);
 
 /**
- * `items` JSON shape per `RecItem`:
- * `{ tmdbId, mediaType, matchReason, topContributors, score }`. The
- * `topContributors` snapshot was added with the home-feed backend (see
- * `feature-home-page-backend-1.md` PR2) so the orchestrator can derive a
- * typed `MatchReason` chip without re-running the preference engine.
- * Pre-stable: rows written before the field landed read back with
- * `topContributors: []` via `CatalogService.getRecommendations`.
+ * Items shape: `{ tmdbId, mediaType, matchReason, topContributors, score }`.
+ * `topContributors` added with home-feed backend (feature-home-page-backend-1.md
+ * PR2) for typed `MatchReason` chips. Pre-stable rows read back with `[]`.
  */
 export const recommendationLists = sqliteTable(
   "recommendation_lists",

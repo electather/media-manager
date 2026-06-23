@@ -64,12 +64,10 @@ vi.mock("../../db/client", () => {
     return [];
   }
 
-  // NOTE: the `where(...)` predicate is ignored here — every query against a
-  // table returns its entire seeded rowset. These tests are scoped to the
-  // stripping and merge semantics of userConfig, not to the authorization
-  // predicates (`eq(userId, …)` / `eq(id, connectionId)`). Tests that need to
-  // exercise those predicates must seed multiple rows and either pick their
-  // own row, or use a richer mock that honours the predicate identity.
+  // NOTE: `where(...)` is ignored — queries return the entire seeded rowset.
+  // These tests cover stripping/merge semantics only, not authorization predicates
+  // (`eq(userId, …)` / `eq(id, connectionId)`). Tests needing predicate enforcement
+  // must seed targeted rows or use a richer mock that honours predicate identity.
   const dbMock = {
     select() {
       return {
@@ -113,12 +111,10 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              // The UPDATE ... RETURNING chain returns the affected rows; an
-              // empty rowset is how the service detects a zero-row update and
-              // throws connection.not_found. WHERE args are ignored here — the
-              // zero-row guard fires because state.connections is empty, NOT
-              // because userId/connectionId were evaluated. A test that needs
-              // mismatched-id rejection must therefore seed no matching row.
+              // UPDATE...RETURNING returns affected rows; empty rowset triggers
+              // connection.not_found. WHERE is ignored — the guard fires because
+              // state.connections is empty, NOT from userId/connectionId evaluation.
+              // Tests for mismatched-id rejection must seed no matching row.
               return {
                 returning(_fields: unknown) {
                   return Promise.resolve(rows.map((r) => ({ id: r.id })));
@@ -384,12 +380,10 @@ describe("connectionsService — x-private stripping", () => {
   });
 
   it("throws connection.not_found when the row is deleted between requireConnection and the final update", async () => {
-    // TOCTOU guard: requireConnection passes because the row exists when the
-    // update begins, but the row is deleted before the final UPDATE lands. The
-    // RETURNING chain then reports zero affected rows and the caller must get a
-    // 404 instead of a silent 200 no-op. We simulate the mid-flight delete by
-    // clearing state.connections inside runAuth, which fires between
-    // requireConnection and the final UPDATE in the form-auth path.
+    // TOCTOU guard: requireConnection passes but the row is deleted before the
+    // final UPDATE; RETURNING reports zero rows → 404 instead of silent 200 no-op.
+    // Mid-flight delete is simulated by clearing state.connections inside runAuth,
+    // which fires between requireConnection and the final UPDATE on the form-auth path.
     installPlugin();
     seedConnection({ externalUrl: "https://plex.example.com", apiKey: "old" });
     runAuthMock.mockImplementation(() => {

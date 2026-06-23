@@ -24,13 +24,8 @@ export interface RawArtwork {
 
 export type RawCanonicalSource = RawMediaItem & RawArtwork;
 
-/**
- * Projects raw plugin metadata onto `CanonicalMetadata` row. Used by cold-fill
- * and metadata-refresh job so shape/timestamp policy stay in one place.
- * `now` defaults to `Date.now()` for deterministic tests; seeds `created_at`,
- * `last_refreshed_at`, `last_accessed_at`. INSERT-OR-REPLACE via SQL `COALESCE`
- * preserves the original `created_at`.
- */
+/** Projects raw plugin metadata to CanonicalMetadata row (cold-fill and refresh job use shared policy).
+ *  `now` defaults to Date.now() for deterministic tests. INSERT-OR-REPLACE preserves original created_at via COALESCE. */
 export function toCanonicalRow(
   key: MetadataKey,
   raw: RawCanonicalSource,

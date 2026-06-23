@@ -7,17 +7,9 @@ import { HttpError, isExpectedUserError, isNoConnectionError } from "./http-erro
 
 const REQUEST_ID_HEADER = "x-request-id";
 
-/** Hono middleware that opens a request-scoped AsyncLocalStorage frame with a
- *  request ID (reused from `X-Request-Id` header when present). Also attaches the
- *  same header to the outgoing response for the frontend to echo back.
- *
- *  The frame's `route` field is left null on entry — Hono's matched
- *  `routePath` is only available *after* the router resolves the request,
- *  so callers that need a parameterised route (the perf middleware, the
- *  errorHandler) read it directly from `c.req.routePath`. Storing the raw
- *  URL pathname here would persist `/admin/plugins/trakt`-shaped values
- *  into the diagnostics tables and blow row cardinality (one row per
- *  distinct id), violating the design-doc invariant `route ⊥ raw URL`. */
+/** Opens a request-scoped AsyncLocalStorage frame with request ID (reused from `x-request-id` header).
+ *  Sets frame.route=null (Hono's routePath unavailable until after router); callers read `c.req.routePath` directly.
+ *  Avoids persisting raw URLs (`/admin/plugins/trakt`) to preserve cardinality and invariant `route ⊥ raw URL`. */
 export function requestContextMiddleware() {
   return async (c: Context, next: Next): Promise<void> => {
     const raw = c.req.header(REQUEST_ID_HEADER);
@@ -34,16 +26,9 @@ export function requestContextMiddleware() {
   };
 }
 
-/** Hono middleware that times each handled request and writes one perf row per
- *  matched route. Skips unmatched routes (so static / 404 / pre-router throws
- *  never surface), every diagnostics namespace (`/api/diagnostics`,
- *  `/api/admin/diagnostics`, and the equivalents relative to the API router —
- *  see {@link isDiagnosticsRoute}) so polling the admin Performance tab does
- *  not feed itself, and streaming responses (no useful single duration).
- *
- *  Must run inside the request-context frame so `requestId` is available; the
- *  perf row inherits that id and chains to any error captured for the same
- *  request. */
+/** Times each request and writes perf row per matched route.
+ *  Skips unmatched, diagnostics namespaces (isDiagnosticsRoute), and streaming responses.
+ *  Runs inside request-context frame so perf row inherits requestId and chains to error captures. */
 export function httpPerfMiddleware() {
   // Middleware filter chain (route + recursion guard + streaming guard +
   // session lookup) is intrinsic.
@@ -95,13 +80,8 @@ function isStreamingResponse(c: Context): boolean {
   return ct.startsWith("text/event-stream") || ct.startsWith("application/octet-stream");
 }
 
-/** Hono `onError` handler that converts thrown errors into the unified JSON
- *  response shape and captures everything 5xx (or un-typed) into the error
- *  store. Expected 4xx (bad input, auth, not-found) is user-product behaviour
- *  and is never captured.
- *
- *  Hono intercepts handler throws internally and routes them here, so this is
- *  the single backend boundary where all errors land. */
+/** Converts throws to unified JSON shape. Captures 5xx (or untyped); skips expected 4xx.
+ *  Single backend boundary where all errors land (Hono internally intercepts handler throws). */
 // fallow-ignore-next-line complexity
 export const errorHandler: ErrorHandler = (err, c) => {
   const requestId = (c.get("requestId") as string | undefined) ?? newRequestId();
@@ -114,16 +94,9 @@ export const errorHandler: ErrorHandler = (err, c) => {
   const matchedRoute = c.req.routePath;
   const route = matchedRoute && matchedRoute !== "*" && matchedRoute !== "/*" ? matchedRoute : null;
 
-  // A `media.no_connection` error means the user simply has no provider
-  // configured for the requested capability — an expected user state, not a
-  // server fault. Service-layer callers normally swallow it (e.g.
-  // `MediaService.getRequests`), but any that miss it must not escape here as a
-  // captured 500. Return 200 with a structured no-provider body so the client
-  // can render an empty/connect-a-provider state instead of an error toast.
-  // Matched structurally (see `isNoConnectionError`) so this infra layer never
-  // imports the media module that throws it. `devMessage` is intentionally
-  // omitted: this is a 200 success envelope on the public API surface, so no
-  // internal log message is leaked.
+  // media.no_connection = no provider configured for requested capability (expected user state).
+  // Service callers normally swallow it, but missed ones return 200 (not 500) with structured no-provider body.
+  // Matched structurally (isNoConnectionError) so infra never imports media module; no devMessage leaked on public surface.
   if (isNoConnectionError(err)) {
     return c.json(
       {

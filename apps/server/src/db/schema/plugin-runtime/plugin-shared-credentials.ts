@@ -3,10 +3,9 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { plugins } from "./plugins";
 
 /**
- * Admin-owned encrypted credentials for a plugin. For `poolable: true`
- * plugins the host rotates across enabled entries with cooldown
- * bookkeeping. For non-poolable plugins exactly one row is permitted
- * per plugin (enforced at insert time).
+ * Admin-owned encrypted credentials for a plugin. Poolable plugins rotate
+ * across enabled entries with cooldown bookkeeping; non-poolable plugins allow
+ * exactly one row per plugin (enforced at insert time).
  */
 export const pluginSharedCredentials = sqliteTable(
   "plugin_shared_credentials",

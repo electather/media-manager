@@ -11,10 +11,9 @@ import type { CatalogService } from "../catalog";
 import { dispatchAggregatePerKind, PluginCallError } from "../media";
 
 /**
- * Stateless orchestrator for `artwork.get` RPC. Dedupes by canonical `(idsHash, type)` so
- * batch requests for the same title pay one dispatch, then routes through `aggregate_per_kind`.
- * Per-item errors stay on the response; the batch never fails. Per V47, patches each fulfilled
- * dispatch into `CatalogService.patchArtwork` fire-and-forget to warm the canonical row.
+ * Stateless orchestrator for `artwork.get` RPC. Dedupes by canonical `(idsHash, type)`, then dispatches.
+ * Per-item errors stay on the response; batch never fails. Patches fulfillments into `CatalogService.patchArtwork`
+ * fire-and-forget (V47).
  */
 export class ArtworkService {
   constructor(
@@ -123,9 +122,8 @@ interface CanonicalEntry {
 }
 
 /**
- * Dedup window: how long a key stays "recently patched" before write-backs resume.
- * Shared canonical row across N users — without windowing, concurrent viewers each fire
- * an UPDATE, amplifying write/WAL traffic. One patch per window keeps it bounded.
+ * Dedup window: shared canonical row across N users. Without windowing, concurrent viewers
+ * each fire UPDATE, amplifying write/WAL. One patch per window bounds traffic.
  * @internal Exported so tests can assert the real value instead of a hand-copied literal.
  */
 export const WRITE_BACK_DEDUP_MS = 60_000;
@@ -162,10 +160,9 @@ function claimWriteBack(key: string, now: number): number | null {
 }
 
 /**
- * Releases a claimed key (on patch rejection) so retries can proceed. Only releases
- * if `claim` still owns the key; a stale patch that outlives its window cannot evict
- * a newer claim. Assumes `Date.now()` is monotonically non-decreasing; backward clock
- * step could block claims indefinitely until recovery.
+ * Releases a claimed key (on patch rejection) so retries proceed. Only releases if
+ * `claim` still owns the key (stale patches cannot evict newer claims).
+ * Assumes `Date.now()` monotonically non-decreasing; backward clock step blocks indefinitely.
  */
 function releaseWriteBack(key: string, claim: number): void {
   if (recentWriteBacks.get(key) === claim) recentWriteBacks.delete(key);

@@ -83,9 +83,9 @@ export class AuthService {
 
   /**
    * `true` when `roleId` is the system Admin role or holds any `admin:*` permission.
-   * Guards user-management endpoints against assigning admin-capable roles — closes the
-   * slug-only escalation gap where the caller sets the new account's password and logs in.
-   * `systemSlug` is passed in because the system Admin role has no rows in `role_permissions`.
+   * Guards user-management endpoints against assigning admin-capable roles — closes the slug-only
+   * escalation gap (caller sets new account's password then logs in for immediate privilege escalation).
+   * `systemSlug` is passed separately because the system Admin role has no rows in `role_permissions`.
    */
   async roleHasAdminTierPermission(roleId: string, systemSlug: string | null): Promise<boolean> {
     if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;
@@ -161,10 +161,9 @@ export class AuthService {
   // ─── OAuth dynamic-client hygiene ────────────────────────────────────────
 
   /**
-   * Deletes dynamically-registered OAuth clients that were never authorized
-   * and were created before `cutoff` (epoch ms). Backs the scheduled sweep
-   * that bounds growth of the client table from the unauthenticated RFC 7591
-   * registration endpoint. Returns the number of clients removed.
+   * Deletes dynamically-registered OAuth clients that were never authorized and created before
+   * `cutoff` (epoch ms). Bounds growth from the unauthenticated RFC 7591 registration endpoint.
+   * Returns the number of clients removed.
    */
   sweepStaleDynamicClients(cutoff: number): Promise<number> {
     return deleteStaleDynamicClients(cutoff);

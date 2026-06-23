@@ -18,15 +18,9 @@ export async function composeDetailsResponse(
   mediaType: MediaType,
 ): Promise<MediaDetailsResponse> {
   const deadlineOpts = { deadlineMs: ctx.deadlineMs };
-  // A cache MISS fetches live metadata for `tmdbId` and persists it, so an
-  // unbounded `tmdbId` lets any caller force the server to fetch and write a
-  // canonical row for an arbitrary id. Bound it to a numeric tmdb id at function
-  // entry — before any DB read — so invalid input never touches the catalog and
-  // the write-on-read path cannot be driven by opaque input. The adapter route
-  // validates the same shape, but the guard lives here too so the composer is
-  // safe regardless of caller. Static message — `tmdbId` is caller-controlled
-  // URL input and is echoed into the response body as `devMessage`, so echoing
-  // it back would make this a reflected-input vector; keep the message constant.
+  // Cache miss fetches and persists live metadata, so unbounded tmdbId lets any caller force arbitrary writes.
+  // Bound to numeric id at function entry (before DB read) so invalid input never reaches catalog.
+  // Static message prevents reflected-input vector: tmdbId is caller-controlled URL input echoed as devMessage.
   if (!/^\d+$/u.test(tmdbId)) {
     throw new HttpError(400, "home.bad_input", "tmdbId must be a numeric string");
   }

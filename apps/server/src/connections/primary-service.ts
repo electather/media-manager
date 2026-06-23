@@ -26,12 +26,9 @@ function denormalizeMediaType(mediaType: string): MediaType | null {
 }
 
 /**
- * Resolves the connection row owned by `userId` and asserts the connection's
- * plugin advertises `capabilityKey` at user scope. Returns the resolved
- * pluginId for diagnostic context. Throws `notFound("connection.not_found")`
- * when the row is missing / foreign and `unprocessable(
- * "connection.capability_unsupported")` when the manifest doesn't declare the
- * capability.
+ * Asserts `connectionId` is owned by `userId` and its plugin advertises `capabilityKey` at user scope.
+ * Throws `connection.not_found` (404) when the row is missing/foreign and
+ * `connection.capability_unsupported` (422) when the manifest doesn't declare the capability.
  */
 // fallow-ignore-next-line complexity
 async function assertOwnedAndSupportsCapability(args: {

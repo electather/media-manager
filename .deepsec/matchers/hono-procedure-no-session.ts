@@ -2,9 +2,10 @@ import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
 /**
  * Flags Hono procedure files that wire handlers without `requireSession`.
- * Convention: `new Hono().use("*", requireSession).get(...)` (admin variants add
- * `.use("*", requirePermission(PERMISSIONS.X))`). Public OAuth discovery + `config/public`
- * paths are intentionally unauthenticated, excluded by filename and confirmed by AI review.
+ * Required shape: `new Hono().use("*", requireSession).get(...)`;
+ * admin variants also add `.use("*", requirePermission(PERMISSIONS.X))`.
+ * `config/public` and OAuth discovery paths are intentionally excluded by filename
+ * and confirmed by AI review (deliberately unauthenticated, not accidental).
  */
 export const honoProcedureNoSession: MatcherPlugin = {
   slug: "hono-procedure-no-session",

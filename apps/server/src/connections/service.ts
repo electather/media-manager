@@ -95,10 +95,9 @@ function buildPluginSummary(
 }
 
 /**
- * Applies `patch` to the connection row matching both `connectionId` and `userId`.
- * Throws `connection.not_found` when zero rows are affected — the row was either
- * absent or owned by another user. Using `.returning()` makes the check atomic,
- * eliminating the TOCTOU window present in a SELECT-then-UPDATE pattern.
+ * Updates the row matching both `connectionId` and `userId`. Throws `connection.not_found`
+ * on zero rows affected (absent or foreign-owned). `.returning()` makes the check atomic,
+ * eliminating the TOCTOU window of a SELECT-then-UPDATE.
  */
 async function updateConnectionWhere(
   db: Db,
@@ -128,12 +127,9 @@ async function verifyFormAuthConfig(
   configToSave: unknown;
   credentialsPatch: { encryptedCredentials: string; credentialsIv: string };
 }> {
-  // Re-run startAuth so credentials stay synced with userConfig changes
-  // (e.g. apiKey rotation). startAuth validates upstream and returns the
-  // fresh credentials blob to persist alongside. Decrypt prior credentials
-  // and pass them into runAuth so plugins that keep secrets out of
-  // userConfig (e.g. Jellyfin's password lives in the encrypted
-  // credentials blob) can rehydrate them via ctx.credentials on re-auth.
+  // Re-run startAuth to validate upstream and get a fresh credentials blob (e.g. apiKey
+  // rotation). Prior credentials are decrypted and passed so plugins that keep secrets
+  // outside userConfig (e.g. Jellyfin's password in the encrypted blob) can rehydrate via ctx.credentials.
   const priorCredentials = await decryptField(row.credentialsIv, row.encryptedCredentials);
   const result = (await pluginRuntime.runAuth(
     row.pluginId,
@@ -315,13 +311,9 @@ export const connectionsService = {
     if (!pluginRow) throw badRequest("connection.plugin_missing", "plugin not installed");
     const manifest = parseManifest(pluginRow.manifest);
 
-    // Merge prior userConfig under the incoming payload so omitted stripped
-    // fields (`x-secret` or `x-private`, never sent to the client and therefore
-    // absent from the edit form) preserve their stored values. `x-plugin-
-    // resolved` fields are dropped from the *incoming* payload before the
-    // merge so a client cannot overwrite a plugin-owned field; the prior
-    // stored value (resolved by the plugin on the last auth round-trip) is
-    // what ends up in `merged`.
+    // Merge prior config under incoming so `x-secret`/`x-private` fields (never sent to
+    // client) keep their stored values. `x-plugin-resolved` fields are stripped from the
+    // incoming payload — clients must not overwrite plugin-owned fields; the prior stored value wins.
     const prior = (parseUserConfig(row.userConfig, row.id) as Record<string, unknown> | null) ?? {};
     const sanitizedIncoming = (stripRequestFields(manifest.userConfigSchema, args.userConfig) ??
       {}) as Record<string, unknown>;
@@ -372,15 +364,10 @@ export const connectionsService = {
     // requireConnection throws 404 for missing or foreign ids — prevents silent
     // no-ops and stops callers from probing other users' connection ids.
     const row = await requireConnection(db, args.connectionId, args.userId);
-    // Wrap the delete and the fallback-default promotion in one transaction so
-    // the SELECT-next and its promotion UPDATE see a consistent snapshot and the
-    // plugin can never be left with zero default connections. The delete uses
-    // .returning() so a row removed between requireConnection and this
-    // transaction surfaces as connection.not_found instead of letting the stale
-    // pre-check value drive a spurious promotion. The default flag is read back
-    // from the deleted row rather than the requireConnection pre-check, so a
-    // concurrent setDefault that flips isDefault before the DELETE commits still
-    // triggers the fallback promotion.
+    // Transaction keeps delete + fallback-default promotion atomic so the plugin is never left
+    // with zero defaults. `.returning()` on the delete surfaces connection.not_found instead of
+    // a spurious promotion if the row was removed between requireConnection and here. isDefault
+    // is read from the deleted row (not the pre-check) so a concurrent setDefault still triggers promotion.
     await db.transaction(async (tx) => {
       const deleted = await tx
         .delete(serviceConnections)
@@ -393,15 +380,11 @@ export const connectionsService = {
         .returning({ id: serviceConnections.id, isDefault: serviceConnections.isDefault });
       if (deleted.length === 0) throw notFound("connection.not_found", "connection not found");
       if (deleted[0]!.isDefault !== 1) return;
-      // Promote another enabled connection to default if any remain. `next` is
-      // read inside this transaction, so under SQLite's serialized writer model
-      // it cannot be deleted before the promotion UPDATE below — no extra
-      // zero-row guard is needed on the promotion itself. NOTE: this relies on
-      // SQLite's serialized writers. Under READ COMMITTED (the PostgreSQL
-      // default) the SELECT and UPDATE run in separate snapshots and a
-      // concurrent delete could race; if this codebase ever migrates off
-      // SQLite, add a .returning() guard on the promotion UPDATE here (same
-      // pattern as promoteToDefault).
+      // Promote another enabled connection to default if any remain. Safe without a
+      // `.returning()` guard here because SQLite's serialized writers guarantee `next`
+      // cannot be deleted before the UPDATE commits. NOTE: under PostgreSQL READ COMMITTED
+      // the SELECT and UPDATE run in separate snapshots — add a `.returning()` guard on
+      // the promotion UPDATE (same pattern as promoteToDefault) if migrating off SQLite.
       const next = await tx
         .select()
         .from(serviceConnections)
@@ -462,13 +445,10 @@ export const connectionsService = {
   },
 
   /**
-   * Plugins a user can create a connection for. Filters to plugins that expose
-   * at least one user-scoped capability — pure-global plugins (TMDB v2, TVDB
-   * v2) have no user-side surface and are excluded. Notification-only plugins
-   * (whose sole user-scoped capability is `notificationDelivery`) are owned by
-   * Settings → Notifications and are excluded from the Connections catalog;
-   * plugins that mix notificationDelivery with another user-scoped capability
-   * remain available here.
+   * Plugins a user can connect to. Excludes pure-global plugins (e.g. TMDB v2, TVDB v2)
+   * with no user-scoped capability. Notification-only plugins (sole user-scoped cap is
+   * `notificationDelivery`) are owned by Settings → Notifications and excluded here;
+   * plugins mixing `notificationDelivery` with another user-scoped capability remain.
    */
   async listAvailablePlugins(): Promise<PluginSummary[]> {
     const rows = await selectEnabledPlugins();
@@ -477,11 +457,9 @@ export const connectionsService = {
   },
 
   /**
-   * Mirror of `listAvailablePlugins` for the Notifications settings catalog:
-   * returns full plugin summaries for plugins whose user-scoped capabilities
-   * include `notificationDelivery`. Pure-global plugins are excluded
-   * (notifications still require a per-user channel even when delivery is
-   * shared).
+   * Notifications catalog variant of `listAvailablePlugins`: plugins whose user-scoped
+   * capabilities include `notificationDelivery`. Pure-global plugins are excluded —
+   * notifications require a per-user channel even when delivery is admin-shared.
    */
   async listNotificationPlugins(
     notificationCapableIds: ReadonlySet<string>,

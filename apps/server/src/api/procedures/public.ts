@@ -4,13 +4,9 @@ import type { CanonicalMetadata } from "@nama/shared/catalog";
 import { getCatalogService } from "../../catalog";
 import { zValidator } from "../../diagnostics/validator";
 
-/**
- * Intentionally-public, session-less trending endpoint for pre-auth login background.
- * No `requireSession` middleware; isolated sub-app prevents leaking other endpoints.
- * Projection is deliberately minimal (id, title, poster only) with no facets, availability,
- * overview, watch state, or user-derived fields. Serves cached DB snapshot, no per-request
- * catalog or plugin work. Mirrors public-config endpoint intent (see config.ts).
- */
+/** Intentionally-public, session-less endpoint for pre-auth login background.
+ *  No `requireSession` middleware; isolated sub-app prevents leaking other endpoints.
+ *  Minimal projection (id, title, poster only), serves cached DB snapshot, no per-request work. */
 
 const DEFAULT_LIMIT = 48;
 const MIN_LIMIT = 1;
