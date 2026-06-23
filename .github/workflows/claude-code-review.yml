@@ -2,15 +2,23 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    types: [opened, synchronize, ready_for_review, reopened, closed]
 
 env:
   # Opt every JS action into Node.js 24 ahead of the June 2026 forced cutover.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
+# Only review the PR head: a new commit (synchronize) or a close event starts a
+# fresh run in this per-PR group and cancels the in-progress review. The `closed`
+# event run is skipped by the job `if`, but still triggers the cancellation.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     if: >-
+      github.event.action != 'closed' &&
       (!startsWith(github.head_ref, 'changeset-release/') ||
       github.event.pull_request.user.login != 'github-actions[bot]') &&
       github.event.pull_request.draft != true &&
