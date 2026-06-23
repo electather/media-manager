@@ -6,10 +6,8 @@ import { decryptJson, encryptJson } from "../../crypto/helpers";
 import { PluginError } from "@nama/plugin-sdk";
 
 /**
- * Admin policy resolved for one plugin. Passed into every `buildContext` call
- * site so `ctx.fetch` can enforce the allowlist narrowing and inject admin
- * headers uniformly across capability dispatch, auth flows, jobs, and test
- * probes.
+ * Admin policy for one plugin. Passed to every `buildContext` call site so
+ * `ctx.fetch` enforces allowlist narrowing and admin header injection uniformly.
  */
 export interface PluginAdminPolicy {
   /**
@@ -132,11 +130,9 @@ export async function setAdminAllowlist(
 }
 
 /**
- * Merges a partial headers patch into the stored map, applying the
- * `x-secret`-style semantics: omitted keys preserve, `null` deletes, strings
- * replace. Reserved header names are rejected — the shared schema already
- * validates these, but we double-check so the runtime layer can't be bypassed
- * by a direct service call.
+ * Merges a partial patch: omitted keys preserve, `null` deletes, strings replace.
+ * Reserved header names are rejected even though the shared schema validates them —
+ * double-check prevents bypass via a direct service call.
  */
 // fallow-ignore-next-line complexity
 export async function updateAdminHeaders(

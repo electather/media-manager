@@ -3,24 +3,14 @@ import { PluginError } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
 
 /**
- * Marker for the `x-allowed-host` JSON Schema extension. Plugins set this on
- * URL-valued `userConfigSchema` or `sharedCredentialsSchema` properties — the
- * resolved hostname is unioned into the per-invocation `ctx.fetch` allowlist
- * alongside the plugin's static `manifest.allowedHosts`.
- *
- * ⚠ Trust boundary: this is explicitly user-controlled. Any field marked
- * `x-allowed-host` allows the authenticated user to make `ctx.fetch` reach
- * the hostname they supplied — internal networks, RFC1918 ranges, anything
- * the upstream DNS resolves. Plugin authors must only apply the flag to
- * fields that represent the plugin's *own intended upstream* (the user's
- * Plex/Jellyfin server, a self-hosted mirror, etc.), never to generic proxy
- * targets or free-form URL inputs. `isBlockedHostname` below catches cloud
- * instance-metadata endpoints, loopback, link-local, and the IPv4-mapped IPv6
- * form of both (in either the dotted or URL-normalised hex spelling) at
- * resolution time (see the "SSRF mitigation" section of the
- * design doc); DNS-rebinding mitigation still has to happen at fetch time
- * and is tracked separately. The host boundary and intent check live with
- * the plugin author.
+ * JSON Schema extension for dynamic `ctx.fetch` allowlisting. Resolved hostname is unioned with
+ * `manifest.allowedHosts` per invocation. ⚠ User-controlled: any marked field lets the
+ * authenticated user direct `ctx.fetch` to the hostname they supply — internal networks,
+ * RFC1918 ranges, anything DNS resolves. Only apply to the plugin's own intended upstream
+ * (Plex/Jellyfin URL, self-hosted mirror), never free-form
+ * proxy targets — RFC1918 ranges are permitted (LAN deployments), but `isBlockedHostname` blocks
+ * loopback, link-local, IMDS, and IPv4-mapped IPv6 forms. DNS-rebinding mitigation is deferred
+ * to fetch time (tracked separately); plugin author owns the intent boundary.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -32,12 +22,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return isObject(value) ? value : null;
 }
 
-// Hostnames that must never enter the dynamic allowlist even when a plugin's
-// `x-allowed-host` field resolves to them. See the "SSRF mitigation" section
-// of `docs/2026-04-19-plugin-architecture-design.md` for the authoritative
-// list and rationale. RFC1918 / ULA / `fc00::/7` ranges are deliberately
-// NOT blocked — docker-compose and LAN deployments legitimately need them
-// (a user's `internalServerUrl: http://plex:32400` is the whole point).
+// Hostnames blocked from the dynamic allowlist regardless of `x-allowed-host` resolution. See
+// "SSRF mitigation" in `docs/2026-04-19-plugin-architecture-design.md`. RFC1918/ULA/`fc00::/7`
+// are intentionally NOT blocked — LAN deployments need them (e.g. `http://plex:32400`).
 const BLOCKED_EXACT_HOSTNAMES = new Set([
   "localhost",
   "metadata.google.internal",
@@ -79,16 +66,9 @@ function isIpv6LinkLocal(hostname: string): boolean {
   return /^fe[89ab][0-9a-f]?:/.test(hostname);
 }
 
-// Extracts the embedded IPv4 address from an IPv4-mapped IPv6 host, in dotted
-// or hex form, as the four octets `a.b.c.d`. Returns null when the host is not
-// an IPv4-mapped IPv6 address.
-//
-// WHATWG URL parsing (Node + Bun) never preserves the dotted
-// `::ffff:127.0.0.1` form a plugin author might type — it canonicalises to the
-// compressed hex `::ffff:7f00:1`. A regex that only matched the dotted form let
-// `http://[::ffff:127.0.0.1]/` (and link-local IMDS via `::ffff:169.254.169.254`)
-// slip through `isBlockedHostname` once `URL.hostname` normalised it. Decode the
-// embedded IPv4 from either spelling so the IPv4 blocklist below applies to both.
+// Extracts the embedded IPv4 octets (`a.b.c.d`) from an IPv4-mapped IPv6 host. Returns null if
+// not mapped. WHATWG URL (Node + Bun) canonicalises `::ffff:127.0.0.1` → `::ffff:7f00:1`; a
+// dotted-only regex let `::ffff:169.254.169.254` slip past `isBlockedHostname`. Decodes both.
 function ipv4MappedIpv6Embedded(hostname: string): string | null {
   // Expects a bracket-free hostname — every call site runs `normalizeHostname`
   // first, which strips the `[...]` IPv6 wrapping. A bracketed `[::ffff:...]`
@@ -107,10 +87,8 @@ function ipv4MappedIpv6Embedded(hostname: string): string | null {
 }
 
 /**
- * Rejects hostnames that should never be reached from a plugin even when a
- * user-controlled `x-allowed-host` field resolves to them. Matches the string
- * only — DNS-rebinding mitigation (resolving the name and checking the actual
- * address) happens at fetch time and is out of scope for this module.
+ * Rejects blocked hostnames from `x-allowed-host` resolution. String-only check —
+ * DNS-rebinding mitigation (resolve + re-check the actual address) is out of scope here; happens at fetch time.
  */
 // fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
@@ -134,13 +112,9 @@ export function isBlockedHostname(hostname: string): boolean {
 }
 
 /**
- * Extracts the hostname from an `x-allowed-host` value. Treats strings as URLs
- * (must include a protocol). Bare hostnames are rejected — we want the plugin
- * author to be explicit about the upstream they are reaching.
- *
- * Throws a typed `PluginError` with `plugin.input_invalid` so the runtime
- * surfaces the misconfiguration early (the plugin call fails fast instead of
- * silently losing the allowlist entry).
+ * Extracts the hostname from an `x-allowed-host` field value (must be a full URL — bare hostnames
+ * rejected so authors are explicit about their upstream). Throws `PluginError("plugin.invalid_base_url")`
+ * to fail fast and surface misconfiguration rather than silently dropping the allowlist entry.
  */
 // fallow-ignore-next-line complexity
 function hostnameFromValue(pluginId: string, path: string, value: unknown): string {
@@ -148,19 +122,10 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   // schema (unusual but valid JSON Schema); render it readably in errors so
   // the message does not end up with bare `''`.
   const displayPath = path || "(root)";
-  // Each throw below attaches `params.field` per the error design doc's wire
-  // convention so the frontend can attribute the error to the specific form
-  // input without string-parsing the devMessage.
-  //
-  // The raw user-submitted `value` is *not* echoed into params: a URL of the
-  // shape `http://user:password@host/` would round-trip the password through
-  // the error body to the browser and into any sink that stores params.
-  // `devMessage` still contains the URL for the admin viewer, which lives
-  // behind authentication and passes through the scrubber.
-  //
-  // Omit `field` when the marker sits on the root schema — an empty string
-  // would be a misleading hint for any downstream form that tried to route on
-  // it.
+  // `params.field` lets the frontend attribute the error without string-parsing devMessage.
+  // Raw `value` is NOT echoed into params: `http://user:password@host/` would leak the password
+  // through the error body; devMessage is safe (admin-only, scrubbed). `field` omitted on root
+  // schema (empty path) — an empty string would mislead downstream form routing.
   const fieldParams = (extra?: Record<string, string>): Record<string, string> => ({
     ...(path ? { field: path } : {}),
     ...extra,
@@ -261,14 +226,9 @@ function walk(
 }
 
 /**
- * Given a JSON Schema and a matching config value, returns the set of
- * hostnames that should be unioned into the per-call `ctx.fetch` allowlist.
- * Returns an empty set if the schema is absent, the config is absent, or no
- * `x-allowed-host` fields were declared.
- *
- * Throws `PluginError("plugin.input_invalid")` if an `x-allowed-host` field
- * contains a malformed URL — callers should let this bubble so the user sees
- * a clear error on the offending plugin configuration.
+ * Returns hostnames to union into the per-call `ctx.fetch` allowlist by walking `schema`+`value`
+ * for `x-allowed-host` fields. Returns an empty set if either is absent or no fields are marked.
+ * Throws `PluginError("plugin.invalid_base_url")` on malformed URLs — let it bubble for clear UX.
  */
 export function resolveAllowedHostsFromSchema(
   pluginId: string,

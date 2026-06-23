@@ -75,12 +75,9 @@ interface PickedCredential {
 }
 
 /**
- * Parses a stored `globalConfig` JSON column defensively. A corrupt value
- * (manual DB edit, partial write, future migration bug) must degrade into a
- * typed `PluginError` that funnels through the existing plugin-error boundary
- * instead of escaping as a raw `SyntaxError` and surfacing as a generic 500.
- * Mirrors the guarded `attempt(() => JSON.parse(...))` pattern already used in
- * `user-pool.ts` and `admin-policy.ts`.
+ * Parses a stored `globalConfig` JSON column defensively. A corrupt value must
+ * degrade into a typed `PluginError` via the plugin-error boundary instead of
+ * escaping as a raw `SyntaxError` and surfacing as a generic 500.
  */
 function parseGlobalConfig(pluginId: string, raw: string | null): unknown {
   // Only an absent column (`null`/`undefined`) is "no config". An empty string
@@ -188,13 +185,9 @@ export class PluginRuntime {
   }
 
   /**
-   * Scope-aware entry point. The runtime owns credential resolution: it picks
-   * an entry from the relevant pool, injects it into a fresh `PluginContext`,
-   * and rotates on `ctx.pool.markExhausted` until the method succeeds or every
-   * pool is exhausted.
-   *
-   * Callers that already hold decrypted credentials (e.g. connection-targeted
-   * dispatch) should use `invokeWithCredentials` instead.
+   * Scope-aware entry point with credential rotation. Picks from the relevant
+   * pool, retries on `ctx.pool.markExhausted` until success or pool exhaustion.
+   * Callers with decrypted credentials already in hand should use `invokeWithCredentials`.
    */
   // fallow-ignore-next-line complexity
   async invoke<T = unknown>(args: InvokeArgs): Promise<T> {
@@ -295,14 +288,9 @@ export class PluginRuntime {
   }
 
   /**
-   * Invocation with externally-provided credentials. Used by the dispatcher's
-   * connection-targeted path (writes against a specific connection) and by
-   * auth/refresh flows where credentials are in flight.
-   *
-   * This path intentionally does not rotate and installs the inert pool API —
-   * the caller has chosen a specific credential, so `ctx.pool.markExhausted`
-   * is a no-op here. Plugins still participate in pool bookkeeping through
-   * `invoke()`, which is the rotation-aware entry point.
+   * Invocation with externally-provided credentials (connection-targeted dispatch,
+   * auth/refresh flows). Does not rotate — `ctx.pool.markExhausted` is a no-op.
+   * Rotation-aware path is `invoke()`.
    */
   async invokeWithCredentials<T = unknown>(args: InvokeWithCredentialsArgs): Promise<T> {
     const { methodSpec, module, fn, globalConfig } = await this.loadInvocationSetup(
@@ -317,13 +305,9 @@ export class PluginRuntime {
       throw new PluginError("plugin.input_invalid", inputParsed.error.message);
     }
 
-    // Connection-targeted dispatch: credentials are user-scoped, so resolve
-    // `x-allowed-host` hosts from the `userConfigSchema`. Also union in any
-    // hosts declared on the admin-set `globalConfigSchema` (e.g. Seerr's
-    // single-instance baseUrl) and on `sharedCredentialsSchema` (whose value
-    // is the admin credential threaded in via `peekAdminCredential` below),
-    // since those still need to reach ctx.fetch and the other two
-    // context-building paths walk all three schemas.
+    // Union hosts from all three schemas: userConfigSchema (user credentials),
+    // sharedCredentialsSchema (admin credential via peekAdminCredential), and
+    // globalConfigSchema (e.g. Seerr's admin-set baseUrl) — mirrors buildAuxContext.
     const sharedCredentials = await this.peekAdminCredential(args.pluginId);
     const dynamicAllowedHosts = unionHostSets(
       resolveAllowedHostsFromSchema(
@@ -408,16 +392,10 @@ export class PluginRuntime {
         `plugin ${pluginId} does not export ${fnName}`,
       );
     }
-    // Prior credentials are passed through when the caller is re-running
-    // startAuth on an existing connection (form re-auth). Plugins that keep
-    // user-entered secrets out of userConfig by storing them in the encrypted
-    // credentials blob (e.g. Jellyfin's password) need ctx.credentials to
-    // rehydrate those secrets without the user re-entering them.
-    //
-    // For startAuth specifically, `input` is the submitted userConfig. Pass
-    // it through so `buildAuxContext` can resolve `x-allowed-host` fields
-    // against it and ctx.fetch can reach the user-supplied upstream (e.g.
-    // Jellyfin's externalServerUrl) during the initial auth round-trip.
+    // Prior credentials allow re-auth to rehydrate encrypted secrets the plugin keeps
+    // out of userConfig (e.g. Jellyfin's password) so the user need not re-enter them.
+    // For startAuth, `input` is the submitted userConfig — pass it so `buildAuxContext`
+    // can resolve `x-allowed-host` fields (e.g. Jellyfin's externalServerUrl).
     const authUserConfig = fnName === "startAuth" ? input : undefined;
     try {
       // `buildAuxContext` itself throws a PluginError when `x-allowed-host`
@@ -451,14 +429,10 @@ export class PluginRuntime {
         userId,
         context: { fnName },
       });
-      // Preserve both the original code and any `params` carried by a
-      // PluginError so downstream callers (including the frontend) can
-      // distinguish e.g. `plugin.bad_credentials` from `plugin.input_invalid`
-      // without grubbing through params.field. Non-PluginError throws surface
-      // as the generic `plugin.upstream_error` with no params. The cast is
-      // safe because `PluginError` is constructed with a `HostErrorCode` —
-      // `PluginErrorShape.code: string` is intentionally looser only so the
-      // duck-type guard works for plugins loaded from a separate bundle.
+      // Preserve the original code and `params` from a PluginError so callers
+      // distinguish e.g. `plugin.bad_credentials` from `plugin.input_invalid`.
+      // The cast is safe: PluginError uses HostErrorCode; PluginErrorShape.code
+      // is looser only so the duck-type guard works across bundle boundaries.
       const pluginErr = isPluginError(err) ? err : null;
       return {
         status: "error",
@@ -470,18 +444,12 @@ export class PluginRuntime {
   }
 
   /**
-   * Runs the probe associated with a user's connection. Used by the "test"
-   * button and the health cron.
-   *
-   * Resolution order:
-   * 1. Module-level `testConnection`, if exported. Standard path for plugins
-   *    with `auth.kind !== "none"` (Seerr, Jellyfin, etc.).
-   * 2. `notificationDelivery.testDelivery`, if the plugin implements that
-   *    capability. Notification channels declare `auth.kind: "none"` and have
-   *    no module-level probe — the capability owns reachability. Without
-   *    this fallback, the test endpoint would report a false-positive
-   *    "plugin has no testConnection" for Telegram, Discord, ntfy, inbox.
-   * 3. Otherwise, ok with a "no probe available" note.
+   * Probe for the "test" button and health cron. Resolution order:
+   * 1. `testConnection` — standard path for plugins with `auth.kind !== "none"`.
+   * 2. `notificationDelivery.testDelivery` — notification channels use `auth.kind: "none"`
+   *    and own reachability; without this fallback Telegram/Discord/ntfy/inbox would
+   *    falsely report "plugin has no testConnection".
+   * 3. `{ ok: true, message: "plugin has no testConnection" }`.
    */
   // fallow-ignore-next-line complexity
   async testConnection(
@@ -555,12 +523,8 @@ export class PluginRuntime {
     pluginId: string,
     sharedValue: unknown,
   ): Promise<{ ok: boolean; message?: string }> {
-    // `buildAuxContext` resolves `x-allowed-host` fields on the shared
-    // credential and throws `PluginError("plugin.invalid_base_url")` for
-    // malformed URLs. Wrap it inside the try so that escapes as a friendly
-    // `{ ok: false, message }` instead of bubbling to Hono as a 500 — same
-    // pattern as `testConnection`. The `/shared-credentials/:credId/test`
-    // route has no outer try/catch, so this is the only safety net.
+    // Wrap buildAuxContext inside the try: it throws PluginError("plugin.invalid_base_url")
+    // for malformed x-allowed-host URLs and the route has no outer try/catch.
     try {
       const ctx = await this.buildAuxContext(pluginId, null, null, null, sharedValue);
       const probe = module.verifyShared ?? module.testConnection;
@@ -575,10 +539,8 @@ export class PluginRuntime {
   }
 
   /**
-   * Invokes a plugin-declared MCP tool. Looks up the handler on
-   * `module.mcpTools`, builds a PluginContext with the caller's credentials,
-   * and surfaces errors via `PluginError`. Input/output schema validation is
-   * the MCP dispatcher's responsibility; this method only runs the handler.
+   * Invokes a handler from `module.mcpTools`. Input/output schema validation
+   * is the MCP dispatcher's responsibility; this method only runs the handler.
    */
   async invokeMcpTool<T = unknown>(args: {
     pluginId: string;
@@ -723,13 +685,9 @@ export class PluginRuntime {
       sharedCredentialsOverride !== undefined
         ? sharedCredentialsOverride
         : await this.peekAdminCredential(pluginId);
-    // Aux contexts (auth, job handlers, testConnection, refresh) don't know
-    // ahead of time whether the user config or shared credentials are in
-    // play, so union hosts from all three schemas against whichever values
-    // are present. Missing values simply contribute nothing. `globalConfig`
-    // is included so plugins that put their upstream URL on
-    // `globalConfigSchema` (e.g. Seerr's admin-set baseUrl) still get the
-    // host added to ctx.fetch's allowlist.
+    // Union all three schemas: auth/job/test paths don't know which values are in play;
+    // missing values contribute nothing. globalConfigSchema included so plugins like
+    // Seerr (admin-set baseUrl) still have their host in ctx.fetch's allowlist.
     const dynamicAllowedHosts = unionHostSets(
       resolveAllowedHostsFromSchema(pluginId, module.manifest.userConfigSchema, userConfig),
       resolveAllowedHostsFromSchema(
@@ -818,10 +776,9 @@ export class PluginRuntime {
   }
 
   /**
-   * Builds a PluginContext for one credential pick in the rotation loop.
-   * Resolves the co-admin pick for user-scoped calls (e.g. Trakt needs the
-   * admin OAuth client id alongside the user's access token) and derives
-   * per-invocation `x-allowed-host` hostnames from the relevant schema.
+   * Builds a PluginContext for one credential pick in the rotation loop. Resolves
+   * the co-admin pick for user-scoped calls (e.g. Trakt's admin OAuth client id
+   * alongside the user access token) and derives `x-allowed-host` hostnames.
    */
   // fallow-ignore-next-line complexity
   private buildPickContext(
@@ -847,22 +804,17 @@ export class PluginRuntime {
       adminPolicy,
       pool,
     } = opts;
-    // For user picks, inject an admin credential as sharedCredentials (e.g. Trakt's
-    // OAuth client id). Prefer a non-exhausted admin pick so we don't hand a
-    // rate-limited access token to a subsequent user call, but fall back to any
-    // admin pick when all are exhausted: the admin credential used as an OAuth
-    // client id is not rate-limited itself — only the user's access token was.
+    // For user picks, inject an admin credential as sharedCredentials (e.g. Trakt's OAuth client id).
+    // Prefer a non-exhausted admin pick; fall back to any admin pick when all are exhausted because
+    // the admin credential (OAuth client id) is not rate-limited — only the user access token was.
     const adminPick =
       pick.side === "admin"
         ? pick
         : (plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId)) ??
           plan.find((p) => p.side === "admin"));
-    // Resolve per-invocation `x-allowed-host` hostnames from whichever config
-    // matches the current pick: user-scoped picks read `userConfigSchema` against
-    // the stored `userConfig`; admin-scoped picks read `sharedCredentialsSchema`.
-    // Also union in hosts declared on the admin-set `globalConfigSchema`
-    // (e.g. Seerr's single-instance baseUrl) so they reach ctx.fetch
-    // regardless of the pick side.
+    // Resolve x-allowed-host hosts for the current pick: user picks → userConfigSchema,
+    // admin picks → sharedCredentialsSchema; always union globalConfigSchema (e.g.
+    // Seerr's admin-set baseUrl) so it reaches ctx.fetch regardless of pick side.
     const dynamicAllowedHosts = unionHostSets(
       pick.side === "user"
         ? resolveAllowedHostsFromSchema(

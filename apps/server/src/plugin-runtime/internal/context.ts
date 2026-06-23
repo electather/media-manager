@@ -78,14 +78,9 @@ export function buildContext(args: BuildContextArgs): PluginContext {
 }
 
 /**
- * Produces the default `ctx.notify` that funnels plugin-emitted events through
- * the typed event bus. Wraps the partial event the plugin returns into a fully
- * formed `NotificationEvent` (host-generated id + occurredAt) and emits
- * `plugin-runtime.notify.requested`; the notifications module subscribes and
- * routes through its delivery pipeline.
- *
- * Failures are logged via `consola` and never propagate — a misbehaving
- * notification path must not break the plugin's primary operation.
+ * Default `ctx.notify`: wraps the plugin's partial event into a full `NotificationEvent`
+ * (host-generated `id` + `occurredAt`) and emits `plugin-runtime.notify.requested`.
+ * Failures are swallowed — a broken notification path must not break the plugin's primary return.
  */
 function buildHostNotify(
   pluginId: string,

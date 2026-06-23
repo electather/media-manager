@@ -38,10 +38,8 @@ export interface LoadedPlugin extends ValidatedPlugin {
 }
 
 /**
- * Server-side load: SDK schema + capability validation, plus a content
- * checksum for the `plugins` row. Throws `PluginError` on validation failure
- * via the SDK; checksum is computed only after validation succeeds so a
- * bad manifest never produces a row.
+ * SDK schema + capability validation plus a checksum for the `plugins` row.
+ * Checksum is computed only after validation succeeds so a bad manifest never produces a row.
  */
 export async function loadPlugin(module: PluginModule, bytes: string): Promise<LoadedPlugin> {
   const validated = sdkValidatePluginModule(module);

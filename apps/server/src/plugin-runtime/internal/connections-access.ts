@@ -5,10 +5,8 @@ import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { encryptJson } from "../../crypto/helpers";
 
 /**
- * Public shape of a `service_connections` row returned to other modules. Mirrors
- * the columns notifications/media need; leaves the encrypted credentials
- * material in place so callers that already pass through `decryptJson` keep
- * working.
+ * Public shape of a `service_connections` row. Includes encrypted credential columns so callers
+ * that pipe through `decryptJson` keep working without a separate query.
  */
 export interface ConnectionRow {
   id: string;
@@ -20,14 +18,9 @@ export interface ConnectionRow {
 }
 
 /**
- * Returns a single connection by id, or `null` if not found.
- *
- * The unscoped form (omitting `userId`) returns any user's row including
- * encrypted-credential handles and is intended for trusted server-side callers
- * that have already resolved the id internally (e.g. notification delivery
- * jobs). Any path where the id can originate from request input MUST pass the
- * authenticated `userId` so the lookup is scoped to the caller's own rows and
- * cannot leak cross-user connections (IDOR).
+ * Returns a connection by id, or `null`. Omitting `userId` is for trusted server-side callers
+ * (e.g. notification delivery jobs) that resolved the id internally. Any path where the id can
+ * originate from request input MUST pass `userId` — omitting it enables cross-user IDOR.
  */
 export async function getConnectionById(
   id: string,
@@ -75,10 +68,9 @@ export async function listEnabledConnectionsForUsers(
 }
 
 /**
- * Ensures the user has a host-managed `inbox` connection and returns its id.
- * Idempotent under concurrent triggers — the read+insert run in a transaction
- * and the select is ordered by createdAt+id so callers always get the same
- * canonical row when multiple exist from prior data states.
+ * Ensures the user has a host-managed `inbox` connection and returns its id. Idempotent: runs
+ * read+insert in a transaction; selects order by `createdAt, id` so concurrent triggers converge
+ * on the same canonical row.
  */
 export async function ensureInboxConnection(userId: string): Promise<string> {
   const db = getDb();

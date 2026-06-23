@@ -1,16 +1,16 @@
 export const meta = {
   name: 'comment-cleanup',
-  description: 'Summarize the 100 longest comments to <=3 lines of non-obvious info, then open one PR',
+  description: 'Summarize the 200 longest comments to <=3 lines of non-obvious info, then open one PR',
   phases: [
-    { title: 'Scan', detail: 'Find the 100 longest comments via tools/find-long-comments.ts' },
-    { title: 'Summarize', detail: '10 haiku agents rewrite comments in place (disjoint files, no conflicts)' },
+    { title: 'Scan', detail: 'Find the 200 longest comments via tools/find-long-comments.ts' },
+    { title: 'Summarize', detail: '20 haiku agents rewrite comments in place (disjoint files, no conflicts)' },
     { title: 'PR', detail: 'Format, changeset, commit, open PR' },
   ],
 }
 
 // args: { limit?: number, agents?: number }
-const LIMIT = (args && args.limit) || 100
-const NUM_AGENTS = (args && args.agents) || 10
+const LIMIT = (args && args.limit) || 200
+const NUM_AGENTS = (args && args.agents) || 20
 
 const COMMENTS_SCHEMA = {
   type: 'object',
@@ -54,19 +54,27 @@ const PR_SCHEMA = {
 }
 
 // --- Phase 1: Scan -------------------------------------------------------
+// `bun tools/find-long-comments.ts --limit N` is a deterministic transform, so
+// the orchestrator runs it and injects the rows via args.comments — no model in
+// the loop (Rule 5). Workflow scripts have no shell access, so the agent below
+// is only the fallback when comments weren't pre-supplied.
 phase('Scan')
-const scan = await agent(
-  `Run this exact command from the repo root and return its output parsed as structured data:
+let comments = (args && args.comments) || []
+if (comments.length > 0) {
+  log(`Using ${comments.length} comments injected by the orchestrator (no scan agent).`)
+} else {
+  const scan = await agent(
+    `Run this exact command from the repo root and return its output parsed as structured data:
 
     bun tools/find-long-comments.ts --limit ${LIMIT}
 
 The command prints a JSON array of objects: { "start_line", "end_line", "file_address" }.
 Return EVERY object exactly as printed — do not invent, drop, reorder, or alter any value.
 Run nothing else and edit nothing.`,
-  { schema: COMMENTS_SCHEMA, phase: 'Scan', model: 'claude-sonnet-4-6' }
-)
-
-const comments = (scan && scan.comments) || []
+    { schema: COMMENTS_SCHEMA, phase: 'Scan', model: 'claude-haiku-4-5-20251001', effort: 'low' }
+  )
+  comments = (scan && scan.comments) || []
+}
 if (comments.length === 0) {
   log('No long comments found — nothing to clean up.')
   return { done: true, rewritten: 0, pr_url: null }
