@@ -16,24 +16,18 @@ import { insertCredentialUserTx } from "./create-user";
 // Single-row sentinel id for the `app_bootstrap` table.
 const BOOTSTRAP_ROW_ID = "bootstrap";
 
-// The plaintext token is held in memory for the life of the process so repeated
-// `ensureBootstrapToken()` calls within one boot re-print the same value without
-// issuing a new one. It is never persisted to the DB. After a real process
-// restart this is empty, so a fresh token is generated and the stored hash is
-// overwritten — only the most recently printed token verifies.
-//
-// This is per-process state. In a clustered/multi-process deployment each worker
-// holds its own `issuedToken` and could print a different one on the same boot;
-// only the last hash written to the DB verifies. First-install is a one-time,
-// single-tenant event so that is acceptable today — revisit if clustering lands.
+// In-memory plaintext token for the process lifetime — lets repeated
+// `ensureBootstrapToken()` calls re-print the same value without re-issuing.
+// Never persisted. On restart a new token is generated and the stored hash is
+// overwritten, so only the most recently printed token verifies.
+// Clustering caveat: each worker holds its own copy; only the last hash written wins.
+// Acceptable for a one-time first-install event — revisit if clustering lands.
 let issuedToken: string | null = null;
 
-// Once any user exists, `needsBootstrap` is permanently false: the flag only
-// ever transitions true→false (when the first user is created) and never back.
-// `GET /api/config/public` calls `needsBootstrap` on every request, so once we
-// observe a user we cache that result and short-circuit the per-request
+// One-way latch (true→false only). `GET /api/config/public` calls `needsBootstrap`
+// on every request; once a user is observed we skip the per-request
 // `SELECT id FROM user LIMIT 1`. While no user exists we keep querying so the
-// flag flips to false the instant the first user is created within this process.
+// flag flips the instant the first user is created within this process.
 let userExistsLatch = false;
 
 /** Returns the SHA-256 hex digest of `token`. */
@@ -42,11 +36,9 @@ function sha256Hex(token: string): string {
 }
 
 /**
- * Constant-time check that `suppliedHash` matches the stored token hash and that
- * the row exists and is still unconsumed. Requiring `consumedAt === null` is
- * defense-in-depth: the zero-users assertion already blocks re-claims, but if a
- * user row were ever deleted, a spent token from the boot log must not be
- * replayable.
+ * Constant-time check that `suppliedHash` matches the stored token and the row is
+ * unconsumed. `consumedAt === null` guard is defense-in-depth: if a user row were
+ * ever deleted, a spent token from the boot log must not be replayable.
  */
 function tokenMatchesUnconsumed(
   tokenRow: { tokenHash: string; consumedAt: number | null } | undefined,
@@ -62,10 +54,8 @@ function tokenMatchesUnconsumed(
 }
 
 /**
- * Test helper: drop the in-memory token so the next ensure call re-issues. Also
- * clears the user-exists latch, since both are per-process bootstrap state that
- * leaks between tests in the same file; resetting them together keeps every
- * `ensureBootstrapToken` test starting from a clean fresh-install state.
+ * Test helper: resets both `issuedToken` and `userExistsLatch` — they are coupled
+ * per-process bootstrap state that leaks between tests in the same file.
  */
 export function resetBootstrapTokenForTest(): void {
   issuedToken = null;
@@ -105,12 +95,9 @@ export async function needsBootstrap(): Promise<boolean> {
 }
 
 /**
- * While the instance is still in bootstrap state, ensures a setup token exists
- * and prints its plaintext to the console in an unmistakable boxed banner. The
- * banner is re-printed on every boot so the operator can always recover the
- * token (e.g. via `docker logs`). A new token is issued only when none is held
- * in memory and no non-consumed row exists; otherwise the existing token is
- * re-printed and nothing new is written. Does nothing once a user exists.
+ * Ensures a setup token exists and prints its plaintext to the console (recoverable
+ * via `docker logs`). Issues a new token only when none is in memory and no
+ * unconsumed row exists; otherwise re-prints the existing one. No-ops once a user exists.
  */
 // The CRAP score is coverage-estimated in CI (no --coverage); the token lifecycle
 // here is fully exercised by auth/__tests__/bootstrap.test.ts.
@@ -159,12 +146,9 @@ export async function ensureBootstrapToken(): Promise<void> {
 }
 
 /**
- * Atomically creates the first admin from a valid setup token. The in-transaction
- * zero-users assertion is the core safety property: even under concurrent
- * requests, exactly one first admin can be created, and the token is required to
- * obtain the admin role. The whole claim — assert, verify, create, consume — runs
- * in one transaction via the shared `insertCredentialUserTx` helper, so the
- * credential account shape stays defined in one place.
+ * Atomically creates the first admin from a valid setup token. Assert, verify,
+ * create, and consume all run in one transaction via `insertCredentialUserTx` —
+ * the zero-users assertion ensures concurrent races produce exactly one admin.
  */
 export async function claimBootstrap(input: {
   token: string;
@@ -177,13 +161,9 @@ export async function claimBootstrap(input: {
   const tokenHash = sha256Hex(token);
 
   return db.transaction(async (tx) => {
-    // 1. Assert the user table is empty. If any user exists the server is
-    //    already set up — reject so setup cannot be re-run or hijacked.
-    //    Concurrency: SQLite is single-writer with snapshot isolation, so if two
-    //    claims race past this read, the first to insert takes the write lock and
-    //    the second aborts with SQLITE_BUSY_SNAPSHOT when it tries to upgrade —
-    //    exactly one admin is created. The `user.email` UNIQUE constraint is a
-    //    further backstop against same-email duplicates.
+    // 1. Reject if any user exists — setup must not be re-run or hijacked.
+    //    SQLite snapshot isolation: a concurrent claim that races past here aborts
+    //    with SQLITE_BUSY_SNAPSHOT on the write upgrade; `user.email` UNIQUE is a backstop.
     const existingUser = await tx.select({ id: user.id }).from(user).limit(1).get();
     if (existingUser) {
       throw new AuthError("This server is already set up", "bootstrap.already_completed");

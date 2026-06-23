@@ -1,8 +1,7 @@
 /**
- * Public barrel for `auth/`. Boundaries test asserts re-exports come only
- * from `./service`, `./events`, `./errors`, `./types`, and `./jobs`.
- * `./repo/**` and `./internal/**` are deliberately not re-exported —
- * external callers go through the service.
+ * Public barrel for `auth/`. Only re-exports from `./service`, `./events`,
+ * `./errors`, `./types`, and `./jobs` — `./repo/**` and `./internal/**` are
+ * intentionally excluded; external callers go through the service.
  */
 // A long re-export list inherently matches the sibling module barrels; this is
 // the documented barrel shape, not extractable duplication.

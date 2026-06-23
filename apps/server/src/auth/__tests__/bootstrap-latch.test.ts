@@ -39,12 +39,9 @@ beforeEach(async () => {
 afterAll(() => cleanupInMemoryDbs());
 
 describe("needsBootstrap latch", () => {
-  // `GET /api/config/public` calls `needsBootstrap` on every request. The flag
-  // only transitions true→false (first user created) and never back, so once a
-  // user is seen we cache `false` and skip the per-request `SELECT id FROM user`.
-  // These tests pin that caching contract so a future refactor can't silently
-  // reintroduce a query on every navigation — or, worse, cache `true` and lock a
-  // configured instance into bootstrap.
+  // `needsBootstrap` is called on every `GET /api/config/public`. The flag only transitions
+  // true→false (never back), so once a user is seen we cache `false` and skip `SELECT id FROM user`.
+  // These tests pin that contract — a refactor must not reintroduce per-request queries or cache `true`.
   it("returns true while no user exists", async () => {
     expect(await needsBootstrap()).toBe(true);
   });

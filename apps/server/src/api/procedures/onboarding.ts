@@ -34,17 +34,9 @@ interface OnboardingStepDescriptor {
   isComplete(ctx: OnboardingStepContext): boolean;
 }
 
-/**
- * v1 registry. Both steps apply only to system admins — the framework is
- * role-aware, but only the admin path is wired in v1. Adding a member-facing
- * step later is purely additive: append a descriptor whose `appliesTo` matches
- * the non-admin role plus a client component keyed by its `id`.
- *
- * v2 additions (issue #579 deferred work):
- * - `mcp-setup`: guides the admin through connecting an AI client to the MCP
- *   endpoint. Optional and always complete; the setup guide is already available
- *   in Settings → Apps so this step is informational, not a gate.
- */
+// v1 registry: both steps apply only to system admins (framework is role-aware
+// but only admin path wired). Member-facing steps are purely additive: add a
+// descriptor with appliesTo + client component. v2: mcp-setup step deferred (#579).
 export const STEPS: OnboardingStepDescriptor[] = [
   {
     id: "welcome",
@@ -82,12 +74,9 @@ export function resolveOnboardingSteps(ctx: OnboardingStepContext): OnboardingSt
   }));
 }
 
-/** Kicks the daily discover-snapshot build right after first-install
- *  onboarding so the home feed has trending and new-release content within
- *  seconds, instead of waiting for the next scheduled (06:00 UTC) run. Fire
- *  and forget: a warm failure must never fail onboarding completion — the
- *  scheduled run still covers it. Exported as a seam so the suite can assert
- *  the trigger without an HTTP round-trip. */
+// Triggers discover-snapshot warmly after first-install so feed populates
+// within seconds (vs waiting for 06:00 UTC run). Fire-and-forget: failure must
+// never block onboarding. Exported as seam for unit test assertion.
 export function warmDiscoverCatalog(userId: string, requestId?: string): void {
   const entry = jobs.find(CATALOG_DISCOVER_SNAPSHOT_JOB_ID);
   if (!entry?.triggerFromApi) return;

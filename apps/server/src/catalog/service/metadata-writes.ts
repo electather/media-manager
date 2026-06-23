@@ -5,14 +5,10 @@ import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 
 export async function upsertMetadata(db: Db, rows: CanonicalMetadata[]): Promise<void> {
   if (rows.length === 0) return;
-  // INSERT-OR-REPLACE. `created_at` is preserved on update via SQL
-  // `COALESCE(existing, incoming)`; `last_refreshed_at` always advances
-  // to the incoming value so `listStaleMetadata` stays accurate.
-  // The `COALESCE` on `created_at` blocks a single multi-row upsert
-  // (the SET clause references the existing column), so we still issue
-  // one statement per row but bundle them inside a single transaction
-  // — collapses 25 individual WAL commits to one and amortizes the
-  // round-trip cost of the metadata-refresh batch.
+  // INSERT-OR-REPLACE. `created_at` preserved via COALESCE(existing, incoming);
+  // `last_refreshed_at` always advances. COALESCE on created_at blocks multi-row upsert
+  // (SET references existing column), so one statement per row in single transaction
+  // to collapse ~25 WAL commits into one.
   await db.transaction(async (tx) => {
     for (const row of rows) {
       await tx
@@ -48,12 +44,8 @@ export async function upsertMetadata(db: Db, rows: CanonicalMetadata[]): Promise
 }
 
 /**
- * COALESCE-only artwork patch (V47/V48). Each non-null arg fills the
- * matching column when it is currently null; filled columns are never
- * overwritten. Row absent → 0 rows affected, no throw — `/artwork.get`
- * may resolve before the cold-fill metadata write lands. Always bumps
- * `last_refreshed_at` so a patched row counts as fresh against the
- * nightly refresh cutoff.
+ * COALESCE-only artwork patch (V47/V48). Non-null args fill columns only when null; never
+ * overwritten. Row absent → 0 rows affected (no throw). Always bumps `last_refreshed_at`.
  */
 export async function patchArtworkUrls(
   db: Db,

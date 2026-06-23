@@ -18,13 +18,10 @@ export const CATALOG_RECOMMENDATION_BUILD_JOB_ID = "host.catalog.recommendation_
 export { writeRecommendationsForUser, type CatalogRecommendationBuildDeps };
 
 /**
- * Registers the nightly per-user recommendation builder. Drives the same
- * row source as the existing `host.preference.daily_rebuild` so users
- * needing a fresh profile also get a fresh rec list. Each user: rebuild
- * the three profile partitions, rank a candidate set against the combined
- * profile, persist the top-N onto `recommendation_lists`. Runs at 02:00,
- * before the metadata-refresh and discover-snapshot jobs at 04:00 / 06:00
- * so each can rely on a coherent profile/version coordinate.
+ * Registers nightly per-user recommendation builder. Drives same row source as
+ * host.preference.daily_rebuild so users needing fresh profile also get fresh rec list.
+ * Runs at 02:00, before metadata-refresh (04:00) and discover-snapshot (06:00) jobs
+ * so each can rely on coherent profile/version coordinate.
  */
 export function registerCatalogRecommendationBuildJob(deps: CatalogRecommendationBuildDeps): void {
   registerScheduledPerRow<RebuildRow>({

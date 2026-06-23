@@ -1,12 +1,6 @@
 import type { MediaSourceId, MediaType } from "@nama/shared/media";
 
-/**
- * One media query-key root + factory (design §B1, V.CL1). All media reads
- * nest under `mediaKeys.root` so single `invalidateQueries(mediaKeys.root)`
- * after mutation sweeps whole surface (#505); home/watchlist factories derive
- * from this root (#514). `source(sourceId, params)` folds request params into
- * key so each `bucket`/`mood`/`sort`/seed combo has own cache entry.
- */
+/** Media query-key root + factory (design §B1, V.CL1). Single `invalidateQueries(mediaKeys.root)` sweeps whole surface (#505). `source(sourceId, params)` folds request params into key (#514). */
 export const mediaKeys = {
   root: ["media"] as const,
   source: (sourceId: MediaSourceId, params?: Record<string, unknown>) =>

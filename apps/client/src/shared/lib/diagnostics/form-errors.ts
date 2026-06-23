@@ -1,13 +1,7 @@
 /**
- * Helpers for form surfaces that receive a UserFacingError-style error from
- * the backend and need to split it into per-field errors vs a top-level
- * banner message.
- *
- * See docs/2026-04-19-error-management-design.md §Wire format for the
- * underlying contract. The `params.field` convention used here — "if the
- * error body names a form property, route the error to that input" — is the
- * project's established way to attach a backend-originated message to a
- * specific form field without needing bespoke error shapes per route.
+ * Helpers to split UserFacingError from backend into per-field errors vs top-level banner.
+ * See docs/2026-04-19-error-management-design.md §Wire format. The `params.field` convention
+ * routes backend messages to form inputs without bespoke per-route error shapes.
  */
 
 /**

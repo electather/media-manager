@@ -71,16 +71,9 @@ export async function runCatalogMetadataRefresh(
 interface FetchResult {
   key: MetadataKey;
   data: RawCanonicalSource | null;
-  /**
-   * True only when a provider was actually queried and reported the title is
-   * gone: at least one provider was contacted (`attempted > 0`), none errored
-   * (`errors` empty), yet no data came back. This is the genuine upstream
-   * removal. Every other no-data shape — every provider errored (outage or
-   * rate-limit storm) or no provider was contacted at all (`attempted === 0`,
-   * e.g. the metadata capability has no configured provider) — is treated as a
-   * failure, because the title was never confirmed absent and so must not be
-   * logged as a removal.
-   */
+  // True only: attempted > 0 AND errors empty AND no data returned = genuine upstream removal.
+  // All other no-data shapes (provider error, attempted === 0) are failures so titles
+  // are never logged as removed unless actually confirmed absent upstream.
   notFound: boolean;
 }
 

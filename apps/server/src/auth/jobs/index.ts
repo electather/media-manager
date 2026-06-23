@@ -10,12 +10,9 @@ export interface RegisterJobsOptions {
 }
 
 /**
- * Registers the auth module's jobs. Invoked from `apps/server/src/index.ts` in
- * fixed alphabetical module order so handler fan-out timing stays
- * deterministic — boot.test.ts enforces this.
- *
- * `scheduled: false` skips the croner-backed stale-client sweep so a caller
- * without a persistent scheduler can still boot.
+ * Registers the auth module's jobs. Called from `apps/server/src/index.ts` in
+ * fixed alphabetical order (enforced by boot.test.ts) for deterministic fan-out.
+ * `scheduled: false` skips the croner-backed stale-client sweep for scheduler-less callers.
  */
 export function registerJobs(opts: RegisterJobsOptions = {}): void {
   const scheduled = opts.scheduled ?? true;

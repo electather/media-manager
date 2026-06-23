@@ -82,32 +82,19 @@ const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.st
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
 
-/**
- * Route-scoped limits for the fixed-bucket watchlist routes (§A7). Each is mounted
- * on its own route rather than the whole router because the title routes
- * (`/details`, `/availability`) are unmetered and `/sources/:sourceId` picks its
- * bucket dynamically from the registration. The read/write split mirrors `limiterFor`.
- */
+// Route-scoped limits for fixed-bucket watchlist routes (§A7). Mounted per-route
+// (not whole router) because title routes are unmetered and `/sources/:sourceId` picks its
+// bucket dynamically. Read/write split mirrors `limiterFor`.
 const readRateLimit = makeRateLimitMiddleware({ limiter: watchlistReadLimiter });
 const writeRateLimit = makeRateLimitMiddleware({ limiter: watchlistWriteLimiter });
 
-/**
- * Per-request plugin-call deadline for the watchlist moods / writes
- * bridges. Matches the old `watchlist.ts` procedure's `buildContext` constant
- * exactly (5000) so those endpoints stay byte-identical through the relocation
- * (parity, §A6). It is deliberately NOT the resolver's `REQUEST_DEADLINE_MS`.
- */
+// Per-request deadline for watchlist moods/writes bridges. Hardcoded to 5000 (not
+// REQUEST_DEADLINE_MS) for byte-identical relocation parity with old watchlist.ts §A6.
 const WATCHLIST_REQUEST_DEADLINE_MS = 5000;
 
-/**
- * Build the single media `SourceContext` the resolver hands every source plus
- * `listRows`. It unions the handles both consumers need: home rows read
- * `statusBatch` (their enrich override builds its own artwork inline), while
- * watchlist sources run the default pipeline enrich and read `getArtwork` +
- * `toCanonicalRow`. A field a given source ignores is harmless. `getArtwork`
- * mirrors the watchlist `asWatchlistContext` wiring so the watchlist sources
- * enrich identically through the resolver as through their old endpoints.
- */
+// SourceContext for resolver and listRows. Home rows use statusBatch (inline artwork);
+// watchlist use getArtwork+toCanonicalRow (default pipeline). Mirrors asWatchlistContext
+// wiring so watchlist sources enrich identically through resolver vs. old endpoints.
 function buildSourceContext(userId: string): SourceContext {
   const mediaService = new MediaService(userId);
   const catalog = getCatalogService();
@@ -124,21 +111,10 @@ function buildSourceContext(userId: string): SourceContext {
   };
 }
 
-/**
- * Per-request context for the watchlist moods / writes bridges
- * (design §A6). It reproduces the old `watchlist.ts` procedure's `buildContext`
- * (`deadlineMs: 5000`, `log: consola`) PLUS the `asWatchlistContext` resolution
- * (`loadProgressMap` + the `getArtwork` / `toCanonicalRow` cycle-breakers), so a
- * single object serves both the read aggregate — `getMoodSummary` takes the
- * loose `MaybeRowContext` — and the media writes barrel — `addItem` /
- * `removeItem` take the resolved `MediaEnrichContext`. The aggregates re-resolve
- * their own enrich handles, so the extra fields are inert for them: the bridge
- * stays behaviorally identical to the old endpoints.
- *
- * This is the watchlist analogue of `buildHomeContext` for the title routes —
- * a dedicated ctor per bridge target keeps each relocated endpoint byte-identical
- * to the one it replaces, rather than reusing the resolver's `SourceContext`.
- */
+// Context for watchlist moods/writes bridges (§A6). Combines old watchlist.ts buildContext
+// (5000 deadline, consola log) + asWatchlistContext resolution (loadProgressMap, getArtwork,
+// toCanonicalRow) so getMoodSummary, addItem, removeItem stay byte-identical. Like buildHomeContext
+// (dedicated ctor per target) not reused SourceContext, ensuring relocation parity.
 function buildWatchlistContext(userId: string) {
   const catalog = getCatalogService();
   const getArtwork: GetArtworkFn = (requests) =>
@@ -155,18 +131,9 @@ function buildWatchlistContext(userId: string) {
   };
 }
 
-/**
- * The generic source resolver (design §A3): one handler dispatched by `sourceId`
- * across every paginated read. It is DUMB DISPATCH (invariants V.MC1/V.PG1 — no
- * enrich/sort/cursor logic here): look the registration up, apply its rate limit,
- * gate eligibility, parse its param schema, decode only the opaque OUTER cursor,
- * then `build` → `listRows` → return the one `Page` shape. The source still
- * parses its seed/keyset payload out of `Cursor.k` (two-level decode, unchanged).
- *
- * `requireSession` is applied on the router; `sessionUserId(c)` is read per
- * handler. Mounted additively (design §A8 / D) — the old per-product endpoints
- * stay live until the cutover.
- */
+// Generic source resolver (design §A3). DUMB DISPATCH (V.MC1/V.PG1): look registration,
+// apply rate limit, gate eligibility, parse paramSchema, decode OUTER cursor, build→listRows→Page.
+// Source still decodes Cursor.k two-level. Mounted additively (§A8/D) beside old per-product endpoints.
 export const mediaApp = new Hono()
   .use("*", requireSession)
   .get("/sources/:sourceId", zValidator("query", sourceQuerySchema), async (c) => {
@@ -197,12 +164,9 @@ export const mediaApp = new Hono()
       }
     }
 
-    // `c.req.valid("query")` is the multi-value-flattened map Hono's query
-    // validator builds (a single occurrence stays a string, a repeated one
-    // becomes a `string[]`) — the same shape the collections route honors. The
-    // per-source schema is authoritative: single-value schemas (home/watchlist)
-    // see plain strings, while the library lens schema's tolerant array params
-    // accept the arrays, so multi-value filters work uniformly.
+    // c.req.valid("query") flattens multi-value params: single→string, repeated→string[].
+    // Per-source schema is authoritative; single-value (home/watchlist) see strings,
+    // library lens accepts arrays for uniform multi-value filter support.
     const parsed = reg.paramSchema.safeParse(c.req.valid("query"));
     if (!parsed.success) {
       throw badRequest("http.invalid_input", parsed.error.message, { target: "query" });
@@ -216,14 +180,9 @@ export const mediaApp = new Hono()
       : await listRows(source, cfg, ctx);
     return c.json(page);
   })
-  /**
-   * Title resource (design §A2/§A6): a media title's details and per-server
-   * availability under the media URL namespace. Pure URL relocation — `:type`
-   * was the `/home/details?mediaType=…` query; the bridge is one line to the
-   * existing home composer, so no composition logic moves out of `home`
-   * (invariant V.A1, RISK-203). `details` already carries seasons metadata
-   * inside `MediaDetailsExtra`, so there is no separate `/seasons` endpoint.
-   */
+  // Title resource (design §A2/§A6): media details + per-server availability.
+  // Pure URL relocation of /home/details?mediaType=… (V.A1, RISK-203 — no composition logic
+  // leaves home). Details carries seasons in MediaDetailsExtra, so no separate /seasons endpoint.
   .get("/:type/:tmdbId/details", zValidator("param", titleParamSchema), async (c) => {
     const userId = sessionUserId(c);
     const { type, tmdbId } = c.req.valid("param");
@@ -238,26 +197,17 @@ export const mediaApp = new Hono()
     const availability = await composeSeasonAvailability(ctx, tmdbId);
     return c.json(availability);
   })
-  /**
-   * Watchlist mood summary (design §A6): a URL relocation of `/watchlist/moods`
-   * — one line to the existing watchlist service, so derivation / tally
-   * ownership is unchanged (§G consolidation). `watchlistReadLimiter` is
-   * preserved per §A7 (the same bucket the old route used — keys unchanged).
-   */
+  // Watchlist mood summary (design §A6): URL relocation of /watchlist/moods.
+  // One-line bridge; derivation/tally ownership unchanged (§G consolidation).
+  // watchlistReadLimiter preserved per §A7 (same bucket, keys unchanged).
   .get("/moods", readRateLimit, async (c) => {
     const userId = sessionUserId(c);
     const summary: WatchlistMoodSummary = await getMoodSummary(buildWatchlistContext(userId));
     return c.json(summary);
   })
-  /**
-   * Watchlist writes (design §A6): add / remove ride the media-owned writes
-   * barrel (`addItem` / `removeItem`; media-owned since consolidation Phase 2).
-   * `POST` returns `AddWatchlistResponse` (201 on a fresh insert, 200 when the
-   * row was already active); `DELETE` is 204. `:type/:tmdbId` are path params.
-   * `watchlistWriteLimiter` is preserved per §A7, and `writeRateLimit` is mounted
-   * AFTER the validator so a schema-invalid request 400s without debiting the
-   * write bucket — parity with the old inline call, which ran after `c.req.valid`.
-   */
+  // Watchlist writes (design §A6): add/remove via media-owned barrel (addItem/removeItem,
+  // Phase 2). POST returns AddWatchlistResponse (201 new, 200 active); DELETE is 204.
+  // writeRateLimit mounted AFTER validator (invalid schema 400s without debiting bucket) §A7 parity.
   .post("/watchlist", zValidator("json", addWatchlistRequestSchema), writeRateLimit, async (c) => {
     const userId = sessionUserId(c);
     const { tmdbId, mediaType, source } = c.req.valid("json");
@@ -277,23 +227,10 @@ export const mediaApp = new Hono()
     },
   );
 
-/**
- * Decode the opaque outer cursor for one read, reproducing each consumer's V.CU1
- * behavior under one resolver (design §A3). `decode` never throws — bad/foreign/
- * mode-mismatched input returns `null` (invariant V.CU1).
- *
- * Home rows are static (`reg.cursorMode` equals the built source's mode), so the
- * cursor is decoded STRICTLY against it: an undecodable cursor maps to 400
- * (`cursorOnNull: "400"`), and a cursor-less seeded row (`requiresInitialCursor`)
- * is rejected with 400.
- *
- * `watchlist-items` is the one dynamic source — its mode flips keyset/offset on
- * `sort`/`bucket`/`mood`, so a static `reg.cursorMode` cannot describe a given
- * request. Watchlist therefore decodes LENIENTLY (no expected mode) and lets the
- * built source's own paginate stage fall a mode-mismatched cursor to the first
- * page — behaviorally identical to the old `readSection`, which decoded against
- * the built `source.stages.cursorMode` (`cursorOnNull: "firstPage"` → never 400).
- */
+// Decode opaque outer cursor per consumer V.CU1 under one resolver (design §A3).
+// Home rows: static cursorMode, decode STRICTLY (bad cursor→400, requiresInitialCursor→400).
+// watchlist-items: dynamic mode flips on sort/bucket/mood, decode LENIENTLY (cursorOnNull: "firstPage"),
+// matching old readSection (cursorMode from built source.stages, never 400).
 function resolveCursor(
   raw: string | undefined,
   reg: AnyMediaSourceRegistration,

@@ -1,7 +1,6 @@
 /**
- * Re-export of shared cursor codec (design §B1, V.WIRE1). Deliberate exception to CLAUDE.md
- * direct-import rule — design §B1 specifies this as the single cursor surface to keep layer
- * coherent (client/server mint/inspect with exact bytes). `encodeSeedCursor` closes similarTo
- * gap (§H): detail page "More like this" uses same helper as server `similar-paged` source.
+ * Re-export of shared cursor codec (design §B1, V.WIRE1). Exception to direct-import rule:
+ * design §B1 specifies this as single cursor surface for layer coherence (client/server
+ * mint/inspect with exact bytes). encodeSeedCursor closes similarTo gap (§H).
  */
 export { type Cursor, type CursorMode, decode, encode, encodeSeedCursor } from "@nama/shared/media";

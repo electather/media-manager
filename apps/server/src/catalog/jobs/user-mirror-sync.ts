@@ -14,13 +14,9 @@ export interface CatalogUserMirrorSyncDeps {
   catalog: CatalogService;
 }
 
-/**
- * Registers the every-six-hours catalog mirror sync. One row per
- * `(userId, pluginId)` pair where the plugin contributes either
- * `watchHistory@v1` or `ratings@v1`. History and ratings sync inside
- * separate `try` blocks so a transient plugin failure on one capability
- * does not stall the other; cursor advancement is per-table per V39.
- */
+// Registers every-six-hours catalog mirror sync (one row per userId, pluginId pair).
+// watchHistory@v1 and ratings@v1 sync in separate try blocks so transient failure on one
+// capability doesn't stall the other; cursor advancement per-table per V39.
 export function registerCatalogUserMirrorSyncJob(deps: CatalogUserMirrorSyncDeps): void {
   registerScheduledPerRow<SyncRow>({
     id: CATALOG_USER_MIRROR_SYNC_JOB_ID,

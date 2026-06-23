@@ -6,10 +6,9 @@ import { registerCatalogRecommendationBuildJob } from "./recommendation-build";
 import { registerCatalogUserMirrorSyncJob } from "./user-mirror-sync";
 
 /**
- * Registers every host-internal catalog job. Each job consumes the
- * process-wide `CatalogService` singleton so writes funnel through a
- * single facade per V37/V38 and per-process state (the `recordAccess`
- * throttle landed in Phase 6) stays consistent with the preference engine.
+ * Registers all host-internal catalog jobs. Each consumes the process-wide `CatalogService`
+ * singleton so writes funnel through a single facade (V37/V38) and per-process state
+ * (Phase 6's `recordAccess` throttle) stays consistent with the preference engine.
  */
 export function registerCatalogJobs(): void {
   const catalog = getCatalogService();

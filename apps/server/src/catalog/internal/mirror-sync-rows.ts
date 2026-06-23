@@ -11,10 +11,8 @@ export interface SyncRow {
 }
 
 /**
- * Row source: every active service connection whose plugin contributes
- * either `watchHistory@v1` or `ratings@v1`. Disabled or pending-auth
- * connections are skipped — the sync only runs against credentials that
- * the dispatcher would itself accept.
+ * Every active service connection whose plugin contributes watchHistory@v1 or ratings@v1.
+ * Disabled/pending-auth connections skipped — sync runs only against dispatcher-accepted credentials.
  */
 export async function listSyncRows(): Promise<SyncRow[]> {
   const historyProviders = capabilityRegistry.listProviders("watchHistory", "v1", "user");

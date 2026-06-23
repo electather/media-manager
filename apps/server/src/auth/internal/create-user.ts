@@ -1,19 +1,9 @@
-// Shared direct-insert user creation used by bootstrap, the dev seed, and the
-// admin user-creation endpoint. It writes the `user` + `account` (+ optionally
-// `user_roles`) rows directly via drizzle instead of calling
-// `auth.api.signUpEmail()`. Booting better-auth for the create path would load
-// the `jwt` plugin, which lazily generates a JWKS keypair and encrypts its
-// private key with whatever `BETTER_AUTH_SECRET` happened to be in scope. That
-// row then lives in the same DB the Worker reads from, so if the two secrets
+// Direct-insert user creation for bootstrap, dev seed, and admin endpoint. Avoids
+// `auth.api.signUpEmail()` because booting better-auth loads the `jwt` plugin, which
+// lazily generates a JWKS keypair encrypted with `BETTER_AUTH_SECRET`; if two secrets
 // disagree the Worker fails at startup with "Failed to decrypt private key".
-//
-// The account row mirrors the shape better-auth itself writes from
-// `sign-up/email`: `providerId = "credential"`, `accountId = userId`,
-// `password = <hash>`. That is exactly what `sign-in/email` looks up at login
-// time. `hashPassword` is imported from `better-auth/crypto` (which re-exports
-// `@better-auth/utils/password`), giving us the same scrypt implementation the
-// runtime sign-in path uses to verify, without loading the full
-// `betterAuth({...})` instance and its plugins.
+// Account row mirrors `sign-up/email` shape: `providerId="credential"`, `accountId=userId`,
+// `password=<hash>` — exactly what `sign-in/email` looks up at login time.
 
 import { hashPassword } from "better-auth/crypto";
 import { type Db, getDb } from "../../db/client";
@@ -54,19 +44,13 @@ export interface InsertCredentialUserWithHashInput {
 }
 
 /**
- * Canonical user-creation primitive: inserts a `user` + credential `account`
- * pair (and, when `roleId` is given, a single `user_roles` row) using the
- * supplied transaction client and an already-computed password hash. This is the
- * one place the row shape better-auth's `sign-up/email` writes is reproduced, so
- * a credential-schema change (e.g. a new required `account` column) is made here
- * once. `account.updated_at` has no SQL default (unlike `user.updated_at`), so we
- * pass it explicitly; `userRoles.assignedAt` is an epoch-ms number, not a Date.
- *
- * Takes a precomputed hash so a caller can run the ~100ms scrypt `hashPassword`
- * *before* opening the surrounding write transaction — holding SQLite's single
- * writer lock for the full hash duration on every call would queue concurrent
- * writers until `busy_timeout` (#852 L2). Callers with a plaintext password use
- * {@link insertCredentialUserTx}, which hashes then delegates here.
+ * Canonical credential-row insertion point: one place the `sign-up/email` row shape is
+ * reproduced, so schema changes (e.g. new required `account` column) happen here once.
+ * `account.updatedAt` has no SQL default (unlike `user.updatedAt`), so we pass it explicitly;
+ * `userRoles.assignedAt` is epoch-ms, not a Date.
+ * Takes a precomputed hash so callers can run the ~100ms scrypt *before* opening the write
+ * transaction — holding SQLite's single writer lock for the full hash duration queues
+ * concurrent writers until `busy_timeout` (#852 L2).
  */
 export async function insertCredentialUserWithHashTx(
   tx: DbTransaction,
@@ -93,11 +77,9 @@ export async function insertCredentialUserWithHashTx(
 }
 
 /**
- * Hashes the plaintext password and inserts the credential rows in one call.
- * `createUser`, `createUserWithRole`, and `claimBootstrap` all funnel through
- * this — none open the write transaction before the cheap inserts, so hashing
- * inline is fine for them. The invite-accept path opens the transaction up front
- * and hashes separately via {@link insertCredentialUserWithHashTx}.
+ * Hashes then inserts. `createUser`, `createUserWithRole`, and `claimBootstrap` use this
+ * because they don't open a transaction before the inserts, so hashing inline is safe.
+ * The invite-accept path hashes first then uses {@link insertCredentialUserWithHashTx}.
  */
 export async function insertCredentialUserTx(
   tx: DbTransaction,
@@ -111,10 +93,8 @@ export async function insertCredentialUserTx(
 }
 
 /**
- * Creates a `user` + `account` pair and assigns `roleId` in a single
- * transaction. This is a service-layer helper, so errors throw rather than
- * exiting the process. The transaction means a failed account or role insert
- * can't leave an orphaned user row behind.
+ * Creates a `user` + `account` pair and assigns `roleId` in one transaction,
+ * preventing orphaned user rows if the account or role insert fails.
  */
 export async function createUserWithRole(input: {
   email: string;

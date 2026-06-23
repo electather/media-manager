@@ -125,22 +125,12 @@ export async function filterUsersWithPermission(
 }
 
 /**
- * Deletes dynamically-registered OAuth clients that were never authorized and
- * are not newer than `cutoff` (epoch ms). A stale dynamic client is identified
- * by having no owner (`userId IS NULL` — RFC 7591 registration sets no owner)
- * and no consent row (no user has authorized it), so this never removes a
- * client a user has connected. Returns the number of rows deleted.
- *
- * A null `createdAt` also counts as stale: Better Auth stamps `createdAt` at
- * registration, so a null value can only come from a manually-inserted or
- * corrupted row. Without this, `created_at < cutoff` is NULL (falsy) for such
- * rows and they would escape the sweep forever, breaking the table-growth
- * bound this exists to enforce.
- *
- * This bounds unbounded growth of the oauth client table from the
- * unauthenticated registration endpoint, whose only other control is the
- * per-IP rate limit. Cascade deletes on `client_id` clean up any orphaned
- * token rows automatically.
+ * Deletes dynamic OAuth clients (RFC 7591, `userId IS NULL`) older than `cutoff` (epoch ms)
+ * with no consent row — never removes a client a user has authorized. Bounds unbounded
+ * table growth from the unauthenticated registration endpoint (only other control: per-IP
+ * rate limit). Cascade on `client_id` cleans orphaned token rows. Null `createdAt` also
+ * counts as stale: Better Auth always stamps it at registration, so null means a
+ * manually-inserted/corrupted row that would otherwise escape the sweep forever.
  */
 export async function deleteStaleDynamicClients(cutoff: number): Promise<number> {
   const db = getDb();

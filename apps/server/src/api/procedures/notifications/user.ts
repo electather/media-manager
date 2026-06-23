@@ -53,13 +53,9 @@ function resolveInboxCursor(q: { after?: string; cursor?: string }): {
 export const notificationsApp = new Hono()
   .use("*", flagGate())
   .use("*", requireSession)
-  // Notification plugin picker. `listNotificationPlugins` reads from
-  // `selectEnabledPlugins`, so plugins disabled by an admin disappear from the
-  // picker — by design: a user can't create a new channel against a plugin the
-  // server has refused to load. Channels created earlier remain in the
-  // channels list (and `/notifications/channels` keeps returning them); the
-  // user can still delete or edit the display name, only the *create* surface
-  // is gated.
+  // Plugin picker gates on selectEnabledPlugins: disabled plugins disappear from
+  // picker by design (can't create new channels). Existing channels remain queryable
+  // via /notifications/channels; only create surface is gated.
   // fallow-ignore-next-line complexity
   .get("/plugins", async (c) => {
     const ids = notificationCapablePluginIds();

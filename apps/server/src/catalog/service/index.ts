@@ -39,9 +39,7 @@ const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
 /**
  * UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table.
- * Replicated here (it also lives in the home discover source) so the catalog
- * stays a lower-level module and does not import from `home`, which would
- * invert the dependency direction.
+ * Replicated here (not imported from home) to avoid inverting the dependency direction.
  */
 function utcDayBucket(): number {
   const d = new Date();
@@ -53,14 +51,9 @@ interface CatalogServiceOptions {
 }
 
 /**
- * Catalog peer of MediaService. Sole owner of the canonical_metadata,
- * discover_snapshots, recommendation_lists, user_history_mirror and
- * user_ratings_mirror tables (V37). Reads serve sub-ms PK lookups; writes
- * are jobs-only except bounded cold-fill from the preference engine (V38).
- *
- * The class is a thin facade over the sibling responsibility modules
- * (metadata reads/writes, discover feed, recommendations, user mirrors,
- * access throttle, prune); it owns the per-process state they share.
+ * Sole owner of canonical_metadata, discover_snapshots, recommendation_lists, user_history_mirror,
+ * user_ratings_mirror (V37); writes job-only except bounded cold-fill from preference engine (V38).
+ * Thin facade over sibling modules; owns the per-process state they share.
  */
 export class CatalogService {
   readonly recordAccessThrottleMs: number;
@@ -135,15 +128,9 @@ export class CatalogService {
   }
 
   /**
-   * Pure, session-less read of today's cached trending feed projected to
-   * canonical metadata, in feed order. Backs the public pre-auth poster grid:
-   * it reuses the same daily snapshot as `discover/trending` and the
-   * `trendingNow` home row, doing only cached DB reads and no per-request
-   * catalog or plugin work. In particular it does **not** record metadata
-   * access, so anonymous login-page traffic never mutates catalog state nor
-   * keeps trending rows artificially warm against pruning. Returns `[]` when
-   * the day's snapshot is absent, and drops feed keys with no metadata row
-   * while preserving order.
+   * Session-less read of today's cached trending feed; backs public pre-auth poster grid.
+   * Does **not** record metadata access, so anonymous traffic never mutates catalog state nor
+   * artificially warms trending rows against pruning. Returns `[]` when snapshot absent.
    */
   async getTrendingMetadata(limit: number): Promise<CanonicalMetadata[]> {
     const keys = await this.getDiscoverFeed("trending", "popularity_desc", utcDayBucket());
@@ -259,10 +246,8 @@ export class CatalogService {
 let instance: CatalogService | undefined;
 
 /**
- * Returns the process-wide singleton. The catalog is intentionally a single
- * instance per process so per-process state (Phase 6's `recordAccess`
- * throttle map) stays consistent across every read site — preference
- * engine, scheduled jobs, and home-feed handlers all share one map.
+ * Process-wide singleton. Ensures per-process state (Phase 6's `recordAccess` throttle)
+ * stays consistent across all read sites.
  */
 export function getCatalogService(): CatalogService {
   if (!instance) instance = new CatalogService(getDb());

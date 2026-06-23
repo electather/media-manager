@@ -20,10 +20,8 @@ function empty(kind: MediaCardAvailabilityKind): MediaCardAvailabilityState {
 }
 
 /**
- * Derives the visible availability badge from an item's availability +
- * status. Order matters: server-copy first, then explicit requested status,
- * then upcoming (release date wins over request-eligible), then request,
- * else info.
+ * Derives visibility badge from availability + status. Order: server-copy → requested
+ * → upcoming (release date wins over request-eligible) → request → info.
  */
 export function deriveMediaCardAvailability(
   input: MediaCardAvailabilityInput,

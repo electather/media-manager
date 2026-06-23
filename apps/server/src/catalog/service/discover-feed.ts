@@ -4,10 +4,9 @@ import { discoverSnapshots } from "../../db/schema/catalog";
 import type { DiscoverFeedKind, DiscoverSort, MetadataKey } from "@nama/shared/catalog";
 
 /**
- * Shared WHERE clause for the `(kind, sort, day)` indexed lookup on
- * `discover_snapshots`. Used by both `selectDiscoverFeed` (full read) and
- * `discoverFeedExists` (cheap existence probe) so the two stay in lockstep
- * and the where-clause isn't duplicated across the functions.
+ * Shared WHERE clause for (kind, sort, day) indexed lookup on discover_snapshots.
+ * Used by both selectDiscoverFeed (full read) and discoverFeedExists (cheap probe)
+ * to keep them in lockstep and avoid duplication.
  */
 function discoverSnapshotWhere(kind: DiscoverFeedKind, sort: DiscoverSort, day: number) {
   return and(
@@ -32,11 +31,9 @@ export async function selectDiscoverFeed(
 }
 
 /**
- * Cheap eligibility probe — `true` when a `discover_snapshots` row exists
- * for `(kind, sort, day)` without deserializing the snapshot's items array.
- * Lets the home discover-snapshot row's `eligibility` decide visibility
- * without paying the same full-snapshot read `load` will pay through
- * `fetchRawSet`.
+ * Cheap eligibility probe — true when a discover_snapshots row exists for (kind, sort, day)
+ * without deserializing items array. Lets home discover-snapshot row's eligibility decide
+ * visibility without the full-snapshot deserialize cost of fetchRawSet.
  */
 export async function discoverFeedExists(
   db: Db,

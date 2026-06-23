@@ -5,11 +5,10 @@ import { MediaService } from "../../media";
 import { zValidator } from "../../diagnostics/validator";
 
 /**
- * `GET /api/requests` lists the caller's outstanding requests.
- * `GET /api/requests/targets` aggregates plugin-supplied request services for
- * the picker.
- * `POST /api/requests` submits a new request through the targeted connection.
- * `DELETE /api/requests/:requestId` cancels an in-flight request.
+ * GET /api/requests — list outstanding requests.
+ * GET /api/requests/targets — aggregate plugin request services for picker.
+ * POST /api/requests — submit new request through targeted connection.
+ * DELETE /api/requests/:requestId — cancel in-flight request.
  */
 export const requestsApp = new Hono()
   .use("*", requireSession)

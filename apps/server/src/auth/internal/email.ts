@@ -7,19 +7,10 @@ export interface OutboundEmail {
 }
 
 /**
- * Single point of integration for transactional email.
- *
- * Behavior:
- * - `EMAIL_PROVIDER_CONFIGURED=false`: no-ops, so callers don't need to
- *   branch on the env flag themselves.
- * - `EMAIL_PROVIDER_CONFIGURED=true`: throws immediately. The real provider
- *   integration (SMTP/SES/Resend/etc.) is out of scope for v1; flipping the
- *   flag without wiring an adapter would silently drop verification,
- *   password-reset, and email-change flows, so we surface the
- *   misconfiguration instead.
- *
- * This wrapper exists so the Better Auth hooks have a stable seam to call
- * and so unit tests can mock a single function.
+ * Single seam for transactional email (Better Auth hooks + unit-test mocking point).
+ * `EMAIL_PROVIDER_CONFIGURED=false`: no-ops. `EMAIL_PROVIDER_CONFIGURED=true`: throws —
+ * no real adapter is wired yet; silently returning would drop verification, password-reset,
+ * and email-change flows instead of surfacing the misconfiguration.
  */
 export async function sendEmail(_message: OutboundEmail): Promise<void> {
   if (!env.EMAIL_PROVIDER_CONFIGURED) {

@@ -12,11 +12,9 @@ export interface DeleteAccountInput {
 }
 
 /**
- * Hard-deletes user account after password+email verification.
- * FK cascades (#77) handle dependents; `jobRuns.triggeredByUserId` SET NULL preserves history.
- * Avoids `auth.api.deleteUser` because we already gate via password+email; JWT deletion
- * via expiry (default 15min, no blacklist) + cascade deletion of session/tokens matches.
- * If longer-lived JWT or token blacklist introduced, switch to `auth.api.deleteUser` or call `revokeUserSessions` first.
+ * Hard-deletes account after password+email verification. FK cascades (#77) handle dependents;
+ * jobRuns.triggeredByUserId SET NULL preserves history. Skips auth.api.deleteUser (already
+ * gated via password+email). If longer-lived JWT or blacklist added, switch to auth.api.deleteUser.
  */
 export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<void> {
   const userRow = await db
