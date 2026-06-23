@@ -17,6 +17,7 @@ env:
 
 jobs:
   ci:
+    if: github.head_ref != 'changeset-release/main'
     permissions:
       contents: read
       pull-requests: write # fallow comment: true

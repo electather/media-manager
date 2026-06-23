@@ -11,6 +11,7 @@ env:
 jobs:
   claude-review:
     if: >-
+      github.head_ref != 'changeset-release/main' &&
       github.event.pull_request.draft != true &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
