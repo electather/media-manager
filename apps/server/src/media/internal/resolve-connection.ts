@@ -28,11 +28,10 @@ export type ResolvedConnection =
     };
 
 /**
- * Resolves connections in dispatch order: (1) enabled user connections (default first, then createdAt desc),
- * (2) admin shared-credential entry only when user has no personal connection AND scope is `global`.
- *
- * Shared credentials carry admin app/OAuth identity (never per-user token), so can only satisfy `global` scope.
- * For `user`-scoped capabilities (calendar, watchlist, etc.), shared-only would always fail (same identity for all users, wrong data) and downgrade row to `all_failed` instead of dropping cleanly.
+ * Resolves connections in order: (1) enabled user connections (default first, then createdAt desc),
+ * (2) admin shared credentials (only if no user connections AND scope is `global`).
+ * Shared credentials carry admin identity (not per-user), so only satisfy `global` scope; for `user`-scoped
+ * (calendar, watchlist), shared would fail with wrong data → downgrade to `all_failed` instead of dropping cleanly.
  */
 // fallow-ignore-next-line complexity
 export async function resolveConnections(

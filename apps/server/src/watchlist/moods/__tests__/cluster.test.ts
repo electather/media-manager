@@ -48,12 +48,8 @@ function meta(over: Partial<CanonicalMetadata>): CanonicalMetadata {
   };
 }
 
-/**
- * Mood derivation reads only the metadata slice, but the fetch is now routed
- * through media's shared `batchLoad` fan-out (US-012 / design §G), so the test
- * serves metadata via the mocked `batchLoad` rather than a watchlist-local
- * `getMetadataBatch`.
- */
+// Fetch now routed through media's shared `batchLoad` (US-012 / design §G),
+// so test mocks batchLoad instead of watchlist-local `getMetadataBatch`.
 function setMetadata(metaMap: Record<string, CanonicalMetadata>) {
   batchLoadMock.mockResolvedValue({
     statuses: {},

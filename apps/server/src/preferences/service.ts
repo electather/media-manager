@@ -32,24 +32,17 @@ import type { PreferenceDataProvider, RankedCandidate, UserItemFeedback } from "
 import { JobNotRegisteredError, JobNotTriggerableError } from "./errors";
 
 /**
- * Public sync surface for `preferences/`. Other modules call methods on the
- * singleton via `getPreferencesService()`; the underlying `PreferenceEngine`
- * stays private behind the service so callers cannot reach into the rebuild
- * + scoring internals.
- *
- * `service.ts` delegates persistence to `repo/**` via thin facades in
- * `internal/{feedback-log,profile-storage,rebuild-row-source}.ts`. The
- * service itself never imports drizzle-orm.
+ * Public sync surface for `preferences/`. Delegates persistence to `repo/**`
+ * via facades in `internal/{feedback-log,profile-storage,rebuild-row-source}.ts`,
+ * and keeps the `PreferenceEngine` and rebuild internals private.
  */
 export class PreferencesService {
   private engineInstance: PreferenceEngine | undefined;
 
   /**
-   * Lazily constructed engine singleton. Built on first use so the module
-   * can be safely imported before `bootstrap()` runs (tests, jobs registering
-   * at module-load time). The default provider reads from the catalog and
-   * falls back to the live media dispatcher on miss (V45); cold-fill misses
-   * persist back via a detached write-back.
+   * Lazily constructed engine singleton (safe to import before `bootstrap()`).
+   * Default provider: catalog read, falls back to live media dispatcher on miss (V45),
+   * then persists back via detached write-back.
    */
   private get engine(): PreferenceEngine {
     if (!this.engineInstance) {
@@ -171,11 +164,9 @@ export class PreferencesService {
   // ─── Job triggers ────────────────────────────────────────────────────────
 
   /**
-   * Fires the manual rebuild job for `userId`. Used by the admin/user-facing
-   * `/api/preferences/rebuild` endpoint. Throws `JobNotRegisteredError` if the
-   * job is not yet registered (cold worker before `registerJobs()` settles), or
-   * `JobNotTriggerableError` if the entry has the wrong kind or is missing its
-   * `triggerFromApi` handler (misconfiguration).
+   * Fires the manual rebuild job for `userId` (via `/api/preferences/rebuild`).
+   * Throws `JobNotRegisteredError` if unregistered, or `JobNotTriggerableError`
+   * if the entry lacks `triggerFromApi`.
    */
   async triggerManualRebuild(
     input: { userId: string },
@@ -192,12 +183,9 @@ export class PreferencesService {
   }
 
   /**
-   * Best-effort trigger for the coalesced incremental-update job. Silently
-   * no-ops when the job is not registered — the caller (`ent_feedback`) has
-   * already persisted the feedback row, and the daily rebuild safety net
-   * picks it up if the live trigger never lands. Routes through the
-   * `incremental-handle` leaf module rather than the registry because only
-   * the `CoalescedJobHandle` exposes `trigger()`.
+   * Best-effort trigger for coalesced incremental-update job. Silently no-ops if
+   * unregistered (daily rebuild safety net catches it); routes through
+   * `incremental-handle` because only `CoalescedJobHandle` exposes `trigger()`.
    */
   triggerIncrementalUpdate(userId: string): void {
     triggerIncremental(userId);
@@ -206,10 +194,8 @@ export class PreferencesService {
   // ─── Internal hooks (in-module callers only) ─────────────────────────────
 
   /**
-   * Reads + clears the canonical-feature cache counters from the live
-   * `CatalogPreferenceProvider` when present. Returns `null` when a custom
-   * provider was injected for tests (so the metric-collection path doesn't
-   * crash a test using `setEngineForTest`).
+   * Reads + clears feature cache counters from `CatalogPreferenceProvider`.
+   * Returns `null` if a custom test provider was injected.
    */
   consumeFeatureCacheMetrics(): FeatureCacheMetrics | null {
     const provider = this.engine.provider;

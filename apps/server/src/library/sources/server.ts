@@ -12,28 +12,14 @@ export interface ServerParams {
   limit: number;
 }
 
-/**
- * The Server library lens `MediaSource` (design §The 5 lenses). It pages the
- * owned set EXPANDED across `json_each(servers)`, so a title on two servers
- * appears once per server section — the row set is intentionally not distinct by
- * title. Its row type is therefore {@link ExpandedLibraryRow}: each row carries
- * the server section it expanded into, which the library `enrichRows` override
- * surfaces onto the `CompactMediaItem`. The SQL pre-sorts by
- * `(server, sortTitle, id)`, so the pipeline runs `sort: "none"`;
- * `cursorMode: "keyset"` mints the next cursor from the section-keyed hop token.
- */
+/** Server library lens (design §The 5 lenses). Paged EXPANDED across json_each(servers) so titles repeat per server. Row type ExpandedLibraryRow carries server context for enrichRows override. SQL pre-sorts (server, sortTitle, id), so sort: "none", cursorMode: "keyset". */
 export const serverSource: MediaSource<ServerParams, ExpandedLibraryRow> = {
   sourceId: "library-server",
   fetchRawSet,
   stages: { sort: "none", cursorMode: "keyset" },
 };
 
-/**
- * Fetches one Server page, threading decoded `(sectionId, sortTitle, id)` cursor
- * and filters. First page eagerly seeds user (design §Sync + hydrate: eager-seed).
- * `partial` always false (pure indexed read). `nextRaw` built from LAST RETURNED
- * row via {@link serverToken}, only on full page (cursor ends on short read).
- */
+/** Fetches one Server page with decoded (sectionId, sortTitle, id) cursor. First page eagerly seeds (design §Sync + hydrate: eager-seed). Partial always false. nextRaw from serverToken only on full page. */
 async function fetchRawSet(
   ctx: SourceContext,
   params: ServerParams,

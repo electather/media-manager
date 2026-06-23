@@ -35,11 +35,9 @@ export async function recordDeliveryFailure(
 }
 
 /**
- * `service_connections.user_config` is stored as a JSON text column. Plugins
- * expect the parsed object on `args.channelConfig` + `ctx.config.user`, so
- * decode once at the job boundary. Returns `null` for connections that have
- * no user-config. Throws `UserConfigParseError` on malformed JSON so the
- * caller marks the delivery failed with a precise error code.
+ * Decode `service_connections.user_config` (JSON text column) once at job boundary.
+ * Plugins expect parsed object on `args.channelConfig` + `ctx.config.user`.
+ * Returns `null` if no config; throws `UserConfigParseError` on malformed JSON.
  */
 export function parseUserConfig(raw: string | null): unknown {
   if (raw === null) return null;
@@ -51,14 +49,10 @@ export function parseUserConfig(raw: string | null): unknown {
 }
 
 /**
- * Merges decrypted credential fields back into the channel config the plugin
- * `deliver()` handler reads from. No-auth plugins (Telegram, ntfy, …) declare
- * secret fields like `botToken` with `x-secret: true`; the connection create
- * path moves those into the encrypted credentials blob so they're encrypted at
- * rest, but the plugins still read them from `args.channelConfig`. Credentials
- * win on key collisions so the encrypted-at-rest value is the source of truth.
- * Non-object credentials (e.g. the inbox `{ kind: "inbox" }` sentinel or a
- * plain string) are ignored — only an object payload can carry x-secret fields.
+ * Merge decrypted credentials back into channel config for plugins. No-auth plugins
+ * (Telegram, ntfy, …) store secrets like `botToken` (x-secret: true) encrypted,
+ * but still read from `args.channelConfig`. Credentials win on key collisions.
+ * Non-object credentials (inbox sentinel, plain string) are ignored.
  */
 // fallow-ignore-next-line complexity
 export function mergeSecretCredentials(channelConfig: unknown, credentials: unknown): unknown {

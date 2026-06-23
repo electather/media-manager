@@ -4,13 +4,8 @@ import type { NotificationEvent } from "@nama/shared/notifications";
 import type { DiagnosticSink } from "../../diagnostics/types";
 
 /**
- * Diagnostic sink that turns critical errors into `system.error` notifications
- * addressed to admins. Filters on severity so the admin inbox is not stormed
- * by expected user-input failures (`info`) or recovered paths (`warning`).
- *
- * The publish callback is injected through the constructor so this file stays
- * free of any import on `../service` — avoids a static cycle between
- * `service.ts → internal/error-sink.ts → service.ts`.
+ * Diagnostic sink: critical errors → `system.error` notifications to admins (filters `info`/`warning`).
+ * Injected publish callback avoids static cycle with `service.ts`.
  */
 export class NotificationErrorSink implements DiagnosticSink {
   constructor(

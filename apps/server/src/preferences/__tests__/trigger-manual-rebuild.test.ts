@@ -59,10 +59,8 @@ const { getPreferencesService, resetPreferencesServiceForTest } = await import("
 const { JobNotRegisteredError, JobNotTriggerableError } = await import("../errors");
 
 /**
- * Unit tests for the `triggerManualRebuild` guard clauses introduced in #671.
- * Each branch now throws a distinct error so callers can distinguish "job not
- * yet registered" (cold worker) from "job registered with the wrong kind"
- * (misconfiguration).
+ * Guard clause tests for `triggerManualRebuild` (#671): distinct errors for
+ * "job not registered" (cold worker) vs "wrong kind" (misconfiguration).
  */
 describe("PreferencesService.triggerManualRebuild guard clauses", () => {
   const meta = { triggeredBy: "user" as const, triggeredByUserId: "u1" };

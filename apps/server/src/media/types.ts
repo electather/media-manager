@@ -19,12 +19,7 @@ export interface DispatchRequest {
   mediaType?: "movie" | "tv";
   /** Skip cache read/write (e.g. for mutations or forced refresh). */
   skipCache?: boolean;
-  /**
-   * Wall-clock deadline in ms-epoch. When set, `invokeOne` skips a backoff
-   * retry if the remaining budget is shorter than the backoff plus a small
-   * call buffer. Aggregate dispatch then surfaces the original error so the
-   * row stays in the layout as `partial: true` rather than disappearing.
-   */
+  /** Wall-clock deadline in ms-epoch; `invokeOne` skips backoff retries when remaining budget is too short, surfaces original error so row renders `partial: true` instead of disappearing. */
   deadlineMs?: number;
 }
 
@@ -36,12 +31,7 @@ export interface AggregateResult<T> {
     code: HostErrorCode;
     devMessage: string;
   }>;
-  /**
-   * Total number of providers contacted (successes + errors). Lets callers
-   * disambiguate "no providers installed" (attempted=0) from "every provider
-   * errored" (attempted=errors.length) from "some succeeded but had nothing
-   * to contribute" (attempted > errors.length, data empty).
-   */
+  /** Total providers contacted; disambiguates "no providers installed" (attempted=0) vs "all errored" (attempted=errors.length) vs "some succeeded, none contributed" (attempted > errors.length, data empty). */
   attempted: number;
 }
 
@@ -100,45 +90,16 @@ export type ToCanonicalRowFn = (
   raw: RawCanonicalSource,
 ) => CanonicalMetadata;
 
-/**
- * Which predicate the pipeline `filter` stage applies, driven by the source's
- * request params (design §B). `"bucket"` keeps only rows matching a requested
- * bucket; `"preapplied"` is a marker the source uses to declare it has already
- * applied its filter source-side (mood is the only one today — the predicate
- * cannot leak out of the watchlist module per V.WL3) so the pipeline stage
- * must NOT re-derive it. `undefined` skips filtering entirely. Adding a real
- * pipeline-side case must extend the explicit `"bucket"` branch in
- * `applyBucketFilter`, never silently switch on `"preapplied"`.
- */
+/** Pipeline `filter` stage predicate (design §B): `"bucket"` filters to matched rows; `"preapplied"` marks source-side filter (mood only today, cannot leak out per V.WL3) so pipeline must NOT re-derive; `undefined` skips filtering. New pipeline cases must extend `"bucket"` branch in `applyBucketFilter`, never switch on `"preapplied"`. */
 export type FilterKind = "bucket" | "preapplied" | undefined;
 
-/**
- * Opaque keyset hop token a persistent-table source threads back from
- * `fetchRawSet` (e.g. the last row's `addedAt:id`) so the `paginate` stage can
- * mint the next keyset cursor without re-deriving the query's hop position
- * (design §B/§E). It rides inside the next cursor's `k` string. Offset sources
- * leave `nextRaw` undefined — their next page is an in-memory slice index.
- */
+/** Opaque keyset hop token from persistent-table `fetchRawSet` (e.g., `addedAt:id`) so `paginate` stage mints next keyset cursor without re-deriving position (design §B/§E). Rides in next cursor's `k` string. Offset sources leave undefined—next page is in-memory slice index. */
 export type RawPageToken = string;
 
-/**
- * The sort the pipeline's sort stage applies. Extends the shared recency
- * `RowSort` with `"none"` — an identity sort a source declares when it already
- * returned rows in their final order, so the pipeline must NOT re-order them.
- * Two sources need it: an offset source that pre-sorted by catalog metadata
- * (watchlist `alpha`/`runtime`/`status`, which `RowSort` cannot express) and a
- * pre-ranked feed (the tonight source). It stays media-internal — it is not a
- * persisted/repo sort, so it does not widen the shared `RowSort` enum.
- */
+/** Pipeline sort stage: extends shared `RowSort` with `"none"` (identity sort—source declares rows already in final order, pipeline must NOT re-order). Used by offset sources pre-sorted on watchlist `alpha`/`runtime`/`status` (unrepresentable in `RowSort`) and pre-ranked feeds (tonight). Stays media-internal, not persisted. */
 export type PipelineSort = RowSort | "none";
 
-/**
- * Per-call context the consumer envelope hands to a `MediaSource` and the
- * pipeline. Unifies the home `RowContext` and watchlist `WatchlistContext`
- * (design §B): one media-owned shape carrying the per-user service handles a
- * source needs to fetch its raw set. Eligibility stays a consumer concern, off
- * this shape (invariant V.MC1).
- */
+/** Per-call context for `MediaSource` and pipeline (design §B): unified shape replacing home `RowContext` and watchlist `WatchlistContext`, carries per-user service handles needed by `fetchRawSet`. Eligibility stays consumer-side (invariant V.MC1). */
 export interface SourceContext {
   userId: string;
   mediaService: MediaService;
@@ -148,76 +109,26 @@ export interface SourceContext {
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
   logger: ConsolaInstance;
-  /**
-   * Request-scoped memo for the user's `"default"` recommendation list the
-   * consumer injects. Home's `recommendedForYou-*` rows read this list from
-   * both their eligibility check and their source `fetchRawSet`, across two
-   * partitions (tv + movies), so a single compose would otherwise fetch it up
-   * to four times. Consumers that do not read recommendations leave it unset;
-   * callers fall back to `catalog.getRecommendations` when it is absent.
-   */
+  /** Request-scoped memo for user's `"default"` recommendation list (consumer-injected). Home `recommendedForYou-*` rows read from both eligibility check and `fetchRawSet` across tv+movies partitions—memo prevents up-to-4x fetches. Falls back to `catalog.getRecommendations` when absent. */
   recommendations?: () => Promise<RecommendationList | null>;
-  /**
-   * Artwork fetcher the consumer injects so the pipeline's enrich stage can
-   * hydrate posters/backdrops without media importing the artwork module
-   * (breaks the artwork ↔ media cycle). Optional: when omitted, enrich skips
-   * artwork hydration. Both consumers (watchlist `asWatchlistContext`, home
-   * `media-enrichment`) already build this callback today.
-   */
+  /** Artwork fetcher callback (consumer-injected) to hydrate posters/backdrops without media importing artwork module (breaks artwork↔media cycle). Optional; when omitted, enrich skips hydration. Both consumers (watchlist `asWatchlistContext`, home `media-enrichment`) build this today. */
   getArtwork?: GetArtworkFn;
-  /**
-   * Raw → canonical metadata mapper the consumer injects so enrich's cold-fill
-   * can normalize freshly fetched plugin metadata without media importing the
-   * catalog mapper (breaks the catalog ↔ media cycle). Optional: when omitted,
-   * cold-fill is skipped.
-   */
+  /** Raw→canonical metadata mapper (consumer-injected) to normalize freshly fetched plugin metadata without media importing catalog module (breaks catalog↔media cycle). Optional; when omitted, cold-fill is skipped. */
   toCanonicalRow?: ToCanonicalRowFn;
-  /**
-   * Consumer-side match-reason hint, completing the `RowContext ∪ WatchlistContext`
-   * unification (design §B): the home seed sources (`becauseYouWatched`/`similarTo`)
-   * resolve the seed title during `fetchRawSet` and stash it here so the home
-   * enrich override's `match-reason` callback can surface it on the same context
-   * object. Media itself never reads it (enrich's match-reason is consumer-injected).
-   *
-   * NOTE — this is the ONE legitimate write-back slot on `SourceContext`
-   * (documented exception to source purity per design §H). Sources MUST NOT
-   * stash any other state on the context; thread additional hints back via the
-   * `fetchRawSet` return shape instead.
-   */
+  /** Consumer-side match-reason hint (design §B): home seed sources (`becauseYouWatched`/`similarTo`) resolve seed title during `fetchRawSet` and stash here so enrich's `match-reason` callback can surface it on same context. Media never reads it (callback is consumer-injected). NOTE—this is the ONE legitimate write-back slot on `SourceContext` (design §H exception); sources MUST NOT stash other state; thread hints via `fetchRawSet` return instead. */
   seedTitle?: string;
 }
 
-/**
- * Config the consumer passes alongside a source to `listRows` (design §B/§C).
- * `P` matches the source's `fetchRawSet` params. `cursor` is already decoded
- * to a `Cursor | null` by the consumer (which owns the null mapping per
- * invariant V.CU1: home feed → 400, watchlist → first-page); `sort`/`filter`
- * override the source's stage defaults when supplied.
- */
+/** Consumer's config for `listRows` alongside a source (design §B/§C). `P` matches source's `fetchRawSet` params. `cursor` is pre-decoded `Cursor | null` (consumer owns null mapping per V.CU1: home→400, watchlist→first-page); `sort`/`filter` override source defaults when supplied. */
 export interface PipelineConfig<P = void> {
   params: P;
   sort?: PipelineSort;
   filter?: FilterKind;
-  /**
-   * The target bucket for a `filter: "bucket"` run. `bucket` is a media-owned
-   * concept (`MediaRowBucket`), so the pipeline's filter stage reads it from
-   * the typed config rather than from the opaque per-source `params`; the
-   * consumer maps its own request param onto it. (Mood filtering stays
-   * source-side — media must not derive moods — so there is no mood field
-   * here.)
-   */
+  /** Target bucket for `filter: "bucket"` run. `bucket` is media-owned (`MediaRowBucket`), so pipeline filter stage reads from typed config not opaque `params`; consumer maps its request param onto it. (Mood filtering stays source-side—media must not derive moods—so no mood field.) */
   bucket?: MediaRowBucket;
   cursor: Cursor | null;
   limit: number;
 }
 
-/**
- * The single read-pipeline result shape (design §B/§C), replacing the home
- * `RowPage`. `items` are public `CompactMediaItem`s (internal `__*` fields
- * already stripped, invariant V.MI1); `cursor` is the encoded next-page string
- * (`null` when exhausted); `partial` is true when a source soft-failed.
- *
- * Re-exported from `@nama/shared/media` so client and server share one
- * canonical page shape (design §A5, invariant V.WIRE1).
- */
+/** Single read-pipeline result shape (design §B/§C), replacing home `RowPage`. `items` are public `CompactMediaItem`s (internal `__*` stripped, V.MI1); `cursor` is encoded next-page string (null when exhausted); `partial` is true on source soft-fail. Re-exported from `@nama/shared/media` so client and server share canonical shape (design §A5, V.WIRE1). */
 export type { Page } from "@nama/shared/media";

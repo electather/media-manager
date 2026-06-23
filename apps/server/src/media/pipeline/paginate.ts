@@ -4,36 +4,17 @@ import { encode, type Cursor, type CursorMode } from "../cursor";
 import type { RawPageToken } from "../types";
 
 /**
- * The single pagination stage for the media read pipeline (design §C/§E). It
- * runs last — after enrich/classify/filter/sort — over the prepared item set
- * and mints the next-page cursor. It collapses the three forked paginators
- * (home-feed offset, watchlist keyset, watchlist offset-snapshot) into one
- * stage with two modes:
- *
- * - `keyset`: the source already hopped the raw query (carrying the incoming
- *   cursor's `k` into its `fetchRawSet` query) and threaded back a `nextRaw`
- *   hop token. This stage slices to `limit` and mints the next cursor from
- *   `nextRaw`. The source owns the resume position — `nextRaw` undefined means
- *   the source exhausted its scan (including the #500 empty-streak give-up),
- *   so no next cursor is emitted (invariant V.PG1).
- * - `offset`: the source returned the full sorted set; this stage slices an
- *   in-memory window `[n, n+limit)` from the incoming offset cursor.
- *
- * Because `filter` is its own upstream stage running over the FULL set, an
- * offset page fills from the whole sorted tail in this single slice — a sparse
- * `bucket`+`sort` combo can no longer hide matches behind a bounded overshoot
- * window (preserves #501, the single-pass sparse-bucket fix). The keyset path
- * preserves #500 (empty-streak → `cursor:null`) by emitting no cursor when the
- * source signals exhaustion.
+ * Pagination stage (design §C/§E) with two modes: `keyset` uses source's `nextRaw`
+ * hop token (source exhaustion → no cursor, invariant V.PG1); `offset` slices `[n, n+limit)`.
+ * Filter runs upstream over the full set, so offset fills from the whole sorted tail
+ * in a single slice (preserves #501, single-pass sparse-bucket fix). Keyset preserves
+ * #500 (empty-streak → `cursor:null`).
  */
 
 /**
- * Advisory ceiling for the offset-mode full-load scan (RISK-005). Offset
- * sources pull the whole sorted set into memory before slicing, so a user with
- * thousands of rows pays the full status + metadata batch on every page fetch.
- * We warn above this threshold so the trade-off becomes visible before it turns
- * into a latency incident; the limit is advisory only — rows are still served.
- * Moved here from the watchlist `listItemsOffset` site per design §E.
+ * Advisory ceiling for offset full-load scan (RISK-005). Warn at this threshold
+ * so the latency trade-off (full batch on each page) becomes visible. Moved from
+ * watchlist `listItemsOffset` per design §E.
  */
 export const OFFSET_FULL_LOAD_WARN_ROWS = 1000;
 
@@ -48,11 +29,8 @@ export interface PaginateInput {
    */
   cursor: Cursor | null;
   /**
-   * Keyset hop token the source minted from its scan. Present means the source
-   * has more rows to scan, so the next keyset cursor is minted from it;
-   * `undefined` means the source exhausted its scan (including the #500
-   * empty-streak give-up), so no cursor is emitted (no phantom load-more).
-   * Offset sources leave this undefined.
+   * Keyset hop token from source. Undefined means source exhausted scan
+   * (including #500 empty-streak give-up), so no cursor emitted.
    */
   nextRaw?: RawPageToken;
   /** Page size. */

@@ -16,12 +16,7 @@ export interface IncrementalDeps {
   provider: PreferenceDataProvider;
 }
 
-/**
- * Cheap, approximate update. Applies new signals to every partition the user
- * has a profile for — movie/tv/combined — using the same per-item weight
- * hierarchy as rebuild. Deliberately skips re-normalization and pruning so the
- * daily rebuild retains its role as the correction pass.
- */
+/** Cheap approximate update: applies signals to movie/tv/combined partitions with same weight hierarchy as rebuild. Skips re-normalization/pruning; daily rebuild is the correction pass. */
 // fallow-ignore-next-line complexity
 export async function applyIncrementalUpdate(
   deps: IncrementalDeps,

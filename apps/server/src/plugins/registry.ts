@@ -26,14 +26,9 @@ const BUILTIN_PLUGINS = [
 ];
 
 /**
- * Registers all built-in plugin modules with the loader. Called once during server boot
- * before PluginRuntime.bootstrapBuiltins runs.
- *
- * The `bytes` value is a synthetic identifier derived from the module itself — in v1 the
- * "source" of a built-in plugin is the workspace TypeScript imported here, so we use a
- * stable synthetic string so the checksum is deterministic across restarts. Any manifest
- * edit that should reach users must bump `manifest.version`; `bootstrapBuiltins` only
- * refreshes the DB row when the checksum or version changes.
+ * Register all built-in plugins. Called once during boot before `bootstrapBuiltins`.
+ * The `bytes` synthetic ID ensures deterministic checksum across restarts.
+ * Manifest edits require `manifest.version` bump; DB row refreshes on checksum/version change.
  */
 export function registerBuiltinPlugins(): void {
   for (const module of BUILTIN_PLUGINS) {

@@ -3,18 +3,10 @@ import type { MediaType } from "@nama/shared/media";
 import { keyToId, type MoodId, type WatchlistKey } from "@nama/shared/watchlist";
 
 /**
- * Deterministic watchlist scenario captured BEFORE the US-014..US-017
- * `MediaSource` reimplementations (RISK-103 / design §T). Both the pre-refactor
- * parity test (`section-parity.test.ts`) and the post-refactor source tests
- * seed THIS scenario and assert their output against the committed
- * `section-parity.json` golden fixture, proving the migration is
- * behavior-neutral (same item ids + order per section).
- *
- * The scenario is framework-agnostic — it exposes plain data plus pure
- * builders so a `listRows`-based harness can reuse it without depending on the
- * watchlist service. Determinism comes from {@link installIncrementingClock}
- * (distinct, increasing `addedAt` per insert) and stub maps keyed off the row
- * specs; nothing here reads the real clock or the network.
+ * Deterministic scenario for parity tests (US-014..US-017, RISK-103 / design §T).
+ * Proves refactor is behavior-neutral by comparing pre/post output against
+ * `section-parity.json` golden fixture. {@link installIncrementingClock}
+ * ensures distinct, increasing `addedAt` per insert; stubs block real clock/network.
  */
 export const PARITY_USER_ID = "parity-user";
 
@@ -43,15 +35,9 @@ export interface ParityRowSpec {
 }
 
 /**
- * Eight movie rows in insert order (m01 first → m08 last). With the
- * incrementing clock, `addedAt` strictly increases, so the keyset read returns
- * them DESC (m08 first). The mix exercises every section signal:
- *
- * - keyset order (items / recently): purely `addedAt` DESC.
- * - mood filter (mood-items): m02 / m05 / m07 carry a `dark` genre.
- * - tonight ranking: m04 is in-progress (top weight); m03 / m05 / m06 are
- *   server-mapped "ready" with differing runtimes; m08 is a future release
- *   (upcoming → excluded); m01 / m02 / m07 are unavailable (excluded).
+ * Eight movies exercising each section signal: keyset order (addedAt DESC),
+ * mood filter (m02/m05/m07 dark genre), tonight rank (m04 in-progress→top;
+ * m03/m05/m06 ready; m08 upcoming; m01/m02/m07 unavailable→excluded).
  */
 export const PARITY_ROWS: ParityRowSpec[] = [
   {
@@ -209,12 +195,9 @@ export function buildParityContinueWatchingItems(): {
 const PARITY_CLOCK_BASE = Date.UTC(2026, 0, 1);
 
 /**
- * Replaces `Date.now` with a counter that increments one ms per call so each
- * `addItem` records a distinct, strictly-increasing `addedAt` (the keyset sort
- * key). The span stays far under the tonight "recently added" window, so that
- * score weight applies uniformly and never reorders the ranking. Returns a
- * restore function — call it in `afterEach`. Does not touch timers, so async
- * DB I/O is unaffected.
+ * Replaces `Date.now` with incrementing counter so each `addItem` gets
+ * distinct, increasing `addedAt` (keyset sort key) within "recently added"
+ * window. Returns restore fn for `afterEach`. Does not touch timers.
  */
 export function installIncrementingClock(): () => void {
   const original = Date.now;

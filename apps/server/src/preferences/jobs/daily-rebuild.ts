@@ -6,14 +6,9 @@ import { PREFERENCE_DAILY_JOB_ID } from "./ids";
 export { PREFERENCE_DAILY_JOB_ID } from "./ids";
 
 /**
- * Daily safety-net rebuild. Walks the `listUsersNeedingDailyRebuild` row
- * source and rebuilds the three profile partitions for any user whose
- * profile is stale or missing. Runs at 03:00 — offset behind
- * `host.catalog.recommendation_build` (02:00) so the two jobs do not race
- * `profile_version` on the same user set. The catalog rec build already
- * rebuilds profiles before writing its list; this sweep stays as the safety
- * net for users the catalog job did not touch (e.g. row-source mid-flight
- * failure) and runs once the rec window has settled.
+ * Daily safety net: rebuilds profile partitions for users with stale/missing profiles.
+ * Runs 03:00, offset after `host.catalog.recommendation_build` (02:00) to avoid `profile_version` race.
+ * Catches users skipped by catalog job (e.g., row-source mid-flight failure) once rec window settles.
  */
 export function registerDailyRebuild(): void {
   registerScheduledPerRow<RebuildRow>({

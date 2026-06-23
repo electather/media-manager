@@ -32,12 +32,7 @@ function genreOverlap(a: CompactMediaItem, b: CompactMediaItem): number {
   return n;
 }
 
-/**
- * Score a single candidate. `prior` is the picked hero (or previous
- * alternates) — overlap with `prior` triggers a diversity penalty so the
- * alternate strip varies. Tonight invariant V.WL4: deterministic given
- * identical inputs.
- */
+/** Score a candidate. Prior (picked hero/alternates) triggers diversity penalty on overlap. Invariant V.WL4: deterministic for identical inputs. */
 // fallow-ignore-next-line complexity
 export function score(
   item: CompactMediaItem,

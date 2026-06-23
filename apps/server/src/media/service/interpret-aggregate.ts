@@ -10,27 +10,10 @@ export interface HomeAggregate<T extends unknown[]> {
   partial: boolean;
 }
 
-/**
- * Translates a raw `AggregateResult` into the home-feed `HomeAggregate`
- * envelope and decides whether the row should be flagged `all_failed`.
- *
- * Four distinct outcomes share the surface:
- *   - `attempted === 0` — no providers installed. Returns empty, partial=false;
- *     row drops normally (no `partial: true` because there is no error to
- *     surface).
- *   - every provider errored, but ALL failures are transient
- *     (`TRANSIENT_PLUGIN_CODES`: rate-limit, upstream 5xx, timeout) — the data
- *     is temporarily unavailable, not gone. Soft-degrades to empty +
- *     `partial: true` so the row renders empty and self-heals on a later
- *     fetch, instead of hard-failing on a transient blip (e.g. a rate-limited
- *     Trakt token refresh on the `calendar@v1` "coming up" row).
- *   - every provider errored and at least one failure is terminal (auth, bad
- *     input, …) — throws `AllPluginsFailedError` so the orchestrator marks the
- *     row `all_failed` and the surface can prompt the user to act, rather than
- *     letting `upcomingForYou`'s ok_empty exemption fire on a real outage.
- *   - else — at least one provider succeeded. Returns whatever data was
- *     collected, with `partial: true` when at least one peer errored.
- */
+// Four outcomes: (1) attempted=0 → empty,partial=false; (2) all transient errors
+// (TRANSIENT_PLUGIN_CODES) → empty,partial=true, self-heals on retry; (3) at least one
+// terminal error (auth/bad-input) → AllPluginsFailedError, marks row all_failed; (4) ≥1 success
+// → data with partial=true if any peer errored.
 // fallow-ignore-next-line complexity
 export function interpretAggregate<T>(
   capabilityKey: string,

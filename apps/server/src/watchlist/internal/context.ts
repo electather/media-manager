@@ -23,10 +23,8 @@ export interface WatchlistContext {
 }
 
 /**
- * The fully-resolved per-request handles every read path needs: the bare
- * `WatchlistContext` plus the media cycle-breaker callbacks (`getArtwork`,
- * `toCanonicalRow`) and the progress loader. `toSourceContext` (sources) and
- * the section envelopes consume this shape.
+ * Fully-resolved per-request context: bare WatchlistContext + media cycle-breaker callbacks
+ * (getArtwork, toCanonicalRow) + progress loader. Consumed by toSourceContext and section envelopes.
  */
 export interface ResolvedWatchlistContext extends WatchlistContext {
   loadProgressMap: typeof loadProgressMap;

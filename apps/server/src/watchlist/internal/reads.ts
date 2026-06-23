@@ -65,14 +65,8 @@ export async function getItems(
   };
 }
 
-/**
- * Returns up to `limit` active items the user actually has on a connected
- * library server. Pre-filters by `getMatchingServers` before the enrich
- * fan-out so we don't pay the metadata batch for items the user can't play.
- *
- * Triggers a seed when the user has no active rows and has not been seeded
- * yet, then retries once.
- */
+// Pre-filters by getMatchingServers before enrich fan-out to avoid metadata batch
+// for unplayable items. Seeds on first call if user has no rows yet, then retries.
 // fallow-ignore-next-line complexity
 export async function listAvailable(
   limit: number,

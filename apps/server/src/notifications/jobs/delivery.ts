@@ -17,15 +17,9 @@ import { parseStoredEventPayload } from "../internal/parse-event-payload";
 const log = consola.withTag("notifications.deliver");
 
 /**
- * Triggerable per-delivery job. Locks the running-state per-deliveryId rather
- * than job-wide so concurrent emits for separate recipients do not collide on
- * "already running"; the deliveryId is unique per row and idempotent under
- * retry so it also dedupes overlapping triggers from the stale-pending sweep.
- *
- * Heavy lifting (plugin load, context build, deliver invocation, failure
- * policy) lives in `../internal/deliver-handler.ts` so this file stays under
- * the 200 LOC jobs cap. The handler here only wires the CAS claim + log +
- * dispatch.
+ * Per-deliveryId triggerable job (scoped lock allows concurrent different recipients).
+ * Heavy lifting in `../internal/deliver-handler.ts` to stay under 200 LOC jobs cap;
+ * this file only wires CAS claim + log + dispatch.
  */
 export function registerDelivery(): void {
   registerTriggerable<{ deliveryId: string }, void>({
@@ -90,12 +84,9 @@ export function registerDelivery(): void {
         return;
       }
 
-      // No-auth notification plugins (Telegram, ntfy, …) declare secret fields
-      // like `botToken` with `x-secret: true`. The create path lifts those into
-      // the encrypted credentials blob, so `userConfig` alone is missing them
-      // at delivery time. Decrypt the blob and merge it back into the channel
-      // config the plugin's `deliver()` reads from — credentials win on key
-      // collisions so the encrypted-at-rest value is the source of truth.
+      // No-auth plugins (Telegram, ntfy) store secrets in encrypted credentials blob,
+      // missing from `userConfig`. Decrypt and merge back — credentials win on
+      // collisions so encrypted-at-rest is source of truth.
       try {
         const credentials = await decryptJson(conn.credentialsIv, conn.encryptedCredentials);
         channelConfig = mergeSecretCredentials(channelConfig, credentials);

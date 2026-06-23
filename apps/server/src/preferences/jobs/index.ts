@@ -13,13 +13,8 @@ export interface RegisterJobsOptions {
 }
 
 /**
- * Registers the three jobs the preference engine owns. Invoked from
- * `apps/server/src/index.ts` in fixed alphabetical module order so handler
- * fan-out timing stays deterministic — boot.test.ts enforces this.
- *
- * `scheduled: false` skips the croner-backed daily-rebuild registration so a
- * caller without a persistent scheduler can still register the triggerable
- * manual-rebuild + coalesced incremental-update jobs.
+ * Registers three preference jobs in alphabetical order (enforced by boot.test.ts).
+ * `scheduled: false` skips croner-backed daily rebuild for callers without persistent schedulers.
  */
 export function registerJobs(opts: RegisterJobsOptions = {}): void {
   const scheduled = opts.scheduled ?? true;

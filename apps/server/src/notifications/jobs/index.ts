@@ -15,15 +15,8 @@ export interface RegisterJobsOptions {
   scheduled?: boolean;
 }
 
-/**
- * Registers every notification job at boot. Invoked from
- * `apps/server/src/index.ts` in alphabetical module order; ordering inside
- * this function is registration-order — handlers fan out sequentially so
- * adding a new handler in the middle could shift downstream timings.
- *
- * `scheduled: false` skips croner-backed registrations so a caller without a
- * persistent scheduler still wires triggerable jobs and event handlers.
- */
+// Registers all notification jobs at boot (invoked from index.ts). Handlers fan out sequentially
+// so middle insertions shift timings. scheduled: false skips cron registrations for non-persistent schedulers.
 export function registerJobs(opts: RegisterJobsOptions = {}): void {
   const scheduled = opts.scheduled ?? true;
   registerDelivery();

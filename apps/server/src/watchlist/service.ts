@@ -88,14 +88,7 @@ export interface ListItemsOptions {
   mood?: MoodId;
 }
 
-/**
- * Run a watchlist section read through a `MediaSource`: decode the incoming
- * cursor against the source's declared mode (a bad/foreign/mode-mismatched
- * cursor → `null` → first page, V.CU1), list via the shared media pipeline, and
- * bridge the result onto the `WatchlistResponse` wire shape. The pipeline yields
- * public `CompactMediaItem`s — the unified item shape the response now carries
- * (active rows fill `addedAt`/`addedSource`; discovery rows leave them null).
- */
+/** Decodes cursor (bad/foreign/mismatched → null, V.CU1), lists via media pipeline, bridges to `WatchlistResponse`. */
 async function readSection<P>(
   c: ResolvedWatchlistContext,
   source: MediaSource<P>,
@@ -107,15 +100,7 @@ async function readSection<P>(
   return { items: page.items, cursor: page.cursor, partial: page.partial };
 }
 
-/**
- * Paginated list of watchlist items with sort + bucket + mood filters. Thin
- * envelope over the media read pipeline (design §S.1 / consolidation §H): the
- * `items` `MediaSource` supplies the raw rows + a `stages` declaration and
- * `media.listRows` owns enrich / classify / filter / sort / paginate / cursor.
- * `recent` + no filter rides the keyset window; every other read (a non-recent
- * metadata sort, or a bucket/mood filter) rides offset mode. When `bucket` is
- * omitted, every active row surfaces (V.WL2).
- */
+/** Paginated list with filters (design §S.1/§H). Keyset window for recent; offset for sorts/filters. Omitted bucket: all rows (V.WL2). */
 export async function listItems(
   ctx: MaybeRowContext,
   opts: ListItemsOptions = {},
@@ -134,14 +119,7 @@ export async function getTonightSection(ctx: MaybeRowContext): Promise<Watchlist
   return getTonightSectionImpl(asWatchlistContext(ctx));
 }
 
-/**
- * Last-added items, capped by `limit`. No cursor. Thin envelope over the media
- * read pipeline (design §S.4 / consolidation §H): the `recently` `MediaSource`
- * supplies the last `limit` raw rows (`addedAt` DESC) and `media.listRows` owns
- * enrich / sort. The pipeline yields public `CompactMediaItem`s — the unified
- * item shape the response now carries. The page cursor is discarded — the
- * section is a bounded preview, not paginated.
- */
+/** Last-added items capped by limit, no cursor (design §S.4/§H). Bounded preview, not paginated. */
 export async function getRecentlyAdded(
   ctx: MaybeRowContext,
   limit: number,
@@ -162,14 +140,7 @@ export interface ListMoodItemsOptions {
   limit?: number;
 }
 
-/**
- * Paginated rows for a specific mood. Thin envelope over the media read
- * pipeline (design §S.3 / consolidation §H): the `mood-items` `MediaSource`
- * scans keyset windows, applies the mood predicate, and accumulates a full page
- * across windows (it owns the overshoot + empty-streak budget so a sparse mood
- * still fills a page); `media.listRows` owns enrich / sort / paginate / cursor.
- * A bad/foreign/mode-mismatched cursor decodes to `null` → first page (V.CU1).
- */
+/** Paginated mood rows (design §S.3/§H). Scans keyset windows with predicate + overshoot budget. Bad cursor → null/first page (V.CU1). */
 export async function listMoodItems(
   ctx: MaybeRowContext,
   moodId: MoodId,

@@ -48,12 +48,7 @@ export type WatchlistEnrichContext = MediaEnrichContext;
 
 export interface EnrichResult<Row extends MediaEnrichRow = MediaEnrichRow> {
   items: CompactMediaItem[];
-  /**
-   * Source row for each emitted item, in the same order. The
-   * paginator uses this to encode the next cursor from the row that produced
-   * the last *returned* item, not the last DB-scanned row (which would skip
-   * matched-but-truncated items when a filter narrows the window).
-   */
+  /** Source row for each item; paginator encodes cursor from last-returned row (not last-scanned) to avoid skip-on-filter. */
   sources: Row[];
   /** True when at least one per-key lookup failed (status, availability, or cold-fill). */
   partial: boolean;

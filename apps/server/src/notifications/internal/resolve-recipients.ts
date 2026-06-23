@@ -6,11 +6,8 @@ import * as subscriptions from "../repo/subscriptions";
 import type { Recipient } from "../types";
 
 /**
- * Resolves recipients for a notification event. Routes user/role permission
- * reads through the `auth` barrel and service-connection reads through the
- * `plugin-runtime` barrel so notifications never touches a table it does not
- * own. Defense-in-depth re-check at dispatch time so a permission revoked
- * between emit and delivery does not leak.
+ * Routes permission reads via `auth` barrel, connections via `plugin-runtime` (notifications owns no tables).
+ * Defense-in-depth: re-check at dispatch so revoked permission between emit/delivery doesn't leak.
  */
 export async function resolveRecipients(event: NotificationEvent): Promise<Recipient[]> {
   const candidateUserIds = await collectAudience(event);

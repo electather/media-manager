@@ -67,14 +67,8 @@ export async function updateDeliveryStatus(
   await db.update(notificationDeliveries).set(updates).where(eq(notificationDeliveries.id, id));
 }
 
-/**
- * Records a failed-but-retryable attempt and reschedules it. Single update so
- * the row is never visible in an "attempt recorded but not yet rescheduled"
- * state to a concurrent reader. Status flips back to `pending` so the sweep
- * (or a direct trigger after the delay elapses) can pick it up; the CAS in
- * the delivery handler enforces the `nextAttemptAt <= now` gate before
- * actually starting the retry.
- */
+// Single update prevents intermediate state visible to concurrent readers.
+// Status → `pending` for sweep pickup; delivery handler enforces `nextAttemptAt <= now` gate.
 export async function rescheduleDeliveryAttempt(
   id: string,
   nextAttemptAt: number,
@@ -276,13 +270,8 @@ export async function resetDeliveryForRetry(id: string): Promise<RetryResetResul
   return "in_progress";
 }
 
-/**
- * Atomically claims a delivery row for in-flight processing. Returns the
- * claimed row when the CAS transitions `pending` → `in_progress` AND the
- * backoff window is open; returns `null` when the row is missing, already
- * in flight, or still inside its retry delay. Used by the delivery job
- * handler to deduplicate sweep retriggers.
- */
+// Atomic CAS: `pending` → `in_progress` only when backoff window is open (nextAttemptAt <= now).
+// Deduplicates sweep retriggers; missing/in-flight/delayed rows return null.
 export async function claimPendingForInProgress(deliveryId: string) {
   const db = getDb();
   const now = Date.now();
@@ -303,12 +292,8 @@ export async function claimPendingForInProgress(deliveryId: string) {
     .get();
 }
 
-/**
- * Returns deliveries eligible for sweep retrigger: pending rows whose backoff
- * window has opened, pending rows older than the stale threshold with no
- * `nextAttemptAt` set, and in-progress rows older than the stale threshold
- * (likely crashed mid-flight).
- */
+// Sweep-eligible: pending rows with expired backoff or stale with no nextAttemptAt,
+// plus old in-progress rows (likely crashed mid-flight).
 export async function listSweepEligible(
   now: number,
   staleCutoff: number,

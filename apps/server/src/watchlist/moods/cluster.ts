@@ -29,17 +29,7 @@ export interface MoodSummaryContext {
   log: ConsolaInstance;
 }
 
-/**
- * Aggregate mood tally across the user's active rows. Cached 30 s per user;
- * invalidated by the watchlist mutation listener. Clusters below
- * `MIN_CLUSTER_SIZE` are omitted from the summary so the client doesn't show
- * a one-item "Mood" chip.
- *
- * Metadata is loaded through media's shared `batchLoad` fan-out (design §G)
- * rather than a watchlist-local `getMetadataBatch` call; only the metadata
- * slice drives mood derivation, but routing through `batchLoad` keeps the
- * status + metadata + progress fan-out defined in exactly one place.
- */
+/** Aggregate mood tally across active rows, cached 30s. Clusters < MIN_CLUSTER_SIZE omitted. Uses media.batchLoad (design §G) not local getMetadataBatch. */
 // fallow-ignore-next-line complexity
 export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMoodSummary> {
   const key = summaryCacheKey(ctx.userId);

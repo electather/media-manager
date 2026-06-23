@@ -49,13 +49,7 @@ const NOTE_KEYWORD_BOOST = 0.3;
 export interface RebuildDeps {
   provider: PreferenceDataProvider;
   abortSignal?: AbortSignal;
-  /**
-   * Wall-clock deadline (ms-epoch) for cold-fill plugin dispatch inside
-   * `collectContributions`. Items processed past the deadline are dropped
-   * without invoking the provider so a fully cold catalog can't run a
-   * rebuild past its job timeout. `undefined` disables the bound — used by
-   * incremental updates which are short and debounced.
-   */
+  /** Wall-clock deadline (ms-epoch) for collectContributions plugin dispatch. Items past deadline dropped without provider call so cold catalog can't overrun job timeout. `undefined` disables bound (for incremental updates, short + debounced). */
   deadlineMs?: number;
 }
 
@@ -121,12 +115,7 @@ interface ItemContribution {
   noteKeywords: string[];
 }
 
-/**
- * Reduces every feedback event, rating, and history entry for the user to a
- * single per-item contribution (weight + timestamp). Events for items outside
- * the requested `mediaType` partition are filtered out up front unless we're
- * building the combined profile.
- */
+// Reduces feedback events, ratings, history entries to single per-item contribution (weight + timestamp). Filters out items outside requested mediaType partition upfront unless building combined profile.
 async function collectContributions(
   deps: RebuildDeps,
   userId: string,

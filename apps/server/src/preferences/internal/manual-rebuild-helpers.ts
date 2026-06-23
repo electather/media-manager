@@ -9,10 +9,8 @@ import type { FeatureCacheMetrics } from "./catalog-provider";
 import { getPreferencesService } from "../service";
 
 /**
- * Helper module factored out of `jobs/manual-rebuild.ts` to keep the job
- * file under the 200 LOC hard cap. These functions are only used by the
- * manual-rebuild handler — moving them into `internal/` keeps the job file
- * tight without exposing them via the barrel.
+ * Helpers factored from `jobs/manual-rebuild.ts` (200 LOC hard cap).
+ * Used only by manual-rebuild handler; kept in `internal/` to avoid barrel exposure.
  */
 
 export interface RecListSummary {

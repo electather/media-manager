@@ -33,16 +33,11 @@ const MAX_EMPTY_HOPS = 2;
 const MAX_MOOD_HOPS = 20;
 
 /**
- * The watchlist `mood-items` `MediaSource` (design §S.3 / consolidation §H).
- * Mood is a watchlist-product predicate media must not derive, so the source
- * applies it inside `fetchRawSet` (V.RG1): it scans keyset windows, keeps the
- * rows whose canonical genres derive the requested mood, and accumulates a full
- * page across windows (with an empty-streak budget so a sparse mood still fills
- * a page). It supplies ONLY the matched raw rows + a `stages` declaration; the
- * media pipeline (`listRows`) owns enrich / sort / paginate / cursor (V.MC1).
- * `filter: "preapplied"` is declarative — it tells the pipeline the predicate
- * already ran here so the filter stage must NOT re-derive it (the watchlist
- * mood predicate cannot leak into media per V.WL3).
+ * Watchlist mood-items source (design §S.3 / consolidation §H, V.RG1, V.MC1).
+ * Applies mood predicate in fetchRawSet (not in media: V.WL3); scans keyset
+ * windows keeping rows whose genres derive requested mood, accumulating full
+ * page with empty-streak budget. filter:"preapplied" signals pipeline NOT to
+ * re-derive it.
  */
 export const moodItemsSource: MediaSource<MoodParams> = {
   sourceId: "watchlist.mood-items",
@@ -59,16 +54,11 @@ export function moodItemsCfg(
 }
 
 /**
- * Scan keyset windows applying the mood predicate, accumulating up to `limit`
- * matched rows. Underfilled windows that still add a match reset the empty
- * streak so a deep-but-progressing scan keeps going; a window that adds nothing
- * burns one streak slot. The accumulated rows are already `addedAt` DESC (keyset
- * order across windows), so the pipeline's `recentDesc` sort preserves them.
- *
- * `nextRaw` is the hop token the pipeline mints the next cursor from. It is
- * omitted (→ `cursor:null`, #500 / V.PG1) when the scan is exhausted or the
- * empty-streak budget exits without collecting anything, so the client never
- * shows a phantom load-more.
+ * Scan keyset windows, accumulating up to `limit` mood-matching rows.
+ * Underfilled windows that add matches reset empty streak; empty windows burn
+ * one slot. Rows already `addedAt` DESC (keyset order), so recentDesc sort
+ * preserves them. nextRaw omitted (#500 / V.PG1) if scan exhausted or
+ * empty-streak budget exits with no results.
  */
 // fallow-ignore-next-line complexity
 async function fetchMoodRawSet(

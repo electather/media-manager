@@ -9,10 +9,8 @@ import {
 } from "../../media";
 
 /**
- * The resolved per-request handles a watchlist source needs to build a media
- * `SourceContext`. It mirrors the fields `asWatchlistContext` already resolves
- * (`service.ts`), so the section envelope passes its `ResolvedWatchlistContext`
- * straight through structurally.
+ * Resolved per-request handles for watchlist source `SourceContext`. Mirrors fields from
+ * `asWatchlistContext` (`service.ts`) so the envelope passes `ResolvedWatchlistContext` through structurally.
  */
 export interface WatchlistSourceCtx {
   userId: string;
@@ -25,11 +23,8 @@ export interface WatchlistSourceCtx {
 }
 
 /**
- * Bridge a resolved watchlist context onto the media `SourceContext` that
- * `listRows` and a `MediaSource` expect (design §B/§M.4): map `log → logger`
- * and mint a fresh request-scoped `StatusBatchMemo`. Shared by every watchlist
- * source (items / mood-items / tonight / recently) so each section envelope
- * builds the context the same way.
+ * Bridge watchlist context to media `SourceContext` (design §B/§M.4): map `log → logger`,
+ * mint request-scoped `StatusBatchMemo`. Used by all watchlist sources so envelopes build consistently.
  */
 export function toSourceContext(c: WatchlistSourceCtx): SourceContext {
   return {

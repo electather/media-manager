@@ -203,12 +203,8 @@ function mergeBundle(
   );
 }
 
-/**
- * Dispatches every eligible provider in parallel, merges per-kind by priority (first
- * non-empty array wins). Eligibility = manifest's `supportedIdTypes[type]` overlaps
- * request's `ids`. Zero eligible = caller bug (`artwork.unsupported_id_combo`).
- * All-empty cached negative; all-fail not cached.
- */
+// Dispatches eligible providers in parallel, merges per-kind by priority (first non-empty wins).
+// Eligibility = manifest's supportedIdTypes[type] overlaps request ids. All-empty cached negative; all-fail not.
 // fallow-ignore-next-line complexity
 export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   req: DispatchRequest,

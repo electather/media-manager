@@ -18,37 +18,19 @@ interface LibraryIndex {
 }
 
 export class LibraryAvailability {
-  /**
-   * Per-request `getMatchingServers` memo keyed by `${tmdbId}|${type}`. Avoids
-   * 60× plugin lookups when the same row enriches a 60-item rec list whose
-   * items repeatedly hit the same library backends. Cleared with the
-   * MediaService instance lifetime (request-scoped).
-   */
+  /** Per-request memo for getMatchingServers (key: `${tmdbId}|${type}`). Collapses N identical probes to one lookup per request. */
   private readonly matchingServersCache = new Map<string, Promise<MatchingServer[]>>();
 
-  /**
-   * Per-request library presence index keyed by `${pluginId}|${type}`. The
-   * first `getMatchingServers` call for a given (plugin, type) triggers a
-   * single `libraryAvailability@v1.listAvailable` round-trip that yields the
-   * TMDB id set for the user's library. Subsequent calls in the same request
-   * are O(1) set lookups, collapsing N enrichment probes to one network call
-   * per plugin per request.
-   */
+  /** Per-request library index (key: `${pluginId}|${type}`). First call triggers one `listAvailable` RPC; subsequent calls are O(1) set lookups. */
   private readonly libraryIndexCache = new Map<string, Promise<LibraryIndex | null>>();
 
   constructor(private readonly userId: string) {}
 
   /**
-   * Per-server availability lookup for the home-feed `availability.servers`
-   * chip strip. Walks every `libraryAvailability@v1` provider for the user;
-   * for each plugin, calls `checkAvailability` with `idType: "tmdb"` against
-   * the first usable connection. Plugins that report at least one library
-   * item are returned as `{ id, label }` chips, deduped by plugin id and
-   * sorted by label. Per-request memoized so a 60-item enrichment pass only
-   * fans out once per `(tmdbId, type)`.
-   *
-   * Per-plugin failures are silently dropped — the chip strip is best-effort
-   * and a missing chip is preferable to surfacing a transient 5xx in the UI.
+   * Per-server availability for home-feed chip strip. Walks every `libraryAvailability@v1` provider,
+   * calling `checkAvailability(idType: "tmdb")` on the first usable connection per plugin. Returns
+   * deduped `{ id, label }` chips sorted by label, memoized per `(tmdbId, type)`. Per-plugin failures
+   * are silently dropped (best-effort; missing chip > transient 5xx in UI).
    */
   // fallow-ignore-next-line complexity
   async getMatchingServers(
@@ -73,17 +55,10 @@ export class LibraryAvailability {
   }
 
   /**
-   * Per-copy quality lookup across every `libraryAvailability@v1` provider for
-   * the user. Unlike `getMatchingServers` — which only needs the chip and so
-   * discards `items[].quality` — this returns the raw quality descriptor of
-   * every owned copy so the library hydrate job can derive its `qualityTiers`
-   * projection (design §Sync + hydrate: "quality ← checkAvailability PER item").
-   *
-   * This is the N-call fan-out the design flags: one `checkAvailability` per
-   * provider per title. It is intended for the background hydrate job, never a
-   * request hot path. Per-plugin failures are dropped (best-effort) and an empty
-   * array is returned when no provider has the title — a title with no resolvable
-   * copies hydrates to empty quality tiers rather than throwing.
+   * Per-copy quality lookup for every `libraryAvailability@v1` provider. Unlike getMatchingServers,
+   * returns raw quality descriptors so the hydrate job can derive `qualityTiers` (design §Sync:
+   * "quality ← checkAvailability PER item"). One call per provider per title (flagged N-call fan-out,
+   * background only, never hot path). Per-plugin failures dropped; no copies → empty array.
    */
   async getAvailabilityQuality(
     tmdbId: string,
@@ -102,13 +77,7 @@ export class LibraryAvailability {
     return perProvider.flat();
   }
 
-  /**
-   * Returns the quality descriptor of every copy of `tmdbId` on `pluginId`, or
-   * an empty array when the plugin has no usable connection or the title is
-   * absent. Mirrors `probeServerLegacy`'s connection walk but keeps the copies
-   * instead of collapsing them to a single chip. A malformed `quality` payload
-   * is skipped rather than failing the whole probe.
-   */
+  /** Quality descriptors for every copy of tmdbId on pluginId, or empty array if unavailable. Like probeServerLegacy but keeps all copies (not collapsed to one chip). Malformed quality is skipped. */
   // fallow-ignore-next-line complexity
   private async probeQuality(
     pluginId: string,
@@ -166,15 +135,7 @@ export class LibraryAvailability {
     );
   }
 
-  /**
-   * Returns a server chip for `pluginId` if `tmdbId` is on its library. Two
-   * paths:
-   *   • Fast path — `listAvailable` produced an index for this (plugin, type)
-   *     in the current request → O(1) set lookup.
-   *   • Fallback — index unavailable (plugin doesn't implement it, no
-   *     connection, or call errored). Falls back to per-id `checkAvailability`
-   *     so the chip still resolves, just at the old per-call cost.
-   */
+  /** Server chip for pluginId if tmdbId is in its library. Fast path: O(1) set lookup via index. Fallback: per-id checkAvailability if index unavailable. */
   private async probeServer(
     pluginId: string,
     tmdbId: string,
@@ -224,20 +185,11 @@ export class LibraryAvailability {
   }
 
   /**
-   * Memoised one-shot library index for `(pluginId, queryType)`. Returns
-   * `null` when the plugin has no usable connection or the dispatch failed —
-   * callers fall back to per-id `checkAvailability`. The promise is cached
-   * even on rejection-style nulls so a second item lookup in the same request
-   * does not re-probe a plugin that just failed.
-   *
-   * Cache identity is intentionally deadline-agnostic (mirrors
-   * `getMatchingServers`): the first caller's `deadlineMs` governs the shared
-   * probe; a later caller with a tighter deadline silently inherits the
-   * looser one. Safe today because every `MediaService` instance is scoped to
-   * one HTTP request or one warm-job row. If that invariant ever changes —
-   * a `MediaService` shared across requests with differing deadlines — the
-   * tighter deadline will be ignored. Add `deadlineMs` to `key` only if that
-   * happens.
+   * Memoized one-shot index for `(pluginId, queryType)`. Cached even on null (failed dispatch)
+   * so second lookup doesn't re-probe. Cache key is deadline-agnostic: first caller's deadline
+   * wins for the shared probe. Safe today (MediaService scoped to one HTTP request), but if
+   * shared across requests with differing deadlines, tighter deadline gets ignored — add
+   * deadlineMs to key then.
    */
   // fallow-ignore-next-line complexity
   private async getLibraryIndex(

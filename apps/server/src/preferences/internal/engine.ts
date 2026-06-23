@@ -28,13 +28,7 @@ export interface PreferenceEngineDeps {
 export interface RankOptions {
   alpha?: number;
   mediaType?: "movie" | "tv" | "any";
-  /**
-   * Wall-clock deadline (ms-epoch) for cold-fill plugin dispatch inside
-   * `enrichCandidates`. Catalog reads stay unbounded since they're sub-ms;
-   * the deadline only short-circuits the per-item plugin fallback path.
-   * Items past the deadline drop out with no features (engine treats the
-   * thinned set as lower confidence).
-   */
+  /** Wall-clock deadline (ms-epoch) for cold-fill plugin dispatch; catalog reads unbounded. Items past deadline: no features. */
   deadlineMs?: number;
 }
 
@@ -48,12 +42,7 @@ const COLD_FILL_CONCURRENCY = 10;
 export class PreferenceEngine {
   constructor(private readonly deps: PreferenceEngineDeps) {}
 
-  /**
-   * Exposes the underlying data provider so callers (notably observability
-   * code in the manual rebuild job) can interrogate provider-specific
-   * surfaces such as `consumeFeatureCacheMetrics`. Engine itself stays
-   * provider-agnostic; the optional surface is read at the call site.
-   */
+  /** Exposes provider so callers (e.g., observability) can read provider-specific surfaces; engine stays provider-agnostic. */
   // fallow-ignore-next-line unused-class-member
   get provider(): PreferenceDataProvider {
     return this.deps.provider;

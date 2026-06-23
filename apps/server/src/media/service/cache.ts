@@ -33,11 +33,9 @@ export interface CacheKeyArgs {
   method: string;
   userId: string;
   /**
-   * Scope the key is written under — resolved per-request by the dispatcher,
-   * not derived from a capability-level flag. For mixed-scope capabilities
-   * this means a user-scoped resolution (e.g. `idResolve(from: "plex:…")`)
-   * lives in a userId-qualified key namespace and cannot be served to a
-   * different user out of the global cache.
+   * Per-request scope resolved by dispatcher, not a capability flag.
+   * User-scoped resolutions (e.g. `idResolve(from: "plex:…")`) live in userId-qualified
+   * namespace and cannot be served to different users from global cache.
    */
   scope: ResolvedCapabilityScope;
   input: unknown;

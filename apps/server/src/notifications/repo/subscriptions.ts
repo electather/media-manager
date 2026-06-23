@@ -36,10 +36,8 @@ export async function listSubscriptionsForConnections(
 }
 
 /**
- * Returns connection ids subscribed to `category` with `enabled = 1`. Used by
- * resolve-recipients after the candidate connection set has been narrowed
- * through plugin-runtime; intersecting against this list yields the final
- * delivery set.
+ * Returns connection ids with `category` subscribed (enabled = 1).
+ * Used by resolve-recipients to finalize delivery set after plugin-runtime narrowing.
  */
 export async function listEnabledSubscriptions(
   connectionIds: ReadonlyArray<string>,

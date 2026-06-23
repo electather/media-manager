@@ -5,17 +5,9 @@ import { setIncrementalHandle } from "./incremental-handle";
 
 export { PREFERENCE_INCREMENTAL_JOB_ID } from "./ids";
 
-/**
- * Coalesced incremental-update job. Debounces bursts of `ent_feedback`
- * writes by `userId` so a multi-rating flurry rolls into a single update
- * call instead of one engine pass per row. The daily safety-net rebuild
- * remains the correction pass — incremental skips renormalization.
- *
- * The `CoalescedJobHandle` returned by `registerCoalesced` is the only
- * surface that exposes `trigger()` (the registry entry does not), so the
- * handle is captured into a leaf module that `service.ts` reads through
- * `triggerIncremental(userId)`.
- */
+// Coalesced job debouncing ent_feedback bursts per userId so multi-rating flurries roll into
+// one update instead of per-row passes. Daily rebuild is correction pass; incremental skips renormalization.
+// CoalescedJobHandle.trigger() is captured for service.ts to read via triggerIncremental(userId).
 export function registerIncrementalRebuild(): void {
   const handle = registerCoalesced({
     id: PREFERENCE_INCREMENTAL_JOB_ID,

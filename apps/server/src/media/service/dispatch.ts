@@ -14,14 +14,10 @@ export { dispatchAggregatePerKind } from "../internal/strategies/aggregate-per-k
 export { invalidateUserCache } from "../internal/dispatch-cache";
 
 /**
- * Generic entry point — picks the dispatch function based on the capability's
- * declared strategy. Most callers should prefer the strategy-specific helper
- * so the return type is narrowed at compile time.
- *
- * Note: the `aggregate_per_kind` branch returns `Promise<T>` cast from
- * `Promise<Record<string, unknown[]>>`. Callers using `dispatch` for
- * per-kind capabilities should call `dispatchAggregatePerKind` directly
- * to keep the bundle shape in the type.
+ * Generic entry point selecting dispatch function by capability strategy.
+ * Note: `aggregate_per_kind` returns `Promise<T>` cast from
+ * `Promise<Record<string, unknown[]>>` — callers should prefer
+ * `dispatchAggregatePerKind` directly to preserve bundle shape in type.
  */
 // fallow-ignore-next-line complexity
 export async function dispatch<T = unknown>(

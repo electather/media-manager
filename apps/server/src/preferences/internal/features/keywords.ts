@@ -19,10 +19,8 @@ export const STRUCTURAL_TAGS = new Set<string>([
 ]);
 
 /**
- * Tone and mood descriptors dilute content signal when mixed into keywords.
- * A single TV show contributed 37 tone keywords at equal weight in observed
- * data, consuming ~24% of the 200-keyword budget. If mood scoring is added
- * later it belongs in a dedicated `moods` category, not silently mixed here.
+ * Tone descriptors dilute signal (single show: 37 keywords = ~24% of
+ * 200-keyword budget). Future `moods` category gets dedicated scoring, not mixed here.
  */
 export const TONE_DESCRIPTORS = new Set<string>([
   "excited",

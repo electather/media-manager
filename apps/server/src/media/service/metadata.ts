@@ -12,13 +12,9 @@ import { dispatchPrimary } from "./dispatch";
 
 const COMBINED_ID_KINDS = new Set(["movie", "tv"] as const);
 
-/**
- * Validates a colon-delimited combined id and returns its typed tuple. Rejects
- * any shape other than exactly `movie:<id>` or `tv:<id>` with a non-empty id —
- * a malformed value like `movie:tt1:extra`, `show:550`, or `movie:` (empty
- * segment) must surface as a bad-request rather than be force-cast into the
- * typed tuple and propagate an empty id into the plugin dispatch layer.
- */
+// Validates "movie:<id>" or "tv:<id>" only; rejects malformed shapes like
+// "movie:tt1:extra", "show:550", or "movie:" to avoid propagating invalid ids
+// into the plugin dispatch layer.
 function parseValidCombinedId(combined: string): ["movie" | "tv", string] {
   const [kind, id, ...rest] = combined.split(":");
   const valid = COMBINED_ID_KINDS.has(kind as "movie" | "tv") && id && rest.length === 0;
@@ -100,12 +96,8 @@ export async function getDetails(
   return result.data ?? null;
 }
 
-/**
- * Typed `metadata@v1.getDetails` wrapper used by the catalog cold-fill
- * provider and the nightly metadata-refresh job. Returns `null` when no
- * primary plugin is available or the dispatch yields no data — callers
- * fall back to other paths in that case rather than throwing.
- */
+// Wrapper for catalog cold-fill and metadata-refresh; returns null on no-plugin
+// or no-data (callers fall back rather than throw).
 export async function getMetadata(
   userId: string,
   tmdbId: string,
@@ -116,14 +108,8 @@ export async function getMetadata(
   return result.data ?? null;
 }
 
-/**
- * Same dispatch as `getMetadata` but returns the full `AggregateResult` so the
- * caller can inspect `errors`/`attempted` rather than only the data. The
- * nightly metadata-refresh job needs this to tell a genuine upstream removal
- * (`data: null` with no errors) apart from a total provider outage (`data:
- * null` with every provider in `errors`), which would otherwise both collapse
- * to `null` and be miscounted as not-found.
- */
+// Returns full AggregateResult so metadata-refresh can distinguish genuine
+// upstream removal (null, no errors) from provider outage (null, all errors).
 export async function getMetadataResult(
   userId: string,
   tmdbId: string,
@@ -141,13 +127,8 @@ export async function getMetadataResult(
   });
 }
 
-/**
- * Typed `metadata@v1.getShowSeasons` wrapper used by the home-feed detail
- * composer. Returns `null` when no primary plugin is available, the dispatch
- * yields no data, or the payload is malformed — the orchestrator omits the
- * field rather than failing the detail call so movies and shows w/o season
- * payloads still render the rest of the response.
- */
+// Home-feed detail wrapper; returns null on no-plugin, no-data, or malformed
+// payload so orchestrator omits field rather than failing the whole detail call.
 export async function getShowSeasons(
   userId: string,
   tmdbId: string,

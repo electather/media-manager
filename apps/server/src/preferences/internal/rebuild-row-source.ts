@@ -31,12 +31,9 @@ export async function listUsersNeedingRebuild(now: number = Date.now()): Promise
 }
 
 /**
- * Filtered row source for `host.preference.daily_rebuild`. Drops users
- * whose `combined` profile was rebuilt within `DAILY_FRESH_PROFILE_WINDOW_MS`
- * — those users were already covered by the 02:00 catalog rec-build run.
- * Users without a profile and users whose latest rebuild predates the
- * window stay in the row source so the safety-net sweep still corrects
- * any users the catalog job missed.
+ * Filters daily_rebuild row source: drops users whose combined profile was
+ * rebuilt within DAILY_FRESH_PROFILE_WINDOW_MS (already covered by 02:00 catalog
+ * rec-build). Keeps users without profile + older rebuilds for safety-net sweep.
  */
 export async function listUsersNeedingDailyRebuild(
   now: number = Date.now(),

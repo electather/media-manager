@@ -1,14 +1,7 @@
 import type { ActiveRow } from "@nama/shared/media";
 import type { Cursor, RawPageToken } from "../../media";
 
-/**
- * The watchlist keyset hop token codec shared by every keyset `MediaSource`
- * (items, mood-items). The opaque `k` carried by a keyset {@link Cursor} is the
- * `"addedAt:id"` resume position; the source decodes the incoming cursor with
- * {@link decodeKeyset} and threads the next page's position back as a
- * {@link RawPageToken} via {@link rawToken}, which `media.paginate` mints into
- * the next cursor.
- */
+// Keyset hop token codec shared by every keyset MediaSource (items, mood-items). Opaque `k` is "addedAt:id" resume position. Source decodes cursor with decodeKeyset, threads next page back as RawPageToken via rawToken, which media.paginate mints into next cursor.
 
 /** Parse the keyset cursor's opaque `k` (`"addedAt:id"`) back to a page cursor. */
 // fallow-ignore-next-line complexity

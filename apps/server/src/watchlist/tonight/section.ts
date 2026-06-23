@@ -14,13 +14,9 @@ function sectionCacheKey(userId: string): string {
 }
 
 /**
- * Tonight section: hero + ≤4 alternates from the user's ready / in-progress
- * pool. The `tonight` `MediaSource` runs the cheap classify pre-filter and the
- * media pipeline (`listRows`) enriches the candidates into a flat page; the
- * watchlist-product ranking + hero/alternate split (`pick`) runs here, in the
- * envelope, because `score` reads enriched fields the source's raw rows don't
- * carry (V.TN1 — `Page.items` stays flat, the split is envelope-side). Cached
- * 5 min per user (RISK-007 / V.WL4); invalidated on watchlist mutation.
+ * Tonight section: hero + ≤4 alternates. Source classify-filters; pipeline enriches flat page;
+ * ranking + split (`pick`) runs here because `score` reads enriched fields (V.TN1, envelope-side).
+ * Cached 5 min/user (RISK-007/V.WL4); invalidated on watchlist mutation.
  */
 export async function getSection(c: WatchlistSourceCtx): Promise<WatchlistSectionResponse> {
   // fallow-ignore-next-line code-duplication

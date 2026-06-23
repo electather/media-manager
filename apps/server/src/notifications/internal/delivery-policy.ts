@@ -1,12 +1,7 @@
 import type { NotificationEvent, NotificationMessage } from "@nama/shared/notifications";
 
-/**
- * Backoff schedule used when a retryable delivery attempt fails. The Nth fail
- * picks `BACKOFF_INTERVALS_MS[N - 1]` (clamped to the last entry); a
- * `retryAfterMs` carried on the thrown `pluginError` overrides the chosen
- * interval. Lives in this pure-policy module so backoff/cap behavior is
- * testable without a database, env, or plugin runtime.
- */
+// Nth fail uses BACKOFF_INTERVALS_MS[N - 1] (clamped to last entry); pluginError's
+// retryAfterMs overrides. Pure-policy module for testability without db/env/runtime.
 export const BACKOFF_INTERVALS_MS: readonly number[] = [
   60_000, 300_000, 1_800_000, 7_200_000, 43_200_000,
 ];
@@ -36,12 +31,8 @@ export interface DeliverHostPrivilegedArgs<TConfig = unknown> extends DeliverBas
   recipientUserId: string;
 }
 
-/**
- * Builds the arg bag passed to a plugin's `deliver()`. Third-party plugins
- * see only `{ message, event, channelConfig }` (the SDK-typed shape); host-
- * privileged plugins additionally receive the host-owned `deliveryId` and
- * `recipientUserId` so the inbox can persist a row tied to the right user.
- */
+// Third-party plugins see only SDK shape; host-privileged plugins additionally
+// get deliveryId + recipientUserId so inbox persists row tied to the user.
 export function buildDeliverArgs<TConfig = unknown>(
   pluginId: string,
   base: DeliverBaseArgs<TConfig>,
