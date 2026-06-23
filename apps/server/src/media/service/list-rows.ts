@@ -18,11 +18,9 @@ export type EnrichRowsFn<Row> = (
 ) => Promise<{ items: CompactMediaItem[]; partial: boolean }>;
 
 /**
- * Single media read path (design §C): fetchRawSet → enrich → [classify + filter] → sort → paginate.
- * Source produces raw rows only; all enrichment/sort/slice/cursor logic lives here (V.MC1).
- * Stages opt in via `source.stages` (overridable by `cfg`). Soft failures surface as
- * `partial: true` so consumer decides whether to ship degraded page. Custom `enrichRows`
- * overrides the default `batchLoad` + `enrich` (used by home for catalog projections).
+ * Single media read path (design §C): fetchRawSet → enrich → [classify + filter] → sort → paginate (V.MC1).
+ * Source produces raw rows; enrichment/sort/paginate handled here. Stages opt in via `source.stages`.
+ * Soft failures surface as `partial: true`. Custom `enrichRows` overrides default (for home catalog projections).
  */
 // Default path: a persisted-row source (`Row` = `ActiveRow`). No `enrichRows` —
 // the pipeline runs its own `batchLoad` + `enrich` fan-out over the rows.

@@ -34,10 +34,7 @@ const MAX_MOOD_HOPS = 20;
 
 /**
  * Watchlist mood-items source (design §S.3 / consolidation §H, V.RG1, V.MC1).
- * Applies mood predicate in fetchRawSet (not in media: V.WL3); scans keyset
- * windows keeping rows whose genres derive requested mood, accumulating full
- * page with empty-streak budget. filter:"preapplied" signals pipeline NOT to
- * re-derive it.
+ * Applies mood predicate in fetchRawSet (V.WL3); filter:"preapplied" signals pipeline NOT to re-derive it.
  */
 export const moodItemsSource: MediaSource<MoodParams> = {
   sourceId: "watchlist.mood-items",
@@ -54,11 +51,9 @@ export function moodItemsCfg(
 }
 
 /**
- * Scan keyset windows, accumulating up to `limit` mood-matching rows.
- * Underfilled windows that add matches reset empty streak; empty windows burn
- * one slot. Rows already `addedAt` DESC (keyset order), so recentDesc sort
- * preserves them. nextRaw omitted (#500 / V.PG1) if scan exhausted or
- * empty-streak budget exits with no results.
+ * Scan keyset windows accumulating up to `limit` mood-matching rows.
+ * Empty windows burn one slot; underfilled windows reset empty streak.
+ * nextRaw omitted (#500 / V.PG1) if scan exhausted or empty-streak budget exits with no results.
  */
 // fallow-ignore-next-line complexity
 async function fetchMoodRawSet(

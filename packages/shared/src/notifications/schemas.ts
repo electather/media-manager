@@ -179,11 +179,9 @@ export const categoryEntrySchema = z.object({
 });
 
 /**
- * Notification picker entries are full plugin summaries (the same shape served
- * by `/api/connections/available`) plus the per-channel `supportsKinds` list.
- * Returning the summary shape lets the Notifications settings page hand the
- * entry straight to `ConnectionModal` without a second `/connections/available`
- * round-trip.
+ * Full plugin summary (from /api/connections/available) plus per-channel supportsKinds.
+ * Lets Notifications settings page pass entry directly to ConnectionModal,
+ * avoiding second /connections/available round-trip.
  */
 export const pluginEntrySchema = z.object({
   id: z.string(),

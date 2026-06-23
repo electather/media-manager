@@ -1,23 +1,8 @@
-/**
- * Plugin "purpose" classification — partitions user-scoped plugins into the
- * UI section that owns them. A plugin whose only user-scoped capability is
- * `notificationDelivery` lives under Settings → Notifications; anything else
- * lives under Settings → Connections. Plugins with both shapes (notification
- * plus another user-scoped capability) surface in both sections.
- */
+/** Partitions user-scoped plugins: `notificationDelivery`-only → Settings → Notifications; others → Connections; both shapes → both sections. */
 
 export const NOTIFICATION_CAPABILITY_ID = "notificationDelivery";
 
-/**
- * - `"none"` — pure-global plugin (no user-scoped capabilities). Neither
- *   the Connections list nor the Notifications picker should offer it.
- * - `"notification"` — only user-scoped capability is `notificationDelivery`.
- *   Owned by Settings → Notifications.
- * - `"connection"` — at least one non-notification user-scoped capability.
- *   Owned by Settings → Connections.
- * - `"both"` — mixes `notificationDelivery` with another user-scoped
- *   capability; surfaces in both sections.
- */
+/** Enum: `none` (no user scopes), `notification` (`notificationDelivery` only), `connection` (other user scopes), `both` (mixed). */
 export type PluginPurpose = "none" | "connection" | "notification" | "both";
 
 /**

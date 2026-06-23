@@ -66,10 +66,8 @@ function pipelineSort(params: ItemsParams, keyset: boolean): PipelineSort {
 }
 
 /**
- * MediaSource factory (design §S.1, invariant V.MC1). Cursor mode and pipeline
- * sort depend on `sort`/`bucket`/`mood`: `recent`+no filter→keyset (indexed,
- * #500); `recent`+filter→offset (full-load, #501); `alpha`/`runtime`/`status`→offset
- * (pre-sorted by catalog metadata, which RowSort cannot express).
+ * Design §S.1, invariant V.MC1. Routes cursor mode and sort: `recent`+no
+ * filter→keyset (indexed, #500); others→offset (#501, pre-sorts by catalog metadata).
  */
 export function itemsSource(params: ItemsParams): MediaSource<ItemsParams> {
   const keyset = isKeysetRead(params);
@@ -137,10 +135,8 @@ async function fetchKeyset(
 }
 
 /**
- * Full active set for offset reads (non-recent sort or bucket/mood filter).
- * Mood predicate and alpha/runtime/status sort need catalog metadata, batched
- * here; pipeline's `batchLoad` re-reads from warmed cache. No `nextRaw`; pipeline
- * slices by offset cursor index.
+ * Batches catalog metadata for mood predicates and alpha/runtime/status sorts.
+ * Pipeline's `batchLoad` re-reads from cache; no `nextRaw` (pipeline slices by offset index).
  */
 // fallow-ignore-next-line complexity
 async function fetchOffset(
@@ -221,12 +217,9 @@ function compareForSort(
 function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): number {
   const at = aMeta?.title ?? "";
   const bt = bMeta?.title ?? "";
-  // Pinned locale ("en") + "accent" sensitivity (case-insensitive, accent-sensitive)
-  // for reproducible ordering across envs. Host-default localeCompare varies; pre-fix
-  // used host-default toLocaleLowerCase (itself locale-dependent, e.g. Turkish
-  // dotless-i). Second compare (full collation) deterministically breaks ties for
-  // case variants ("elite"/"Elite"/"ELITE"), which otherwise rely on JS sort stability
-  // (input-order-dependent, non-reproducible across envs).
+  // Pinned locale ("en"), "accent" sensitivity, then full collation to break
+  // case ties deterministically. Avoids host-default localeCompare/toLocaleLowerCase
+  // (locale-dependent, e.g. Turkish dotless-i) and JS sort stability (input-order-dependent).
   return at.localeCompare(bt, "en", { sensitivity: "accent" }) || at.localeCompare(bt, "en");
 }
 

@@ -70,13 +70,9 @@ export const artwork = {
       on401: "plugin.bad_credentials",
       on403: "plugin.bad_credentials",
     });
-    // `handleHttpStatus` only throws for the well-known codes it handles
-    // (401/403/404/429/5xx). A non-2xx response that slips through — e.g. a
-    // 400 from a malformed id — would otherwise be JSON-parsed and shaped
-    // into an empty bundle, masking the upstream failure as "no artwork"
-    // and poisoning the negative cache. Treat anything non-OK as an
-    // upstream error so the dispatcher logs the rejection and falls back
-    // to TMDB instead.
+    // handleHttpStatus only throws for 401/403/404/429/5xx. Non-2xx slips through (e.g., 400 from malformed id)
+    // would parse as empty bundle, masking failure and poisoning negative cache.
+    // Treat non-OK as upstream error so dispatcher logs and falls back to TMDB.
     if (!res.ok) {
       throw pluginError("plugin.upstream_error", `fanart returned ${res.status}`);
     }

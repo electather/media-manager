@@ -31,11 +31,9 @@ export interface CanonicalMetadata {
 }
 
 /**
- * Scoring-only projection persisted on `canonical_metadata.features`.
- * Display fields (title, year, runtime, genres, originalLanguage) live on
- * their own columns; this blob carries the fields the preference engine
- * needs to derive feature contributions. `getItemFeatures` reconstitutes a
- * PE `CandidateFeatures` by merging row columns with this blob.
+ * Scoring-only projection on `canonical_metadata.features`. Display fields
+ * (title, year, runtime, genres, originalLanguage) live on separate columns;
+ * this blob holds fields needed for preference-engine feature contributions.
  */
 export interface CanonicalFeatures {
   keywords: string[];
@@ -76,10 +74,8 @@ export interface RecItem {
   mediaType: MediaType;
   matchReason: string | null;
   /**
-   * Top three feature contributions captured at rec-list build time. The
-   * home feed reads `[0]` to derive a typed match-reason chip; the field is
-   * an empty array on rows persisted before the snapshot landed (rec-build
-   * job rerun fills them; orchestrator falls back to "highly_rated" until).
+   * Top three feature contributions at rec-build time. Home feed reads `[0]`
+   * for match-reason chip; empty on pre-snapshot rows (rerun fills them).
    */
   topContributors: TopContributor[];
   score: number;

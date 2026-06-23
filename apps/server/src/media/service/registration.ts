@@ -6,10 +6,8 @@ import type { PipelineConfig, SourceContext } from "../types";
 import type { EnrichRowsFn } from "./list-rows";
 
 /**
- * Pipeline pieces for `media.listRows` (design §A3): source (raw-row producer),
- * decoded `PipelineConfig`, optional enrich override. `SP` is the SOURCE param
- * type (not always the wire param); `build` maps wire shape to source's internal
- * one (e.g. `watchlist-items` parses `WatchlistItemsParams` but builds `ItemsParams`).
+ * Pipeline pieces for `media.listRows` (design §A3): source, config, optional enrich.
+ * `SP` is SOURCE param type (differs from wire param); `build` maps wire→source shape.
  */
 export interface BuiltMediaSource<SP, Row> {
   source: MediaSource<SP, Row>;

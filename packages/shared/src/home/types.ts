@@ -4,15 +4,10 @@ import type { WatchlistSource } from "../watchlist/enums";
 import type { HeroReason, MatchReasonKey, RowKind } from "./enums";
 
 /**
- * Typed match-reason payload. The client renders the i18n message for `key`
- * with the supplied ICU `params` so server-side row context (seed title,
- * matched genre, recent-pick count, …) can flow through to copy without the
- * client having to recreate the heuristic.
- *
- * The matching catalog rec-list path still emits the prose explanation as a
- * plain string for the MCP discover tool; the home wire union accepts both
- * shapes during the PR1→PR6 transitional window. PR6 narrows back to the
- * structured form once every emitter has migrated.
+ * Typed match-reason payload. Client renders i18n message for `key` with ICU
+ * `params` so server-side context (seed title, genre, etc.) flows to copy.
+ * PR1→PR6 transitional: MCP discover tool still emits plain prose; home wire
+ * accepts both shapes until all emitters migrate.
  */
 export interface MatchReason {
   key: MatchReasonKey;
@@ -21,11 +16,9 @@ export interface MatchReason {
 }
 
 /**
- * Per-item availability snapshot derived from the user's library plugins.
- * `servers` lists every plugin that reports a copy; the UI renders chips for
- * each. `requestEligible` is independent of `hasAnyServerCopy` — a title may
- * already be in the library yet still be eligible to request a higher-quality
- * cut, so the client decides which buttons to render.
+ * Per-item availability snapshot from library plugins. `servers` lists plugins
+ * reporting a copy; UI renders chips for each. `requestEligible` is independent
+ * of `hasAnyServerCopy` — may exist yet remain eligible to request higher quality.
  */
 export interface Availability {
   hasAnyServerCopy: boolean;
@@ -34,10 +27,8 @@ export interface Availability {
 }
 
 /**
- * Display facets the home rows surface in their card chips. Server picks the
- * most readable form for each field — `releaseDate` is typically the year as
- * a string for the home feed and graduates to ISO date when richer time
- * context lands.
+ * Display facets for card chips. Server picks readable form per field:
+ * `releaseDate` is year string for home, ISO date elsewhere.
  */
 export interface Facets {
   runtimeMin?: number;
@@ -46,9 +37,8 @@ export interface Facets {
 }
 
 /**
- * TV-only context surfaced by the `continueWatching-next` row. `nextUpFromServer`
- * distinguishes a server-stitched "watch this episode next" entry from a row
- * that derived the season/episode locally — the UI uses the flag to pick copy
+ * TV-only context for `continueWatching-next` row. `nextUpFromServer` flags
+ * server-stitched "watch next" entries vs locally-derived ones; UI picks copy
  * ("Up next on Plex" vs "Continue series").
  */
 export interface SeriesContext {
@@ -85,11 +75,9 @@ export interface CompactMediaItem {
   /** User's own rating from `ratings@v1`; omitted when absent. */
   userRating?: number;
   /**
-   * Set on rows that surface a "why this is here" chip. The client renders
-   * `key` to localized copy with `params` filling in ICU placeholders. The
-   * MCP discover tool keeps its own plain-prose `match_reason` field on a
-   * separate snake-case shape — those callers no longer flow through this
-   * wire type.
+   * "Why this is here" chip payload. Client renders `key` to localized copy
+   * with `params` filling ICU placeholders. MCP discover tool uses separate
+   * snake-case `match_reason` field; those callers don't use this wire type.
    */
   matchReason?: MatchReason;
   status?: "available" | "requested" | "processing" | "unavailable" | "unknown";
@@ -108,11 +96,9 @@ export interface CompactMediaItem {
     name?: string;
   };
   /**
-   * Free-form display tags. The library lenses populate this with the title's
-   * quality-tier strings (e.g. `["1080p","4K"]`), which the card chip strip and
-   * the quality facet read. Home and discovery sources leave it undefined (the
-   * reserved media-features capability, e.g. `["4K","HDR","Atmos"]`, is not yet
-   * emitted there); the client renders nothing when absent.
+   * Free-form display tags. Library lenses populate with quality-tier strings
+   * (e.g. `["1080p","4K"]`); card chips and quality facet read this. Home and
+   * discovery sources leave undefined; reserved media-features capability not yet emitted.
    */
   tags?: string[];
   /**
@@ -123,29 +109,21 @@ export interface CompactMediaItem {
   /** How a persistent-table row entered the watchlist; absent/null on discovery rows. */
   addedSource?: WatchlistSource | null;
   /**
-   * Which section this row belongs to within a section-grouped lens. Set ONLY
-   * by the library `server`/`quality` lenses, whose `json_each` expansion makes
-   * the same title appear once per server / quality tier — so a flat page can
-   * carry the same `id` more than once, each occurrence tagged with the section
-   * it expanded into. `id` is the group key (the server connection id, or the
-   * tier label); `label` is the human-readable header text. The library FE
-   * inserts a section header whenever `section.id` changes down the flat stream
-   * and keys its list on `id + section.id` (not `id` alone). Absent on every
-   * non-grouped source, so those callers render nothing extra.
+   * Section grouping for library `server`/`quality` lenses (json_each expansion).
+   * `id` is group key (server connection id or tier label); `label` is header.
+   * FE inserts header when `section.id` changes, keys list on `id + section.id`
+   * (not `id` alone). Absent on non-grouped sources.
    */
   section?: { id: string; label: string };
 }
 
 /**
- * One hero slide. Each slide carries its own `source` / `reason` / `resumeUrl`
- * because the hero now mixes items across sources (continueWatching,
- * recommendedForYou, trendingNow, newReleases) instead of cascading to a
- * single source per render. The client renders the source label per active
- * slide, and the carousel cycles through the slides in order.
+ * One hero slide. Each carries own `source`/`reason`/`resumeUrl` because hero
+ * now mixes items across sources (continueWatching, recommendedForYou, etc.)
+ * instead of cascading to single source per render.
  *
- * `resumeUrl` is always `null` v1 — the plugin SDK has no
- * `playback@v1.getResumeUrl` method yet, so the client treats Play as a
- * navigate-to-detail action regardless of source.
+ * `resumeUrl` always `null` v1 — plugin SDK lacks `playback@v1.getResumeUrl`
+ * method, so client treats Play as navigate-to-detail.
  */
 export interface HeroSlide {
   item: CompactMediaItem;
@@ -155,20 +133,18 @@ export interface HeroSlide {
 }
 
 /**
- * Hero region payload. `slides[0]` is the lead (auto-shown on first paint);
- * subsequent entries are reached via the carousel. `LayoutHero` is `null` on
- * the wire only when every source pool is empty; otherwise `slides.length`
- * is between 1 and 6 inclusive (degenerate fill ships fewer than 6).
+ * Hero region payload. `slides[0]` is lead (auto-shown on first paint);
+ * subsequent entries via carousel. `null` only when all source pools empty;
+ * otherwise `slides.length` 1–6 inclusive.
  */
 export interface LayoutHero {
   slides: HeroSlide[];
 }
 
 /**
- * Row structure returned by `getLayout`. Contains no items — use
- * `getRowContent` to load them. `rowId` is an opaque registry slug
- * (e.g. `"recommendedForYou-tv"`) and `kind` is the display category that
- * determines the card layout.
+ * Row structure from `getLayout` (no items; use `getRowContent` to load).
+ * `rowId` is opaque registry slug (e.g. `"recommendedForYou-tv"`); `kind`
+ * determines card layout.
  */
 export interface HomeRowStub {
   rowId: string;
@@ -198,10 +174,9 @@ export interface RowContentResponse {
 }
 
 /**
- * Detail-modal extra fields layered on top of the catalog summary. `null`
- * fields are omitted entirely from the wire so client renderers can rely on
- * `if (extra.director)` checks. The composition is plugin-driven so each
- * field is best-effort; missing data renders as a hidden row, not a blank.
+ * Detail-modal extra fields on catalog summary. `null` fields omitted from
+ * wire so `if (extra.director)` checks work. Plugin-driven, best-effort;
+ * missing data hides the row.
  */
 export interface MediaDetailsExtra {
   cast: string[];
@@ -216,11 +191,9 @@ export interface MediaDetailsExtra {
   /** Pre-formatted runtime string, e.g. `"1h 58m"`. */
   runtime?: string;
   /**
-   * Canonical TV season list with eager episode metadata. Populated only when
-   * `mediaType === "tv"` and the metadata plugin returned a season payload;
-   * best-effort, so the field is omitted on plugin failure rather than null.
-   * Per-server availability ships separately via `home.getSeasonAvailability`
-   * (different freshness profile — day vs. minute cache).
+   * TV season list with episode metadata. Populated when `mediaType === "tv"`
+   * and metadata plugin returns season payload; omitted on failure (not null).
+   * Per-server availability via `home.getSeasonAvailability` (different cache: day vs. minute).
    */
   seasons?: SeasonInfo[];
 }
@@ -272,10 +245,9 @@ export interface SeasonAvailabilityError {
 }
 
 /**
- * `home.getSeasonAvailability` response. `servers` is empty when the user has
- * no `libraryAvailability@v1` provider configured (not an error). Per-plugin
- * failures populate `errors[]` while successful servers still appear in
- * `servers[]`.
+ * `home.getSeasonAvailability` response. `servers` empty when no
+ * `libraryAvailability@v1` provider configured (not an error). Per-plugin
+ * failures populate `errors[]`; successful servers appear in `servers[]`.
  */
 export interface SeasonAvailabilityResponse {
   servers: SeasonAvailabilityServer[];

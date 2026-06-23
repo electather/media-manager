@@ -3,14 +3,8 @@ import type { Ctx, JellyfinItem, JellyfinProviderIds } from "../types";
 import { getUserCfg, getUserId, getExternalBase, jellyfinJson } from "../client";
 import { mapItemType, mapLibraryItem, ticksToMs } from "../mappers";
 
-/**
- * Episode items returned by `/Users/{id}/Items/Resume` and `/Shows/NextUp`
- * carry IMDB / TVDB ids on `ProviderIds` but the show-level TMDB id only
- * lives on the parent series record. Without backfilling, the host's home
- * feed cannot key these entries against TMDB and the row collapses to
- * empty. Fetches series-level provider ids in a single batch (de-duped on
- * `SeriesId`) and merges them onto each episode entry's `ids`.
- */
+// Episodes lack TMDB id (only on parent series); without backfill, home feed cannot key against TMDB.
+// Fetch series-level ids in single batch (de-duped on SeriesId) and merge onto episodes.
 async function fetchSeriesProviderIds(
   ctx: Ctx,
   userId: string,

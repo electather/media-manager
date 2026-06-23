@@ -2,12 +2,8 @@ import { z } from "zod";
 import { ARTWORK_ERROR_CODES, MAX_VARIANTS_PER_KIND } from "./enums";
 import { mediaTypeSchema } from "../media/schema-base";
 
-/**
- * Schemas for artwork wire types. Used by the SDK capability definition
- * (`artwork@v1`) and the `artwork.get` RPC route. Bundle fields are arrays
- * always (empty when nothing found) so the dispatcher's per-kind merge has
- * a stable shape to walk.
- */
+// Schemas for artwork wire types (SDK `artwork@v1`, RPC `artwork.get`).
+// Bundle fields are always arrays (empty when nothing found) for stable dispatcher merge shape.
 
 export const artworkVariantSchema = z.object({
   url: z.url(),
@@ -54,12 +50,8 @@ export const artworkGetResponseSchema = z.object({
   generatedAt: z.number().int().nonnegative(),
 });
 
-/**
- * Input schema for the `artwork.get` RPC. The 50-item upper bound matches a
- * typical viewport batch — any larger and the client should split into
- * multiple calls. `languages` falls back to the server default (`["en", "00"]`)
- * when omitted, so user-locale signal is opt-in.
- */
+// 50-item bound matches viewport batch; client should split larger requests.
+// `languages` omitted → server default ["en", "00"] for opt-in user-locale signal.
 export const artworkGetInputSchema = z.object({
   items: z.array(artworkRequestItemSchema).min(1).max(50),
   languages: z.array(z.string().min(2).max(8)).max(8).optional(),

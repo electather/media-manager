@@ -6,12 +6,8 @@ import { triggerDeliveryForId } from "../service";
 
 const STALE_THRESHOLD_MS = 2 * 60 * 1000;
 
-/**
- * Scheduled sweep: retriggers whose retry/backoff window opened or initial trigger lost
- * (one query, design §V18). Three conditions: (1) `pending` where `nextAttemptAt <= now`,
- * (2) `pending` with no `nextAttemptAt` past stale threshold (post-emit/pre-trigger crash gap),
- * (3) `in_progress` past stale threshold (reset to pending for CAS pickup).
- */
+// Design §V18: one query covers 3 conditions — (1) pending + nextAttemptAt <= now, (2) pending + no nextAttemptAt
+// past stale threshold (crash gap), (3) in_progress past stale threshold (reset to pending for pickup).
 export function registerStalePendingSweep(): void {
   registerScheduled({
     id: "host.notifications.stale_pending_sweep",

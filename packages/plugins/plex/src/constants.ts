@@ -1,17 +1,13 @@
 import type { LibraryItem } from "@nama/plugin-sdk";
 
-// Stable client identity used on every Plex API call. Plex ties PIN approval to
-// the clientIdentifier that created it, so the value MUST be deterministic
-// across `startAuth` and `pollAuth` within the same deployment — otherwise the
-// token Plex issues cannot be used by other callers. Versioning the identifier
-// lets us rotate (e.g. on a breaking change to how we format the product name)
-// without stranding existing connections.
+// Stable client identity across startAuth and pollAuth within same deployment — MUST be
+// deterministic or token Plex issues cannot be used by other callers. Versioning lets us rotate
+// (e.g. breaking product-name change) without stranding existing connections.
 export const PLEX_CLIENT_IDENTIFIER = "nama-v1";
 export const PLEX_PRODUCT = "Nama";
 export const PLEX_DEVICE = "Nama";
-// Single source for both the `X-Plex-Version` request header (Plex admin UIs
-// attribute sessions by this value) and the manifest's `version` field, so
-// bumping the plugin version does not leave the header behind.
+// Single source for X-Plex-Version header and manifest version field — bumping
+// plugin version keeps both in sync (Plex admin UIs attribute sessions by header).
 export const PLEX_VERSION = "1.0.0";
 export const PLEX_PLATFORM = "Web";
 

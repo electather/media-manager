@@ -335,12 +335,8 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listTargets.output.safeParse(out).success).toBe(true);
   });
 
-  // ID-guard rejection tests. The guard exists to stop attacker-controlled
-  // strings from being interpolated into Seerr API paths (e.g. `/movie/<id>`,
-  // `/request/<id>`). Without it, inputs like `../foo` or `1/../../admin`
-  // would let a caller pivot to other Seerr endpoints. These tests must fail
-  // if the guard is ever removed or weakened — they assert no HTTP call is
-  // made and a `plugin.input_invalid` PluginError is raised.
+  // Guard rejects attacker-controlled strings from Seerr API paths (/../, 1/../../admin)
+  // preventing endpoint pivot. Tests assert no HTTP call and plugin.input_invalid error.
   describe("mediaRequest: rejects unsafe IDs before any HTTP call", () => {
     const unsafeIds: Array<[string, string]> = [
       ["path-traversal segment", "../admin"],

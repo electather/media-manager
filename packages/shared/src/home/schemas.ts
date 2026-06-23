@@ -63,10 +63,8 @@ const upcomingEpisodeSchema = z
   .strict();
 
 /**
- * Wire-format media item shipped across home rows and the global command-menu
- * search endpoint. Mirrors the `CompactMediaItem` interface in `./types`;
- * absent fields are omitted (not null) so consumers stay happy with
- * `z.optional()` rather than `z.nullable()`.
+ * Wire-format media item for home rows and command-menu search. Mirrors CompactMediaItem in ./types.
+ * Absent fields omitted (not null) to use z.optional() over z.nullable().
  */
 export const compactMediaItemSchema = z
   .object({
@@ -97,13 +95,8 @@ export const compactMediaItemSchema = z
   .strict();
 
 /**
- * `home.getRowContent` input: client supplies a row id and the opaque cursor
- * from the previous page. Null cursor means first page. Decoding/validating
- * the cursor itself is server-internal and lives outside `@nama/shared`.
- *
- * `rowId` is an opaque registry slug — multiple rows can share the same
- * `RowKind` (e.g. `recommendedForYou-tv` and `recommendedForYou-movies`),
- * so the wire enum cannot validate it.
+ * home.getRowContent input: rowId (opaque registry slug) + cursor (null = first page, otherwise server-internal decoded).
+ * rowId is not validated by wire enum since multiple rows can share RowKind (e.g. recommendedForYou-tv, recommendedForYou-movies).
  */
 export const homeGetRowContentInputSchema = z
   .object({

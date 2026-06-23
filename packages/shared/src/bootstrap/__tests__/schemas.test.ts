@@ -3,10 +3,9 @@ import { NAME_MAX_LENGTH } from "../../users/schemas";
 import { bootstrapClaimSchema } from "../schemas";
 
 /**
- * The name field on bootstrapClaimSchema must enforce the shared NAME_MAX_LENGTH
- * upper bound so that the initial owner claim is consistent with every other
- * account-creation path. Pinned here: a regression that drops the cap is a
- * validation change and must break this test.
+ * bootstrapClaimSchema.name must enforce shared NAME_MAX_LENGTH so initial owner
+ * claim matches other account-creation paths. Regression guard: validation change
+ * that drops the cap must break this test.
  */
 describe("bootstrapClaimSchema name field", () => {
   const base = {

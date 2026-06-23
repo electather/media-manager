@@ -8,10 +8,8 @@ import { isSdkCompatible } from "./version";
 type ParsedManifest = z.infer<typeof pluginManifestSchema>;
 
 /**
- * Pure validation result returned by `validatePluginModule`. Contains the
- * validated module and the canonical JSON form of its manifest. The host
- * loader adds a checksum on top by hashing the source bytes before persisting
- * the row.
+ * Validated module + canonical manifest JSON. Host adds checksum by hashing
+ * source bytes before persisting.
  */
 export interface ValidatedPlugin {
   module: PluginModule;
@@ -169,10 +167,9 @@ function validateMcpTools(manifest: ParsedManifest, module: PluginModule): void 
 }
 
 /**
- * Validates a plugin module against the host's plugin contract: manifest
- * shape, SDK compatibility, capability/method coverage, exported job and
- * MCP-tool handlers, and `testConnection` for non-`none` auth. Throws
- * `PluginError` on any failure.
+ * Validates manifest shape, SDK compatibility, capability/method coverage,
+ * job/MCP-tool handlers, and testConnection for non-none auth. Throws
+ * PluginError on failure.
  */
 export function validatePluginModule(module: PluginModule): ValidatedPlugin {
   const manifest = parseManifest(module);

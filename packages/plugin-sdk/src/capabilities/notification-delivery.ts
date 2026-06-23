@@ -3,9 +3,7 @@ import type { PluginContext } from "../types";
 
 /**
  * notificationDelivery@v1 — ship notifications to external services.
- * Plugins expose two methods: deliver() to send the message, and testDelivery()
- * to validate config. The host injects a pre-rendered NotificationMessage
- * alongside the raw event for plugins that need event-specific rendering.
+ * Host injects pre-rendered NotificationMessage + raw event (for plugin-specific rendering).
  */
 export interface NotificationDeliveryCapabilityV1<TConfig = unknown> {
   /**
@@ -22,13 +20,9 @@ export interface NotificationDeliveryCapabilityV1<TConfig = unknown> {
   ): Promise<{ providerMessageId?: string }>;
 
   /**
-   * Validate config + verify reachability. Called from the "Test" button in
-   * UI and once at channel-create time. Plugins MAY send a short, clearly
-   * labelled probe message (e.g. "Test from Nama") when that is the
-   * only way to prove end-to-end delivery — silent reachability probes have
-   * produced false positives where the bot/token can read a chat but cannot
-   * write to it. Plugins that can verify without a side-effect should still
-   * prefer the silent path.
+   * Validate config + verify reachability (UI "Test" button, channel-create).
+   * May send a probe message (e.g. "Test from Nama") only if needed for end-to-end proof;
+   * silent checks risk false positives (read access ≠ write access).
    */
   testDelivery(
     ctx: PluginContext<unknown, unknown, TConfig>,

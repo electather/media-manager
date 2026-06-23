@@ -365,12 +365,9 @@ describe("watchlist/service v2 (pagination + filter)", () => {
     expect(page.items.map((i) => i.tmdbId)).toEqual(["a2", "a3", "a1"]);
   });
 
-  // V.WL1 — the alpha comparator pins `localeCompare(_, "en", { sensitivity:
-  // "accent" })`. That collation is case-INsensitive (so "amelie" interleaves
-  // with capitalised titles by letter, not by ASCII case) but accent-SENSITIVE
-  // (so "Amelie" sorts before "Amélie"). This is the pre-fix net behaviour with
-  // the host locale pinned; the test fails if anyone widens it to accent-
-  // insensitive (`sensitivity: "base"`) or makes it case-sensitive.
+  // V.WL1 — alpha comparator pins localeCompare(_, "en", { sensitivity: "accent" }):
+  // case-insensitive (letter-by-letter, not ASCII) but accent-sensitive
+  // ("Amelie" < "Amélie"). Test fails if anyone widens to accent-insensitive or case-sensitive.
   it("listItems sort=alpha is case-insensitive and accent-sensitive", async () => {
     const ctx = makeCtx();
     await addItem({ tmdbId: "a1", mediaType: "movie" }, "manual", ctx);

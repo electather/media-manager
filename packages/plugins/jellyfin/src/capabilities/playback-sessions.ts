@@ -10,12 +10,10 @@ export const playbackSessions = {
     const cfg = getUserCfg(typedCtx);
     const cachedUserId = getUserId(typedCtx);
     const externalBase = getExternalBase(cfg);
-    // Server-side filter so large servers don't return every session
-    // over the wire. This is a payload-size hint only — the per-row
-    // `session.UserId !== cachedUserId` check below remains the
-    // privacy guarantee, because the server's behaviour when the
-    // filter is ignored or extra entries are returned must not leak
-    // other users' sessions.
+    // Server-side filter is a payload-size hint only; the per-row
+    // `session.UserId !== cachedUserId` check below is the privacy
+    // guarantee (server behavior when filter is ignored must not leak
+    // other users' sessions).
     const sessions = await jellyfinJson<JellyfinSession[]>(
       typedCtx,
       `/Sessions?controllableByUserId=${encodeURIComponent(cachedUserId)}`,

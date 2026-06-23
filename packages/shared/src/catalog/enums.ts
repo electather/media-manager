@@ -13,12 +13,8 @@ export type DiscoverSort = (typeof DISCOVER_SORTS)[number];
 export const RECOMMENDATION_LIST_KINDS = ["default"] as const;
 export type RecommendationListKind = (typeof RECOMMENDATION_LIST_KINDS)[number];
 
-/**
- * Categories the preference engine attributes a contribution to. Mirrors the
- * `FeatureCategory` shape (genres/keywords/people/decades/runtimes/languages)
- * collapsed to the user-facing terms the home feed surfaces in match-reason
- * copy ("from genre you love", "matches recent picks", …).
- */
+// Contribution categories from preference engine; mirrors FeatureCategory (genres/keywords/people/decades/runtimes/languages)
+// collapsed to user-facing home feed match-reason terms ("from genre you love", etc.).
 export const TOP_CONTRIBUTOR_CATEGORIES = [
   "genre",
   "person",

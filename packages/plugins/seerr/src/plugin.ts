@@ -44,12 +44,9 @@ export default definePlugin({
           writeOnly: true,
         },
       },
-      // Password is omitted from `required` so the edit form does not block
-      // submit/test on a connection that has already promoted its password
-      // into the encrypted credentials blob. `startAuth` enforces presence
-      // at the input stage and returns `plugin.input_invalid` (with
-      // `params.field` pointing at the missing input) when neither the
-      // form nor the prior credentials carry one.
+      // Password omitted from required: edit form doesn't block on already-promoted
+      // credentials. startAuth enforces presence at input and returns plugin.input_invalid
+      // with params.field if missing.
       required: ["username"],
       additionalProperties: false,
     },

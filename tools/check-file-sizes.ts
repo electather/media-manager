@@ -1,22 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Enforces per-file LOC caps and junk-drawer filename bans for the server modules.
- * Run from repo root: `bun tools/check-file-sizes.ts`.
- *
- * Plan ref: TASK-011 in plan/architecture-backend-boundaries-1.md.
- *
- * Hard caps (exit 1):
- *   - <module>/service.ts            > 500 LOC
- *   - <module>/service/index.ts      > 500 LOC (same budget for promoted service directories)
- *   - <module>/repo.ts               > 300 LOC
- *   - <module>/events.ts             > 200 LOC
- *   - <module>/jobs/<x>.ts           > 200 LOC (excluding jobs/index.ts)
- *
- * Soft warn (printed but exit 0):
- *   - same files at 80% of hard cap.
- *
- * Banned filenames (exit 1, per GUD-003):
- *   - utils.ts, helpers.ts, misc.ts under any module.
+ * Enforces per-file LOC caps and junk-drawer filename bans (GUD-003) for server
+ * modules. Hard caps (exit 1): service.ts/service/index.ts > 500 LOC, repo.ts > 300,
+ * events.ts > 200, jobs/<x>.ts > 200. Soft warn at 80% (TASK-011).
+ * Run: bun tools/check-file-sizes.ts
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";

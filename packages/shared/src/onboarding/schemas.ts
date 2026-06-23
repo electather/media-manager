@@ -1,8 +1,2 @@
-/**
- * Validated request bodies for the onboarding flow.
- *
- * Neither `GET /api/onboarding/state` nor `POST /api/onboarding/complete` takes
- * a request body, so there is nothing to validate here yet. The file exists to
- * keep the domain barrel consistent with the other shared domains.
- */
+/** Domain barrel placeholder: no request bodies to validate yet (endpoints don't accept them). */
 export {};

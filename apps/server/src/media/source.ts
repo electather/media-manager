@@ -3,11 +3,9 @@ import type { Cursor, CursorMode } from "./cursor";
 import type { FilterKind, PipelineSort, RawPageToken, SourceContext } from "./types";
 
 /**
- * Design §B: source produces raw rows, pipeline (listRows, §C) owns enrich/classify/filter/sort/paginate.
- * Per-source variation lives in `params` and closure, not the contract (V.MC1, RISK-101).
- * Watchlist sources emit `ActiveRow` (shared enrich projects); ephemeral feeds emit their own
- * shape and are enriched home-side (parameterized `Row`).
- * Concrete sources owned by consumer modules, not media (V.RG1).
+ * Design §B: source produces raw rows; pipeline (§C) owns enrich/classify/filter/sort/paginate (V.MC1, RISK-101).
+ * Watchlist sources emit ActiveRow (shared enrich); ephemeral feeds emit own shape,
+ * enriched home-side (V.RG1). Owned by consumer modules, not media.
  */
 export interface MediaSource<P = void, Row = ActiveRow> {
   /** Stable slug, unique across a consumer's source registry. */

@@ -34,16 +34,10 @@ export type MediaType = (typeof MEDIA_TYPES)[number];
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
 export type MediaRowBucket = (typeof MEDIA_ROW_BUCKETS)[number];
 
-/**
- * The one source-id set client and server agree on (design §A5). The generic
- * resolver dispatches `GET /api/media/sources/:sourceId` on these slugs, and
- * the client `ClientMediaSource` descriptor keys off the same tuple.
- *
- * Values lift the existing inline slugs from `home/rows/*` and
- * `watchlist/sources/*`. Watchlist buckets ride `watchlist-items` via the
- * `bucket` param — there are no per-bucket ids (matches the server
- * `ItemsParams`).
- */
+// The one source-id set client and server agree on (design §A5). Generic resolver
+// dispatches GET /api/media/sources/:sourceId; client ClientMediaSource keys off same.
+// Includes home rows and watchlist sources; watchlist buckets ride watchlist-items
+// via bucket param (no per-bucket ids, matching server ItemsParams).
 export const MEDIA_SOURCE_IDS = [
   // Home rows.
   "recommendedForYou-tv",

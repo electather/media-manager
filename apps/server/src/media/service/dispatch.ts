@@ -15,9 +15,7 @@ export { invalidateUserCache } from "../internal/dispatch-cache";
 
 /**
  * Generic entry point selecting dispatch function by capability strategy.
- * Note: `aggregate_per_kind` returns `Promise<T>` cast from
- * `Promise<Record<string, unknown[]>>` — callers should prefer
- * `dispatchAggregatePerKind` directly to preserve bundle shape in type.
+ * `aggregate_per_kind` casts to `Promise<T>` from `Promise<Record<string, unknown[]>>` — prefer `dispatchAggregatePerKind` to preserve bundle shape.
  */
 // fallow-ignore-next-line complexity
 export async function dispatch<T = unknown>(

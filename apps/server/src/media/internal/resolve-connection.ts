@@ -28,10 +28,9 @@ export type ResolvedConnection =
     };
 
 /**
- * Resolves connections in order: (1) enabled user connections (default first, then createdAt desc),
+ * Resolves in order: (1) enabled user connections (default first, then createdAt desc),
  * (2) admin shared credentials (only if no user connections AND scope is `global`).
- * Shared credentials carry admin identity (not per-user), so only satisfy `global` scope; for `user`-scoped
- * (calendar, watchlist), shared would fail with wrong data → downgrade to `all_failed` instead of dropping cleanly.
+ * Shared credentials fail for `user` scope (calendar, watchlist) → downgrade to `all_failed`.
  */
 // fallow-ignore-next-line complexity
 export async function resolveConnections(

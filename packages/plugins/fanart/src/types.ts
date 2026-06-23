@@ -14,11 +14,8 @@ export interface FanartGlobalCfg {
 export type Ctx = PluginContext<FanartUserCreds, FanartSharedCreds, FanartUserCfg, FanartGlobalCfg>;
 
 /**
- * One artwork entry as fanart.tv returns it in any of the per-kind arrays
- * (`movieposter`, `moviebackground`, `hdmovielogo`, `moviethumb`, and their
- * tv equivalents). Only the fields the mapper consumes are typed; fanart
- * adds others (`id`, `season`, `disc`, …) that the artwork@v1 bundle has no
- * slot for and the mapper drops on the floor.
+ * One artwork entry from fanart.tv per-kind arrays.
+ * Only fields the mapper consumes are typed; extras (`id`, `season`, `disc`, …) dropped.
  */
 export interface FanartImage {
   url: string;

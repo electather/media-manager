@@ -13,10 +13,8 @@ import jellyfinPlugin from "../src/plugin";
 import { jfItem, jsonRes, makeCtx, statusRes } from "./helpers";
 
 /**
- * Contract tests: drive every declared capability method end-to-end with a
- * stubbed ctx, verify the request URL is what we expect to hit on a real
- * Jellyfin server, and confirm the plugin's return value parses against the
- * capability's Zod output schema.
+ * Contract tests: drive each declared capability end-to-end with stubbed ctx.
+ * Verify request URL matches expected Jellyfin endpoint and return value parses against Zod output schema.
  */
 
 describe("jellyfin plugin passes loader validation", () => {

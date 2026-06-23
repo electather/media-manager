@@ -1,19 +1,15 @@
 import type { CompactMediaItem } from "../home/types";
 
 /**
- * The one media item shape (`CompactMediaItem`) re-exported here so the client
- * imports the item and its page envelope from a single subpath. The definition
- * stays in `@nama/shared/home` to avoid a churn cascade (design §A5); this
- * is the canonical media-item home for new consumers.
+ * Re-exported so client imports item and page envelope from one subpath.
+ * Definition stays in @nama/shared/home to avoid churn cascade (design §A5).
  */
 export type { CompactMediaItem } from "../home/types";
 
 /**
- * The one paginated read result shape (design §A5, invariant V.WIRE1). Every
- * media list source — home rows, watchlist sections, bounded tonight/recently —
- * returns this envelope. It supersedes `RowContentResponse`,
- * `WatchlistResponse`, and `WatchlistSectionResponse`; bounded sources mint
- * `cursor: null`.
+ * Paginated result envelope (design §A5, V.WIRE1). Every media list source returns
+ * this shape. Supersedes RowContentResponse, WatchlistResponse, WatchlistSectionResponse.
+ * Bounded sources have cursor: null.
  */
 export interface Page {
   items: CompactMediaItem[];

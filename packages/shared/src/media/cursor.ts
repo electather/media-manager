@@ -2,31 +2,12 @@ import { z } from "zod";
 import type { MediaType } from "./enums";
 
 /**
- * The single opaque page cursor for the media read pipeline (design §A5). It
- * replaces the three forked codecs (home-feed offset, watchlist keyset,
- * watchlist offset-snapshot) with one base64url-JSON, zod-validated format.
- *
- * The codec lives in `@nama/shared/media` so client and server agree on
- * exactly one definition (invariant V.WIRE1). The server `media` barrel
- * re-exports it (`apps/server/src/media/cursor.ts` is a thin re-export) so
- * server-internal consumers keep their barrel import unchanged (V.RG1). The
- * client imports it directly to mint the `similarTo` seed cursor with the same
- * bytes the server expects.
- *
- * A keyset cursor carries its hop position — and any source-specific seed
- * (moodId, feed seedId/seedType, sort) — inside the opaque `k` string, exactly
- * as `becauseYouWatched` carries its seed today, so no source needs a private
- * codec. An offset cursor carries the in-memory slice index `n`.
- *
- * `decode` NEVER throws (invariant V.CU1): bad, foreign, or mode-mismatched
- * input returns `null`. The 400-vs-empty decision stays with the consumer —
- * home feed maps `null → 400`, watchlist maps `null → first-page` — preserving
- * today's per-consumer split.
- *
- * Encoding is isomorphic (base64url over `TextEncoder`/`btoa`, no Node
- * `Buffer`) so the module stays browser-safe per the shared-package rule. The
- * byte string matches Node's `Buffer.toString("base64url")` for the same
- * input, so cursors interoperate across the boundary.
+ * Single opaque cursor for media read pipeline (design §A5), replacing three forked codecs.
+ * Lives in shared to ensure invariant V.WIRE1 (one definition), with V.RG1 barrel re-exports.
+ * Keyset cursors carry hop + seed in `k`; offset cursors carry index `n`. `decode` never
+ * throws (V.CU1)—returns `null` for bad input, letting consumers decide error response.
+ * Uses isomorphic base64url (TextEncoder+btoa, no Node Buffer) for browser safety, with
+ * bytes matching Node's Buffer.toString("base64url") for cross-boundary interop.
  */
 
 export type CursorMode = "keyset" | "offset";
@@ -69,21 +50,13 @@ export function encode(cursor: Cursor): string {
   return utf8ToBase64Url(JSON.stringify(cursor));
 }
 
-/**
- * Hard cap on the encoded cursor input. A well-formed cursor is ~50-100 bytes
- * (mode + a short keyset hop or a small offset), so 512 is generous headroom.
- * The cap stops a multi-megabyte client/attacker string from forcing a large
- * heap allocation and JSON parse on every paginated request. The null return
- * is the V.CU1 path the consumer envelope already handles.
- */
+/** Hard cap on encoded cursor (512 bytes) prevents multi-megabyte attacker strings from
+ * forcing heap allocation on every paginated request. Well-formed cursors are ~50-100 bytes,
+ * so 512 is headroom; null return follows V.CU1 path already handled by consumers. */
 const MAX_RAW_CURSOR_LEN = 512;
 
-/**
- * Decode an opaque cursor string. Returns `null` — never throws — when the
- * input is not valid base64url JSON, fails the schema, or (when
- * `expectedMode` is supplied) decodes to a different mode than the source
- * declared. When `expectedMode` is omitted any valid cursor is returned.
- */
+/** Decode cursor; never throws (invariant V.CU1). Returns null if input is not valid
+ * base64url JSON, fails schema validation, or (when expectedMode is supplied) mode mismatch. */
 export function decode(raw: string, expectedMode?: CursorMode): Cursor | null {
   if (raw.length > MAX_RAW_CURSOR_LEN) return null;
   let parsed: unknown;
@@ -98,13 +71,9 @@ export function decode(raw: string, expectedMode?: CursorMode): Cursor | null {
   return result.data;
 }
 
-/**
- * Mints the initial keyset cursor for a similar-feed row from its seed. Shared
- * by the server `similar-paged` source and the client detail page so both mint
- * the seed cursor identically (closes the `similarTo` cursor gap, consolidation
- * §H). The seed's `{ seedId, seedType, offset }` rides inside the keyset `k`
- * as JSON; the home-private `decodeSeedToken` parses it back source-side.
- */
+/** Mints initial keyset cursor for similar-feed, shared by server `similar-paged` and client
+ * detail page for identical encoding (closes `similarTo` gap, consolidation §H). Seed rides
+ * in keyset `k` as JSON; home-private `decodeSeedToken` decodes source-side. */
 export function encodeSeedCursor(seed: { seedId: string; seedType: MediaType }): string {
   return encode({ mode: "keyset", k: JSON.stringify({ ...seed, offset: 0 }) });
 }

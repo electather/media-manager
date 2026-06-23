@@ -1,16 +1,6 @@
+/** OAuth client a user has authorized (from `GET /api/me/apps`). Epoch millis dates match shared/RPC convention (see `connections/types.ts`). */
 /**
- * Row returned by `GET /api/me/apps`. Represents an OAuth client a user has
- * granted access to (an "authorized application" in the settings UI).
- *
- * Date fields are epoch millis to match the shared/RPC convention used by
- * other shared types in this package (see `connections/types.ts`).
- */
-/**
- * Server-derived activity status for an authorized OAuth client.
- *
- * - `active`  — token issued within the last 5 minutes.
- * - `new`     — consent created within the last 24h with no tokens issued yet.
- * - `idle`    — anything else (default).
+ * Server-derived activity status: `active` (token ≤5m), `new` (consent ≤24h, unused), `idle` (else).
  */
 export type AuthorizedAppStatus = "active" | "idle" | "new";
 
@@ -36,13 +26,7 @@ export interface RoleSummary {
   description: string | null;
 }
 
-/**
- * Subset of server configuration safe to expose to unauthenticated clients.
- *
- * Returned by `GET /api/config/public`; the settings UI reads it to decide
- * whether email-dependent flows (password reset, email change verification)
- * should be shown.
- */
+/** Public server config from `GET /api/config/public`; settings UI uses it to decide whether to show email-dependent flows. */
 export interface PublicConfig {
   emailEnabled: boolean;
   /** True on a fresh install with zero users; the client funnels to /bootstrap. */

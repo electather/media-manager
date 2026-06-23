@@ -9,12 +9,9 @@ export const LIBRARY_ITEM_TYPES = ["movie", "show", "episode"] as const;
 export type LibraryItemType = (typeof LIBRARY_ITEM_TYPES)[number];
 
 /**
- * Title-level kinds callers query against `libraryAvailability@v1` /
- * `continueWatching@v1`. A proper subset of `LIBRARY_ITEM_TYPES` — `"episode"`
- * is an output-only granularity and is not a meaningful query target on its
- * own (callers narrow by movie vs. show). Using this on inputs instead of the
- * cross-service `"movie" | "tv"` convention keeps the input/output vocabulary
- * consistent within the media-server capabilities.
+ * Query types for `libraryAvailability@v1` / `continueWatching@v1`. Subset of
+ * `LIBRARY_ITEM_TYPES` (episode is output-only). Keeps input/output vocab
+ * consistent instead of adopting cross-service "movie" | "tv" convention.
  */
 export const LIBRARY_ITEM_QUERY_TYPES = ["movie", "show"] as const;
 export type LibraryItemQueryType = (typeof LIBRARY_ITEM_QUERY_TYPES)[number];
@@ -40,15 +37,11 @@ export const libraryItemQualitySchema = z.object({
 export type LibraryItemQuality = z.infer<typeof libraryItemQualitySchema>;
 
 /**
- * Shared "an item that exists on a user's media server" shape. Returned by
- * `libraryAvailability@v1`, nested inside `continueWatching@v1`, and reused
- * later by `playbackSessions@v1` and `libraryAdmin@v1`.
- *
- * `id` is server-local (e.g. Plex ratingKey, Jellyfin itemId) — meaningful
- * only against the same connection that produced it. `playerLink` and
- * `webLink` must be built from the connection's external server URL so they
- * resolve on the caller's device; see the "Self-hosted network topology"
- * section in `docs/2026-04-19-plugin-architecture-design.md`.
+ * Shared shape for "item on user's media server" (returned by libraryAvailability@v1,
+ * continueWatching@v1, playbackSessions@v1, libraryAdmin@v1). `id` is server-local
+ * (e.g. Plex ratingKey, Jellyfin itemId). `playerLink` and `webLink` must use
+ * external server URL to resolve on caller's device; see "Self-hosted network
+ * topology" in docs/2026-04-19-plugin-architecture-design.md.
  */
 export const libraryItemSchema = z.object({
   /** Server-local id. Used by subsequent calls back to the same server. */
@@ -72,12 +65,9 @@ export const libraryItemSchema = z.object({
   /** ISO timestamp the server imported the item. */
   addedAt: z.string(),
   /**
-   * Cross-service ids that let downstream consumers (catalog metadata
-   * lookups, status batching, request flows) re-key this title against TMDB
-   * or another non-server source. Plugins populate the keys they know
-   * (`tmdb`, `imdb`, `tvdb`) plus their own server-local id (e.g.
-   * `jellyfin:itemId`, `plex:ratingKey`). Optional so plugins that have no
-   * provider-id metadata can still emit valid items.
+   * Cross-service ids (tmdb, imdb, tvdb) plus server-local (jellyfin:itemId,
+   * plex:ratingKey). Lets downstreams re-key against TMDB or other sources.
+   * Optional for plugins with no provider-id metadata.
    */
   ids: z.record(z.string(), z.string()).optional(),
 });

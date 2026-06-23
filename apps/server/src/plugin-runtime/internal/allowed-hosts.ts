@@ -4,9 +4,9 @@ import { isNil } from "es-toolkit/predicate";
 
 /**
  * JSON Schema extension for dynamic `ctx.fetch` allowlisting. ⚠ User-controlled SSRF surface:
- * any marked field lets the authenticated user direct `ctx.fetch` to an arbitrary hostname —
- * RFC1918/LAN ranges permitted (Plex/Jellyfin), but `isBlockedHostname` blocks loopback, link-local,
- * IMDS, and IPv4-mapped IPv6. DNS-rebinding mitigation deferred to fetch time; plugin author owns intent boundary.
+ * marked fields let the authenticated user direct `ctx.fetch` to an arbitrary hostname.
+ * RFC1918/LAN ranges are permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local,
+ * IMDS, and IPv4-mapped IPv6. DNS-rebinding mitigation is deferred to fetch time.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 

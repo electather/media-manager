@@ -60,8 +60,8 @@ export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5):
 /**
  * Builds a fetch bound to the plugin's allowlist, rate limiter, and admin policy.
  * `adminAllowlist` narrows static hosts (`manifest.allowedHosts ∩ adminAllowlist`); `null` = manifest only;
- * dynamic `x-allowed-host` hosts bypass it. Admin-list blocks are audit-logged as `plugin.host_blocked_by_admin`
- * (`warning`); plugin sees `plugin.upstream_error`. `adminHeaders` override plugin headers (`Headers.set`, case-insensitive).
+ * dynamic `x-allowed-host` hosts bypass it. Admin-list blocks are audit-logged as `plugin.host_blocked_by_admin` (warning);
+ * plugin sees `plugin.upstream_error`. `adminHeaders` override plugin headers via `Headers.set` (case-insensitive).
  */
 export function buildFetch(
   pluginId: string,

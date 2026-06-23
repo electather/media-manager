@@ -24,12 +24,7 @@ type Ctx = PluginContext<unknown, unknown, TelegramUserCfg>;
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 
-/**
- * Reserved characters in Telegram's MarkdownV2 that must be backslash-escaped
- * when sent in a non-formatting role. Source: https://core.telegram.org/bots/api#markdownv2-style.
- * We escape every reserved character because the message body is built from
- * untrusted upstream payload fields (titles, usernames, errors).
- */
+/** MarkdownV2 reserved chars requiring backslash-escape (https://core.telegram.org/bots/api#markdownv2-style). Escape all because body is built from untrusted fields (titles, usernames, errors). */
 const MARKDOWN_V2_RESERVED = /[_*[\]()~`>#+\-=|{}.!\\]/g;
 
 function escapeMarkdownV2(text: string): string {

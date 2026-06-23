@@ -77,10 +77,8 @@ function throwForDiscordStatus(res: Response, body: unknown): never {
 }
 
 /**
- * Discord interactive components are organised as action rows of up to five
- * buttons. We use link buttons (style 5) so the recipient can navigate to the
- * action's URL without granting the webhook a bot token. Buttons beyond the
- * row capacity wrap into additional rows.
+ * Discord interactive components: action rows hold up to 5 link buttons (style 5).
+ * Buttons beyond row capacity wrap into additional rows.
  */
 function componentsFromActions(actions: NotificationAction[] | undefined) {
   if (!actions || actions.length === 0) return undefined;

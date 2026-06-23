@@ -3,12 +3,9 @@ import { bootstrapClaimSchema } from "@nama/shared/bootstrap";
 import { acceptInviteSchema } from "@nama/shared/invites";
 import { NAME_MAX_LENGTH, createUserSchema, updateUserSchema } from "@nama/shared/users";
 
-// The upper bound exists so an oversized name is rejected at the validation
-// boundary, before it ever reaches the unbounded SQLite `text` column. These
-// tests pin the exact boundary (NAME_MAX_LENGTH passes, +1 fails) on every
-// schema that writes `user.name`, so the constraint cannot silently regress on
-// any of the four write paths. Referencing the shared constant (rather than a
-// hard-coded 100) keeps these tests honest if the bound ever moves.
+// Upper bound rejects oversized names at validation boundary before reaching SQLite.
+// Tests pin exact boundary (NAME_MAX_LENGTH passes, +1 fails) on all write paths
+// so regressions break. Using shared constant catches bound changes.
 const NAME_AT_LIMIT = "a".repeat(NAME_MAX_LENGTH);
 const NAME_OVER_LIMIT = "a".repeat(NAME_MAX_LENGTH + 1);
 

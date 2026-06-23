@@ -13,12 +13,8 @@ export function makeCtx(
   });
 }
 
-/**
- * Minimal fanart movie response used across the contract suite. Real fanart
- * payloads carry many more fields (id, season, disc, …) which the mapper is
- * expected to drop on the floor; the fixture keeps only what the mapper
- * consumes so unintended dependencies on other fields surface in tests.
- */
+// Minimal fanart movie response: keeps only what mapper consumes so
+// unintended field dependencies surface in tests (real payloads have id, season, disc, …).
 export const MOVIE_RICH = {
   movieposter: [
     {

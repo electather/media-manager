@@ -25,11 +25,8 @@ export type Ctx = PluginContext<
 >;
 
 /**
- * Cross-service media item shape returned by capabilities like
- * `playback@v1` and `watchHistory@v1` — distinct from the richer
- * server-local `LibraryItem` that leaks Jellyfin-only fields. Kept at
- * file scope so the two emitters (`getPositions` and `getHistory`)
- * cannot drift.
+ * Cross-service media item shape for `playback@v1` and `watchHistory@v1` — distinct from
+ * `LibraryItem` (Jellyfin-only fields). Kept at file scope so `getPositions` and `getHistory` cannot drift.
  */
 export interface MediaItemShape {
   id: string;
@@ -59,10 +56,8 @@ export interface JellyfinItem {
   RunTimeTicks?: number;
   DateCreated?: string;
   /**
-   * Episode rows reference their parent show via `SeriesId`. The series
-   * carries the show-level TMDB id; episodes only carry IMDB/TVDB ids in
-   * their own `ProviderIds`. Continue-watching/Next-up callers fetch the
-   * series record to backfill the missing TMDB id.
+   * Episodes reference parent series via `SeriesId`. Series carries show-level TMDB id;
+   * callers fetch series record to backfill missing episode TMDB id.
    */
   SeriesId?: string;
   SeriesName?: string;

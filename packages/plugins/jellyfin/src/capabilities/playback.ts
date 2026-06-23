@@ -19,13 +19,9 @@ export const playback = {
       typedCtx,
       `/Users/${userId}/Items?${params.toString()}`,
     );
-    // `playback@v1` returns the cross-service `MediaItemShape` (not a
-    // server-local `LibraryItem`), so we build the minimum set of
-    // fields the capability schema requires and attach the Jellyfin
-    // item id as a namespaced playbackId. `pausedAt` falls back to
-    // the epoch when the server did not record a `LastPlayedDate` —
-    // the schema requires a string, and "epoch" reads as "unknown"
-    // more honestly than an empty string.
+    // `playback@v1` returns cross-service `MediaItemShape` (not server-local `LibraryItem`).
+    // Attach Jellyfin item id as namespaced playbackId. `pausedAt` falls back to epoch
+    // when no `LastPlayedDate` — "epoch" reads as "unknown" more honestly than empty string.
     const results: Array<{
       item: MediaItemShape;
       progress: number;

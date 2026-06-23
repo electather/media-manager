@@ -43,12 +43,9 @@ export const libraryAvailability = {
       `/Users/${userId}/Items?${params.toString()}`,
     );
     const externalBase = getExternalBase(getUserCfg(typedCtx));
-    // Recent Jellyfin builds (10.10+) silently ignore `AnyProviderIdEquals`
-    // and return the full type-filtered library. Re-filter on the client by
-    // matching the requested ProviderIds entry — the response already
-    // includes `ProviderIds` because we asked for it in `Fields`. Without
-    // this guard, every TMDB lookup would report a server copy and the
-    // home feed's `availability.hasAnyServerCopy` would be uniformly true.
+    // Jellyfin 10.10+ ignores `AnyProviderIdEquals`, so re-filter client-side
+    // on `ProviderIds[provider] === id` to avoid false positives in
+    // home feed's `availability.hasAnyServerCopy`.
     const items = (data.Items ?? [])
       .filter((row) => row.ProviderIds?.[provider] === id)
       .map((row) => mapLibraryItem(row, externalBase))
@@ -141,13 +138,9 @@ export const libraryAvailability = {
       const provider = toJfProvider(idType);
       if (!provider) return { episodes: [] };
       const userId = getUserId(typedCtx);
-      // Cap the response: Jellyfin 10.10+ silently ignores
-      // `AnyProviderIdEquals` and would otherwise return the entire series
-      // library to be filtered client-side. `Limit: 50` keeps the cold-path
-      // payload bounded while still yielding the right hit on builds where
-      // the filter works (single match) and giving the client-side `find`
-      // enough rows to recover on broken builds (a typical 50-show library
-      // page is small enough to scan in O(N)).
+      // Jellyfin 10.10+ ignores `AnyProviderIdEquals`. `Limit: 50` bounds the
+      // cold-path payload while providing enough rows for client-side `find`
+      // to recover on broken builds.
       const params = new URLSearchParams({
         IncludeItemTypes: "Series",
         Recursive: "true",
