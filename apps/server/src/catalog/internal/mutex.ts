@@ -1,10 +1,6 @@
-/**
- * Process-local per-user mutex used to serialize append-only mirror writes
- * (V39). Concurrent calls for the same user queue behind one another via a
- * promise chain; calls for different users run independently. The mutex is
- * intentionally process-local — multi-instance deployments are out of
- * scope for v1 and would require Postgres advisory locks instead.
- */
+// Per-user mutex for serializing append-only mirror writes (V39). Same user queues
+// via promise chain; different users run parallel. Process-local by design: multi-instance
+// would require Postgres advisory locks (out of scope for v1).
 export class PerUserMutex {
   private readonly chains = new Map<string, Promise<unknown>>();
 

@@ -79,11 +79,9 @@ async function debugLogRequest(path: string, req: Request): Promise<Response> {
 }
 
 /**
- * Handles /api/auth/* requests, normalising application/json bodies on the
- * token endpoint to application/x-www-form-urlencoded. Some MCP clients
- * (e.g. MCP Inspector) send JSON to the token endpoint, which causes a 415
- * that the client treats as a transient failure and retries indefinitely.
- * Converting the body here produces a proper 400 OAuth error instead.
+ * Handles /api/auth/* requests. Normalises JSON bodies on the token endpoint to
+ * application/x-www-form-urlencoded: some MCP clients (e.g. MCP Inspector) send JSON,
+ * causing a 415 the client retries indefinitely — conversion yields a proper 400 instead.
  */
 // fallow-ignore-next-line complexity
 export async function authRouteHandler(req: Request): Promise<Response> {

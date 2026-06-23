@@ -1,12 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
-// Regression coverage for the Reconnect bug: re-running the OAuth ceremony for
-// a broken connection must REBIND credentials to the existing row, not insert a
-// duplicate. Non-poolable plugins (Trakt, Plex) hold one row per user, so a
-// second row would orphan the original's id / isDefault / displayName. We mock
-// every boundary (db, crypto, plugin runtime, cache) and exercise the real
-// `persistConnectionFromAuth` decision through `pollDeviceAuth` /
-// `completeRedirectAuth`.
+// Regression: re-running OAuth for a broken connection must REBIND credentials to the existing row,
+// not insert a duplicate. Non-poolable plugins (Trakt, Plex) hold one row per user — a second row
+// would orphan the original's id / isDefault / displayName. Exercises `persistConnectionFromAuth`
+// via `pollDeviceAuth` / `completeRedirectAuth` with all boundaries (db, crypto, plugin runtime, cache) mocked.
 
 vi.mock("../../env", () => ({
   env: {

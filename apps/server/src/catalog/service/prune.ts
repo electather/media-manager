@@ -41,12 +41,7 @@ export async function pruneUnusedMetadataRows(
   return { deleted };
 }
 
-/**
- * Builds the in-memory reference set used by `pruneUnusedMetadataRows`. Pulls
- * every id from `recommendation_lists.items` plus discover snapshots
- * within the configured retention window so a row can be cold-by-access
- * yet still pinned by an active rec list or recent snapshot.
- */
+/** Builds reference set for `pruneUnusedMetadataRows`: pins ids in active rec lists or recent snapshots so cold-by-access rows are retained if still referenced. */
 // fallow-ignore-next-line complexity
 async function buildPruneRefSet(db: Db, snapshotRetentionDays: number): Promise<Set<string>> {
   const refs = new Set<string>();

@@ -20,12 +20,9 @@ vi.mock("../../db/client", () => ({
   getDb: () => db,
 }));
 
-// Spy on the scrypt password hasher while keeping the real implementation, so
-// `claimBootstrap` still writes a genuine hash on the happy path AND we can
-// assert it is never reached on the cheap reject paths. #577's ordering — verify
-// the token (and zero-users) BEFORE hashing — is the load-bearing property: a
-// bad token or an already-set-up server must never pay the scrypt cost, so this
-// spy is the regression guard against a future reorder.
+// Spy keeps the real implementation so the happy path writes a genuine hash, while
+// reject paths assert hashing is never reached. Guards #577's ordering invariant:
+// token + zero-users verified BEFORE hashing — a reorder would pay scrypt on bad inputs.
 vi.mock("better-auth/crypto", async () => {
   const actual = await vi.importActual<typeof import("better-auth/crypto")>("better-auth/crypto");
   return { ...actual, hashPassword: vi.fn(actual.hashPassword) };
@@ -151,14 +148,9 @@ describe("ensureBootstrapToken", () => {
     expect(second?.tokenHash).toBe(first?.tokenHash);
   });
 
-  // After a real process restart the in-memory plaintext is gone, but a
-  // non-consumed token row may still be on disk. Because only the hash is
-  // stored, the old plaintext is unrecoverable, so the service mints a FRESH
-  // token and overwrites the stored hash — the previously printed token stops
-  // working and only the newly printed one verifies. This resolves the design's
-  // "recover the token from the boot log" goal against hash-only storage: the
-  // operator always gets a working token from the logs on every boot, just not
-  // the same one across restarts.
+  // After a restart the in-memory plaintext is gone and hash-only storage makes
+  // it unrecoverable, so the service mints a FRESH token and overwrites the hash —
+  // the old printed token stops working; the operator always gets a valid one from logs.
   it("issues a fresh token (overwriting the stored hash) on a restart with a stale non-consumed row", async () => {
     const stale = "token-from-a-previous-process";
     await seedTokenRow(stale);

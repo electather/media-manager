@@ -41,14 +41,9 @@ const options = {
       ...schema,
     },
   }),
-  // Cache the resolved session in a signed cookie for 5 minutes so per-call
-  // auth checks (e.g. one per artwork RPC) don't fan out into a DB round
-  // trip. Permission checks still hit the DB via requirePermission.
-  //
-  // Tradeoff: a session revoked or invalidated mid-window stays valid until
-  // the cookie expires (`maxAge` seconds). `requirePermission` still
-  // validates against the DB, so elevated operations cannot ride a stale
-  // cache; only the basic authenticated check trails by up to 5 minutes.
+  // Cache the resolved session in a signed cookie (5 min) to avoid a DB round-trip
+  // on every auth check. Tradeoff: a revoked session stays valid until cookie expiry,
+  // but `requirePermission` still hits the DB so elevated operations can't ride a stale cache.
   session: {
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
@@ -79,12 +74,9 @@ const options = {
     },
     changeEmail: {
       enabled: true,
-      // When the deployment has email wired up, the verification link goes
-      // to the user's CURRENT (old) address — the email only flips after
-      // that link is clicked. When email is off (self-hosted without a
-      // provider), leaving this undefined makes Better Auth flip the email
-      // immediately, matching the design's "no verification email will be
-      // sent" disabled-mode flow.
+      // Verification link goes to the CURRENT (old) address; the email only flips after it's clicked.
+      // When email is off, leaving this undefined makes Better Auth flip immediately — matching the
+      // "no verification email will be sent" disabled-mode flow.
       sendChangeEmailConfirmation: env.EMAIL_PROVIDER_CONFIGURED
         ? async ({ user, newEmail, url }) => {
             await sendEmail({
@@ -129,27 +121,15 @@ const options = {
       consentPage: "/oauth/consent",
       scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       allowDynamicClientRegistration: true,
-      // Endpoint-only MCP clients (Claude/Cursor/generic) bootstrap from the
-      // bare `/mcp` URL and rely on unauthenticated RFC 7591 registration to
-      // obtain a client id before the user can authorize. Requiring auth here
-      // would break first-connect for every MCP client we ship docs for.
-      // Abuse is bounded by two controls: the per-IP rate limit below, applied
-      // by the better-auth oauth-provider at the framework layer, and the
-      // scheduled stale-client sweep (auth/jobs/stale-client-sweep.ts) which
-      // deletes dynamically-registered clients that no user authorized within
-      // the TTL — bounding table growth that the per-IP limit alone cannot, as
-      // an attacker behind rotating IPs could otherwise register unbounded
-      // never-used clients. Residual risk: a determined attacker can still
+      // MCP clients (Claude/Cursor/generic) need unauthenticated RFC 7591 registration to get a
+      // client id before the user can authorize — requiring auth here breaks first-connect.
+      // Abuse bounded by: per-IP rate limit (below) + stale-client sweep (auth/jobs/stale-client-sweep.ts)
+      // which deletes unauthorized clients after the TTL. Residual risk: rotating-IP attacker can
       // accumulate up to one TTL window of unauthorized clients between sweeps.
       allowUnauthenticatedClientRegistration: true,
-      // Cap dynamic client registration at 5 requests per hour per IP.
-      // The default is 5/minute, which is too generous for an unauthenticated
-      // write endpoint; honest MCP clients only register once per install.
-      // Accepted trade-off: users sharing a single egress IP (corporate NAT,
-      // home router during simultaneous onboarding) can hit the cap. For a
-      // single-tenant personal nama the abuse-prevention value
-      // outweighs the rare onboarding-storm cost; revisit if/when a multi-
-      // tenant deployment surfaces.
+      // 5/hour (not the 5/minute default) — honest MCP clients register once per install.
+      // Tradeoff: shared-egress IPs (corporate NAT) can hit the cap during simultaneous onboarding,
+      // but for a single-tenant personal nama abuse-prevention outweighs that cost; revisit for multi-tenant.
       rateLimit: {
         register: { window: 60 * 60, max: 5 },
       },

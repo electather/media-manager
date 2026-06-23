@@ -43,29 +43,13 @@ export interface EmailChangeHooks {
 }
 
 /**
- * Better Auth 1.6 has no built-in post-switch notification for an email
- * change. We synthesise one with a `before`/`after` pair on the user-update
- * database hook:
- *
- * - `before` reads the user's *current* email straight from the DB and parks
- *   it in a per-user Map. This must run before Better Auth's write so the
- *   captured value is guaranteed to be the OLD email.
- * - `after` looks up the captured value, clears it, and emails the OLD
- *   address when the row's new email differs.
- *
- * The target user id is read from `ctx.context.session.user.id`. Better
- * Auth's `update.before` hook signature is `(data, ctx)` where `data` is the
- * partial update payload (no id) and the row is selected separately via the
- * adapter's `where` clause, so the session is the only in-hook source of the
- * target id for both `/update-user` and `/change-email`.
- *
- * Tradeoffs:
- * - Memory leak: if the process crashes between the DB write and the `after`
- *   hook firing, the Map entry survives until process exit. Small strings,
- *   low volume — acceptable for a self-hosted personal app.
- * - Concurrency: two simultaneous updates for the same user id can clobber
- *   the Map slot. SQLite serialises writes so this is unlikely in practice,
- *   and at worst it skips a notification rather than misdirecting one.
+ * Better Auth 1.6 has no built-in post-switch email-change notification, so we synthesise one via
+ * `before`/`after` database hooks: `before` captures the OLD email from the DB into a per-user Map
+ * before Better Auth writes; `after` emails that address if the email changed and clears the entry.
+ * Target user id comes from `ctx.context.session.user.id` — the only in-hook source, because
+ * `update.before` receives a partial payload (no id) and the row is selected via the adapter's `where`.
+ * Tradeoffs: a crash between write and `after` leaks a small Map entry until process exit (acceptable);
+ * two concurrent updates for the same id can clobber the slot — at worst skips a notification, never misdirects.
  */
 function extractTargetUserId(ctx: unknown): string | null {
   const id = (ctx as UpdateHookCtxLike)?.context?.session?.user?.id;

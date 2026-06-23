@@ -37,12 +37,9 @@ function makeUser(overrides: { name: string; id?: string; emailVerified?: boolea
 describe("social sign-up name truncation hook", () => {
   const createHook = auth.options.databaseHooks?.user?.create?.before;
 
-  // WHY: a name that fits within NAME_MAX_LENGTH must be stored as-is so
-  // normal social sign-ups are unaffected by the guard. The hook signals
-  // "no change" by returning nothing, which Better Auth treats as "proceed
-  // with the create payload unchanged" (see dist/db/with-hooks.mjs: a
-  // non-object result leaves the data untouched). This avoids cloning the
-  // payload on every social sign-up.
+  // WHY: names within NAME_MAX_LENGTH must pass through unmodified. The hook returns nothing to
+  // signal "no change" — Better Auth treats a non-object result as "proceed unchanged"
+  // (dist/db/with-hooks.mjs), avoiding a needless clone on every social sign-up.
   it("leaves names at or below NAME_MAX_LENGTH unchanged", async () => {
     const name = "a".repeat(NAME_MAX_LENGTH);
     const result = await createHook!(makeUser({ name }));
@@ -70,12 +67,9 @@ describe("social sign-up name truncation hook", () => {
     expect(result?.data?.emailVerified).toBe(true);
   });
 
-  // WHY: some OAuth providers omit the display name entirely, so the hook
-  // receives a null/undefined name. The typeof guard must skip truncation
-  // without throwing or corrupting the row. The hook returns nothing, which
-  // Better Auth treats as "proceed with the create payload unchanged" — so
-  // the absent name is preserved. This catches a regression if someone
-  // rewrites the guard to call .length unconditionally.
+  // WHY: some OAuth providers omit the display name, so the hook receives null/undefined.
+  // The typeof guard skips truncation and returns nothing (Better Auth keeps the row unchanged).
+  // Catches a regression if the guard is rewritten to call .length unconditionally.
   it("passes through unchanged when name is null or undefined", async () => {
     // Cast models a real OAuth edge case where the provider omits the name.
     const noName = await createHook!(makeUser({ name: null as unknown as string }));

@@ -74,11 +74,9 @@ export interface CatalogDiscoverSnapshotDeps {
 }
 
 /**
- * Registers the daily discover-snapshot builder. Iterates the four (kind,
- * sort) tuples; for each, calls `metadata@v1.discover` with the matching
- * filter projection, warms `canonical_metadata` via a side-effect
- * `writeMetadata`, and persists the id-only refs onto `discover_snapshots`
- * keyed by `(kind, sort, day)` per V42.
+ * Registers daily discover-snapshot builder. For each (kind, sort) tuple, calls
+ * `metadata@v1.discover`, warms `canonical_metadata` via `writeMetadata`, and
+ * persists id-only refs on `discover_snapshots` keyed by `(kind, sort, day)` per V42.
  */
 export function registerCatalogDiscoverSnapshotJob(deps: CatalogDiscoverSnapshotDeps): void {
   registerScheduled({

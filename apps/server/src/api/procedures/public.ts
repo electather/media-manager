@@ -5,14 +5,11 @@ import { getCatalogService } from "../../catalog";
 import { zValidator } from "../../diagnostics/validator";
 
 /**
- * Intentionally-public, session-less trending endpoint for the pre-auth login
- * background. It has no `requireSession` middleware and lives in its own
- * isolated sub-app so exposing it leaks nothing else. The projection is
- * deliberately minimal — `{ id, title, poster }` only — and carries no facets,
- * availability, overview, watch state, or any user/session-derived field. It
- * serves the existing daily trending snapshot via cached DB reads and does no
- * per-request catalog or plugin work. Mirrors the public-config endpoint's
- * intent (see `config.ts`).
+ * Intentionally-public, session-less trending endpoint for pre-auth login background.
+ * No `requireSession` middleware; isolated sub-app prevents leaking other endpoints.
+ * Projection is deliberately minimal (id, title, poster only) with no facets, availability,
+ * overview, watch state, or user-derived fields. Serves cached DB snapshot, no per-request
+ * catalog or plugin work. Mirrors public-config endpoint intent (see config.ts).
  */
 
 const DEFAULT_LIMIT = 48;
@@ -20,10 +17,8 @@ const MIN_LIMIT = 1;
 const MAX_LIMIT = 96;
 
 /**
- * `limit` is a coerced integer that defaults to 48 and clamps to `[1, 96]`.
- * Non-numeric, missing, zero, or negative input falls back to the default:
- * `.catch` handles the non-numeric/missing cases, and the clamp transform maps
- * zero/negative (and over-max) onto the valid range.
+ * `limit` coerced integer, defaults to 48, clamps to [1, 96].
+ * `.catch` handles non-numeric/missing; transform maps zero/negative/over-max to valid range.
  */
 const trendingQuerySchema = z.object({
   limit: z.coerce

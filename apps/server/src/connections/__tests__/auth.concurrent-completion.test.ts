@@ -135,12 +135,9 @@ describe("consumeAndWritePendingAuth — concurrent nonce consumption", () => {
 
       expect(result).toEqual({ connectionId: "conn-1" });
       expect(writeConnection).toHaveBeenCalledOnce();
-      // Drizzle predicate objects are opaque (and/eq build SQL nodes, not
-      // inspectable JSON), so we can't assert on the WHERE shape directly.
-      // What we can verify: loadPendingAuth invoked SELECT.where(...) and
-      // consumeAndWritePendingAuth invoked DELETE.where(...) exactly once,
-      // each with a non-null predicate. A regression that drops the predicate
-      // would surface as `undefined` here.
+      // Drizzle predicates are opaque SQL nodes — can't inspect the WHERE shape
+      // directly. Asserting non-null + call-count catches regressions that silently
+      // drop the nonce/userId filter (would surface as `undefined` here).
       expect(selectWhere).toHaveBeenCalledOnce();
       expect(selectWhere.mock.calls[0]?.[0]).toBeTruthy();
       expect(chain.where).toHaveBeenCalledOnce();

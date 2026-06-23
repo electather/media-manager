@@ -15,13 +15,8 @@ export interface CatalogPruneDeps {
   catalog: CatalogService;
 }
 
-/**
- * Registers the daily prune sweep. Runs at 07:00 — well after the 02:00
- * rec-build window and the 04:00 metadata refresh — and short-circuits
- * if any rec-build job is currently running so the prune cannot race
- * an in-flight rec-list write that would otherwise pin items it
- * intends to drop.
- */
+// Daily prune at 07:00 (after 02:00 rec-build and 04:00 metadata refresh).
+// Short-circuits if rec-build running to avoid racing rec-list writes that pin items to delete.
 export function registerCatalogPruneJob(deps: CatalogPruneDeps): void {
   registerScheduled({
     id: CATALOG_PRUNE_JOB_ID,

@@ -11,18 +11,10 @@ import type { CatalogService } from "../catalog";
 import { dispatchAggregatePerKind, PluginCallError } from "../media";
 
 /**
- * Stateless per-request orchestrator for the `artwork.get` RPC. Given a batch
- * of `(key, ids, type)` request items it dedupes by canonical
- * `(idsHash, type)` so two rows referencing the same logical title pay one
- * dispatch, then routes each canonical entry through the
- * `aggregate_per_kind` strategy. Per-item errors are captured on the response
- * so a single bad item never breaks the batch — top-level RPC stays 200
- * unless the wrapping zod schema rejects the input.
- *
- * Per V47 every fulfilled dispatch is fanned back into
- * `CatalogService.patchArtwork` so the canonical row picks up any newly
- * resolved URL. The patch is fire-and-forget — it must not slow the RPC
- * response down or surface errors to the caller.
+ * Stateless orchestrator for `artwork.get` RPC. Dedupes by canonical `(idsHash, type)` so
+ * batch requests for the same title pay one dispatch, then routes through `aggregate_per_kind`.
+ * Per-item errors stay on the response; the batch never fails. Per V47, patches each fulfilled
+ * dispatch into `CatalogService.patchArtwork` fire-and-forget to warm the canonical row.
  */
 export class ArtworkService {
   constructor(
@@ -131,17 +123,10 @@ interface CanonicalEntry {
 }
 
 /**
- * How long a canonical key stays "recently patched" before another write-back
- * is allowed. The canonical metadata row is shared across all users, so when N
- * users view the same hot title in the same window every fulfilled dispatch
- * would otherwise fire its own COALESCE UPDATE against the one row. The patch
- * is idempotent, but the redundant write/WAL traffic scales with concurrent
- * viewers. Collapsing to at most one patch per key per window keeps a hot title
- * from amplifying writes while still letting later renders refresh the row.
- *
- * @internal Exported only so the service test can assert against the real window
- * instead of a hand-copied literal that would silently drift. Not part of the
- * module's public contract.
+ * Dedup window: how long a key stays "recently patched" before write-backs resume.
+ * Shared canonical row across N users — without windowing, concurrent viewers each fire
+ * an UPDATE, amplifying write/WAL traffic. One patch per window keeps it bounded.
+ * @internal Exported so tests can assert the real value instead of a hand-copied literal.
  */
 export const WRITE_BACK_DEDUP_MS = 60_000;
 
@@ -164,12 +149,9 @@ function pruneExpiredWriteBacks(now: number): void {
 }
 
 /**
- * Records the timestamp and returns it as a claim token when a write-back for
- * `key` should proceed; returns `null` when one already fired inside the dedup
- * window. The recorded timestamp doubles as a generation token: it is unique
- * enough to tell a stale claim from the one that currently owns the key, since
- * a fresh claim only happens after the previous window has lapsed. Prunes
- * expired entries on each call.
+ * Returns a claim token (the timestamp) if write-back for `key` should proceed,
+ * null if one already fired in the dedup window. Timestamp acts as a generation token
+ * to distinguish stale claims from the current owner. Prunes expired entries each call.
  */
 function claimWriteBack(key: string, now: number): number | null {
   pruneExpiredWriteBacks(now);
@@ -180,16 +162,10 @@ function claimWriteBack(key: string, now: number): number | null {
 }
 
 /**
- * Drops a previously claimed key so the next read can write it again. Called
- * when a fire-and-forget patch rejects — the claim must not outlive a failed
- * write or it would suppress retries for the rest of the window. Only releases
- * when `claim` still matches the stored token: a patch that outlives its own
- * window can reject after a newer claim has taken the key, and dropping that
- * newer entry would let a redundant patch fire against an already-claimed row.
- * The token's uniqueness assumes `Date.now()` is monotonically non-decreasing.
- * A backward clock step could make the window appear un-lapsed indefinitely,
- * blocking new claims until the clock recovers — no worse than pre-guard
- * behaviour for that interval.
+ * Releases a claimed key (on patch rejection) so retries can proceed. Only releases
+ * if `claim` still owns the key; a stale patch that outlives its window cannot evict
+ * a newer claim. Assumes `Date.now()` is monotonically non-decreasing; backward clock
+ * step could block claims indefinitely until recovery.
  */
 function releaseWriteBack(key: string, claim: number): void {
   if (recentWriteBacks.get(key) === claim) recentWriteBacks.delete(key);
@@ -213,14 +189,11 @@ function dedupeByCanonicalKey(items: ArtworkRequestItem[]): Map<string, Canonica
       entry = { key: ck, ids: { ...item.ids }, type: item.type, clientKeys: [] };
       out.set(ck, entry);
     } else {
-      // Union the id maps across every item that collapses onto this key. Two
-      // rows for the same logical title can carry different id subsets (e.g.
-      // `{tmdb}` then `{tmdb, imdb}`), and provider eligibility is computed
-      // from the dispatched ids — fanart keys TV off `tvdb` and movies off
-      // `imdb`/`tmdb`. Keeping only the first-seen subset would drop those ids
-      // and make coverage depend on batch ordering, so accumulate the richest
-      // set while still collapsing to one dispatch. Existing ids win so the
-      // canonical key (highest-precedence id) never shifts.
+      // Union id maps across collapsing items — batches carry different subsets
+      // (e.g. `{tmdb}` then `{tmdb, imdb}`), and provider eligibility keys off
+      // dispatched ids (fanart: TV=tvdb, movie=imdb/tmdb). Only first-seen subset
+      // would drop ids and couple coverage to ordering. Existing ids win so the
+      // canonical key never shifts.
       entry.ids = { ...item.ids, ...entry.ids };
     }
     entry.clientKeys.push(item.key);

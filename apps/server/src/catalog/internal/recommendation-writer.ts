@@ -39,10 +39,8 @@ export interface CatalogRecommendationBuildDeps {
 }
 
 /**
- * Rec-list-only entry point. Assumes the profile partitions are already
- * current — used by `feature.preference.rebuild`'s manual handler, which
- * runs the rebuild loop itself and would double-bump `profile_version`
- * if it called `buildRecommendationsForUser` directly.
+ * Rec-list-only entry point. Assumes profile partitions already current.
+ * Used by feature.preference.rebuild manual handler to avoid double-bumping profile_version.
  */
 // fallow-ignore-next-line complexity
 export async function writeRecommendationsForUser(

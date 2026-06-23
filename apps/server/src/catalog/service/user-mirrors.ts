@@ -152,12 +152,8 @@ async function appendMirrorRows<E>(
   );
 }
 
-/**
- * Append-only merge for the history mirror. Dedupe key is
- * `(tmdbId, mediaType, sourceConnectionId, watchedAt, episodeKey ?? '')`
- * so re-syncing the same plugin window is idempotent. Existing events keep
- * their original ordering; new events append in arrival order.
- */
+// Append-only merge: dedupe on (tmdbId, mediaType, sourceConnectionId, watchedAt, episodeKey ?? '')
+// makes re-sync idempotent. Existing events keep original order; new events append.
 function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
   return uniqBy([...prior, ...next], historyKey);
 }
@@ -174,12 +170,8 @@ function ratingKey(event: RatingEvent): string {
   return `${event.tmdbId}|${event.mediaType}|${event.sourceConnectionId}|${event.ratedAt}`;
 }
 
-/**
- * Cursor merge: per V39 the cursor advances monotonically per connection.
- * `max(prior, incoming)` so a sync that lands an older window cannot
- * rewind a connection's progress, even if events themselves are
- * out-of-order.
- */
+// Cursor merge per V39: monotonic advance per connection via max(prior, incoming)
+// prevents older sync windows from rewinding progress despite out-of-order events.
 function mergeCursor(prior: PluginCursors, pluginId: string, cursorTs: number): PluginCursors {
   const previous = prior[pluginId] ?? 0;
   return { ...prior, [pluginId]: Math.max(previous, cursorTs) };

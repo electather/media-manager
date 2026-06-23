@@ -1,9 +1,4 @@
-/**
- * Artwork registers no scheduled or event-driven jobs in Phase 3c. The empty
- * `registerJobs()` exists for uniform entry-point wiring — boot.test.ts
- * asserts alphabetical call order across all modules, so every module must
- * expose this function even when it has nothing to register.
- */
+/** No jobs in Phase 3c. Empty `registerJobs()` exists for uniform wiring — boot.test.ts enforces alphabetical call order across all modules. */
 export function registerJobs(): void {
   // no-op
 }

@@ -205,16 +205,9 @@ export const adminUsersApp = new Hono()
       throw badRequest("users.self_revoke", "cannot revoke your own sessions");
     }
 
-    // Wrap in a transaction so a failure mid-sequence cannot leave a refresh
-    // token (or consent row) behind after sessions have already been cleared
-    // — that would let the holder mint fresh access tokens indefinitely or
-    // silently re-authorize without a consent prompt.
-    //
-    // Consent rows are cleared so the next OAuth grant from the same client
-    // requires an explicit re-consent. This mirrors the user-initiated
-    // revoke flow in `me/apps.ts` (see `revokeAuthorizedApp`) and matches
-    // the security intent of an admin "force sign-out": a hard reset, not a
-    // silent re-attach.
+    // Transaction: prevents partial cleanup (leaked tokens = privilege escalation).
+    // Clears refresh/access tokens + consent rows. Mirrors user-initiated revoke in
+    // `me/apps.ts` (`revokeAuthorizedApp`). Intent: hard reset, not silent re-attach.
     await db.transaction(async (tx) => {
       await tx.delete(session).where(eq(session.userId, id));
       await tx.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, id));

@@ -82,17 +82,10 @@ export class AuthService {
   }
 
   /**
-   * Returns `true` when `roleId` confers admin-equivalent power — i.e. it is the
-   * system Admin role (which implies `ALL_PERMISSIONS`) or it holds an
-   * admin-tier permission row (any `admin:*` permission). Used by the
-   * user-management endpoints to block assigning admin-capable roles, closing
-   * the slug-only escalation gap — including roles that grant admin:server /
-   * admin:plugins / admin:jobs / admin:requests, since the caller chooses the
-   * new account's password and could otherwise log in as it.
-   *
-   * `systemSlug` is passed in by the caller (which has already loaded the role)
-   * so the system-admin case is decided without an extra permission query —
-   * that role carries no rows in `role_permissions`.
+   * `true` when `roleId` is the system Admin role or holds any `admin:*` permission.
+   * Guards user-management endpoints against assigning admin-capable roles — closes the
+   * slug-only escalation gap where the caller sets the new account's password and logs in.
+   * `systemSlug` is passed in because the system Admin role has no rows in `role_permissions`.
    */
   async roleHasAdminTierPermission(roleId: string, systemSlug: string | null): Promise<boolean> {
     if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;
@@ -127,12 +120,9 @@ export class AuthService {
   }
 
   /**
-   * Returns a Hono middleware that checks the authenticated user has the
-   * required permission. Must be used after `requireSession` so that
-   * `c.get("session")` is populated.
-   *
-   * The system Admin role bypasses all permission checks — enforced here in
-   * code, not by rows in role_permissions.
+   * Hono middleware that checks the authenticated user has `permission`.
+   * Must follow `requireSession` so `c.get("session")` is populated.
+   * System Admin bypass is enforced in code, not by rows in `role_permissions`.
    */
   requirePermission(permission: Permission): (c: Context, next: Next) => Promise<void> {
     return async (c: Context, next: Next): Promise<void> => {

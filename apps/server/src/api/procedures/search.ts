@@ -13,15 +13,7 @@ function pluginTypeFromKind(kind: SearchKind): "movie" | "tv" | undefined {
   return kind === "all" ? undefined : kind;
 }
 
-/**
- * `GET /api/search` — dispatches `metadata@v1.search` against the user's
- * primary metadata plugin (typically TMDB) and maps the hits to the wire
- * `CompactMediaItem` shape so the command menu can share its row component
- * with the home feed.
- *
- * Asks for `limit + 1` so `hasMore` is computed without a second call.
- * Mounts under the same better-auth gate as the other `/api/*` procedures.
- */
+/** `GET /api/search` — dispatches `metadata@v1.search` against user's primary plugin and maps to `CompactMediaItem` so command menu shares row component with home feed. Asks for `limit + 1` to compute `hasMore` without second call. */
 export const searchApp = new Hono()
   .use("*", requireSession)
   .get("/", zValidator("query", searchQuerySchema), async (c) => {

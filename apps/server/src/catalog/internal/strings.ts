@@ -1,11 +1,6 @@
 import { uniq } from "es-toolkit/array";
 
-/**
- * Trims and dedupes a list of strings preserving first-seen order. Returns
- * an empty array when the input is missing or has no surviving values.
- * Centralized so the canonical-row builder, the features projector and
- * downstream sanitizers share one definition.
- */
+/** Trims and dedupes strings preserving order. Centralized so canonical-row builder, features projector, and sanitizers share one definition. */
 export function dedupeStrings(values: readonly string[] | undefined): string[] {
   if (!values || values.length === 0) return [];
   return uniq(
