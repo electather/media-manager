@@ -15,8 +15,11 @@ vi.mock("../../media", async () => {
 const { pickHero } = await import("../internal/hero");
 const { makeRowCtx } = await import("./row-test-helpers");
 
-// Fixture per plan §Phase 2 Task-019. CW pool uses lastPlayedAt desc for stable test-control priority. Rec pool pre-sorted by index.
-// Discover pools return {tmdbId, type} snapshots. Quota: 1 CW + 2 rec + 2 trend + 1 new = 6. Backfill priority cascade: [CW, rec, trend, new].
+/**
+ * Fixture per plan §Phase 2 Task-019. CW pool uses `lastPlayedAt desc` for stable test-control
+ * priority; rec pool pre-sorted by index. Discover pools return `{tmdbId, type}` snapshots.
+ * Quota: 1 CW + 2 rec + 2 trend + 1 new = 6. Backfill priority cascade: [CW, rec, trend, new].
+ */
 
 function cwEntry(opts: {
   tmdbId: string;

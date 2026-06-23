@@ -4,7 +4,7 @@ import { requireSession, sessionUserId } from "../../auth";
 import { MediaService } from "../../media";
 import { zValidator } from "../../diagnostics/validator";
 
-// Requests API: list, submit, cancel, and aggregate request targets for the picker.
+/** Requests API: list, submit, cancel, and aggregate request targets for the picker. */
 export const requestsApp = new Hono()
   .use("*", requireSession)
   .get("/", async (c) => {

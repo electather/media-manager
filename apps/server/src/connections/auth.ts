@@ -229,13 +229,11 @@ async function startAuthAndStore<S extends "redirect" | "display_code">(
 }
 
 /**
- * Atomically consumes the `pendingAuth` row via `DELETE ... RETURNING` before
- * writing the connection — only the caller that removes the row proceeds.
- * Concurrent completions see zero rows and get `consumed: false`.
- * DELETE filters on both `nonce` and `userId` so a leaked nonce cannot be
- * consumed by a different user (spoofing). DELETE runs BEFORE `writeConnection`
- * intentionally: a failed write is recoverable; a duplicate connection row is not.
- * Do not swap the order.
+ * Atomically consumes the `pendingAuth` row via `DELETE ... RETURNING` before writing the
+ * connection — only the caller that removes the row proceeds; concurrent completions get
+ * `consumed: false`. DELETE filters on both `nonce` and `userId` — a leaked nonce cannot
+ * be consumed by a different user (spoofing). DELETE runs BEFORE `writeConnection`: a
+ * failed write is recoverable; a duplicate connection row is not. Do not swap the order.
  */
 async function consumeAndWritePendingAuth(
   db: ReturnType<typeof getDb>,

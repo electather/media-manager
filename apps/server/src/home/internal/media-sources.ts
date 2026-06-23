@@ -3,9 +3,13 @@ import type { AnyMediaSourceRegistration } from "../../media";
 import { ROW_PROVIDERS } from "../rows";
 import type { RowProvider } from "./types";
 
-// Surfaces home rows as MediaSourceRegistration so /api/media resolver (design §A4) composes registry from home + watchlist barrels.
-// Preserves invariants V.RG1 (media never imports concrete source) and V.A1 (row wiring stays in home/rows + home/internal).
-// Constant fields across home: rateLimit=undefined (no per-user limiter, §A7), paramSchema=voidParamsSchema (no query params, cursor decoded by resolver §A3), cursorOnNull="400" (rejects bad cursor, invariant V.CU1).
+/**
+ * Surfaces home rows as `MediaSourceRegistration` so the `/api/media` resolver (design §A4)
+ * composes one registry from home + watchlist barrels without importing concrete sources
+ * (invariant V.RG1) and without moving row wiring out of `home/rows` + `home/internal` (V.A1).
+ * Constant across home: `rateLimit=undefined` (§A7), `paramSchema=voidParamsSchema` (§A3),
+ * `cursorOnNull="400"` (rejects bad/foreign cursor, invariant V.CU1).
+ */
 function toRegistration(provider: RowProvider): AnyMediaSourceRegistration {
   return {
     sourceId: provider.rowId as MediaSourceId,

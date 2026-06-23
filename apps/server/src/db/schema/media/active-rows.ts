@@ -3,7 +3,11 @@ import { MEDIA_TYPES } from "@nama/shared/media";
 import { WATCHLIST_SOURCES, WATCHLIST_STATES } from "@nama/shared/watchlist";
 import { user } from "../auth/auth";
 
-// One row per (user_id, tmdb_id, media_type). state="removed" acts as tombstone to prevent plugin sync resurrection. added_at is bumped on reactivation so "recently added" reflects user's last action.
+/**
+ * One row per `(user_id, tmdb_id, media_type)`. `state="removed"` acts as a tombstone so a
+ * later plugin sync does not resurrect a user-removed row. `added_at` is bumped on reactivation
+ * so "recently added" ordering reflects the user's last action.
+ */
 export const watchlistItems = sqliteTable(
   "watchlist_items",
   {
@@ -30,7 +34,10 @@ export const watchlistItems = sqliteTable(
   ],
 );
 
-// Marker rows: presence means user was seeded from plugin watchlist feed. First GET eager-seed upsert allows 6-hourly sync cron to iterate only seeded users.
+/**
+ * Marker rows: presence means the user has been seeded from the plugin watchlist feed.
+ * Eager-seed upsert on first GET lets the 6-hourly sync cron iterate only seeded users.
+ */
 export const userWatchlistSeed = sqliteTable("user_watchlist_seed", {
   userId: text("user_id")
     .primaryKey()
