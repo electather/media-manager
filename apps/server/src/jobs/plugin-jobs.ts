@@ -163,12 +163,9 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     rowSource: async () => {
       const db = getDb();
       const nowSec = Math.floor(Date.now() / 1000);
-      // Skip rows still inside an upstream-imposed cooldown window (`retryAfter`
-      // is epoch-seconds, set on `plugin.rate_limited`) and rows already in the
-      // terminal `expired` state (no automated recovery — user must reconnect).
-      // Both predicates are pushed into SQL so parked rows do not load their
-      // encrypted credentials and stuck-expired rows do not burn an upstream
-      // round-trip every tick.
+      // Skip rows inside cooldown (`retryAfter` epoch-seconds, set on `plugin.rate_limited`)
+      // and terminal `expired` state (no auto recovery — user must reconnect). Predicates in SQL
+      // so parked rows don't load credentials and expired rows don't burn upstream round-trips.
       return await db
         .select({
           id: serviceConnections.id,

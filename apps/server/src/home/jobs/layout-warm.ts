@@ -25,13 +25,9 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 export const HOME_LAYOUT_WARM_JOB_ID = "host.home.layout_warm";
 
 /**
- * Per-run consecutive-failure tracker keyed by source. The layout-warm run
- * records every row against one run-level key (`RUN_BREAKER_KEY`), because a
- * sustained run of failures reflects a shared upstream plugin source being slow
- * or offline rather than any single user. Once the key trips the threshold the
- * remaining rows are skipped instead of paying the full per-row timeout again.
- * The map stays keyed (rather than a bare counter) so callers can track
- * independent sources separately if needed.
+ * Per-run consecutive-failure tracker. Uses a map (rather than bare counter) so callers can track
+ * independent sources; this run records every row against one key (`RUN_BREAKER_KEY`) because
+ * sustained failures reflect a shared upstream source offline, not any single user.
  */
 export class CircuitBreaker {
   private readonly consecutiveFailures = new Map<string, number>();
@@ -53,10 +49,9 @@ export class CircuitBreaker {
 }
 
 /**
- * Per-row handler exported so the regression test can drive it without spinning
- * up the scheduler. Reproduces the spec rev 6 invariant: every warm-job compose
- * runs under the `WARM_COMPOSE_BUDGET_MS` deadline budget, partial layouts are
- * written back, and a single slow plugin must not surface as a per-row timeout.
+ * Per-row handler exported for regression tests. Enforces spec rev 6 invariant: compose runs
+ * under `WARM_COMPOSE_BUDGET_MS` deadline, partials are written back, slow plugins don't surface
+ * as per-row timeout.
  */
 export async function runWarmComposeForUser(userId: string): Promise<void> {
   const ctx = buildContext(userId, consola, {
@@ -67,23 +62,16 @@ export async function runWarmComposeForUser(userId: string): Promise<void> {
 }
 
 /**
- * Run-level breaker key. `listActiveUsers` deduplicates and yields each user
- * exactly once per run, so keying the breaker by `userId` would never see two
- * failures for the same key and could never trip. The breaker tracks
- * *consecutive failures across rows* as a proxy for a shared upstream source
- * being offline, so every row in a run records against one constant key.
+ * Run-level breaker key. Keyed constant (not `userId`) because `listActiveUsers` deduplicates
+ * per run — keying by userId would never see two failures for the same key. Tracks consecutive
+ * failures across rows as a proxy for shared upstream source offline.
  */
 const RUN_BREAKER_KEY = "run";
 
 /**
- * Drives one warm-compose row through `breaker`. Skips the compose when the
- * run has already tripped the breaker (so the run stops paying the per-row
- * timeout once an upstream looks dead); otherwise records the outcome so the
- * breaker trips after enough consecutive failures. Re-throws on failure so the
- * per-row runner still captures the error and updates run aggregates.
- *
- * Exported for the regression test, which drives the breaker directly without
- * the scheduler.
+ * Drives one warm-compose row through `breaker`. Skips if breaker already tripped (stops
+ * paying per-row timeout when upstream looks dead); records outcome for breaker to trip after
+ * `MAX_CONSECUTIVE_FAILURES`. Re-throws so per-row runner captures error and updates aggregates.
  */
 export async function runWarmRow(breaker: CircuitBreaker, userId: string): Promise<void> {
   if (breaker.shouldSkip(RUN_BREAKER_KEY)) return;
@@ -97,12 +85,9 @@ export async function runWarmRow(breaker: CircuitBreaker, userId: string): Promi
 }
 
 /**
- * Hourly per-row job that recomposes each active user's home layout and
- * writes the fresh blob into `home_layout_cache`. Per-row timeout caps a
- * single user's compose at 120s; the run-wide cap (`RUN_TIMEOUT_SEC = 30 min`)
- * matches the cron interval so back-to-back runs never overlap. A per-run
- * circuit breaker short-circuits the remaining rows once a source has failed
- * `MAX_CONSECUTIVE_FAILURES` times in a row.
+ * Hourly per-row job: recomposes active users' home layouts into `home_layout_cache`. Per-row
+ * timeout: 120s; run-wide timeout (`RUN_TIMEOUT_SEC = 30min`) matches cron interval to prevent
+ * overlap. Circuit breaker short-circuits remaining rows after `MAX_CONSECUTIVE_FAILURES` failures.
  */
 export function registerHomeLayoutWarm(): void {
   // One breaker per run. `rowSource` runs once at the start of each run, so we

@@ -7,13 +7,9 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// The lens-page repo resolves its database handle through `getDb()`. Mirror the
-// sync test harness EXACTLY: stub `env` (the db client imports it transitively)
-// and point `getDb()` at the real migrated in-memory database so the keyset
-// ORDER BY, the COALESCE timeline predicate, and the `json_each` membership
-// filters are exercised against actual SQLite — the off-by-one boundary and the
-// null/0 ORDER-BY-vs-cursor mismatch can only be proven against the real query
-// planner, never a mocked repo.
+// Stub `env` and point `getDb()` at the real in-memory db so keyset ORDER BY,
+// COALESCE timeline predicate, and json_each filters exercise actual SQLite —
+// off-by-one boundary and null/0 ORDER-BY-vs-cursor mismatch only visible to real query planner.
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -53,10 +49,8 @@ interface SeedRow {
 }
 
 /**
- * Inserts owned library rows directly into `library_items`, filling every
- * not-null column with a defaultable value so a test only needs to set the
- * axis it asserts on. `owned` defaults to true so the rows land in the lens
- * sources' base `owned = true` set; a test can override it to seed a tombstone.
+ * Inserts owned library rows, defaulting every field except those under test.
+ * `owned` defaults true; override to seed a tombstone and verify `owned = true` filter.
  */
 async function seed(rows: SeedRow[]): Promise<void> {
   await testDb.insert(libraryItems).values(
@@ -78,14 +72,9 @@ async function seed(rows: SeedRow[]): Promise<void> {
 }
 
 /**
- * Walks every A–Z page from the first, threading the next cursor EXACTLY as
- * `sources/az.ts` does: the page's `nextRow` is encoded with `azToken`, wrapped
- * in the opaque `{ mode: "keyset", k }` cursor, round-tripped through the shared
- * `encode`/`decode` codec a real request would traverse, and decoded back to an
- * `AzCursor` with `decodeAz`. Returns the ordered list of ids the loop emitted
- * plus whether the final page exhausted the scan (no `nextRow`). A safety cap on
- * the loop count turns an accidental infinite/duplicating loop into a failure
- * rather than a hang.
+ * Walks every A–Z page threading cursor as `sources/az.ts` does: encode nextRow via azToken,
+ * wrap in `{ mode: "keyset", k }`, round-trip encode/decode, decode with decodeAz.
+ * Returns ordered ids + exhausted flag. Loop cap prevents infinite/duplicate loops.
  */
 async function walkAz(limit: number): Promise<{ ids: string[]; exhausted: boolean }> {
   const ids: string[] = [];
@@ -141,14 +130,10 @@ beforeEach(async () => {
 });
 
 describe("library lens pages (design §The 5 lenses, phase 2 keyset)", () => {
-  // AZ PAGINATION COMPLETENESS — the load-bearing boundary invariant. Paging the
-  // whole owned set in `limit`-sized hops, threading each page's `nextRow` back
-  // as the next cursor EXACTLY as the source does, must reconstruct the full
-  // sorted set with NO id skipped and NO id duplicated. With 7 rows at limit 2
-  // the loop crosses 3 page boundaries (pages of 2,2,2,1), so an off-by-one in
-  // `toLensPage` (encoding the dropped overflow row instead of the last returned
-  // row, or vice versa) drops or repeats the boundary id and this fails. A test
-  // that only checked page 1 could not see it.
+  // AZ PAGINATION COMPLETENESS invariant: threading nextRow across page boundaries
+  // must reconstruct the full sorted set with no skips/duplicates. 7 rows at limit 2
+  // crosses 3 boundaries (2,2,2,1); off-by-one in toLensPage encoding (dropped vs last row)
+  // drops/repeats boundary id. Single-page tests cannot catch this.
   it("pages the whole A–Z set across boundaries with no skips or duplicates", async () => {
     await seed([
       { id: "movie:1", sortTitle: "Alpha" },
@@ -182,12 +167,9 @@ describe("library lens pages (design §The 5 lenses, phase 2 keyset)", () => {
     expect(exhausted).toBe(true);
   });
 
-  // AZ KEYSET TIEBREAK — two rows sharing the IDENTICAL `sortTitle` must both
-  // appear, ordered by `id`, even when the page boundary falls BETWEEN them. The
-  // keyset predicate is `(sortTitle, id)`: if the tiebreak on `id` were dropped
-  // (e.g. resuming on `sortTitle > cursor` alone), the second same-title row
-  // would be skipped. Seeding three same-title rows at limit 1 forces a boundary
-  // after the first of the tie, so a broken tiebreak loses `movie:b`.
+  // AZ KEYSET TIEBREAK: keyset predicate is `(sortTitle, id)`. Dropping id tiebreak
+  // (resuming on `sortTitle > cursor` alone) skips the second same-title row.
+  // Limit 1 forces boundary after first of three same-title rows to catch loss of `movie:b`.
   it("keeps both rows of a sortTitle tie, ordered by id, across the boundary", async () => {
     await seed([
       { id: "movie:a", sortTitle: "Same" },
@@ -203,13 +185,9 @@ describe("library lens pages (design §The 5 lenses, phase 2 keyset)", () => {
     expect(exhausted).toBe(true);
   });
 
-  // TIMELINE PAGINATION incl NULL + year-0 — locks the COALESCE/ORDER-BY match.
-  // The order is `COALESCE(year, 0) DESC, id ASC`; a null year and a literal 0
-  // year both collapse to the descending tail, tie-broken by id. Paging in hops
-  // of 2 must reconstruct the full set with no drops or duplicates in that exact
-  // order. If the ORDER BY (e.g. raw `year DESC`, SQLite NULLS-last) ever
-  // disagreed with the cursor predicate's `COALESCE(year,0)`, the boundary that
-  // lands among the null/0 tail would skip or double a row and this fails.
+  // TIMELINE PAGINATION: order is `COALESCE(year, 0) DESC, id ASC`; null + literal-0 years
+  // both tail and tie-break by id. Must reconstruct full set with no drops/duplicates.
+  // ORDER BY/cursor mismatch (e.g. raw `year DESC`) at null/0 boundary skips or doubles a row.
   it("pages the Timeline set with null and year-0 at the tail, no skips or duplicates", async () => {
     await seed([
       { id: "movie:y2020", year: 2020 },
@@ -294,12 +272,10 @@ describe("library lens pages (design §The 5 lenses, phase 2 keyset)", () => {
     expect(decodeTimeline(decode("@@@not-base64-json@@@"))).toBeUndefined();
   });
 
-  // FILTERS IN SQL — each filter axis must narrow the owned set in SQL, and an
-  // empty axis must apply no filter (return everything). A single mixed seed
-  // exercises every axis: kinds (media_type IN), watched (watched_state IN),
-  // genres + qualities (json_each value membership), and servers (json_each
-  // id membership, multi-valued). The owned-only base set is also proven: a
-  // tombstoned row never appears.
+  // FILTERS IN SQL: each axis narrows owned set in SQL; empty axis returns everything.
+  // Single seed exercises all: kinds (media_type IN), watched (watched_state IN),
+  // genres/qualities (json_each value membership), servers (json_each label membership, multi-valued).
+  // Tombstoned row verifies `owned = true` base filter never leaks.
   it("applies each filter axis in SQL and an empty axis returns everything", async () => {
     await seed([
       {

@@ -19,16 +19,13 @@ type RowProjection<Row> = (
 
 /**
  * The home → media pipeline bridge. Kept here (not in `rows/_shared`) so the
- * env-free `rows/_shared` helpers (`loadCanonicalItems`, `probeMediaEntry`) and
- * the source unit tests that import them never pull the heavy `media → db → env`
- * graph that `listRows` + `enrichHomeItems` drag in.
+ * env-free `rows/_shared` helpers never pull the heavy `media → db → env` graph.
  */
 
 /**
- * Wires home row through `media.listRows` (design §C/§H); `RowContext` is structurally
- * a superset of `SourceContext`, so seed source can stash `ctx.seedTitle` on it during
- * `fetchRawSet` and match-reason reads it back. Paginated rows project full set (pipeline
- * slices); bounded rows project single page (<= ROW_PAGE_SIZE) so pipeline mints `cursor:null`.
+ * Wires home row through `media.listRows` (design §C/§H). `RowContext` superset of
+ * `SourceContext` lets seed source stash `ctx.seedTitle` and match-reason read it back.
+ * Bounded rows cap to one page (<= ROW_PAGE_SIZE) so pipeline mints `cursor: null`.
  */
 interface RowPipelineSpec<P, Row> {
   rowId: string;
@@ -67,12 +64,8 @@ export function loadRowPage<P, Row>(ctx: RowContext, spec: RowPipelineSpec<P, Ro
 }
 
 /**
- * Builds a `RowProvider` whose `load` runs the source through the shared media
- * pipeline (`loadRowPage`). Centralizes the provider scaffold so every row —
- * the simple ones plus the `makeBoundedRow` / `makeDiscoverSnapshotRow` /
- * `makeRecommendedForYou` factories — declares only what differs (eligibility,
- * the seed cursor, the source/params, and the raw-row projection) and shares
- * one `load` wiring.
+ * Centralizes provider scaffold: all rows declare only what differs (eligibility,
+ * cursor seed, source/params, projection); one shared `load` wiring via `loadRowPage`.
  */
 export function makePipelineRow<P, Row>(config: {
   rowId: string;
@@ -111,13 +104,9 @@ export function makePipelineRow<P, Row>(config: {
 }
 
 /**
- * Builds a bounded (cursor-less) capability-gated row from a `MediaSource`.
- * The `continueWatching-next` and `upcomingForYou` rows ship one page and never
- * paginate, so they share the same provider shape — `eligibility` flips on a
- * capability provider, `initialCursor` is null, and the `project` slices to a
- * single page so the pipeline mints `cursor: null`. Only the capability,
- * source, and per-row projection differ, so they pass them as config (mirrors
- * `makeDiscoverSnapshotRow` / `makeRecommendedForYou`).
+ * Bounded (cursor-less) capability-gated row: `continueWatching-next` and
+ * `upcomingForYou` ship one page with no pagination. `initialCursor: null`
+ * mints `cursor: null` in pipeline. Only capability, source, and projection differ.
  */
 export function makeBoundedRow<Row>(config: {
   rowId: string;

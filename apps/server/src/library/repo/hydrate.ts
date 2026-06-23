@@ -5,10 +5,8 @@ import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 
 /**
- * An owned row that needs hydrating, carrying just the identity the orchestrator
- * fans out on. The denormalized columns are deliberately omitted — the hydrate
- * pass overwrites them wholesale, so reading the stale values back would only
- * waste a column scan.
+ * Denormalized columns are omitted — hydrate pass overwrites them wholesale,
+ * so reading stale values would waste a column scan.
  */
 export interface HydrateTarget {
   id: string;
@@ -17,11 +15,8 @@ export interface HydrateTarget {
 }
 
 /**
- * The denormalized columns one hydrate pass computes for a single row. Every
- * field is overwritten wholesale: a column the source could not resolve falls
- * back to its empty/null shape rather than being left at a prior value, so a
- * title that lost its last server copy correctly hydrates to an empty
- * `servers`. `hydratedAt` is stamped by `writeHydration`, not the caller.
+ * Every field overwrites wholesale: unresolved columns fall back to empty/null,
+ * not prior values. `hydratedAt` stamped by writeHydration, not caller.
  */
 export interface HydrationUpdate {
   id: string;
@@ -36,19 +31,9 @@ export interface HydrationUpdate {
 }
 
 /**
- * Returns the owned rows for `userId` whose denormalized projection is missing
- * (`hydrated_at IS NULL`) or stale (`hydrated_at < now - staleTtlMs`). The
- * caller fans availability/metadata/progress lookups out over exactly this set,
- * so a fully-fresh library returns an empty array and costs only one indexed
- * read (design §Sync + hydrate, phase 2). Tombstoned rows (`owned = false`) are
- * excluded — only the live owned set is browsable, so spending a fan-out on a
- * tombstone would be wasted work.
- *
- * Rows are ordered by their composite id so the hydrate pass chunks the same
- * deterministic boundaries on every run rather than relying on SQLite's
- * incidental implicit (PK) order. That makes the chunked fan-out genuinely
- * resumable — a timed-out pass leaves a stamped prefix that the next run skips —
- * and matches `writeHydration`'s "updated in id order" guarantee.
+ * Returns rows where `hydrated_at IS NULL` or `hydrated_at < now - staleTtlMs`,
+ * ordered by composite id for deterministic chunking (design §Sync + hydrate, phase 2).
+ * Tombstoned rows (`owned = false`) excluded; resumable on timeout.
  */
 export async function staleOrNew(
   userId: string,
@@ -75,12 +60,8 @@ export async function staleOrNew(
 }
 
 /**
- * Writes the denormalized projection for each hydrated row, stamping
- * `hydrated_at = now` so a later `staleOrNew` skips it until the TTL elapses.
- * One `UPDATE` per row keyed by the composite primary key; the set is bounded by
- * the page of rows `staleOrNew` returned, so this stays O(stale rows). Rows are
- * updated in id order so a partial failure leaves a deterministic prefix
- * hydrated rather than an arbitrary scatter.
+ * Updates rows in id order (O(stale rows)) so partial failure leaves deterministic
+ * prefix hydrated. Stamps `hydrated_at = now` so staleOrNew skips until TTL.
  */
 export async function writeHydration(
   userId: string,

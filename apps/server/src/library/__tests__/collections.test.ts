@@ -7,14 +7,10 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// The collections repo resolves its database handle through `getDb()`. Mirror
-// the lens-page and sync test harness EXACTLY: stub `env` (the db client imports
-// it transitively) and point `getDb()` at the real migrated in-memory database
-// so the group-first GROUP BY, the `COALESCE(collection_name, collection_id)`
-// keyset ORDER BY, the filter-aware preview subquery, and the tenancy-scoped
-// `selectRowsByIds` read are exercised against actual SQLite. The null-name
-// keyset drop and the preview filter-leak can only be proven against the real
-// query planner, never a mocked repo.
+// Stub `env` and point `getDb()` at the real in-memory database to exercise
+// the keyset ORDER BY, filter-aware preview subquery, and tenancy-scoped reads
+// against actual SQLite — regressions (null-name keyset, filter-leak) fail silent
+// with a mocked repo.
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -57,13 +53,9 @@ interface SeedRow {
 }
 
 /**
- * Inserts library rows directly into `library_items`, filling every not-null
- * column with a defaultable value so a test only sets the axis it asserts on.
- * The denormalized franchise columns (`collection_id`/`collection_name`),
- * `sort_title`, `genres`, etc. are set explicitly so the grouping SQL and the
- * preview subquery have real data to page off. `owned` defaults to true so rows
- * land in the lens base set; a test overrides it to seed a tombstone. `userId`
- * defaults to USER_A so the tenancy test can plant a colliding USER_B row.
+ * Inserts library rows with sensible defaults (owned=true, userId=USER_A) so
+ * tests only override their assertion axis. Denormalized franchise columns and
+ * sort_title are explicit so the SQL grouping and preview subquery have real data.
  */
 async function seed(rows: SeedRow[]): Promise<void> {
   await testDb.insert(libraryItems).values(
@@ -87,12 +79,9 @@ async function seed(rows: SeedRow[]): Promise<void> {
 }
 
 /**
- * Walks every Collections page from the first, threading the next cursor EXACTLY
- * as `service.listCollections` does: a full page's `nextGroup` is encoded with
- * `encodeCollectionsCursor`, then decoded back to a `CollectionCursor` with
- * `decodeCollectionsCursor` before the next read. Returns the ordered list of
- * collection ids the loop emitted. A safety cap turns an accidental
- * infinite/duplicating loop into a failure rather than a hang.
+ * Threads cursors exactly as `service.listCollections`: encode `nextGroup` with
+ * `encodeCollectionsCursor`, decode with `decodeCollectionsCursor` before next read.
+ * Returns collection ids; safety cap (1000) guards against infinite loops.
  */
 async function walkCollections(
   userId: string,
@@ -142,14 +131,9 @@ beforeEach(async () => {
 });
 
 describe("library collections lens (design §Collections lens, phase 3)", () => {
-  // OWNED-ONLY / TV-EXCLUDED — the base WHERE is `owned = true` AND
-  // `collection_id IS NOT NULL`. Only the owned movie WITH a collection id is a
-  // franchise; the TV row (null collection_id), the standalone movie (null
-  // collection_id), and the tombstoned movie (owned = false) must NEVER surface,
-  // and the tombstone must NOT inflate the franchise count. Seeding the
-  // tombstone in the SAME franchise as the owned movie is the mutation-sensitive
-  // part: a dropped `owned = true` guard would both surface a second group AND
-  // bump this group's count to 2.
+  // OWNED-ONLY / TV-EXCLUDED: base WHERE filters `owned = true` AND
+  // `collection_id IS NOT NULL`. Tombstone seeded in SAME franchise tests mutation
+  // sensitivity: dropped `owned = true` guard would surface the tombstone and bump count.
   it("returns only owned movies in a franchise, excluding TV, standalone, and tombstones", async () => {
     await seed([
       { id: "movie:1", sortTitle: "A", collectionId: "10", collectionName: "Franchise" },
@@ -184,11 +168,8 @@ describe("library collections lens (design §Collections lens, phase 3)", () => 
     expect(page.nextGroup).toBeUndefined();
   });
 
-  // PREVIEW <=4 ORDERED — a franchise with six owned titles caps the preview at
-  // four (design §Collections lens: "preview ≤4"), ordered by `(sortTitle, id)`
-  // ascending. The count still reflects all six. Seeding sort titles out of
-  // insertion order proves the SQL ORDER BY (not insertion order) drives the
-  // preview, and the cap proves the `LIMIT 4` in the preview subquery.
+  // PREVIEW ≤4 ORDERED (design §Collections lens): capped at 4, ordered by (sortTitle, id).
+  // Out-of-order seeding proves ORDER BY drives preview, LIMIT 4 in subquery caps it.
   it("caps the preview at four ids ordered by (sortTitle, id) while counting all", async () => {
     await seed([
       { id: "movie:f6", sortTitle: "Foxtrot", collectionId: "10", collectionName: "Franchise" },
@@ -209,15 +190,9 @@ describe("library collections lens (design §Collections lens, phase 3)", () => 
     expect(group?.previewIds).toHaveLength(4);
   });
 
-  // PREVIEW FILTER-AWARE — regression for the preview filter-leak fix. When a
-  // filter is active, BOTH the group count AND the preview ids must reflect only
-  // the matching titles: the preview subquery re-applies the same axis as the
-  // group count. The franchise carries three "Horror" titles and two "Comedy"
-  // titles; under `genres: ["Horror"]` the count is 3 and the preview lists ONLY
-  // the three Horror ids — no Comedy id may leak into the fan. Before the fix the
-  // count was filter-aware but the preview was not, so a Comedy id would appear;
-  // asserting the exact preview set (and that no Comedy id is present) fails on
-  // any leak.
+  // PREVIEW FILTER-AWARE: regression for preview filter-leak (design §Collections lens).
+  // Preview subquery must re-apply filter axis (same as group count). Before fix: count
+  // was filter-aware but preview was not — Comedy id would leak into Horror filter.
   it("applies the active filter to BOTH the count and the preview ids (no leak)", async () => {
     await seed([
       {
@@ -269,17 +244,10 @@ describe("library collections lens (design §Collections lens, phase 3)", () => 
     expect(group?.previewIds).not.toContain("movie:c2");
   });
 
-  // NULL-NAME KEYSET — regression for the paging blocker. Franchises whose
-  // `collection_name` is NULL (only `collection_id` set: "20", "30", "40") must
-  // still page completely: the ORDER BY and the cursor predicate both compare
-  // `COALESCE(collection_name, collection_id)`, so the resume position is total
-  // even with no learned title. Paging the whole set in `limit = 1` hops,
-  // threading each page's `nextGroup` through encode/decode EXACTLY as
-  // `listCollections` does, must reconstruct EVERY franchise with NO drop and NO
-  // duplicate. If either side stopped using COALESCE (comparing the raw nullable
-  // name), the null-name groups would compare as NULL — never strictly-greater —
-  // and the cursor predicate would skip them at the very first boundary, so this
-  // loop would lose them.
+  // NULL-NAME KEYSET: regression for paging blocker. ORDER BY and cursor predicate
+  // both use COALESCE(collection_name, collection_id) so null-name franchises page
+  // completely. Without COALESCE: null-name groups compare as NULL (never strictly-greater)
+  // and cursor predicate would skip them, causing loss.
   it("pages every null-name franchise across boundaries with no drop or duplicate", async () => {
     await seed([
       // One named franchise plus three null-name ones. Distinct sort titles so
@@ -303,13 +271,9 @@ describe("library collections lens (design §Collections lens, phase 3)", () => 
     expect(exhausted).toBe(true);
   });
 
-  // TENANCY — regression for the `selectRowsByIds` cross-tenant scope. The
-  // composite id is unique only WITHIN a user, so the SAME id can exist for two
-  // users. `selectRowsByIds(userA, [...])` must return ONLY userA's owned rows
-  // even when userB owns a row with the same composite id (same franchise).
-  // Passing both ids — including the colliding one userB owns — must NOT leak
-  // userB's row. Without the `user_id = userA` scope the `id IN (…)` read would
-  // surface both rows and cross tenants.
+  // TENANCY: regression for `selectRowsByIds` cross-tenant scope. Composite id
+  // is unique only within a user, so same id can exist for two users. Without
+  // `user_id = userA` scope, `id IN (…)` would surface both rows and leak userB's copy.
   it("scopes selectRowsByIds to the requesting user, never leaking another tenant's row", async () => {
     await seed([
       // userA owns "movie:1" (their copy) plus a distinct "movie:5".

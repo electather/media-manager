@@ -1,19 +1,11 @@
 import type { CollectionCursor } from "../repo";
 
 /**
- * Opaque keyset cursor codec for the group-first Collections endpoint. Unlike
- * the item lenses — which ride the media `paginate` stage's `Cursor` wrapper —
- * `/api/library/collections` does not flow through the media pipeline, so it
- * mints and parses its own cursor string here. The token packs
- * `"<collectionName> <collectionId>"` joined on a single space and is split on
- * the LAST space, mirroring the lens keyset codecs: the `collectionId` (a TMDB
- * numeric id) never contains a space, but a `collectionName` ("The Lord of the
- * Rings Collection") can, so the prefix is the name and the suffix is the id.
- *
- * `decodeCollectionsCursor` is total: a null, empty, or malformed token (a
- * hand-edited link) returns `undefined`, which the service reads as "first
- * page" and NEVER throws — the same degrade-don't-400 discipline the lens codecs
- * follow.
+ * Opaque keyset cursor codec for group-first Collections endpoint (not via media
+ * `paginate`). Token packs `"<collectionName> <collectionId>"`, split on LAST
+ * space: `collectionId` (numeric) never has spaces, but `collectionName` can, so
+ * prefix is name, suffix is id. `decodeCollectionsCursor` is total: null/empty/
+ * malformed returns `undefined` (service reads as "first page", no 400).
  */
 export function encodeCollectionsCursor(cursor: CollectionCursor): string {
   return `${cursor.collectionName} ${cursor.collectionId}`;

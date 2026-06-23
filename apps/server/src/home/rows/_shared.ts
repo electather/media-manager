@@ -20,14 +20,8 @@ interface SimilarFeedEntry {
   seedTitle: string | undefined;
 }
 
-// Cache resolved candidate lists per seed so paginating row consumers don't
-// re-fetch the full `metadata@v1.getSimilar` feed (and the seed catalog
-// metadata) on every page request. The plugin call is the expensive bit;
-// candidate decoding + seed-meta lookup are deterministic over the same seed,
-// so caching for a short window keeps wall-clock latency low without staling
-// out across user sessions. Per-user keyed for safety even though
-// `metadata@v1.getSimilar` is itself user-agnostic — keeps cache invalidation
-// trivially user-scoped if we ever start mixing identity into the response.
+// Caches candidates per seed for pagination without re-invoking `metadata@v1.getSimilar` (the expensive bit).
+// Per-user keyed for safety; lets cache invalidation stay user-scoped if identity is mixed in later.
 const SIMILAR_FEED_TTL_MS = 60_000;
 const SIMILAR_FEED_CACHE_MAX = 256;
 const similarFeedCache = new Map<string, SimilarFeedEntry>();
@@ -60,15 +54,9 @@ function writeSimilarCache(key: string, entry: SimilarFeedEntry): void {
 }
 
 /**
- * Resolves (and caches) the similar-feed candidate list + seed title for one
- * seed. Wraps the similar `MediaSource` (the raw `getSimilar` candidate fetch)
- * plus the seed's catalog title lookup; the seed `MediaSource`
- * (`similarPagedSource`) windows the candidates and the row pipeline projects +
- * enriches them.
- *
- * The result is cached per `(userId, seedType, seedId)` for `SIMILAR_FEED_TTL_MS`
- * so subsequent page requests against the same seed skip the round-trip into
- * the metadata plugin and the catalog.
+ * Resolves + caches candidates and seed title per `(userId, seedType, seedId)` for `SIMILAR_FEED_TTL_MS`.
+ * Wraps the similar `MediaSource` fetch and catalog title lookup; `similarPagedSource` windows candidates
+ * and the row pipeline projects + enriches them.
  */
 export async function resolveSimilarCandidates(
   ctx: SourceContext,
@@ -106,10 +94,8 @@ interface LoadCanonicalOptions<T> {
 }
 
 /**
- * Shared metadata-batch + iterate pipeline. Most home rows fetch a windowed
- * slice of `{ tmdbId, type }` keys, look up canonical metadata in one call,
- * then map to compact items. The composite-key shape (`${type}:${tmdbId}`)
- * is locked in by `getMetadataBatch`, so callers should not re-derive it.
+ * Shared pipeline: fetch keys, batch-lookup canonical metadata, map to compact items.
+ * Composite key `${type}:${tmdbId}` is locked in by `getMetadataBatch`, so do not re-derive.
  */
 // fallow-ignore-next-line complexity
 export async function loadCanonicalItems<T extends MediaKey>(
@@ -137,11 +123,8 @@ export async function loadCanonicalItems<T extends MediaKey>(
 }
 
 /**
- * Common entry-shape probe for `watchlist@v1` / `calendar@v1` plugin payloads.
- * Both wrap entries as `{ item: {...}, ...extra }` (Trakt) or pass `item`
- * directly (other plugins), with the tmdb id under `ids.tmdb` and the type on
- * `item.type`. Returns the raw outer + inner records so callers can read
- * provider-specific fields (airsAt, fallback title) without re-walking.
+ * Probe for `watchlist@v1` / `calendar@v1` payloads. Wraps as `{ item: {...}, ...extra }` (Trakt) or `item` directly (other plugins).
+ * Returns raw outer + inner records so callers can read provider-specific fields without re-walking.
  */
 // fallow-ignore-next-line complexity
 export function probeMediaEntry(

@@ -6,13 +6,9 @@ import { todayBucket } from "../sources/discover-snapshot";
 import { loadCanonicalItems, type MediaKey } from "./_shared";
 
 /**
- * Reads from `discover_snapshots` via its `MediaSource` (the raw-set producer;
- * design §H/§M.5) and runs the row through the shared media pipeline
- * (`makePipelineRow` → `media.listRows`), which owns the offset slice + cursor.
- * The catalog is the source of truth for trending/new-releases, so this row
- * never partials — failures land as `eligibility=false` (no snapshot for the
- * day) and the row drops cleanly. The row projects the full snapshot; the
- * pipeline slices.
+ * Reads from `discover_snapshots` via `MediaSource` (design §H/§M.5) through shared media pipeline
+ * (`makePipelineRow` → `media.listRows`). Catalog is source of truth, so never partials — failures
+ * become `eligibility=false` and row drops cleanly. Row projects full snapshot; pipeline slices.
  */
 export function makeDiscoverSnapshotRow(config: {
   rowId: string;

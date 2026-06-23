@@ -82,10 +82,10 @@ export class AuthService {
   }
 
   /**
-   * `true` when `roleId` is the system Admin role or holds any `admin:*` permission.
-   * Guards user-management endpoints against assigning admin-capable roles — closes the slug-only
-   * escalation gap (caller sets new account's password then logs in for immediate privilege escalation).
-   * `systemSlug` is passed separately because the system Admin role has no rows in `role_permissions`.
+   * `true` when `roleId` is the system Admin role or holds any `admin:*` permission. Guards
+   * user-management endpoints against assigning admin-capable roles — a caller who sets a new
+   * account's password then logs in achieves immediate privilege escalation. `systemSlug` is
+   * passed separately because the system Admin role has no rows in `role_permissions`.
    */
   async roleHasAdminTierPermission(roleId: string, systemSlug: string | null): Promise<boolean> {
     if (systemSlug === SYSTEM_ADMIN_ROLE_SLUG) return true;

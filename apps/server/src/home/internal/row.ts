@@ -6,12 +6,9 @@ import { isRowSoftFailure } from "./row-soft-failure";
 import type { RowContext, RowProvider } from "./types";
 
 /**
- * Decode an incoming home-feed cursor against the row's pagination mode. The
- * home feed maps a bad/foreign/mode-mismatched cursor (`decode → null`) to
- * `HttpError 400` — preserving its existing contract (invariant V.CU1; the
- * codec itself never throws). An absent cursor is the first page, unless the
- * row pins its seed on the cursor (`requiresInitialCursor`), where a null
- * cursor is rejected.
+ * Decode cursor against row's pagination mode (invariant V.CU1: codec never throws).
+ * Bad/foreign cursor → `HttpError 400`. Absent cursor = first page, unless
+ * `requiresInitialCursor` rejects it.
  */
 function decodeRowCursor(provider: RowProvider, cursor: string | null): Cursor | null {
   if (cursor === null) {

@@ -7,19 +7,9 @@ import { registerScheduled } from "./scheduled";
 import { stopAll, list } from "./index";
 
 /**
- * Registers every host-scheduled job owned by the infrastructure layer. Each
- * registration is a thin wrapper around the underlying sweep, following the
- * one-place convention from `docs/2026-04-20-job-service-design.md`.
- *
- * Module-owned jobs (catalog, home, notifications, plugin-runtime,
- * preferences) are NOT registered here — they live behind each module's
- * barrel-exported `registerJobs()` and are wired from
- * `apps/server/src/index.ts` in alphabetical order. This file kept
- * to infra-only schedules so `server-infra` no longer needs to import any
- * `server-mod-*` barrel.
- *
- * Plugin-declared jobs (declared via plugin manifests, not modules) are still
- * registered after host schedules so they observe a settled host registry.
+ * Registers host-scheduled jobs owned by the infrastructure layer (see `docs/2026-04-20-job-service-design.md`).
+ * Module-owned jobs (catalog, home, etc.) are NOT here—they live in each module's barrel-exported `registerJobs()`.
+ * Plugin-declared jobs are registered after host schedules to observe a settled host registry.
  */
 export const scheduler = {
   async start(): Promise<void> {

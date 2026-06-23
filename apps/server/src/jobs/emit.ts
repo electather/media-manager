@@ -5,13 +5,9 @@ import type { EventName } from "./event-name";
 
 /**
  * Schedules an immediate run of an event's dispatcher. Throws if no consumer
- * has registered for the event yet — that is always a wiring bug (the
- * producer's `registerJobs` ordering does not include the consumer's module).
- *
- * Kept in a file that only depends on `./registry` so the runner can `import
- * { emit } from "./emit"` without dragging `./triggerable` into the import
- * graph; the latter would create an `events → triggerable → runner → events`
- * static cycle that fallow flags as `circular-deps: error`.
+ * registered — wiring bug (producer's `registerJobs` incomplete).
+ * Kept in a file depending only on `./registry` to avoid `events → triggerable →
+ * runner → events` cycle that would trigger `circular-deps: error`.
  */
 async function enqueue(name: string, payload: unknown): Promise<void> {
   const entry = findEntry(name);

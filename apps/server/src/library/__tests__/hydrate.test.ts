@@ -9,12 +9,8 @@ import {
 import { user } from "../../db/schema/auth";
 import { libraryItems } from "../../db/schema/library";
 
-// The hydrate orchestrator resolves its database handle through `getDb()` and
-// drives the real `staleOrNew`/`writeHydration` repo functions. Point `getDb`
-// at the migrated in-memory database (which applies every drizzle migration,
-// including `library_items`) so the denormalized columns are written and read
-// back against actual SQLite — a mocked repo could not prove that the projection
-// columns and `hydrated_at` survive a real UPDATE/SELECT round-trip.
+// Tests real orchestrator against actual migrations to prove denormalized columns
+// and `hydrated_at` survive a real UPDATE/SELECT round-trip (mocked repo cannot).
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
@@ -68,14 +64,9 @@ function cwEntry(tmdbId: string, type: "movie" | "tv", watchedSec: number, total
 }
 
 /**
- * Stubs the media + catalog services the hydrate orchestrator fans out over and
- * builds the loose `MaybeLibraryContext` the resolver accepts (mirroring
- * `sync.test.ts#makeCtx`). The catalog handle is unused by phase-1 membership
- * sync but is the phase-2 metadata source, so it is a real stub here.
- *
- * Each source is a `vi.fn` so a test can assert fan-out or override per call.
- * Defaults resolve the empty/absent shape so a source a test does not care about
- * never throws and contributes its empty projection.
+ * Stubs media + catalog services (phase-2 metadata source, unused in phase-1).
+ * Each source is a `vi.fn` for per-test assertions; defaults empty so unused sources
+ * never throw and contribute their empty projection (mirroring `sync.test.ts#makeCtx`).
  */
 function makeCtx(opts: {
   metadata?: Record<string, MetaEntry>;
@@ -148,14 +139,9 @@ beforeEach(async () => {
 });
 
 describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
-  // HYDRATE WRITES DENORM COLS — the orchestrator must fold all four stubbed
-  // sources into the row's denormalized projection and stamp `hydratedAt`.
-  // Reading the row back proves each column is sourced correctly: a normalized
-  // sortTitle (article stripped, lowercased) from `getMetadataBatch.title`, the
-  // year/genres/collection from metadata, the server chips from
-  // `getMatchingServers`, the quality tiers derived from
-  // `getAvailabilityQuality`, and `watchedState` derived from the CW feed. If
-  // the orchestrator ever stopped writing any one column, that assertion fails.
+  // HYDRATE WRITES DENORM COLS — fold four stubbed sources into row projection
+  // + stamp `hydratedAt`. Asserts each column maps correctly: sortTitle (article
+  // stripped, lowercased), year/genres/collection, servers, qualityTiers, watchedState.
   it("writes every denormalized column from the stubbed sources", async () => {
     await seedOwned("550");
 
@@ -194,15 +180,10 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     expect(row?.hydratedAt).not.toBeNull();
   });
 
-  // STALE/NEW SELECTION — `staleOrNew` is the read that bounds the whole
-  // fan-out, so it MUST select exactly the missing-or-stale owned rows and
-  // nothing fresh. Driven directly with an explicit `now` to avoid clock flake.
-  // A never-hydrated row (`hydratedAt IS NULL`) is always selected; once
-  // `writeHydration` stamps `hydratedAt = T`, the row drops out of the window
-  // (`now` inside `[T, T+ttl)`) and reappears only once `now` crosses the TTL.
-  // If the predicate widened (e.g. dropped the `hydrated_at < staleBefore`
-  // bound), the fresh-window assertion would fail; if it narrowed (dropped the
-  // `IS NULL` arm), the new-row assertion would fail.
+  // STALE/NEW SELECTION — `staleOrNew` must select exactly missing-or-stale rows.
+  // Never-hydrated (`hydratedAt IS NULL`) always selected; once stamped at T, row
+  // stays fresh until `now ≥ T+ttl`. If predicate narrowed (dropped `IS NULL` or
+  // `< staleBefore`), new/fresh-window assertions would fail.
   it("selects only missing or stale rows for the given now", async () => {
     await seedOwned("550");
     const TTL = 60_000;
@@ -265,33 +246,18 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     }
   });
 
-  // PER-CHUNK PERSISTENCE — the pass writes each chunk's projection as it
-  // resolves rather than buffering every update for one write after the loop.
-  // This matters because the scheduled jobs cap a user row at a wall-clock
-  // timeout (`runRowWithTimeout` races the handler against 30s/60s) and abandon
-  // the row's in-flight work when it fires, while the availability probes run
-  // unbounded. If the pass only wrote after the loop, a row that stalled in a
-  // later chunk would discard every earlier chunk's completed work and the next
-  // run would redo it. Here a never-resolving probe stalls the SECOND chunk
-  // (rows 25+), modelling that abandoned-on-timeout row. The gate is
-  // deterministic, not wall-clock: chunk 2's first probe only runs once the loop
-  // has fully awaited chunk 1's `Promise.all` AND its `writeHydration`, so when
-  // that probe fires we KNOW chunk 1 is persisted — no `setTimeout` race that
-  // could flake on a loaded runner. We assert the FIRST chunk (rows 0–24) is
-  // already stamped (so `staleOrNew` skips it next run) while the stalled
-  // second-chunk rows stay un-stamped and are retried. Under a
-  // single-write-after-loop design every row would be un-stamped here, failing
-  // the first assertion.
+  // PER-CHUNK PERSISTENCE — writes each chunk as it resolves (not after loop).
+  // Critical because scheduled jobs timeout rows mid-flight; buffering till loop-end
+  // would lose all earlier chunks' work. Test models a stalled 2nd chunk via
+  // deterministic gate (chunk-2's first probe fires only after chunk-1's
+  // `Promise.all` AND `writeHydration` commit). Asserts chunk-1 stamped (skipped
+  // next run) while chunk-2 stays un-stamped and retried.
   it("persists completed chunks before a later chunk stalls", async () => {
     // One full chunk (HYDRATE_CONCURRENCY rows) plus a partial second chunk, so
     // the loop spans exactly two chunks regardless of the constant's value.
     const COUNT = HYDRATE_CONCURRENCY + 5;
-    // Suffixes are zero-padded to a fixed width (mirroring sync.test.ts) so they
-    // sort lexicographically == numerically for any COUNT, independent of digit
-    // count. `staleOrNew` orders by composite id, so the chunk boundary is then
-    // deterministic: the first HYDRATE_CONCURRENCY ids are chunk 1, the rest
-    // chunk 2. The per-id assertions below depend on that explicit ordering, not
-    // on SQLite's incidental PK order.
+    // Zero-pad IDs (mirroring sync.test.ts) so lexicographic == numeric sort,
+    // making chunk boundary deterministic: first HYDRATE_CONCURRENCY are chunk 1.
     const seedId = (i: number) => `p${String(i).padStart(6, "0")}`;
     for (let i = 0; i < COUNT; i++) {
       await seedOwned(seedId(i));
@@ -341,14 +307,9 @@ describe("library hydrate (design §Sync + hydrate, phase 2)", () => {
     }
   });
 
-  // NULL-SAFE — a row whose metadata batch is missing (the catalog has no
-  // canonical row for it yet) must still hydrate the columns it CAN resolve
-  // rather than throwing and stalling the whole pass. The metadata-sourced
-  // columns fall back to their empty/null shape (sortTitle "", year null,
-  // genres [], collection null), while the availability- and progress-sourced
-  // columns still populate. This is the partial-hydrate-self-heals invariant: a
-  // throw here would mean one missing catalog row poisons every later row in the
-  // batch.
+  // NULL-SAFE — missing metadata must not stall the pass. Metadata-sourced columns
+  // fall back to empty/null (sortTitle "", year null, genres [], collection null),
+  // while availability/progress columns populate (partial-hydrate-self-heals invariant).
   it("hydrates the resolvable columns when the metadata batch is missing", async () => {
     await seedOwned("777");
 

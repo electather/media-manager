@@ -14,11 +14,8 @@ import {
 import type { RowContext } from "./types";
 
 /**
- * Stable server id used by the wire response. Plugin connections each have a
- * `connectionId`; shared-credential pools fall back to the plugin id (the
- * shared pool is one server per plugin in practice). Keeping the id stable
- * across requests lets the client cache a per-server collapsed/expanded state
- * for the seasons accordion.
+ * Stable server id for wire response; used by client to cache per-server collapsed/expanded state.
+ * User connections use `${pluginId}:${connectionId}`; shared-credential pools use `pluginId`.
  */
 function makeServerId(pluginId: string, conn: ResolvedConnection): string {
   return conn.kind === "user" ? `${pluginId}:${conn.connectionId}` : pluginId;
@@ -30,14 +27,9 @@ function makeServerLabel(pluginId: string): string {
 }
 
 /**
- * Aggregates per-server episode presence for a single show across every
- * `libraryAvailability@v1` provider the user has configured. Each connection
- * is invoked independently so a per-plugin failure shows up in `errors[]`
- * alongside the surviving servers in `servers[]`.
- *
- * Returns `{ servers: [] }` when the user has no provider configured — that
- * is not an error for the wire; the modal renders a "no connected servers"
- * fallback locally.
+ * Aggregates per-server episode presence for a single show. Invokes each connection independently,
+ * so failures appear in `errors[]` alongside surviving servers. Returns `{ servers: [] }` if no
+ * provider configured — not an error; client renders "no connected servers" fallback.
  */
 export async function composeSeasonAvailability(
   ctx: RowContext,

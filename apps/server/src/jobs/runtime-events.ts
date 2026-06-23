@@ -12,15 +12,9 @@ export const JOB_EVENTS = {
 } as const;
 
 /**
- * Job ids that ARE the dispatcher jobs registered by `jobs/on.ts` for the
- * runtime events declared above. `runner.emitJobOutcome` skips outcome
- * emission when a failing job's id appears in this set so a transient
- * downstream fault inside the handler does not cascade into an unbounded
- * chain of `jobs.run.failed` events.
- *
- * **Invariant**: every value in `JOB_EVENTS` MUST appear here. Pinned by
- * `apps/server/src/__tests__/boot.test.ts` so adding a new entry to
- * `JOB_EVENTS` without adding it to the skip-list fails CI.
+ * Dispatcher job ids from `jobs/on.ts`. `runner.emitJobOutcome` skips outcome
+ * emission for jobs in this set to prevent cascading `jobs.run.failed` chains.
+ * **Invariant**: every `JOB_EVENTS` value MUST appear here (pinned by boot.test.ts CI).
  */
 export const EVENT_DISPATCHER_JOB_IDS: ReadonlySet<string> = new Set<string>([
   JOB_EVENTS.RUN_FAILED as string,

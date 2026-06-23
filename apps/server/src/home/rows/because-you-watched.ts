@@ -4,11 +4,9 @@ import { encodeSeedCursor, similarPagedSource } from "../sources/similar-paged";
 import { loadCanonicalItems } from "./_shared";
 
 /**
- * "Because you watched X" — picks a recently completed seed from the user's
- * watch history and pages similar candidates from the metadata plugin. The
- * seed rides on the keyset cursor (`similarPagedSource`), so subsequent pages
- * cannot accidentally re-key; `initialCursor` mints the first seed cursor and
- * the shared pipeline owns the slice + next cursor.
+ * Picks a recently completed seed from watch history, pages similar candidates.
+ * Seed rides keyset cursor (similarPagedSource) so pages cannot re-key; initialCursor mints first,
+ * pipeline owns slice + next cursor.
  */
 const provider = makePipelineRow({
   rowId: "becauseYouWatched",

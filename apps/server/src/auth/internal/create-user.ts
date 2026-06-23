@@ -1,9 +1,7 @@
 // Direct-insert user creation for bootstrap, dev seed, and admin endpoint. Avoids
-// `auth.api.signUpEmail()` — booting better-auth loads the `jwt` plugin which lazily
-// generates a JWKS keypair encrypted with `BETTER_AUTH_SECRET`; mismatched secrets crash
-// the Worker at startup with "Failed to decrypt private key".
-// Account row mirrors the `sign-up/email` shape: `providerId="credential"`, `accountId=userId`,
-// `password=<hash>` — exactly what `sign-in/email` looks up at login time.
+// `auth.api.signUpEmail()` — loading better-auth's jwt plugin lazily generates a JWKS keypair
+// encrypted with `BETTER_AUTH_SECRET`; mismatched secrets crash the Worker with "Failed to decrypt private key".
+// Account row shape: `providerId="credential"`, `accountId=userId`, `password=<hash>` — matches what `sign-in/email` looks up.
 
 import { hashPassword } from "better-auth/crypto";
 import { type Db, getDb } from "../../db/client";
@@ -44,12 +42,9 @@ export interface InsertCredentialUserWithHashInput {
 }
 
 /**
- * Canonical insertion point for the `sign-up/email` credential row shape — schema changes
- * (e.g. new required `account` column) happen here once. `account.updatedAt` has no SQL
- * default (unlike `user.updatedAt`), so we pass it explicitly; `userRoles.assignedAt` is
- * epoch-ms. Takes a precomputed hash so callers can run the ~100ms scrypt before opening
- * the write transaction — holding SQLite's writer lock for the full hash duration queues
- * concurrent writers until `busy_timeout` (#852 L2).
+ * Canonical insertion point for the `sign-up/email` credential row shape — schema changes happen here once.
+ * `account.updatedAt` has no SQL default (unlike `user.updatedAt`), so it is passed explicitly; `userRoles.assignedAt` is epoch-ms.
+ * Takes a precomputed hash so callers avoid holding SQLite's writer lock for the ~100ms scrypt duration (#852 L2).
  */
 export async function insertCredentialUserWithHashTx(
   tx: DbTransaction,

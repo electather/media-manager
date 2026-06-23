@@ -1,12 +1,7 @@
-/**
- * Public barrel for `library/`. Outside code imports only from here — the
- * boundaries rule forbids deep imports of `./repo`, `./internal/**`, and
- * individual files under `./jobs/`. Phases 1–3 expose the membership-sync and
- * denormalized-hydrate surfaces, the facets read, the group-first collections
- * read, the item-lens registrations including the server/quality `json_each`
- * lenses (composed into the unified media registry by the `/api/media`
- * adapter), and the cron job registration.
- */
+// Public barrel for library/. Forbids deep imports of ./repo, ./internal/**,
+// and individual ./jobs/* files. Exposes phases 1–3: sync, hydrate, facets,
+// collections, item-lens registrations (json_each composed into /api/media),
+// and cron job registration.
 export {
   syncMembership,
   hydrateLibrary,

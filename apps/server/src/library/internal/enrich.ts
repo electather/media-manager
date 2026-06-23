@@ -4,27 +4,13 @@ import { loadProgressMap, type EnrichRowsFn, type ProgressMap } from "../../medi
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import type { LibraryContext } from "../types";
 
-/**
- * Builds the library lens `enrichRows` hook (design §Enrich). This is the custom
- * enrich path the design mandates over the default `batchLoad` + `enrich`: the
- * default re-probes availability live (`getMatchingServersCached`), which would
- * defeat the whole denormalized projection AND collapse the row set to one item
- * per `(tmdbId, mediaType)` — killing the phase-3 server/quality `json_each`
- * fan-out. Instead this reads `availability.servers` and the quality `tags`
- * straight off the row's denormalized columns and never re-probes.
- *
- * It produces exactly one `CompactMediaItem` per input row and NEVER dedups or
- * collapses on `(tmdbId, mediaType)`. Az/timeline emit one `LibraryRow` per
- * title; the phase-3 server/quality lenses expand `json_each` so the SAME title
- * appears once per server / quality section as an {@link ExpandedLibraryRow}
- * carrying its `section`. Keeping the mapping dedup-free — and surfacing the
- * per-row `section` onto the item — is what lets the FE insert a header on
- * `section.id` change down the flat stream (design §Enrich dup rules; §FE).
- *
- * Typed on `LibraryRow`; the grouped sources pass `ExpandedLibraryRow`s (a
- * subtype), so one builder serves all four lenses — the optional `section` is
- * read structurally and is simply absent on the flat lenses.
- */
+// Custom enrich path (design §Enrich): avoids default's live re-probe (`getMatchingServersCached`),
+// which defeats denormalized projection and collapses rows to one per `(tmdbId, mediaType)`,
+// killing phase-3 server/quality `json_each` fan-out. Instead reads `availability.servers` and
+// quality `tags` from denormalized columns. Produces exactly one `CompactMediaItem` per input row,
+// NEVER dedups on `(tmdbId, mediaType)` — allows FE to insert headers on `section.id` change
+// (design §Enrich dup rules; §FE). Typed on `LibraryRow`; grouped sources pass `ExpandedLibraryRow`s
+// (subtype with optional `section` structurally absent on flat lenses).
 export function buildEnrichRows(ctx: LibraryContext): EnrichRowsFn<LibraryRow> {
   return async (rows) => {
     if (rows.length === 0) return { items: [], partial: false };
@@ -35,13 +21,8 @@ export function buildEnrichRows(ctx: LibraryContext): EnrichRowsFn<LibraryRow> {
   };
 }
 
-/**
- * Batches catalog metadata for the page in one read, keyed by the composite id
- * (`candidateId` = `"<type>:<tmdbId>"`, which equals `LibraryRow.id`). A
- * metadata failure degrades to an empty map + `partial: true` rather than
- * throwing, so a title with no cached metadata still renders from its
- * denormalized columns (matching the design's tolerance of null meta).
- */
+// Batches catalog metadata by composite id (`candidateId` = `"<type>:<tmdbId>"` = `LibraryRow.id`).
+// Metadata failure degrades to empty map + `partial: true` (not throw), so uncached titles render from denorm columns.
 async function loadMetadata(
   ctx: LibraryContext,
   rows: LibraryRow[],
@@ -55,16 +36,10 @@ async function loadMetadata(
   }
 }
 
-/**
- * Maps one row to its wire `CompactMediaItem`. Display fields (title, year,
- * poster, backdrop, overview, genres) come from catalog metadata when present;
- * the availability snapshot and quality `tags` come from the row's denormalized
- * columns with NO live re-probe; the within-content `progress` (the resume bar)
- * comes from the live continue-watching map. The row-level `watchedState` facet
- * is NOT a `CompactMediaItem` field — it drives the filter axis server-side, not
- * a card chip. Absent fields are omitted (not null) per the `CompactMediaItem`
- * lean-wire convention.
- */
+// Maps row to wire `CompactMediaItem`. Display fields (title, year, poster, backdrop, overview, genres)
+// from catalog metadata; availability and quality `tags` from denormalized columns (NO re-probe);
+// `progress` from live continue-watching map. Row-level `watchedState` drives filter axis, not card chip.
+// Absent fields omitted (not null) per `CompactMediaItem` lean-wire convention.
 function toCompactItem(
   row: LibraryRow & Partial<Pick<ExpandedLibraryRow, "section">>,
   meta: CanonicalMetadata | undefined,

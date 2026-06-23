@@ -445,9 +445,8 @@ export const connectionsService = {
   },
 
   /**
-   * Plugins a user can connect to. Excludes pure-global plugins (e.g. TMDB v2, TVDB v2)
-   * with no user-scoped capability. Notification-only plugins (sole user-scoped cap is
-   * `notificationDelivery`) are owned by Settings → Notifications and excluded here;
+   * Plugins a user can connect to. Excludes pure-global plugins (e.g. TMDB v2, TVDB v2) with no user-scoped capability.
+   * Notification-only plugins (sole user-scoped cap is `notificationDelivery`) belong in Settings → Notifications and are excluded;
    * plugins mixing `notificationDelivery` with another user-scoped capability remain.
    */
   async listAvailablePlugins(): Promise<PluginSummary[]> {

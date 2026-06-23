@@ -7,37 +7,13 @@ import { inList, ownedFilterConditions, ROW_COLUMNS, type LensFilters } from "./
 /** The maximum preview ids gathered per franchise group (design §Collections lens: "preview ≤4"). */
 const PREVIEW_LIMIT = 4;
 
-/**
- * The delimiter the per-group preview `group_concat` joins ids on, then the
- * caller splits back out. Safe because the only values concatenated are composite
- * library ids (`"<mediaType>:<tmdbId>"`) whose grammar is comma-free; if the id
- * format ever admits a comma this split would mis-parse, so the invariant is
- * load-bearing.
- */
+/** Delimiter for group_concat; safe because library ids are comma-free (if format changes, split breaks). */
 const PREVIEW_SEP = ",";
 
-/**
- * The keyset ordering key for a franchise group: the display title, falling back
- * to the stable collection id when a group has no learned title yet. The cursor
- * encodes this SAME coalesced value (`CollectionGroup.collectionName` is already
- * `collection_name ?? collection_id`), so the `ORDER BY` and the cursor predicate
- * MUST both compare `COALESCE(collection_name, collection_id)` — comparing the
- * raw nullable column would disagree with the encoded cursor and silently drop
- * every null-name group at a page boundary (the phase-2 timeline COALESCE lesson
- * applied to the group key). A collection's rows all share one franchise title,
- * so the value is stable per group.
- */
+/** Sort key coalesced (collection_name ?? id); cursor encodes SAME value so ORDER BY and keyset predicate agree at boundaries. */
 const collectionSortKey = sql`COALESCE(${libraryItems.collectionName}, ${libraryItems.collectionId})`;
 
-/**
- * Keyset resume position for the Collections lens: the last returned group's
- * `(collectionName, collectionId)`. `collectionName` is the human title the
- * groups order by; `collectionId` is the stable tie-break. The cursor encodes
- * the LAST RETURNED group (never the dropped `limit + 1` overflow group) and its
- * predicate uses the SAME `(collection_name, collection_id)` ordering the
- * `ORDER BY` uses, so a page boundary neither drops nor duplicates a franchise
- * (phase-2 keyset lessons applied to the group-first read).
- */
+/** Cursor encodes LAST RETURNED group (never overflow) with same (name, id) ordering as ORDER BY to prevent duplication. */
 export interface CollectionCursor {
   collectionName: string;
   collectionId: string;
@@ -61,12 +37,7 @@ export interface CollectionsPage {
   nextGroup?: CollectionGroup;
 }
 
-/**
- * The raw shape the grouping query returns before the preview-id string is
- * split. `collectionId` is typed nullable to match the column's select
- * inference, but the `collection_id IS NOT NULL` WHERE guarantees it is non-null
- * at runtime (narrowed in {@link toCollectionGroup}).
- */
+/** Raw grouping row; collectionId typed nullable but guaranteed non-null at runtime by WHERE clause. */
 interface CollectionGroupRow {
   collectionId: string | null;
   collectionName: string | null;
@@ -74,18 +45,7 @@ interface CollectionGroupRow {
   previewIds: string | null;
 }
 
-/**
- * Pages the Collections lens group-first over the user's owned franchises
- * (design §Collections lens). Groups the owned set by `collection_id`, ordered
- * by `(collection_name, collection_id)` keyset, returning each franchise's owned
- * title count and up to four preview ids for the poster fan. Owned-only by
- * construction: the WHERE scopes to `owned = true` and `collection_id IS NOT
- * NULL`, so standalone titles and TV (both null `collection_id`) are excluded
- * and a franchise surfaces only when it has at least one owned movie. The same
- * filter axes the item lenses use narrow the grouped set. Selects `limit + 1`
- * groups so the caller detects a next page without a count query; the overflow
- * group is dropped and surfaced as `nextGroup`.
- */
+/** Groups owned franchises by collection_id, ordered keyset, returning count + up to PREVIEW_LIMIT preview ids (design §Collections lens). Owned-only: WHERE scopes to owned=true, collection_id IS NOT NULL. Selects limit+1; overflow group surfaces as nextGroup. */
 export async function selectCollections(
   userId: string,
   filters: LensFilters,
@@ -116,15 +76,7 @@ export async function selectCollections(
   return toCollectionsPage(rows.map(toCollectionGroup), limit);
 }
 
-/**
- * Fetches the full browse rows for a set of preview ids in one indexed read so
- * the service can enrich them into `CompactMediaItem`s without re-probing. Rows
- * come back in arbitrary order; the service re-orders each group's preview to
- * the id order `selectCollections` chose (by `(sortTitle, id)`). Scoped to the
- * requesting user's owned rows: the composite id is global (not per-user), so an
- * unscoped `id IN (…)` read would be a cross-tenant leak — every library read is
- * owned-set scoped (design §Architecture).
- */
+/** Fetches rows for preview ids in indexed read. Returns arbitrary order; service re-orders by (sortTitle, id). Scoped to user's owned rows to prevent cross-tenant leak (design §Architecture). */
 export async function selectRowsByIds(
   userId: string,
   ids: string[],
@@ -137,16 +89,7 @@ export async function selectRowsByIds(
     .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true), idInList(ids)));
 }
 
-/**
- * The per-group preview-id aggregate: a correlated subquery that takes the first
- * {@link PREVIEW_LIMIT} owned ids of the franchise ordered by `(sort_title, id)`
- * and joins them on {@link PREVIEW_SEP}. SQLite's `group_concat` cannot itself
- * order-and-limit per group, so the ordered+limited id set is selected in an
- * inner subquery and concatenated in the outer one. The preview ordering is
- * documented as `(sortTitle, id)` ascending — the same order the A–Z lens uses —
- * so the poster fan is stable run-to-run. The `user_id` is bound (not the outer
- * row's) so the subquery uses the `(user_id, owned, collection_id)` index.
- */
+/** Correlated subquery: inner selects PREVIEW_LIMIT ids ordered (sort_title, id), outer group_concat on PREVIEW_SEP. Binds user_id to use index. */
 function previewIdsExpr(userId: string, filters: LensFilters): SQL<string | null> {
   const extra = innerFilterConditions(filters);
   const filterClause = extra.length > 0 ? sql` AND ${sql.join(extra, sql` AND `)}` : sql``;
@@ -164,14 +107,7 @@ function previewIdsExpr(userId: string, filters: LensFilters): SQL<string | null
   )`;
 }
 
-/**
- * The active filter axes re-expressed against the `inner_li` preview subquery
- * alias so the poster fan honours the SAME filters as the group count — without
- * this the count is filter-aware but the preview can surface titles excluded
- * from the count. Mirrors the lens-page filter predicates (kinds/watched as
- * column membership, genres/qualities/servers as `json_each` membership); every
- * value stays a bound parameter via {@link inList}.
- */
+/** Filter axes re-expressed for inner_li subquery so preview honors same filters as count (prevents preview from surfacing excluded titles). */
 function innerFilterConditions(filters: LensFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.kinds && filters.kinds.length > 0) {
@@ -202,12 +138,7 @@ function innerFilterConditions(filters: LensFilters): SQL[] {
   return conditions;
 }
 
-/**
- * Keyset predicate for the Collections lens: groups strictly after
- * `(collectionName, collectionId)` in ascending order. A larger name, or the
- * same name with a larger id, is "after". The comparison columns match the
- * `ORDER BY` exactly so a page boundary is stable.
- */
+/** Keyset predicate: groups strictly after (collectionName, collectionId); columns match ORDER BY for stable boundaries. */
 function collectionCursorCondition(cursor: CollectionCursor | undefined): SQL[] {
   if (!cursor) return [];
   return [
@@ -245,15 +176,7 @@ function toCollectionGroup(row: CollectionGroupRow): CollectionGroup {
   };
 }
 
-/**
- * Splits the `limit + 1` over-fetch into the page groups plus the next-page
- * marker. When the query returned more than `limit` groups there is another
- * page, so the trailing group is dropped from the page and returned as
- * `nextGroup` for the service to encode into the keyset cursor — the LAST
- * RETURNED group, never the dropped overflow group (phase-2 lesson: the keyset
- * predicate is strictly-greater, so encoding the overflow would skip it). A
- * short read means the scan is exhausted and no `nextGroup` is emitted.
- */
+/** Splits limit+1 over-fetch: trailing group is nextGroup (LAST RETURNED, not overflow, to avoid skip when predicate is strictly-greater). */
 function toCollectionsPage(groups: CollectionGroup[], limit: number): CollectionsPage {
   if (groups.length <= limit) return { groups };
   const page = groups.slice(0, limit);

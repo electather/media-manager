@@ -36,12 +36,9 @@ describe("rankQualityTier", () => {
     expect(rankQualityTier("")).toBe(QUALITY_RANK_UNRANKED);
   });
 
-  // LOCKSTEP INVARIANT. The SQL `CASE` the repo builds emits one WHEN arm per
-  // tier and uses QUALITY_RANK_UNRANKED in its ELSE arm; that value MUST equal
-  // QUALITY_TIERS.length so the SQL ELSE ordinal sits exactly one past the last
-  // ranked index — identical to the JS fallback. If the sentinel and the tuple
-  // length ever drift, the SQL ORDER BY and the JS rank disagree at a page
-  // boundary and the Quality lens drops or duplicates rows. This pins the link.
+  // LOCKSTEP INVARIANT: SQL CASE WHEN arms per tier, ELSE uses QUALITY_RANK_UNRANKED;
+  // must equal QUALITY_TIERS.length so ELSE ordinal is exactly one past last ranked index.
+  // Drift → SQL/JS rank disagree at page boundary → Quality lens drops/duplicates rows.
   it("keeps the unranked sentinel equal to the tuple length", () => {
     expect(QUALITY_RANK_UNRANKED).toBe(QUALITY_TIERS.length);
   });

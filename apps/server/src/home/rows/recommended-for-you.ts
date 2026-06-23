@@ -5,12 +5,9 @@ import { recommendedForYouSource } from "../sources/recommended-for-you";
 import { loadCanonicalItems } from "./_shared";
 
 /**
- * Shared body for `recommendedForYou-tv` / `recommendedForYou-movies`.
- * Keeps the per-row file thin (config only) so adding a third partition
- * (e.g. anime) is one filter swap. The rec-list load, media-type partition,
- * and `available` drop live in `recommendedForYouSource.fetchRawSet`; this row
- * projects the full filtered pool (with its `topContributors` match-reason
- * hookup) and the shared pipeline owns the offset slice + cursor.
+ * Shared body for `recommendedForYou-tv` / `-movies`: keeps per-row files thin
+ * (config only). Rec-list load, partition, and filtering in `fetchRawSet`; this
+ * projects full pool with `topContributors` hookup; pipeline owns offset + cursor.
  */
 export function makeRecommendedForYou(config: {
   rowId: string;

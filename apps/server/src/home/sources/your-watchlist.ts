@@ -6,13 +6,9 @@ import { listAvailable } from "../../watchlist";
 const YOUR_WATCHLIST_PAGE_SIZE = 12;
 
 /**
- * Watchlist-available source (design §H/§M.5). The `yourWatchlist` row reads
- * through the watchlist module boundary (`listAvailable`) so the home row and
- * the `/watchlist` page share one source of truth. `fetchRawSet` returns the
- * already-enriched available titles as raw rows — keeping `addedAt`/`addedSource`
- * (design §D: home no longer strips them now that the unified `CompactMediaItem`
- * carries the fields). A `watchlist@v1` plugin soft-failure rides through as
- * `partial: true`. The row stays bounded (no cursor), so it never paginates.
+ * Watchlist-available source (design §H/§M.5). Reads through `listAvailable`
+ * so home row and `/watchlist` page share one source. Keeps `addedAt`/`addedSource`
+ * (design §D: unified `CompactMediaItem` carries them). Bounded (no cursor), so no pagination.
  */
 export const yourWatchlistSource: MediaSource<void, CompactMediaItem> = {
   sourceId: "yourWatchlist",
