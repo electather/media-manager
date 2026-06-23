@@ -15,8 +15,11 @@ export const homeLayoutQueryOptions = () =>
     queryKey: homeKeys.layout(),
     queryFn: fetchHomeLayout,
     staleTime: LAYOUT_STALE_MS,
-    // Poll while empty (warm-job fills layout). Interval backs off 5s→30s
-    // to ease server load on cold TMDB cache.
+    // A fresh install has an empty layout until the discover-snapshot job warms
+    // the catalog (kicked at onboarding completion). Poll only while empty; the
+    // interval backs off 5s → 10s → 20s → cap 30s as the warm job runs, since a
+    // cold TMDB cache takes many round-trips — easing server load without
+    // delaying the fill once content lands.
     refetchInterval: (query) => {
       const data = query.state.data;
       const isEmpty = !!data && data.hero === null && data.rows.length === 0;

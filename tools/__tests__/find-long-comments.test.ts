@@ -22,6 +22,18 @@ test("does not merge line comments separated by code", () => {
   expect(findLongComments(src)).toEqual([]);
 });
 
+test("a trailing comment does not bridge two standalone comment runs", () => {
+  // Without the trailing-comment guard, lines 1-4 + the trailing comment on line 5
+  // + line 6 would merge into a 6-line region and be falsely flagged.
+  const src = ["// a", "// b", "// c", "// d", "someCode(); // trailing", "// f"].join("\n");
+  expect(findLongComments(src)).toEqual([]);
+});
+
+test("still flags six whole-line comments with no intervening code", () => {
+  const src = ["// 1", "// 2", "// 3", "// 4", "// 5", "// 6", "code();"].join("\n");
+  expect(findLongComments(src)).toEqual([{ startLine: 1, endLine: 6 }]);
+});
+
 test("ignores comment tokens inside strings", () => {
   const src = [
     'const a = "/* not a comment */";',

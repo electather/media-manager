@@ -11,7 +11,9 @@
  * A "long comment" is a contiguous comment region spanning more than
  * MIN_LINES lines:
  *   - a single block comment (`/* ... *\/`) that spans 6+ lines, or
- *   - 6+ consecutive whole/trailing line comments (`//`) on adjacent lines.
+ *   - 6+ consecutive whole-line comments (`//`) on adjacent lines. A trailing
+ *     comment (`code(); // note`) stands alone and never merges, so a code line
+ *     can't bridge two separate comment runs into one over-counted region.
  *
  * The scanner is string-aware: it ignores `//` and `/*` that appear inside
  * single-, double-, or template-quoted strings. Known limitation: comment
@@ -43,7 +45,10 @@ export interface LongComment {
   file_address: string;
 }
 
-type RawRegion = CommentSpan & { type: "line" | "block" };
+// `trailing` marks a `//` region that had code before it on its opening line
+// (e.g. `foo(); // note`). Such regions must not merge with adjacent standalone
+// line comments — the code line between two runs is not a comment line.
+type RawRegion = CommentSpan & { type: "line" | "block"; trailing?: boolean };
 
 type ScanState = "code" | "line" | "block" | "single" | "double" | "template";
 
@@ -58,6 +63,8 @@ export function findLongComments(source: string, minLines = MIN_LINES): CommentS
   let state: ScanState = "code";
   let line = 1;
   let regionStart = 0;
+  let regionTrailing = false;
+  let lineHasCode = false; // any non-whitespace code seen before a comment on the current line
   let i = 0;
 
   while (i < len) {
@@ -66,11 +73,17 @@ export function findLongComments(source: string, minLines = MIN_LINES): CommentS
 
     if (c === "\n") {
       if (state === "line") {
-        regions.push({ startLine: regionStart, endLine: line, type: "line" });
+        regions.push({
+          startLine: regionStart,
+          endLine: line,
+          type: "line",
+          trailing: regionTrailing,
+        });
         state = "code";
       }
       line++;
       i++;
+      lineHasCode = false;
       continue;
     }
 
@@ -79,21 +92,26 @@ export function findLongComments(source: string, minLines = MIN_LINES): CommentS
         if (c === "/" && next === "/") {
           state = "line";
           regionStart = line;
+          regionTrailing = lineHasCode;
           i += 2;
         } else if (c === "/" && next === "*") {
           state = "block";
           regionStart = line;
           i += 2;
         } else if (c === "'") {
+          lineHasCode = true;
           state = "single";
           i++;
         } else if (c === '"') {
+          lineHasCode = true;
           state = "double";
           i++;
         } else if (c === "`") {
+          lineHasCode = true;
           state = "template";
           i++;
         } else {
+          if (c !== " " && c !== "\t" && c !== "\r") lineHasCode = true;
           i++;
         }
         break;
@@ -126,7 +144,8 @@ export function findLongComments(source: string, minLines = MIN_LINES): CommentS
   }
 
   // Flush an unterminated comment at EOF.
-  if (state === "line") regions.push({ startLine: regionStart, endLine: line, type: "line" });
+  if (state === "line")
+    regions.push({ startLine: regionStart, endLine: line, type: "line", trailing: regionTrailing });
   if (state === "block") regions.push({ startLine: regionStart, endLine: line, type: "block" });
 
   const merged: RawRegion[] = [];
@@ -135,7 +154,9 @@ export function findLongComments(source: string, minLines = MIN_LINES): CommentS
     if (
       last &&
       last.type === "line" &&
+      !last.trailing &&
       region.type === "line" &&
+      !region.trailing &&
       region.startLine === last.endLine + 1
     ) {
       last.endLine = region.endLine;

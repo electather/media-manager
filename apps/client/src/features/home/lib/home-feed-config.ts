@@ -2,7 +2,11 @@ import * as m from "@/paraglide/messages";
 import { MATCH_REASON_KEYS, type MatchReasonKey, type RowKind } from "@nama/shared/home";
 import type { RowData } from "./types";
 
-/** Initial virtualization height estimate: section head + card + meta + margin; `measureElement` refines after paint. */
+/**
+ * Initial vertical-virtualization estimate per home row; `measureElement` refines
+ * after first paint. The literals below: 80 section head + card (180 for 16/9
+ * backdrops, 300 for 2/3 posters) + 48 per-card meta strip + 40 `mb-8` margin.
+ */
 export function estimateHomeRowHeight(row: RowData): number {
   const card = row.defaultAspect === "16/9" ? 180 : 300;
   return 80 + card + 48 + 40;

@@ -4,7 +4,9 @@ import type { Page } from "@nama/shared/media";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { homeKeys } from "./query-keys";
 
-// Seeds useHomeDetails placeholder (hero cache + media source caches under mediaKeys.root/"source"). Relies on invariant V.WIRE1 — all sources must page identical Page/CompactMediaItem shape.
+// Seeds useHomeDetails placeholder from the hero cache + media source caches under
+// mediaKeys.root/"source" (design §B3). Relies on invariant V.WIRE1 — every source must
+// page the identical Page/CompactMediaItem shape, else the InfiniteData<Page> assertion breaks.
 export function findCachedMediaItem(qc: QueryClient, id: string): CompactMediaItem | null {
   const layout = qc.getQueryData<HomeLayoutResponse>(homeKeys.layout());
   const heroHit = layout?.hero?.slides?.find((slide) => slide.item.id === id)?.item;
