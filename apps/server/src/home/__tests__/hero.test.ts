@@ -15,20 +15,8 @@ vi.mock("../../media", async () => {
 const { pickHero } = await import("../internal/hero");
 const { makeRowCtx } = await import("./row-test-helpers");
 
-/**
- * Fixture shape per plan §Phase 2 Task-019.
- *
- * - CW pool: `cwEntry` produces a `ContinueWatchingEntry` with `lastPlayedAt`
- *   set so `orderBy(lastPlayedAt desc)` is stable (test-control of priority).
- * - Recommendations pool: items pre-sorted by index (rec list order is
- *   preserved by `loadRecommendedPool`); metadata batch echoes per-key meta.
- * - Discover pools (trending / newReleases): the `getDiscoverFeed` mock
- *   returns a snapshot keyed by `{tmdbId, type}`; metadata batch echoes per
- *   key.
- *
- * Quota: 1 CW + 2 rec + 2 trend + 1 new = 6.
- * Priority cascade for backfill + ordering: [CW, rec, trend, new].
- */
+// Fixture per plan §Phase 2 Task-019. CW pool uses lastPlayedAt desc for stable test-control priority. Rec pool pre-sorted by index.
+// Discover pools return {tmdbId, type} snapshots. Quota: 1 CW + 2 rec + 2 trend + 1 new = 6. Backfill priority cascade: [CW, rec, trend, new].
 
 function cwEntry(opts: {
   tmdbId: string;

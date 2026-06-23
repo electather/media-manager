@@ -16,12 +16,10 @@ import { insertCredentialUserTx } from "./create-user";
 // Single-row sentinel id for the `app_bootstrap` table.
 const BOOTSTRAP_ROW_ID = "bootstrap";
 
-// In-memory plaintext token for the process lifetime — lets repeated
-// `ensureBootstrapToken()` calls re-print the same value without re-issuing.
-// Never persisted. On restart a new token is generated and the stored hash is
-// overwritten, so only the most recently printed token verifies.
-// Clustering caveat: each worker holds its own copy; only the last hash written wins.
-// Acceptable for a one-time first-install event — revisit if clustering lands.
+// In-memory plaintext token: lets `ensureBootstrapToken()` re-print without re-issuing.
+// Never persisted. On restart a new token overwrites the stored hash, so only the most
+// recently printed token verifies. Each worker holds its own copy; only the last hash
+// written wins — acceptable for a one-time first-install event; revisit if clustering lands.
 let issuedToken: string | null = null;
 
 // One-way latch (true→false only). `GET /api/config/public` calls `needsBootstrap`

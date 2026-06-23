@@ -1,13 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
-// Tests for correctness findings:
-//   1. Corrupt userConfig rows must degrade gracefully instead of throwing 500s.
-//   2. Mutations through updateConnectionWhere (updateDisplayName, setEnabled)
-//      must reject missing/foreign ids via its RETURNING zero-row guard — not a
-//      requireConnection pre-check — and updateDisplayName must invalidate cache.
-//   3. connectionsService.test must short-circuit on zero-row UPDATE so a row
-//      deleted between the pre-check and the status UPDATE doesn't produce a
-//      silent ghost write.
+// Correctness findings: (1) corrupt userConfig must degrade to null, not throw 500;
+// (2) updateConnectionWhere (updateDisplayName, setEnabled) must reject missing/foreign ids via
+// RETURNING zero-row guard — not a requireConnection pre-check — and invalidate cache;
+// (3) connectionsService.test must short-circuit on zero-row UPDATE (TOCTOU guard, issue #761).
 
 vi.mock("../../env", () => ({
   env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
@@ -62,16 +58,11 @@ vi.mock("../../db/client", () => {
     return [];
   }
 
-  // The where() predicate is ignored — the full rowset is returned. These tests
-  // exercise parse-error resilience and mutation guard semantics, not auth
-  // predicates. Two consequences a future author must keep in mind:
-  //   - The `connection.not_found` assertions pass because `state.connections`
-  //     is empty after beforeEach, NOT because the WHERE was evaluated. Seeding a
-  //     row with a different id before a 404 assertion would make the mock return
-  //     it and the test would pass for the wrong reason.
-  //   - The foreign-connection case (row exists but belongs to another user)
-  //     cannot be exercised here. `requireConnection`'s ownership predicate is
-  //     covered by its own tests against the real DB.
+  // WHERE predicates are ignored — full rowsets are returned. Consequence: `connection.not_found`
+  // assertions pass only because `state.connections` is empty, NOT because the WHERE was evaluated.
+  // Seeding a row with a wrong id would make the mock return it and produce a false pass.
+  // The foreign-connection (userId mismatch) case cannot be exercised here; requireConnection
+  // ownership is covered by its own tests against the real DB.
   const dbMock = {
     select() {
       return {
@@ -115,12 +106,9 @@ vi.mock("../../db/client", () => {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
               for (const row of rows) Object.assign(row, patch);
-              // The UPDATE ... RETURNING chain returns the affected rows; an
-              // empty rowset is how the service detects a zero-row update and
-              // throws connection.not_found. WHERE args are ignored here — the
-              // zero-row guard fires because state.connections is empty, NOT
-              // because userId/connectionId were evaluated. A test that needs
-              // mismatched-id rejection must therefore seed no matching row.
+              // UPDATE…RETURNING returns affected rows; empty rowset triggers connection.not_found.
+              // WHERE is ignored — zero-row guard fires because state.connections is empty, NOT
+              // because userId/connectionId were evaluated. Tests for mismatched-id rejection must seed no row.
               return {
                 returning(_fields: unknown) {
                   return Promise.resolve(rows.map((r) => ({ id: r.id })));
@@ -370,12 +358,9 @@ describe("setEnabled cache (issue #698)", () => {
 
 describe("setDefault guard (issue #698)", () => {
   it("throws connection.not_found when the connection is missing", async () => {
-    // setDefault calls requireConnection to load the row (and its pluginId)
-    // before delegating to promoteToDefault; requireConnection throws
-    // connection.not_found when nothing matches, so a missing or foreign id
-    // surfaces a 404 instead of a silent 200 OK. DO NOT seed a row — the
-    // pre-check SELECT returns undefined and requireConnection throws before
-    // promoteToDefault (and its inner transaction) is ever reached.
+    // setDefault calls requireConnection before promoteToDefault; requireConnection throws
+    // connection.not_found on a missing/foreign id, so the 404 fires before the inner transaction.
+    // DO NOT seed a row — the guard fires only because the pre-check SELECT returns undefined.
     installPlugin();
 
     await expect(
@@ -398,14 +383,10 @@ describe("setDefault guard (issue #698)", () => {
 
 describe("connectionsService.test TOCTOU guard (issue #761)", () => {
   it("returns { ok: false } when the row is deleted between the pre-check and the status UPDATE", async () => {
-    // The `test` handler reads the connection row first, then runs testConnection,
-    // then UPDATEs status/errorMessage/lastVerifiedAt. If the row is deleted in
-    // the window between the SELECT and the UPDATE, .returning() yields zero rows.
-    // The guard must return { ok: false } rather than silently writing to a ghost row.
-    //
-    // The mid-flight delete is injected inside testConnectionMock: at that point
-    // the pre-check has already passed (row was present), but the subsequent UPDATE
-    // will find state.connections empty and return zero rows via .returning().
+    // TOCTOU: `test` SELECTs the row, runs testConnection, then UPDATEs status/errorMessage/lastVerifiedAt.
+    // If the row is deleted between SELECT and UPDATE, .returning() yields zero rows; the guard must
+    // return { ok: false } rather than silently writing to a ghost row.
+    // Mid-flight delete is injected inside testConnectionMock so the pre-check passes but the UPDATE finds an empty rowset.
     installPlugin();
     seedConnection();
     testConnectionMock.mockImplementation(() => {

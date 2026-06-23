@@ -3,12 +3,9 @@ import { user } from "./auth";
 import { roles } from "./roles";
 
 /**
- * Invite codes for the link-invite flow. An admin mints a code; a stranger
- * opens the link, registers, and is granted `roleId`. Multi-use codes are
- * supported via `maxUses`/`uses`; `revokedAt` is a soft-delete.
- *
- * `email` and `kind` are reserved for the future email-invite path
- * (see design §9). Only `kind = 'link'` is active.
+ * Invite codes for the link-invite flow: admin mints a code, stranger opens the link, registers,
+ * and is granted `roleId`. Multi-use via `maxUses`/`uses`; `revokedAt` is a soft-delete.
+ * `email` and `kind` are reserved for the future email-invite path (design §9); only `kind='link'` is active.
  */
 export const invites = sqliteTable(
   "invites",

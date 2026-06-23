@@ -4,17 +4,10 @@ import { getDb, type Db } from "../../db/client";
 import { homeLayoutCache } from "../../db/schema/home";
 
 /**
- * Bump every time `HomeLayoutResponse`, `HomeRowStub`, or `LayoutHero` change
- * in a way the orchestrator's compose pass would render differently. Stale
- * blobs whose `schema_version` disagrees with this constant fall through to
- * the cold path and get rewritten — pre-stable means we replace, not migrate.
- *
- * v3: Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`
- * reshaped `LayoutHero` from `{ item, source, reason, resumeUrl, alternates }`
- * to `{ slides: HeroSlide[] }`. The earlier `library availability` PR had
- * already moved the constant 1 → 2 with the previous hero shape baked into
- * the blob, so PR #227 still shipped without invalidating those rows; bump
- * to 3 so every cached old-shape blob falls through to a cold compose.
+ * Bump when `HomeLayoutResponse`/`HomeRowStub`/`LayoutHero` change in
+ * render-affecting ways. Stale blobs fall through to cold recompose. v3:
+ * `LayoutHero` reshaped to `{ slides: HeroSlide[] }` (design
+ * §2026-05-05, amendment 3, rev 4); PR #227 shipped without invalidating.
  */
 export const CURRENT_SCHEMA_VERSION = 3;
 
@@ -36,10 +29,9 @@ export function isEmptyLayout(layout: HomeLayoutResponse): boolean {
 }
 
 /**
- * Reads the cached layout for `userId`. Returns null on cold miss, on a
- * `schema_version` mismatch (treated as cold), or if the stored blob fails
- * to parse — the orchestrator falls through to live composition + writeback
- * in every case, so signalling absence is enough.
+ * Reads cached layout for `userId`; returns null on cold miss, version
+ * mismatch, or parse failure. Orchestrator falls through to live composition
+ * in all cases.
  */
 // Early-return cache validation (cold miss / version mismatch / parse failure);
 // CRAP is coverage-estimated in CI and the paths are covered by layout-cache.test.ts.

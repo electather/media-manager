@@ -173,12 +173,8 @@ function bundleFilesIn(lines: string[]): string[] {
   return [...files];
 }
 
-/** Translates a minified stack trace to original source positions using the
- *  uploaded sourcemaps. Frames that cannot be resolved are kept verbatim.
- *  Returns null when not a single frame resolved, so callers can store
- *  "no resolution available" as an honest null instead of a copy of the raw
- *  stack. When `buildId` is provided the lookup is scoped to that build's
- *  maps; otherwise the newest map for each bundle file name is used. */
+/** Translates minified stack to original positions via uploaded sourcemaps; unresolvable frames kept verbatim.
+ *  Returns null when no frame resolved (vs. raw stack copy). `buildId` scopes lookup; else newest map per file. */
 export async function resolveStackTrace(stack: string, buildId?: string): Promise<string | null> {
   const lines = stack.split("\n");
   // Warm every distinct bundle's parsed map concurrently before the per-frame

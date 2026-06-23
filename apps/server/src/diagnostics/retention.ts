@@ -200,11 +200,9 @@ export async function getNotificationRetention(): Promise<NotificationRetentionR
 }
 
 /**
- * Updates the notification inbox and/or delivery retention windows, clamped to
- * [1, 3650] days each. The seed + update pair is combined into a single
- * `onConflictDoUpdate` whose `set` touches only the columns the caller actually
- * passed, so concurrent admin PUTs serialize on the single-row primary key and a
- * PATCH of one window never clobbers the other from a stale snapshot.
+ * Updates notification retention windows [1, 3650] days; `onConflictDoUpdate`
+ * with selective `set` ensures concurrent PUTs don't clobber the non-patched
+ * window via stale snapshots.
  */
 export async function setNotificationRetention(input: {
   inboxRetentionDays?: number;

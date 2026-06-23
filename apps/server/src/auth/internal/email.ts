@@ -8,9 +8,8 @@ export interface OutboundEmail {
 
 /**
  * Single seam for transactional email (Better Auth hooks + unit-test mocking point).
- * `EMAIL_PROVIDER_CONFIGURED=false`: no-ops. `EMAIL_PROVIDER_CONFIGURED=true`: throws —
- * no real adapter is wired yet; silently returning would drop verification, password-reset,
- * and email-change flows instead of surfacing the misconfiguration.
+ * `EMAIL_PROVIDER_CONFIGURED=true` throws — no real adapter is wired; silently returning would
+ * drop verification, password-reset, and email-change flows instead of surfacing the misconfiguration.
  */
 export async function sendEmail(_message: OutboundEmail): Promise<void> {
   if (!env.EMAIL_PROVIDER_CONFIGURED) {

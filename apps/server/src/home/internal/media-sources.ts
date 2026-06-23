@@ -3,24 +3,9 @@ import type { AnyMediaSourceRegistration } from "../../media";
 import { ROW_PROVIDERS } from "../rows";
 import type { RowProvider } from "./types";
 
-/**
- * Surface every home row as a `MediaSourceRegistration` so the `/api/media`
- * resolver (design §A4) can compose one registry from the home + watchlist
- * barrels — WITHOUT `media` importing a concrete source (invariant V.RG1) and
- * WITHOUT any home composition logic moving (invariant V.A1: the row wiring
- * stays in `home/rows` + `home/internal`; this only re-packages it through the
- * barrel).
- *
- * Thin lift: each `RowProvider` already carries `eligibility` / `cursorMode` /
- * `requiresInitialCursor` and assembles its pipeline pieces via `buildPipeline`.
- * Three policy fields are constant across home:
- *  - `rateLimit: undefined` — the home feed has no per-user limiter today (§A7).
- *  - `paramSchema: voidParamsSchema` — home rows take no query params; the only
- *    input is the opaque cursor (the seed for `becauseYouWatched` / `similarTo`
- *    rides inside it), which the resolver decodes separately (§A3).
- *  - `cursorOnNull: "400"` — the home feed rejects a bad/foreign cursor with 400
- *    (invariant V.CU1), mirroring today's `composeRowPage`.
- */
+// Surfaces home rows as MediaSourceRegistration so /api/media resolver (design §A4) composes registry from home + watchlist barrels.
+// Preserves invariants V.RG1 (media never imports concrete source) and V.A1 (row wiring stays in home/rows + home/internal).
+// Constant fields across home: rateLimit=undefined (no per-user limiter, §A7), paramSchema=voidParamsSchema (no query params, cursor decoded by resolver §A3), cursorOnNull="400" (rejects bad cursor, invariant V.CU1).
 function toRegistration(provider: RowProvider): AnyMediaSourceRegistration {
   return {
     sourceId: provider.rowId as MediaSourceId,

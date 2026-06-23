@@ -8,11 +8,9 @@ import { sweepStaleDynamicClients } from "../service";
 const STALE_CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Scheduled sweep that deletes stale dynamic OAuth clients — those registered
- * via the unauthenticated RFC 7591 endpoint but never authorized by a user and
- * older than the TTL. This bounds growth of the oauth client table, whose only
- * other control is the per-IP registration rate limit, and shrinks the
- * consent/authorize attack surface left by abandoned registrations.
+ * Deletes dynamic OAuth clients (RFC 7591) never authorized by a user and older
+ * than TTL. Bounds oauth client table growth (only other control: per-IP rate limit)
+ * and shrinks the consent/authorize attack surface from abandoned registrations.
  */
 export function registerStaleClientSweep(): void {
   registerScheduled({

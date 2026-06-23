@@ -1,8 +1,8 @@
 // Direct-insert user creation for bootstrap, dev seed, and admin endpoint. Avoids
-// `auth.api.signUpEmail()` because booting better-auth loads the `jwt` plugin, which
-// lazily generates a JWKS keypair encrypted with `BETTER_AUTH_SECRET`; if two secrets
-// disagree the Worker fails at startup with "Failed to decrypt private key".
-// Account row mirrors `sign-up/email` shape: `providerId="credential"`, `accountId=userId`,
+// `auth.api.signUpEmail()` — booting better-auth loads the `jwt` plugin which lazily
+// generates a JWKS keypair encrypted with `BETTER_AUTH_SECRET`; mismatched secrets crash
+// the Worker at startup with "Failed to decrypt private key".
+// Account row mirrors the `sign-up/email` shape: `providerId="credential"`, `accountId=userId`,
 // `password=<hash>` — exactly what `sign-in/email` looks up at login time.
 
 import { hashPassword } from "better-auth/crypto";
@@ -44,12 +44,11 @@ export interface InsertCredentialUserWithHashInput {
 }
 
 /**
- * Canonical credential-row insertion point: one place the `sign-up/email` row shape is
- * reproduced, so schema changes (e.g. new required `account` column) happen here once.
- * `account.updatedAt` has no SQL default (unlike `user.updatedAt`), so we pass it explicitly;
- * `userRoles.assignedAt` is epoch-ms, not a Date.
- * Takes a precomputed hash so callers can run the ~100ms scrypt *before* opening the write
- * transaction — holding SQLite's single writer lock for the full hash duration queues
+ * Canonical insertion point for the `sign-up/email` credential row shape — schema changes
+ * (e.g. new required `account` column) happen here once. `account.updatedAt` has no SQL
+ * default (unlike `user.updatedAt`), so we pass it explicitly; `userRoles.assignedAt` is
+ * epoch-ms. Takes a precomputed hash so callers can run the ~100ms scrypt before opening
+ * the write transaction — holding SQLite's writer lock for the full hash duration queues
  * concurrent writers until `busy_timeout` (#852 L2).
  */
 export async function insertCredentialUserWithHashTx(

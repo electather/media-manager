@@ -2,27 +2,10 @@ import type { CanonicalMetadata, MetadataKey } from "@nama/shared/catalog";
 import type { MediaType } from "@nama/shared/media";
 
 /**
- * Deterministic home-layout scenario captured BEFORE the US-020..US-022
- * `MediaSource` reimplementations (RISK-103 / design §T). The pre-refactor
- * parity test (`home-layout-parity.test.ts`) wires these feeds onto a row
- * context, drives the real `composeLayoutLive` + `composeRowPage`, and asserts
- * its output against the committed `home-layout-parity.json` golden fixture,
- * proving the migration is behavior-neutral (same row order + item ids/order
- * per row + hero slides).
- *
- * The scenario is framework-agnostic — plain data plus a pure metadata builder
- * so a `listRows`-based harness can reuse it without depending on vitest. Each
- * feed is injected at the lowest seam both implementations share: the
- * `mediaService` / `catalog` aggregate methods every row fetches through
- * (today via per-row sort/slice/cursor, after the migration via
- * `fetchRawSet` + the shared pipeline). `yourWatchlist` reads through the
- * watchlist module boundary, so the test mocks that directly.
- *
- * Determinism: no row in `ROW_ORDER` orders by the wall clock — continue
- * watching sorts by the fixed `lastPlayedAt` strings, becauseYouWatched by the
- * fixed history `watchedAt`, and the discovery / recommendation feeds preserve
- * insertion order — so nothing here reads `Date.now`. The discovery day-bucket
- * argument is ignored by the mocked `getDiscoverFeed`.
+ * Deterministic parity test scenario (design §T, RISK-103) — feeds via
+ * `mediaService` / `catalog` aggregate methods, `yourWatchlist` via module
+ * boundary mock. No wall-clock dependency: `lastPlayedAt` / `watchedAt` / feed
+ * insertion order are fixed.
  */
 export const PARITY_USER_ID = "home-parity-user";
 
@@ -62,13 +45,9 @@ export interface ScenarioContinueWatchingEntry {
 }
 
 /**
- * One feed serves both continue-watching rows + the hero CW pool.
- *
- * - `cwa1` / `cwa2` carry active progress (ratio < 0.85) → the `active` row,
- *   sorted by `lastPlayedAt` DESC (`cwa1` is newer).
- * - `cwn1` is past the finishing threshold (ratio 0.95, excluded from active)
- *   but ships a server `nextUp` episode → the `next` row.
- * - `cwn2` has no progress at all → the `next` row (`progressMs == null`).
+ * One feed serves continue-watching rows + hero pool. `cwa1`/`cwa2` have active
+ * progress (ratio < 0.85), `cwn1`/`cwn2` are finished/empty (ratio ≥ 0.95 or
+ * no progress); `cwn1` ships a server `nextUp` episode.
  */
 export const CONTINUE_WATCHING_FEED: ScenarioContinueWatchingEntry[] = [
   {
@@ -221,10 +200,9 @@ function metaFor(tmdbId: string, mediaType: MediaType, title: string): Canonical
 }
 
 /**
- * Canonical metadata for every catalog-backed key the rows + hero look up via
- * `getMetadataBatch` (trending, new releases, recommendations, similar,
- * upcoming). Continue-watching + watchlist rows build their items from the
- * feed directly, so their ids are absent here by design.
+ * Metadata for catalog-backed keys (trending, new releases, recommendations,
+ * similar, upcoming). Continue-watching + watchlist build from feeds directly,
+ * so their ids are absent here by design.
  */
 export function buildScenarioMetadata(): Record<string, CanonicalMetadata> {
   const entries: [string, MediaType, string][] = [
