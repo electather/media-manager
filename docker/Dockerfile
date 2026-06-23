@@ -1,24 +1,26 @@
 # syntax=docker/dockerfile:1
 
+# ── Stage 0: snapshot every workspace manifest ───────────────────────────────
+# Docker's COPY can't glob while preserving directory structure, so the deps
+# layer would otherwise need one hand-maintained COPY line per workspace —
+# a list that silently drifts whenever a package is added (e.g. a new plugin).
+# This stage snapshots every package.json under the workspace roots so the
+# install layer caches on manifest/lockfile content alone, with no per-package
+# upkeep. `cp --parents` recreates each manifest's path under /manifests, and
+# `COPY --from` is content-addressed, so unchanged manifests keep the cache.
+FROM oven/bun:1 AS manifests
+WORKDIR /src
+COPY . .
+RUN mkdir /manifests \
+    && find package.json apps packages -name package.json -not -path '*/node_modules/*' \
+       -exec cp --parents {} /manifests/ \;
+
 # ── Stage 1: install deps ────────────────────────────────────────────────────
 FROM oven/bun:1 AS deps
 WORKDIR /app
 
-COPY package.json bun.lock* ./
-COPY apps/server/package.json ./apps/server/package.json
-COPY apps/client/package.json ./apps/client/package.json
-COPY packages/shared/package.json ./packages/shared/package.json
-COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/package.json
-COPY packages/plugins/discord/package.json ./packages/plugins/discord/package.json
-COPY packages/plugins/inbox/package.json ./packages/plugins/inbox/package.json
-COPY packages/plugins/jellyfin/package.json ./packages/plugins/jellyfin/package.json
-COPY packages/plugins/ntfy/package.json ./packages/plugins/ntfy/package.json
-COPY packages/plugins/plex/package.json ./packages/plugins/plex/package.json
-COPY packages/plugins/seerr/package.json ./packages/plugins/seerr/package.json
-COPY packages/plugins/telegram/package.json ./packages/plugins/telegram/package.json
-COPY packages/plugins/tmdb/package.json ./packages/plugins/tmdb/package.json
-COPY packages/plugins/trakt/package.json ./packages/plugins/trakt/package.json
-COPY packages/plugins/tvdb/package.json ./packages/plugins/tvdb/package.json
+COPY --from=manifests /manifests/ ./
+COPY bun.lock* ./
 
 # `--ignore-scripts` skips the root `prepare` hook (`vp config`), which is a
 # local developer-tooling step and requires `git` — not present in oven/bun.

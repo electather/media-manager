@@ -36,7 +36,11 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: vp dlx changeset version && vp install
+          # changesets/action splits this command on whitespace and runs it
+          # without a shell, so `&&` cannot chain inline. The combined
+          # `changeset version && vp install` (the install refreshes bun.lock in
+          # the version PR) lives in the root `version:packages` script instead.
+          version: vp run version:packages
           publish: vp dlx changeset tag
           commit: "chore: version packages"
           title: "chore: version packages"

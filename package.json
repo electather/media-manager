@@ -15,6 +15,7 @@
     "check:file-sizes": "bun run tools/check-file-sizes.ts",
     "typecheck": "bun run --cwd packages/shared tsc --noEmit && bun run --cwd apps/server tsc --noEmit && bun run --cwd apps/client tsc --noEmit",
     "inspect": "bun x @modelcontextprotocol/inspector ",
+    "version:packages": "vp dlx changeset version && vp install",
     "prepare": "vp config"
   },
   "devDependencies": {
