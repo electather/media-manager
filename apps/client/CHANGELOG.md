@@ -1,5 +1,99 @@
 # @nama/client
 
+## 0.7.0
+
+### Minor Changes
+
+- e2cfc15: Added a picker for choosing which provider drives metadata details per media type.
+- b00a33e: Added admin invite links so administrators can generate shareable URLs that let new users register directly.
+- da76901: Replaced the login page's decorative poster grid with live trending artwork, falling back to bundled branded art so it never appears blank.
+- b705484: Added hidden sourcemap support to the diagnostics pipeline: the client build emits hidden maps and keeps them out of the public asset directory, and the server accepts map uploads and resolves minified stack frames to original source positions. Maps for superseded builds are pruned automatically so storage stays bounded.
+- d4b2228: Removed the per-bucket count pips from the watchlist filter, which now uses plain navigable bucket tabs, and dropped the backing media counts endpoint that no longer had a consumer.
+- 2b578ff: Command menu recents now sync across tabs in real time.
+- e7e4fa6: Added global client-side authorization with route guards, nav visibility control, and a Can component.
+- e6a4dec: Added a real watchlist page backed by an internal store that syncs with plugins, replacing the previous mock-data placeholder.
+- e201964: Tonight pick and mood clusters on the watchlist now lean on the standard watchlist card style, with logo artwork on wide cards and a clean, consistent thumb-and-title row for the rest. Mood clusters fill their preview pages reliably even when a mood is sparse.
+- e201964: Watchlist mood pages now name the mood in the page header and offer a back link to the watchlist overview.
+- e201964: Watchlist page now keeps the filter chips and sort dropdown in the header, opens a dedicated grid for each filter, shows in-progress titles in their own bucket, offers a flat "View all" page with sortable, paginated browsing of every item, and a dedicated "See all" page for each mood cluster.
+- dc007d6: Paginated the watchlist with a keyset cursor, added a dedicated counts endpoint for the header pips, and let the bucket filter short-circuit enrichment on the server.
+- a20c48b: Added a guided first-install setup: a one-time console token creates the first administrator, then an onboarding wizard configures the TMDB metadata key and optional service connections before entering the app.
+- 7df63c0: Fixed diagnostics filters so clearing every severity or source shows no records, corrected the p99 latency card, surfaced retention update failures, kept error-detail failures contained, and added a deep link to individual slow requests.
+- d4b2228: Added a Library page for browsing your catalog by index, era, collection, server, or quality, with search and URL-shareable faceted filters.
+- adaf118: The library page now browses your real owned collection across all five lenses with infinite scroll, quality chips, and faceted filters.
+- df5a127: Long watchlist and mood lists now load more titles automatically as you scroll near the end, keeping them smooth.
+- df5a127: Media data for the home feed, watchlist, and title details is now served from one unified API. Watchlist items saved before this release may need to be scrolled to the top once, as in-progress pagination resets on deploy.
+- df5a127: Watchlist pages now prefetch their first page on navigation, so sections show content on first paint instead of a loading spinner.
+- 7490b5c: Added an MCP setup guide step to the onboarding wizard so new admins can connect Claude Desktop, Cursor, or any MCP-compatible client during first-install setup.
+- 230b522: Redesigned the authentication screen using an animated 3D poster grid background and sleek glassmorphic controls.
+- a8cae87: Raised the minimum password length to 12 characters (and capped it at 256) for new accounts and first-time setup.
+- e6def93: Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists.
+- e201964: Added an "Unavailable" filter for watchlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty, and the active filter chip survives changing the sort order.
+
+### Patch Changes
+
+- 5884c6f: Fixed XSS vulnerability in notification popover: action URLs are now validated to allow only http/https schemes.
+- e2cfc15: Improved the primary-provider picker error handling so deleted-connection and unsupported-capability errors show distinct toasts and refresh the relevant state.
+- 8e091bd: Fixed a missing 100-character upper bound on user name fields in the invite, bootstrap, and admin user create and update flows.
+- 222408e: Fixed whitespace-only user names being accepted by trimming name fields before length validation.
+- 150df3c: Fixed stale JSDoc, dead i18n keys, and deprecated Zod schema form in the invites feature; extracted duplicated expiry helpers; aligned design doc error code with implementation.
+- 6d1de34: Tightened the `AdminSettingsBody` type to reject empty objects at compile time.
+- 97a0a81: Replaced `disabled` with `aria-disabled` on vote and note buttons in the media detail feedback bar so keyboard and screen-reader users can discover and tab to them.
+- a20c48b: Fixed the first-install setup form getting stuck after creating the administrator when sign-in was slow, now sending you to the login page instead.
+- df5a127: Connections that are working normally no longer show a status label; only connections needing attention are flagged.
+- 5bfc436: Added a host hint in the device-code panel when the verification URL is rejected as unsafe, so the panel no longer appears broken if a future plugin returns a non-https URL.
+- 4704216: Fixed the diagnostics error detail sheet staying frozen on the error fallback when selecting a different row after a fetch failure.
+- 8f72773: Restricted the diagnostics pages and their menu entry to server administrators.
+- e6def93: Fixed mobile drawers (including the content peek modal) not scrolling when their body exceeded the popup height.
+- 29b08b2: Translated all Persian (fa) admin locale keys from English placeholders to Farsi.
+- 2cf9967: Restricted post-login redirect to same-origin paths, preventing open-redirect and javascript: URI attacks via a crafted ?redirect= parameter.
+- 49f25cb: Stopped reporting expected view-transition aborts (navigation, hidden tab, DOM-update timeout) as runtime errors.
+- 1a0b51c: Library filters now narrow by every selected value, ordered quality options by fidelity, and showed a clear message instead of raw diagnostic text when a view failed to load. Hardened the title details endpoint against arbitrary lookups.
+- 0c27013: Fixed the all-permissions badge in the roles list to correctly identify any role with wildcard permissions, and corrected whitespace-only header values being accepted silently in the plugin security settings.
+- 39667ea: Fixed admin user role changes reflecting immediately in the detail view, removed a stale type cast in the admin users data fetcher, and deduplicated invite/admin predicate logic.
+- f203b05: Fixed duplicate submit race on auth forms after successful login or registration, inconsistent disabled state between inputs and submit button, untrimmed name submitted on registration, and surfaced OAuth provider errors on the login page after a failed social sign-in redirect.
+- 2b578ff: Fixed search scope switch showing stale results from the previous scope in the command menu.
+- 766caad: Fixed the connection setup form so a successful test no longer stays marked verified after you change a field, and hardened OAuth sign-in against unsafe redirect links.
+- d69f23f: Fixed the job trigger dialog to show an error toast on failure and submit numeric fields as numbers.
+- 5459356: Fixed a security issue where notification toast action URLs were not validated before navigation, and corrected stale form state and incomplete validation in the admin retention settings.
+- 4e8c55c: Disabled unimplemented vote, note, and watch controls in media detail to prevent silent discard of user input.
+- d7e2de7: Fixed stale test/save badges persisting after the TMDB API key input is edited.
+- aa4d608: Fixed a request that could no longer be cancelled after it was submitted.
+- 1d449af: Improved partial app-revoke feedback, added email format validation before change confirmation, and localized remaining hard-coded strings in sessions and settings views.
+- 148fddd: Localized the password reveal toggle in account settings so screen readers announce it in the active language.
+- 3fa49a7: Fixed notification channel category toggles so selecting several at once saves reliably, and showed guidance when no channels exist yet.
+- 50d0719: Fixed the security settings page so a malformed session list surfaces a clear error instead of showing invalid dates.
+- d20b06f: Fixed mood cluster errors silently hiding behind a blank card instead of showing a retry prompt.
+- 99b0052: Fixed the NoteButton in the media detail feedback bar to show a muted disabled style when a note exists, preventing a misleading highlighted appearance while persistence is not yet wired.
+- 278754c: Scoped the diagnostics error boundary retry to the failing surface's queries only, preventing unrelated tabs from re-suspending on retry.
+- 1576513: Capped `rid` to 64 characters and `pid` to 128 characters in the admin diagnostics search params to reject oversized values before they reach the server.
+- 2198af3: Fixed command menu search key guard to require the `q` property, preventing stale placeholder data from being returned for incomplete keys.
+- cfe4328: Fixed the OAuth error banner persisting in bookmarked or shared login URLs by removing the ?error param from the URL immediately after it is read.
+- 73f4829: Added charset validation to the `pid` search param in the admin diagnostics route to reject values containing characters outside the alphanumeric, hyphen, and underscore set.
+- 549dfc7: Added whitespace trimming to user name fields across all account creation and update paths.
+- a5a70f8: Fixed missing skeleton block in performance detail sheet loading state.
+- 5ad3b34: Fixed skeleton flashing on filter and search changes in the diagnostics errors and performance tabs.
+- a20c48b: Fixed a blank home page after first-install setup by warming trending content as soon as onboarding finishes and showing a brief setup state until it loads.
+- e2cfc15: Restored spacing between cards in home and watchlist rows.
+- 9b795fc: Fixed decimal values and integer fields being dropped in the job trigger dialog numeric inputs.
+- df5a127: Fixed watchlist items in mood clusters showing as "not on your watchlist" when opened from a peek.
+- 3116c12: Fixed the media detail peek modal reopening when pressing the browser back button.
+- fdca01d: Stabilized the media detail peek modal when the `?peek=` search param toggles rapidly (browser back/forward or fast link clicks).
+- df5a127: Fixed the Reconnect button so it re-runs the sign-in flow for an expired or broken connection instead of only reopening the edit dialog.
+- 58fe733: Fixed the top navigation pill triggering an infinite re-render loop when the active link did not change size or position.
+- df5a127: The hero carousel dots are now display-only position indicators rather than clickable controls.
+- df5a127: Home rows with no items now collapse instead of leaving an empty gap in the feed.
+- 893d134: Fixed invite sign-up edge cases and now show a clear "no longer valid" message when an invite expires or is revoked while someone is completing it.
+- 8433a0c: Adjusted mood cluster header text sizes to align with the standard design scale.
+- 07f9f96: Members with no setup steps now see a clear "nothing to configure" finish screen during onboarding instead of an empty wizard.
+- e6def93: Fixed the home hero card briefly floating over the content peek modal while it opened.
+- ede9e2e: Fixed performance detail sheet rendering blank on fetch error by wrapping it in an error boundary with a retry affordance.
+- 38ddcea: Aligned the performance detail sheet loading skeleton to show three blocks, matching the error detail sheet's skeleton layout.
+- 8f72773: Added removeOnEmpty option to rollbackQuery so stale optimistic writes are cleaned up when the cache was empty before the mutation.
+- d4b2228: Restyled the watchlist filters as segmented tabs that match the library lens switcher, so the two pages share one consistent header.
+- b1191d1: Removed the redundant load-more button from the watchlist all-items and mood views, leaving infinite scroll as the single way to page through results.
+- e6def93: Fixed the home card add-to-watchlist button not appearing to do anything when the watchlist page had not been opened yet in the session.
+- d58cafe: Watchlist cards and loading placeholders now match the rest of the app, and watchlist items without a logo no longer show their title as a stand-in wordmark.
+
 ## 0.6.0
 
 ### Minor Changes

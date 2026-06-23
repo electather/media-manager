@@ -1,5 +1,19 @@
 # @nama/plugin-tmdb
 
+## 0.4.0
+
+### Minor Changes
+
+- adaf118: TMDB now reports a movie's franchise so it can be grouped with the rest of its collection.
+
+### Patch Changes
+
+- Updated dependencies [1b1c614]
+- Updated dependencies [e38746e]
+- Updated dependencies [68c85b3]
+- Updated dependencies [adaf118]
+  - @nama/plugin-sdk@0.5.0
+
 ## 0.3.3
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@nama/plugin-seerr",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": false,
   "description": "nama plugin — media request integration for Overseerr and Jellyseerr.",
   "keywords": [

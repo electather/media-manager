@@ -1,5 +1,160 @@
 # @nama/server
 
+## 0.7.0
+
+### Minor Changes
+
+- e2cfc15: Added a picker for choosing which provider drives metadata details per media type.
+- b00a33e: Added admin invite links so administrators can generate shareable URLs that let new users register directly.
+- 4afff12: Tightened backend module boundaries with fallow-enforced per-module zones, barrel-only public APIs, table-ownership pre-commit script, and file-size caps.
+- 71b14c3: Introduced a typed event bus for cross-module signals and migrated notifications to the new modular monolith layout.
+- 2e89f2d: Migrated preferences to the new modular monolith layout behind a `PreferencesService` facade.
+- 9565f88: Retrofitted auth module to flat-with-reserved-files layout; barrel-only public API unchanged.
+- da76901: Replaced the login page's decorative poster grid with live trending artwork, falling back to bundled branded art so it never appears blank.
+- b705484: Added hidden sourcemap support to the diagnostics pipeline: the client build emits hidden maps and keeps them out of the public asset directory, and the server accepts map uploads and resolves minified stack frames to original source positions. Maps for superseded builds are pruned automatically so storage stays bounded.
+- d4b2228: Removed the per-bucket count pips from the watchlist filter, which now uses plain navigable bucket tabs, and dropped the backing media counts endpoint that no longer had a consumer.
+- f0cba8f: Extracted active-row storage into a dedicated media module with keyset pagination, cursor encoding, and seed-lock primitives.
+- e6a4dec: Added a real watchlist page backed by an internal store that syncs with plugins, replacing the previous mock-data placeholder.
+- e201964: Split the watchlist API into per-section endpoints (counts, tonight, recently, moods, items) so each surface can load and invalidate independently.
+- dc007d6: Paginated the watchlist with a keyset cursor, added a dedicated counts endpoint for the header pips, and let the bucket filter short-circuit enrichment on the server.
+- a20c48b: Added a guided first-install setup: a one-time console token creates the first administrator, then an onboarding wizard configures the TMDB metadata key and optional service connections before entering the app.
+- 0973469: Registered the fanart.tv plugin so admins can configure a fanart API key and the home feed picks up HD posters, backdrops, and clear logos from fanart.tv.
+- adaf118: Added a media library that tracks the titles you own and keeps the set in sync with your collection providers.
+- dacd382: Media items now expose when and how a title was added to the watchlist (added date and source).
+- df5a127: Media data for the home feed, watchlist, and title details is now served from one unified API. Watchlist items saved before this release may need to be scrolled to the top once, as in-progress pagination resets on deploy.
+- 7490b5c: Added an MCP setup guide step to the onboarding wizard so new admins can connect Claude Desktop, Cursor, or any MCP-compatible client during first-install setup.
+- 05c6f6d: Added `ArtworkServiceError` and `ARTWORK_EVENTS` to the artwork module's public API.
+- 1df99dd: Restructured the home module to the canonical flat-with-reserved-files layout. The public barrel now exports `HOME_EVENTS` and `HomeServiceError`; the temporary `registerHomeLayoutWarmJob` job-function export was removed in favour of the standard `registerJobs` entry point. Behaviour is unchanged.
+- b15aa53: Added a per-IP rate limit to the public, session-less endpoints.
+- 39358cc: Added a stable identifier to the built-in Admin role so renaming it no longer breaks admin permissions.
+- a8cae87: Raised the minimum password length to 12 characters (and capped it at 256) for new accounts and first-time setup.
+
+### Patch Changes
+
+- 97c76a7: Fixed admin-configured request headers leaking to user-controlled plugin endpoints.
+- 0b8452d: Fixed SSRF via redirect: plugin fetches now reject 3xx responses instead of following them to unvalidated hosts.
+- 944d43b: Fixed privilege escalation: the role assignment endpoint now rejects attempts to assign system-protected roles.
+- 7a4241a: Fixed account-deletion password verification to fail-closed on unknown Better Auth response shapes while still accepting the actual `{ status: true }` success contract.
+- 8a345d3: Fixed verify-config to strip x-plugin-resolved fields before passing user config to plugin auth, matching the create-connection path.
+- c9b4690: Fixed admin revoke-sessions to also invalidate OAuth access tokens, refresh tokens, and consent grants, not just web sessions.
+- 393a136: Fixed unbounded data-export requests letting a single user exhaust memory by adding a per-user 5/hour rate limit to `/me/export` (429 + `Retry-After`).
+- d8fc41c: Added per-user rate limiting to the artwork RPC endpoint to prevent shared TMDB quota exhaustion. Throttled responses return HTTP 429 with a `Retry-After` header, and the limiter charges tokens per unique canonical lookup so batched requests cost what they actually cost downstream.
+- 7dbbbc7: Fixed internal error messages (SQL fragments, file paths) leaking to authenticated MCP clients via devMessage.
+- b50862e: Fixed email-change notification to read previous email from the database instead of relying on Better Auth internal hook context shape.
+- 37bc35e: Fixed Trakt token refresh treating rate-limit responses as expired credentials; the connection no longer flips to "reconnect required" when Trakt returns 429, and the per-connection job runner now honours the rate-limit cooldown before retrying.
+- a42c53c: Fixed background token refreshes (e.g. Trakt) marking the connection as a generic "error" instead of "expired" — the connections view now shows the "Reconnect" prompt when the upstream revokes a refresh token.
+- 66af0e3: Fixed a prototype pollution vulnerability in the `primary_with_enrichment` media dispatch strategy: plugin responses carrying an own `__proto__`, `constructor`, or `prototype` key are now filtered before they reach the recursive merge, so a malicious enrichment payload cannot pollute the worker's `Object.prototype`.
+- ac654bf: Fixed a race in the primary-connection preference write that could surface a 500 when two requests for the same capability arrived concurrently.
+- e2cfc15: Fixed the primary-provider picker so selecting "Auto" actually clears the saved preference.
+- c00adf7: Stopped corrupt connection settings from flooding the server logs with repeated warnings.
+- 8e091bd: Fixed a missing 100-character upper bound on user name fields in the invite, bootstrap, and admin user create and update flows.
+- 222408e: Fixed whitespace-only user names being accepted by trimming name fields before length validation.
+- 150df3c: Fixed stale JSDoc, dead i18n keys, and deprecated Zod schema form in the invites feature; extracted duplicated expiry helpers; aligned design doc error code with implementation.
+- 0163c64: Reset emailVerified to false when an admin changes a user's email address.
+- ce37c0c: Closed a privilege-escalation gap: the admin user-creation and role-assignment endpoints now reject any role granting admin-tier permissions, not just the built-in admin role.
+- 9663f90: Centralised rate limiting behind a shared Hono middleware factory, removing per-handler inline rate-limit calls.
+- f32d535: Added a 100-character upper bound to connection display names to prevent unbounded input reaching the database.
+- 21d0bbf: Deleting a connection that does not exist or belongs to another user now returns a 404 error instead of silently succeeding.
+- 8f72773: Restricted the diagnostics pages and their menu entry to server administrators.
+- 19d875a: Fixed a TOCTOU race in pending auth completion that could create duplicate connection rows under concurrent OAuth callbacks.
+- 265f4c6: Surfaced misconfigured email setups immediately. When the email-enabled flag was on but no email provider was wired, verification and password-reset emails silently dropped; the server now fails loudly so operators can fix the deployment before users hit the broken flow.
+- 474e965: Fixed sensitive OAuth fields (`access_token`, `refresh_token`, `client_secret`, `code`, `code_verifier`) being exposed in debug logs.
+- dabf866: Fixed `GET /api/requests` returning 500 when no mediaRequest provider is configured; it now returns an empty list, and `DELETE /api/requests/:id` surfaces 404 `request.no_provider` in the same scenario.
+- 566cb1e: Fixed the manual preference rebuild trigger returning 500 instead of 400 when called without a userId.
+- c0bb279: Fixed a corrupted or schema-invalid plugin manifest aborting startup job registration for every other plugin.
+- ca03136: Fixed sparse bucket+sort combos returning fewer than `limit` items per page when matching rows fell outside the initial overshoot window.
+- dacd382: Fixed info-only titles (released, not on a media server, and not requestable) appearing under Upcoming; they now appear under Unavailable.
+- df5f5db: Fixed artwork lookups so rows pointing at the same title are counted once against the rate limit.
+- f71ad44: Automatically removed abandoned OAuth clients that were never authorized to keep the connected-apps list and database from growing unchecked.
+- f7c25e8: Fixed metadata refresh logging to report title removals and plugin failures as separate counters, so normal upstream removals no longer inflate the failure rate.
+- 9940eaa: Fixed a corrupt connection no longer crashing the connections list, media playback, background jobs, or assistant tools, and renaming a connection now returns a proper error when the connection does not exist.
+- 1a0b51c: Library filters now narrow by every selected value, ordered quality options by fidelity, and showed a clear message instead of raw diagnostic text when a view failed to load. Hardened the title details endpoint against arbitrary lookups.
+- c9a8582: Fixed library sync crash for large collections and unbounded plugin fan-out during hydration.
+- cdf6613: Fixed transient upstream errors from incorrectly marking a media connection as permanently degraded.
+- 96a909d: Fixed notification delivery so a failed trigger for one recipient no longer prevents the remaining recipients from being triggered. Updating one notification retention window no longer resets the other.
+- c7abb25: Hardened plugin networking against internal-address access and made plugin invocation resilient to corrupt stored configuration.
+- 3c5ee65: Fixed neutral-sentiment notes incorrectly inflating profile sample size, kept long feedback notes intact while bounding the text scanned for sentiment, and deduplicated cold-fill catalog writes during rebuilds.
+- 1005d8c: Fixed watchlist alphabetical sort to produce consistent ordering across all environments.
+- 44da470: Fixed watchlist alpha sort to produce a consistent ordering for titles that differ only in letter case (e.g. "elite" vs "ELITE").
+- b9ed0c6: Bounded the admin diagnostics request-id filter so oversized or malformed values are rejected at the API boundary instead of reaching the database.
+- 3332209: `PATCH /api/admin/notifications/settings` now returns 400 when the request body contains no retention fields instead of silently returning 200 with unchanged values.
+- 60c5863: Fixed `getAppConfig` and `getNotificationRetention` to always read the `global` row from `app_config`, guarding against a rogue second row returning wrong retention values.
+- 5d583d5: Fixed connection default handling so that, when a connection is deleted or set as default at the same time as a concurrent change, the previous default is preserved and the operation reports a not-found error instead of leaving the plugin with no default connection.
+- 717537d: Deduplicated corrupt userConfig warnings so each distinct row logs at most once per process lifetime instead of at request rate.
+- fcabf5b: Removed userId from invite accept response to prevent information disclosure on the public unauthenticated endpoint.
+- 549dfc7: Added whitespace trimming to user name fields across all account creation and update paths.
+- 2c69b5c: Fixed the connection test handler to return not-found instead of silently writing to a deleted connection when the row is removed between the pre-check and the status update.
+- cc47b68: Mapped `AllPluginsFailedError` to a 503 `media.providers_failed` response carrying per-provider `errors[]` so clients can render per-provider hints instead of a generic 500.
+- 44454ba: Fixed boolean environment flags so setting them to "false" now correctly disables the feature instead of being treated as enabled.
+- df5a127: Fixed the home "Coming up" row showing a load error for users who had not connected a calendar provider.
+- df5a127: Stopped the home "Coming up" row from showing an error when a calendar source was only temporarily unavailable, and stopped a rate-limited sign-in refresh from prompting an unnecessary reconnect.
+- 1cffb63: Scrubbed Bearer tokens, sensitive URL query params, and JWT strings from error messages and stack traces before persisting.
+- 5fe55ad: Fixed a missing userId predicate in connection UPDATE/DELETE queries that allowed cross-tenant writes.
+- 3afc99c: Stopped forwarding client-provided requestId to captureError so correlation IDs cannot be spoofed.
+- d9e2d07: Fixed unauthenticated plugin invocations caused by connections with missing or corrupt credential ciphertext.
+- a20c48b: Fixed a blank home page after first-install setup by warming trending content as soon as onboarding finishes and showing a brief setup state until it loads.
+- 97a3e29: Added per-user rate limiting and payload size limits, including bounded context fields, to the frontend error reporting endpoint to prevent storage exhaustion.
+- 4f6b1ba: Fixed the home hero carousel showing the same title twice when it appeared in more than one source pool.
+- a9a4f2d: Fixed library hydration overwriting another user's watched progress and server availability when both owned the same title.
+- 4ac97db: Fixed a resource leak in the job runner that permanently locked a job key when getConfig or startRun threw, preventing future runs without a process restart.
+- 5876de8: Simplified the OAuth handler content-type guard so it correctly accepts charset suffixes.
+- df5a127: Fixed Trakt and other linked accounts being incorrectly marked as expired when several requests refreshed an expired login at the same time.
+- a623975: Rate-limited OAuth dynamic client registration to 5 attempts per hour per IP to protect against abuse while keeping unauthenticated MCP client discovery working.
+- 0163c64: Fixed a race condition in job history pruning by using a single atomic statement.
+- 83514e8: Fixed a race when several connections for the same service are created at the same time so a default connection is always selected.
+- 853ecd3: Fixed rate limiter bypass where unknown-tool and missing-scope requests could skip per-user quota enforcement.
+- df5a127: Fixed the Reconnect button so it re-runs the sign-in flow for an expired or broken connection instead of only reopening the edit dialog.
+- 95bfbbe: Fixed plugins that declare their upstream URL on the admin-only global config (such as Seerr) being unable to reach their own server.
+- 1f8f31a: Handled non-plain objects and invalid Dates in the diagnostics scrubber to avoid silent data loss.
+- adb6fc1: Fixed a 500 error when a session was returned without a user; the server now responds with 401 in this case.
+- 226e87e: Fixed FK violation in diagnostic DB sink when system jobs write perf and error records.
+- b34ada0: Fixed unbounded memory growth in the request rate limiter, whose key table now evicts idle, fully-refilled buckets instead of keeping an entry per client forever.
+- 5da6c92: Validated the incoming X-Request-Id header against a length and charset allowlist so malformed values no longer reach diagnostics tables.
+- 5365b08: Fixed a single corrupted connection record no longer wiping out every linked app for a user.
+- e051870: Fixed mood watchlist pagination so empty scans stopped offering another page.
+- df5a127: Fixed watchlist entries that could no longer be matched to a title showing as a raw placeholder like "Movie 329367"; such entries are now hidden until they can be resolved.
+- 7030b48: Fixed x-secret userConfig fields being stored plaintext for no-auth plugins by moving them into the encrypted credentials blob at connection creation.
+- 893d134: Fixed invite sign-up edge cases and now show a clear "no longer valid" message when an invite expires or is revoked while someone is completing it.
+- ec773cd: Malformed JWT sub or scope claims are now rejected with a 401 instead of propagating as invalid values.
+- 1c7d854: Fixed null credentials being propagated to plugin handlers when ciphertext is missing or decryption fails.
+- 9b3cdaf: Fixed OAuth/social sign-up bypassing the 100-character display name limit by truncating over-long names at user creation.
+- 9a7653e: Fixed an internal job trigger reporting a missing job instead of an untriggerable one when a job was registered with the wrong kind.
+- 995f9df: Fixed invalid combined media ids (including empty ids) being passed downstream instead of rejected, routed no-provider errors to an empty state instead of a server error, and made the home layout warm job stop retrying a slow or offline provider once it has failed repeatedly in a run.
+- b41b9da: Fixed unauthenticated access to /api/settings by adding requireSession middleware to the settings router.
+- 0c2d3d1: Fixed SSRF blocklist bypass where trailing-dot hostnames (e.g. localhost.) could bypass exact-match blocklist checks.
+- 9c46f28: Accepted both trailing-slash and non-slash forms of the OAuth provider audience.
+- 899d789: Fixed artwork write-back releasing a newer claim when an earlier patch failed after its dedup window lapsed.
+- Updated dependencies [0362593]
+- Updated dependencies [facb082]
+- Updated dependencies [37bc35e]
+- Updated dependencies [1b1c614]
+- Updated dependencies [e38746e]
+- Updated dependencies [68c85b3]
+- Updated dependencies [68c85b3]
+- Updated dependencies [0973469]
+- Updated dependencies [a740007]
+- Updated dependencies [08df5ef]
+- Updated dependencies [3760b39]
+- Updated dependencies [6207756]
+- Updated dependencies [b45d0c6]
+- Updated dependencies [95bfbbe]
+- Updated dependencies [2e935ab]
+- Updated dependencies [adaf118]
+- Updated dependencies [0c472a1]
+- Updated dependencies [adaf118]
+  - @nama/plugin-seerr@0.3.2
+  - @nama/plugin-ntfy@0.2.4
+  - @nama/plugin-trakt@0.2.4
+  - @nama/plugin-sdk@0.5.0
+  - @nama/plugin-fanart@0.2.0
+  - @nama/plugin-plex@0.3.3
+  - @nama/plugin-discord@0.2.4
+  - @nama/plugin-tvdb@0.2.4
+  - @nama/plugin-tmdb@0.4.0
+  - @nama/plugin-inbox@0.2.4
+  - @nama/plugin-jellyfin@0.3.3
+  - @nama/plugin-telegram@0.2.4
+
 ## 0.6.0
 
 ### Minor Changes
@@ -169,6 +324,7 @@
 - b84b559: Add required `APP_EXTERNAL_URL` env var and expose it as `ctx.appBaseUrl` on `PluginContext` so plugins can build OAuth redirect URIs and outward-facing deep links (e.g. `playerLink`, `webLink`).
 - c9e4655: Add GET /api/config/public endpoint and EMAIL_PROVIDER_CONFIGURED env var for email-gated UI flows.
 - 8df8c3d: Add Cloudflare Workers entry point and deployment support:
+
   - New `packages/server/src/worker.ts` Workers-compatible composition (excludes `serveStatic`, the croner scheduler, and the startup migration runner).
   - `db/client.ts` now recognises hosted libSQL (Turso) URLs, skips `mkdirSync` for non-local URLs, and forwards `LIBSQL_AUTH_TOKEN` to `createClient`.
   - `env.ts` accepts the new optional `LIBSQL_AUTH_TOKEN` variable.
@@ -182,6 +338,7 @@
 - b7bb50a: Extend the plugin capability catalog and built-in plugin coverage.
 
   New methods on existing capabilities:
+
   - `watchHistory@v1.removeFromHistory` (Trakt)
   - `ratings@v1.removeRating` (Trakt)
   - `recommendations@v1.getAnticipated` (Trakt)
@@ -189,6 +346,7 @@
   - `mediaRequest@v1.cancelRequest` (Seerr)
 
   New capabilities:
+
   - `watchProviders@v1` (TMDB) — streaming/rent/buy provider names per region.
   - `trailers@v1` (TMDB) — trailer/teaser/clip videos per media item.
   - `playback@v1` (Trakt) — cross-device resume positions.
@@ -244,6 +402,7 @@
 - bb383db: Fix Cloudflare Workers SPA routing so client-side routes (e.g. `/auth/login`) work on direct navigation and page refresh. Adds `not_found_handling = "single-page-application"` to the `[assets]` block in `wrangler.toml`, which makes Cloudflare Assets serve `index.html` with a 200 OK for any path that doesn't match a built asset.
 - 21ed4d3: Fix deployed-Worker login failing with `BetterAuthError: Failed to decrypt private key`. The temporary `create-user` script now writes `user` + `account` rows directly via drizzle instead of calling `auth.api.signUpEmail()`, so it no longer boots better-auth, no longer loads the `jwt` plugin, and no longer generates a JWKS keypair encrypted with whatever `BETTER_AUTH_SECRET` the script happened to run with. The `account` row it writes still uses `providerId: "credential"` with an argon2id hash, matching exactly what the runtime sign-in path looks up.
 - 9239968: Harden built-in plugin write methods after PR review.
+
   - Seerr `createRequest` and `cancelRequest` now re-throw host-actionable errors (`plugin.token_expired`, `plugin.bad_credentials`, `plugin.rate_limited`) instead of absorbing them into a graceful `{ ok: false, message }` contract, so the host can trigger token refresh and backoff during writes.
   - Trakt `getHistory`, `getTrending`, and `getPositions` skip rows missing the expected nested media object instead of throwing through a non-null assertion, matching the defensive pattern already in `getAnticipated`.
   - Trakt `parseTraktId` now rejects prefix-matched digits such as `"42abc"`; only pure-digit strings are accepted.

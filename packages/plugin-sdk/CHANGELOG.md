@@ -1,5 +1,17 @@
 # @nama/plugin-sdk
 
+## 0.5.0
+
+### Minor Changes
+
+- 68c85b3: Added `perRowTimeoutSec` to plugin job manifest entries so per-connection jobs can override the default 60s per-row timeout for slow upstreams.
+- adaf118: Metadata items can now carry collection membership.
+
+### Patch Changes
+
+- 1b1c614: Fixed watchlist and history entries failing validation when the source returned a null IMDb id.
+- e38746e: Fixed Seerr request listings being rejected when upstream rows omitted seasons, target, or profile metadata.
+
 ## 0.4.1
 
 ### Patch Changes

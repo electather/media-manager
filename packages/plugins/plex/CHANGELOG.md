@@ -1,5 +1,17 @@
 # @nama/plugin-plex
 
+## 0.3.3
+
+### Patch Changes
+
+- a740007: Fixed X-Plex-Token leaking to redirect targets by rejecting redirects in plexServerFetch.
+- 08df5ef: Fixed Plex auth automatically trusting shared servers for URL population, preventing SSRF via attacker-controlled server connections.
+- Updated dependencies [1b1c614]
+- Updated dependencies [e38746e]
+- Updated dependencies [68c85b3]
+- Updated dependencies [adaf118]
+  - @nama/plugin-sdk@0.5.0
+
 ## 0.3.2
 
 ### Patch Changes

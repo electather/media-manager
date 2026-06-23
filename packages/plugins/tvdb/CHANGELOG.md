@@ -1,5 +1,16 @@
 # @nama/plugin-tvdb
 
+## 0.2.4
+
+### Patch Changes
+
+- 2e935ab: Fixed URL path injection by encoding user-supplied IDs before interpolating into the TVDB API path.
+- Updated dependencies [1b1c614]
+- Updated dependencies [e38746e]
+- Updated dependencies [68c85b3]
+- Updated dependencies [adaf118]
+  - @nama/plugin-sdk@0.5.0
+
 ## 0.2.3
 
 ### Patch Changes

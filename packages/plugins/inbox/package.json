@@ -1,6 +1,6 @@
 {
   "name": "@nama/plugin-inbox",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "description": "nama plugin — built-in inbox notification channel.",
   "keywords": [
