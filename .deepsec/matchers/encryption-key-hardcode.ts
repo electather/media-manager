@@ -1,15 +1,7 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 import { regexMatcher } from "deepsec/config";
 
-/**
- * `ENCRYPTION_KEY` is the AES-256-GCM master key for every plugin credential
- * in the system. Hardcoding a default, fallback, or literal value (anywhere
- * other than `.env.example` or test fixtures) means every deploy that forgets
- * to set the env shares the same key — a one-line credential leak.
- *
- * Flags any assignment of a string literal to a name containing
- * `ENCRYPTION_KEY`, plus `??` / `||` fallbacks that supply a literal.
- */
+/** Critical: hardcoded ENCRYPTION_KEY (AES-256-GCM master) in non-test code = credential leak across all deploys. */
 export const encryptionKeyHardcode: MatcherPlugin = {
   slug: "encryption-key-hardcode",
   description: "Hardcoded literal or fallback for ENCRYPTION_KEY",

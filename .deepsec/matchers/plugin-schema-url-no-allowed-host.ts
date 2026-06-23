@@ -1,18 +1,10 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
 /**
- * Plugins declare `userConfigSchema` properties for upstream URLs (e.g.
- * Jellyfin `externalServerUrl`, Plex `baseUrl`, ntfy `serverUrl`). Every
- * such field MUST carry `"x-allowed-host": true` so the plugin runtime can
- * union the resolved hostname into the per-call `ctx.fetch` allowlist.
- * Without that flag, the field is parsed but never gated — the plugin can't
- * reach the user-configured host (visible bug) AND no allowlist narrowing
- * runs (latent SSRF window if any code path uses the URL directly).
- *
- * Flags JSON-schema property declarations inside `packages/plugins/**` whose
- * property name looks URL-shaped (`baseUrl`, `serverUrl`, `endpoint`,
- * `*Url`) or whose schema sets `format: "uri"` but whose surrounding object
- * literal does NOT carry `"x-allowed-host"`.
+ * URL-shaped schema fields MUST carry `"x-allowed-host": true` to gate them
+ * in ctx.fetch allowlist; without it: visible bug (plugin can't reach host)
+ * + latent SSRF (no allowlist narrowing if URL used directly).
+ * Flags missing flag on URL properties in packages/plugins/**.
  */
 export const pluginSchemaUrlNoAllowedHost: MatcherPlugin = {
   slug: "plugin-schema-url-no-allowed-host",

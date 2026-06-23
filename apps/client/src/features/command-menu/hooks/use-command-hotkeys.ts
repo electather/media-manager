@@ -21,12 +21,7 @@ import type { Contribution } from "../types";
 // literal so the trigger button stays decoupled from this hook.
 const OPEN_EVENT = "nama:open-command";
 
-/**
- * Extends the TanStack Hotkeys metadata bag with a `group` discriminant so
- * the cheatsheet can sort registrations structurally instead of regexing the
- * localized name string. Declaration merging is the documented extension
- * point — see `@tanstack/hotkeys` `HotkeyMeta` JSDoc.
- */
+/** Declaration merge to add `group` discriminant for structurally sorting cheatsheet registrations. */
 declare module "@tanstack/react-hotkeys" {
   interface HotkeyMeta {
     /** Cheatsheet section the registration belongs in. */

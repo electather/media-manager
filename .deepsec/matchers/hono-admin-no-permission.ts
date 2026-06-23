@@ -1,14 +1,6 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * Admin Hono sub-apps (`adminFooApp`, `/admin/*` routed in router.ts) must
- * apply `requirePermission(PERMISSIONS.*)` after `requireSession`. Missing
- * the permission middleware degrades the route to "any authenticated user"
- * — privilege escalation if the path mutates global state.
- *
- * Flags procedure files whose exported app name contains `admin` (or is
- * routed under `/admin/`) but doesn't call `requirePermission` anywhere.
- */
+// Admin sub-apps must call requirePermission after requireSession — missing it allows any authenticated user. Flags admin-named apps without requirePermission.
 export const honoAdminNoPermission: MatcherPlugin = {
   slug: "hono-admin-no-permission",
   description: "Admin Hono app without requirePermission middleware",

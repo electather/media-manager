@@ -1,11 +1,6 @@
 const DEFAULT_NAV_STACK_PX = 150;
 
-/**
- * Single source of truth for the scroll-jump landing offset and the
- * active-section trigger line. Derived from the `--detail-section-nav-stack`
- * CSS var so a sticky-nav redesign updates both at once. Falls back to a
- * sensible default when the var is missing (e.g. during SSR snapshots).
- */
+// Reads --detail-section-nav-stack CSS var for offset; falls back during SSR when var is missing.
 export function readNavStackPx(): number {
   if (typeof window === "undefined") return DEFAULT_NAV_STACK_PX;
   const v = getComputedStyle(document.documentElement)

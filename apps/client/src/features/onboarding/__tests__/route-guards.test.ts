@@ -13,14 +13,7 @@ import { Route as RootRoute } from "@/routes/__root";
 import { Route as AuthenticatedRoute } from "@/routes/_authenticated/route";
 import { Route as BootstrapRoute } from "@/routes/bootstrap";
 
-/**
- * A `beforeLoad` either resolves (no redirect) or throws a TanStack Router
- * `redirect`. `isRedirect` narrows the thrown value and the destination lives at
- * `err.options.to` (verified against the installed router). Returning the target
- * (or `null` when nothing was thrown) lets each test assert intent directly:
- * a wrong target or a missing/extra redirect fails the test, so the guard rules
- * are encoded rather than merely smoke-tested.
- */
+// beforeLoad throws redirect on guard; destination at err.options.to. Test encodes guard rules (not just smoke-test).
 async function runGuard(
   beforeLoad: ((args: never) => unknown) | undefined,
   args: unknown,

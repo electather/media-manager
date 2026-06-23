@@ -5,13 +5,7 @@ import type { SettingItem } from "../../types";
 export const THEMES = ["system", "light", "dark"] as const;
 export type ThemeName = (typeof THEMES)[number];
 
-/**
- * Theme picker contribution. `read` / `write` are placeholders here — the menu
- * binds them to the app theme provider at runtime via `useBoundSettings()` so
- * the registry stays free of React hooks. Typed as `SettingItem<string>` so
- * the heterogenous `COMMAND_SETTINGS` array unifies; the bind site narrows
- * back via the `THEMES` constant.
- */
+/** `read`/`write` are placeholder stubs; bound to theme provider at runtime via `useBoundSettings()` to avoid hooks in registry. */
 export const THEME_SETTING: SettingItem<string> = {
   kind: "setting",
   id: "setting:theme",

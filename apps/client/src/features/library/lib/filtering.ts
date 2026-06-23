@@ -2,12 +2,7 @@ import type { WatchedState } from "@nama/shared/library";
 import type { CompactMediaItem } from "@nama/shared/media";
 import type { LibraryFilters } from "./types";
 
-/**
- * The multi-valued facet axes read off a single item. Filtering itself is now
- * server-side (SQL `WHERE` + `json_each`), so these no longer feed a client
- * filter pass — they remain for the facet display + the card chip badges that
- * still read a title's quality tiers, servers, and genres directly.
- */
+// Filtering is now server-side; these remain for facet display + card badges only.
 export function qualitiesOf(item: CompactMediaItem): string[] {
   return item.tags ?? [];
 }

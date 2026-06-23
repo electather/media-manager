@@ -6,12 +6,7 @@ export type SocialProvider = "apple" | "google";
 interface SocialSignInOptions {
   /** URL to redirect to after a successful OAuth round-trip. */
   callbackURL: string | undefined;
-  /**
-   * URL to redirect to when the provider returns an error after the redirect
-   * round-trip. The caller should read the provider-appended `?error=` search
-   * param and surface it to the user, because the in-component mutation state
-   * is gone by the time the browser returns from the IdP.
-   */
+  /** URL for IdP error redirect; caller reads provider-appended `?error=` param since mutation state is lost on return. */
   errorCallbackURL: string | undefined;
 }
 

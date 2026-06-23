@@ -12,14 +12,8 @@ export interface FindMediaItemResult {
 }
 
 /**
- * React hook that resolves a composite `mediaType:mediaId` to a `HomeMediaItem`
- * via `home.getDetails`. Returns `null` while the query is pending or when the
- * id is malformed; when the details provider fails, the summary still renders
- * and `detailsErrorCode` carries the fallback reason for localized copy.
- *
- * Replaces the mock-feed lookup that shipped with the prototype: the home
- * orchestrator owns metadata cold-fill so a freshly-discovered title resolves
- * here even when no row has cached it.
+ * Resolves composite `mediaType:mediaId` via `home.getDetails`.
+ * Home orchestrator owns metadata cold-fill so freshly-discovered titles resolve even if uncached.
  */
 // fallow-ignore-next-line complexity
 export function useMediaItem(compositeId: string): FindMediaItemResult {

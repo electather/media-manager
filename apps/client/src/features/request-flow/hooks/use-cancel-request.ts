@@ -12,12 +12,7 @@ interface CancelContext {
   prev: MediaRequestsResponse | undefined;
 }
 
-/**
- * Cancel mutation. Short-circuits when the row is still optimistic
- * (`__optimistic-*`) — the create POST has not yet settled, so there is no
- * server-side row to cancel; only the local cache is filtered. Real ids hit
- * `DELETE /api/requests/:id`.
- */
+/** Optimistic requests (`__optimistic-*`) filter locally; real ids hit `DELETE /api/requests/:id`. */
 export function useCancelRequest() {
   const qc = useQueryClient();
   return useMutation({

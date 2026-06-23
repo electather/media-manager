@@ -9,19 +9,9 @@ import { findCachedMediaItem } from "../lib/find-cached-item";
 const DETAILS_STALE_MS = 10 * 60 * 1000;
 
 /**
- * Live `home.getDetails` query. Returns the cached catalog summary plus the
- * live `metadata@v1.getDetails` extras; on plugin failure `details` is null
- * and `error.code` carries the HostErrorCode for retry copy.
- *
- * Disabled when no `tmdbId` is supplied — the modal calls this with the
- * peek id, which is null while the modal is closed. Stays on `useQuery`
- * (not the suspense variant) for that reason.
- *
- * `placeholderData` seeds the response from row / hero caches so the
- * modal can render summary fields instantly while the rich fetch is still
- * in flight. The placeholder does NOT satisfy the cache — TanStack Query
- * still runs `fetchHomeDetails` in the background and replaces the
- * placeholder with the full payload (including `details`) on success.
+ * Seeded with row/hero cache for instant summary render. Placeholder does NOT
+ * satisfy cache — background fetch still runs and replaces it on success.
+ * On plugin failure, `details: null` and `error.code` carries HostErrorCode.
  */
 export function useHomeDetails(
   tmdbId: string | null,

@@ -2,12 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { CompactMediaItem } from "@nama/shared/home";
 import type * as messages from "@/paraglide/messages";
 
-/**
- * Static / parameter-less Paraglide message keys. The dynamic `t(key)`
- * helper relies on this narrowed type — keys that take parameters (like
- * `command_menu_empty_title({ query })`) are deliberately excluded so a
- * call like `t("command_menu_empty_title")` won't compile.
- */
+/** Paraglide message keys with no parameters. Excludes keys like `command_menu_empty_title({ query })` so `t("command_menu_empty_title")` fails at compile time. */
 export type StaticMessageKey = {
   [K in keyof typeof messages]: (typeof messages)[K] extends () => string ? K : never;
 }[keyof typeof messages];
@@ -87,11 +82,5 @@ export type ActionContext = {
   close: () => void;
 };
 
-/**
- * Media item shape the command menu fuzzy-matches and renders. The wire
- * `CompactMediaItem` provides all required fields including `tags?: string[]`.
- * Fields like `runtime`, `director`, and `cast` are not returned by any live
- * endpoint and were removed so the match function does not silently no-op on
- * them in production.
- */
+/** Wire shape from endpoint. Fields like `runtime`, `director`, `cast` were removed (never returned live) to prevent silent no-ops in fuzzy match. */
 export type MediaItem = CompactMediaItem;

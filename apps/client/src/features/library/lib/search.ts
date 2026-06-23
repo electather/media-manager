@@ -3,12 +3,7 @@ import { WATCHED_STATES } from "@nama/shared/library";
 import { MEDIA_TYPES } from "@nama/shared/media";
 import type { LibraryFilters } from "./types";
 
-/**
- * A tolerant array search param. A single value (`?kinds=movie`) is coerced to
- * a one-element array, and anything that fails validation (a stray value from a
- * hand-edited or legacy link) degrades to an open axis rather than throwing the
- * whole route into its error boundary.
- */
+/** Tolerant array param: coerces single values to arrays, catches validation errors to degrade gracefully. */
 function arrayParam<T extends z.ZodType>(item: T) {
   return z
     .preprocess(
@@ -18,13 +13,7 @@ function arrayParam<T extends z.ZodType>(item: T) {
     .catch(undefined);
 }
 
-/**
- * The facet filters live in the URL search params of the `/library` layout
- * route so the shared header and the active lens sub-route read one source of
- * truth (and so a filtered view stays shareable / restorable across reloads).
- * Every axis is optional; an empty axis is omitted entirely (see
- * {@link filtersToSearch}) to keep a fully-open library at a bare `/library`.
- */
+/** URL search params schema for `/library`; empty axes omitted to keep fully-open library at bare `/library`. */
 export const librarySearchSchema = z.object({
   kinds: arrayParam(z.enum(MEDIA_TYPES)),
   genres: arrayParam(z.string()),

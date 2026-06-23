@@ -14,14 +14,7 @@ export type { RowKind };
 /** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
 export type MessageKey = keyof typeof messages;
 
-/**
- * Local UI-layer projection of `CompactMediaItem`. Re-exposes the wire fields
- * the cards/hero render and adds display-only scaffolding the API does not
- * provide (e.g. `clearLogoText`). The mock-era `seasons[]` field, the
- * `facets.monochrome` shadcn helper, and the prose `MatchReason` shim were
- * removed in PR6 once the home backend started shipping the typed wire
- * shape end-to-end.
- */
+/** Wire shape plus UI-only fields like `clearLogoText`. Mock-era `seasons[]` and `MatchReason` shim removed in PR6 once home backend shipped typed wire. */
 export type HomeMediaItem = CompactMediaItem & {
   clearLogoText?: string;
   /** Subset of `MediaDetailsExtra` the modal layers in via `useHomeDetails`. */
@@ -40,13 +33,7 @@ export type HomeMediaItem = CompactMediaItem & {
 
 export type { Availability, Facets, SeriesContext };
 
-/**
- * Per-slide UI projection of a `HeroSlide`. Flattens `slide.item` into the
- * card shape the existing top-zone renderer expects and stamps the slide-
- * level metadata (`source`, `reason`, `resumeUrl`) so the carousel can show
- * a per-slide source label and pick a Play CTA. `resumeUrl` is always `null`
- * v1 — Play renders as nav-to-detail.
- */
+/** Flattens slide.item + slide-level metadata for carousel. `resumeUrl` always null v1 — Play navigates to detail instead of resuming. */
 export type HeroSlideUI = HomeMediaItem & {
   source: RowKind;
   reason: HeroReason;

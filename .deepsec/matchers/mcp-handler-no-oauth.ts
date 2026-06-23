@@ -1,16 +1,6 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * Anything wired under the `/mcp` route or that returns a `Response` for
- * MCP traffic MUST flow through `withOAuthAuth(req, handler)` — the entry
- * point that verifies the Bearer JWT (audience, issuer, JWKS) and resolves
- * `userId` + `scopes`. A handler that produces an MCP `Response` without
- * that wrapper is reachable unauthenticated.
- *
- * Flags MCP server files that export an `app.all("/mcp"`, `createMcpHandler`
- * or `mcpFetch`-shaped function without referencing `withOAuthAuth` in the
- * same file.
- */
+/** SECURITY: All MCP responses MUST use `withOAuthAuth()` to verify JWT and resolve userId+scopes. Detects MCP handlers/routes missing this wrapper. */
 export const mcpHandlerNoOAuth: MatcherPlugin = {
   slug: "mcp-handler-no-oauth",
   description: "MCP handler/route without withOAuthAuth wrapper",

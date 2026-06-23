@@ -2,16 +2,7 @@ import { useSuspenseQuery, type UseSuspenseQueryResult } from "@tanstack/react-q
 import type { HomeLayoutResponse } from "@nama/shared/home";
 import { homeLayoutQueryOptions } from "../lib/queries";
 
-/**
- * Live `home.getLayout` query. Rows ship as stubs and each row's
- * `useMediaRowsLazy` source fills in the items on demand.
- *
- * Suspense read — the route loader prefetches via `homeLayoutQueryOptions`
- * (`ensureQueryData`), so the hook is cache-warm at component mount in the
- * happy path. The page still wraps the consumer in `<Suspense>` as a
- * defensive boundary for cache misses (revalidation, GC). Use
- * `useHomeFeedPool` for non-blocking reads in the app shell.
- */
+/** Suspense read; route loader prefetches so hook is cache-warm at mount. Use `useHomeFeedPool` for app shell non-blocking reads. */
 export function useHomeFeed(): UseSuspenseQueryResult<HomeLayoutResponse, Error> {
   return useSuspenseQuery(homeLayoutQueryOptions());
 }

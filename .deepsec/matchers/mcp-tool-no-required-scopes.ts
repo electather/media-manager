@@ -1,17 +1,6 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * Every MCP tool registration carries a `requiredScopes: string[]` that
- * `dispatch.ts` enforces against the OAuth bearer token's `scope` claim. A
- * tool registered with `requiredScopes: []` is reachable by ANY authenticated
- * MCP caller regardless of which scopes were granted — effectively unscoped.
- *
- * This is occasionally legitimate (e.g. a discovery tool intentionally open
- * to any session), but every empty/missing list deserves an explicit review.
- *
- * Flags `requiredScopes: []` or registrations missing the field on tool
- * registration callsites.
- */
+// Flags empty/missing requiredScopes: occasionally legitimate (e.g. discovery tools) but each deserves explicit review.
 export const mcpToolNoRequiredScopes: MatcherPlugin = {
   slug: "mcp-tool-no-required-scopes",
   description: "MCP tool registered with empty or missing requiredScopes",

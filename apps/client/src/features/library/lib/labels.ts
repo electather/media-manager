@@ -11,14 +11,6 @@ export const facetSectionLabel = (
   facet: "kind" | "genre" | "quality" | "server" | "watched",
 ): string => m.library_filter_section({ facet });
 
-/**
- * Resolve a stable timeline section key to its display label. `section-groups`
- * emits an i18n-free key — `"unknown"` for yearless titles or the decade's lead
- * year (e.g. `"2020"`) — so this is the single render-boundary seam that turns
- * the key into localized text: the `library_timeline_unknown` message for the
- * yearless bucket, and `${decade}s` (e.g. "2020s") for a decade. Keeping the key
- * locale-free lets grouping, scroll-spy, and anchors compare keys without a
- * locale dependency while the visible header still localizes.
- */
+/** Converts i18n-free timeline key ("unknown" or decade year) to localized label; key stays locale-free for grouping/anchors. */
 export const timelineSectionLabel = (key: string): string =>
   key === "unknown" ? m.library_timeline_unknown() : `${key}s`;

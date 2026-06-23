@@ -15,12 +15,7 @@ function isTheme(value: string | undefined): value is ThemeName {
   return isString(value) && THEMES.includes(value as ThemeName);
 }
 
-/**
- * Returns the static settings catalog with `read` / `write` bound to runtime
- * helpers (the app theme provider, Paraglide). Keeping the binding here lets the
- * registry stay free of React hooks while the menu still picks up the live
- * value when re-rendering.
- */
+// Binds read/write to theme provider + Paraglide; registry stays hook-free while menu picks up live values.
 export function useBoundSettings(): readonly SettingItem<string>[] {
   const { theme, resolvedTheme, setTheme } = useTheme();
   // `getLocale()` is a non-reactive read. The hook re-runs whenever the

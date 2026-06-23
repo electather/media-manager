@@ -1,19 +1,8 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
 /**
- * The `isSystemAdmin` flag — which short-circuits every permission check in
- * `AuthService.roleHasPermission` — must only be set when BOTH `isSystem === 1`
- * AND `name === "Admin"`. Flagging the flag from only one of those two
- * conditions is immediate privilege escalation.
- *
- * Catches:
- *   - `isSystemAdmin: row.isSystem === 1` (missing name check)
- *   - `isSystemAdmin: row.name === "Admin"` (missing isSystem check)
- *   - `isSystemAdmin: true` not gated by an isSystem/name compound check
- *
- * The canonical correct shape is
- *   `row.isSystem === 1 && row.name === SYSTEM_ADMIN_ROLE_NAME`
- * — anything narrower must be revalidated.
+ * isSystemAdmin (permission short-circuit) requires BOTH isSystem === 1 AND name === "Admin"
+ * to prevent privilege escalation. Catches single-condition assignments.
  */
 export const isSystemAdminSingleCondition: MatcherPlugin = {
   slug: "is-system-admin-single-condition",

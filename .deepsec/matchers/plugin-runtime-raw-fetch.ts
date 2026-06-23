@@ -1,18 +1,6 @@
 import type { CandidateMatch, MatcherPlugin } from "deepsec/config";
 
-/**
- * Plugin-runtime code must reach the network only through `buildFetch(...)`,
- * which enforces:
- *  - the per-plugin allowlist (static manifest + dynamic `x-allowed-host`)
- *  - admin allowlist narrowing
- *  - admin header injection
- *  - `redirect: "manual"` (prevents redirect-based SSRF to instance-metadata)
- *  - per-plugin token-bucket rate limiting
- *
- * Any direct call to the global `fetch(...)` inside `plugin-runtime/`
- * (other than the canonical wrapper in `internal/fetch-policy.ts`) is a
- * critical SSRF/redirect-bypass candidate.
- */
+/** Any bare `fetch()` inside `plugin-runtime/` bypasses security controls (allowlist, headers, rate-limit, redirect-mode). Critical SSRF/redirect-bypass candidate. */
 export const pluginRuntimeRawFetch: MatcherPlugin = {
   slug: "plugin-runtime-raw-fetch",
   description: "Direct global fetch() inside plugin-runtime bypassing buildFetch",

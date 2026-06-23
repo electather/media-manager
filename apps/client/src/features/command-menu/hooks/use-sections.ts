@@ -36,12 +36,7 @@ export type Sections = {
   mediaSection: MediaSection;
 };
 
-/**
- * Derives which command-menu groups render based on the current top frame
- * and search query. On scope frames, search results take over once the
- * server returns at least one match — until then trending stands in as a
- * placeholder, including while the search fetch is in flight.
- */
+/** Trending stands in until search results arrive, even during fetch. On empty results, shows no items instead of falling back to trending. */
 export function useSections({
   topFrame,
   value,

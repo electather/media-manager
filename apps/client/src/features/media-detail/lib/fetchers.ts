@@ -3,10 +3,7 @@ import { api } from "@/shared/lib/api";
 import { throwOnError } from "@/shared/media/error";
 
 /**
- * Fetches season availability for a TV title. Routes through the unified media
- * title resource (§A8 cutover); the old `/home/season-availability` endpoint
- * was deleted. Season availability is a TV-only concern, so `:type` is always
- * `tv` (the composer ignores it).
+ * TV-only: :type always "tv" (composer ignores it).
  */
 export async function fetchSeasonAvailability(
   tmdbId: string,
