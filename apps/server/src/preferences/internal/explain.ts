@@ -72,12 +72,7 @@ export function explainAgainstProfile(
   return renderMatchReason(contributors);
 }
 
-/**
- * Pure-function preview: no profile mutation, no feedback_log read. Returns
- * the flavor string the MCP handler bakes into its response. Intentionally
- * allowed to disagree slightly with the eventual job's write — the job is the
- * source of truth.
- */
+// Pure-function preview: no profile mutation, no feedback_log read. Returns flavor string MCP handler bakes into response. Allowed to disagree slightly with eventual job write — job is source of truth.
 // fallow-ignore-next-line complexity
 export function renderProfileUpdate(
   candidate: CandidateFeatures,

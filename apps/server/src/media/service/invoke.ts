@@ -19,11 +19,8 @@ export interface InvokeRequest {
   input: unknown;
   timeoutMs: number;
   /**
-   * Wall-clock deadline in ms-epoch. When set, the rate-limit / transient
-   * retry path skips its backoff sleep if the remaining budget is shorter
-   * than the planned backoff plus a small call buffer. Caller (layout
-   * orchestrator) sets this so a slow first call cannot cascade into a
-   * timeout that drops the whole row from the response.
+   * Wall-clock deadline in ms-epoch. When set, retries skip backoff if remaining budget
+   * < backoff + RETRY_CALL_BUFFER_MS to prevent slow calls from cascading timeouts.
    */
   deadlineMs?: number;
 }
@@ -119,10 +116,9 @@ function buildInvokeArgs<T>(
 }
 
 /**
- * Wraps `pluginRuntime.invoke` with a timeout. Timeouts surface as `timeout`,
- * treated like `transient_network` for retry purposes. When `req.deadlineMs`
- * is set, the effective timer is clipped to the remaining budget so a single
- * slow plugin call cannot consume the whole compose deadline.
+ * Wraps `pluginRuntime.invoke` with a timeout. When `req.deadlineMs` is set,
+ * the effective timer is clipped to the remaining budget (prevents single slow call
+ * from consuming the whole compose deadline). Timeouts surface as `timeout` for retries.
  */
 export async function invokeWithTimeout<T>(
   req: InvokeRequest,
@@ -198,13 +194,9 @@ async function handleRefresh<T>(
     return { refreshed: { ...activeConn, credentials: refreshed } };
   } catch (refreshErr) {
     const normalized = normalizeError(refreshErr);
-    // Only a failure that reflects the refresh token's validity is terminal.
-    // A transient refresh failure (Trakt rate-limiting `/oauth/token`, an
-    // upstream 5xx, a timeout) says nothing about the token: marking the
-    // connection expired and emitting an auth-expired notification there would
-    // push the user to reconnect for no reason and re-fire on every retry.
-    // Surface the real transient code and leave the connection intact so a
-    // later call refreshes successfully once the condition clears.
+    // Transient refresh failures (rate-limiting, 5xx, timeout) don't reflect token
+    // validity; marking the connection expired would force unnecessary reconnect.
+    // Surface the transient code and leave the connection intact for later retry.
     if (TRANSIENT_PLUGIN_CODES.has(normalized.code)) {
       return errorOutcome(req, conn, normalized);
     }
@@ -246,11 +238,8 @@ async function handleTerminalError<T>(
 }
 
 /**
- * Invokes a single plugin with retry/refresh logic:
- *   • `token_expired` → refresh credentials, retry once.
- *   • `rate_limited`  → 2s backoff, retry once.
- *   • `transient_network` / `timeout` → 1s backoff, retry once.
- * Other codes propagate immediately as an outcome error.
+ * Single plugin invocation with retries: token_expired (refresh, 1×), rate_limited (2s backoff, 1×),
+ * transient/timeout (1s backoff, 1×). Other codes fail immediately.
  */
 // fallow-ignore-next-line complexity
 export async function invokeOne<T>(

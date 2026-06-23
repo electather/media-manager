@@ -57,15 +57,11 @@ async function readConnectionCredentials(connectionId: string): Promise<unknown>
   return decryptJson(row.credentialsIv, row.encryptedCredentials);
 }
 
-// Coalesces concurrent token refreshes per connection. OAuth providers that
-// rotate refresh tokens (Trakt) invalidate the previous refresh token the
-// instant a new one is issued, so two refreshes started from the same stored
-// token leave the second presenting an already-consumed token — the upstream
-// rejects it with a 4xx that maps to `plugin.token_expired`, flipping a healthy
-// connection to "expired". A home-feed load fans capability calls out in
-// parallel, so an expired access token triggers a burst of simultaneous
-// refreshes on one connection; sharing a single in-flight refresh collapses the
-// burst to one upstream call whose result every caller observes.
+// Coalesces concurrent refreshes per connection. Rotating-token providers
+// (Trakt) invalidate the old token on new issue, so two concurrent refreshes
+// from the same token leave the second sending a consumed token (→ plugin.token_expired).
+// Home-feed fans parallel capability calls, triggering refresh bursts; sharing
+// one in-flight refresh collapses the burst to one upstream call.
 const inFlightRefreshes = new Map<string, Promise<unknown>>();
 
 interface RefreshArgs {
@@ -76,12 +72,10 @@ interface RefreshArgs {
 }
 
 /**
- * Refreshes a connection's credentials, coalescing concurrent callers and
- * adopting a token another refresher already rotated in (the scheduled job, or
- * an earlier burst) rather than replaying a consumed refresh token. Persists the
- * rotated credentials on success. Surfaces the underlying refresh error as
- * terminal only when the stored token is unchanged — i.e. the failure genuinely
- * reflects this connection's grant, not a lost rotation race.
+ * Refreshes credentials, coalescing concurrent callers. Adopts another
+ * refresher's rotated token (scheduled job / burst) rather than replaying
+ * consumed token. Surfaces error as terminal only if stored token unchanged
+ * (failure reflects grant, not lost rotation race).
  */
 export async function refreshConnectionCredentials(args: RefreshArgs): Promise<unknown> {
   const existing = inFlightRefreshes.get(args.connectionId);

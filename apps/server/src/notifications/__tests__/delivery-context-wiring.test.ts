@@ -3,14 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-// Static-analysis regression guards. The original PR 7 implementation built
-// the per-delivery PluginContext directly with `buildContext({ allowedHosts:
-// [] })`, which made `buildFetch` reject every outbound request as
-// "host not in allowlist" — a silent failure that the existing unit tests
-// missed because they stub `ctx.fetch`. The fix is to route through
-// `pluginRuntime.buildJobContext`, which threads `manifest.allowedHosts`,
-// dynamic `x-allowed-host` entries, and the admin allowlist/headers in a
-// single place.
+// Regression: PR 7 used buildContext({allowedHosts: []}) → silent rejection. Fix: route via pluginRuntime.buildJobContext (threads manifest + dynamic + admin allowlists).
 const here = dirname(fileURLToPath(import.meta.url));
 // The plugin-context wiring lives in the delivery handler helper now (split
 // out so jobs/delivery.ts stays under the 200 LOC cap); this guard pins the

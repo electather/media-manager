@@ -54,12 +54,9 @@ beforeEach(() => {
   vi.mocked(media.listAllActiveRows).mockReset().mockResolvedValue([]);
 });
 
-// The source declares which pipeline stages run; the *cursor mode* and *sort*
-// it picks per request are the heart of design §S.1 — `recent`+unfiltered is the
-// only keyset read, every filter/non-recent sort rides offset (so the predicate
-// runs over the full set, preserving #501), and `alpha`/`runtime`/`status` are
-// pre-sorted by the source under `sort:"none"` because `RowSort` can't express
-// them. If this routing regresses, pagination silently breaks.
+// design §S.1: `recent`+unfiltered is keyset, filters/non-recent sorts ride offset (preserving #501),
+// `alpha`/`runtime`/`status` pre-sorted by source as `sort:"none"` since RowSort can't express them.
+// Silent pagination break on regression.
 describe("itemsSource.stages routing (design §S.1)", () => {
   it("recent + no filter → keyset/recentDesc/no-filter", () => {
     expect(itemsSource(params()).stages).toEqual({
@@ -161,14 +158,9 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect("nextRaw" in res).toBe(false);
   });
 
-  // Titles that collide under case-insensitive collation (e.g. "elite" and
-  // "ELITE") must still sort in a deterministic, reproducible order. Under
-  // sensitivity:"accent" case differences are ignored, so these titles return 0
-  // from the primary compare. Without a secondary full-collation pass the tie is
-  // decided by JS sort stability alone, which depends on input order and can
-  // differ across environments. This test asserts the specific order produced by
-  // the full-collation tie-break so that any regression removing the secondary
-  // compare is immediately caught.
+  // Under sensitivity:"accent" "elite" and "ELITE" return 0 from primary compare;
+  // secondary full-collation pass breaks ties deterministically (without it, JS stability differs across environments).
+  // Test catches regression removing the secondary compare.
   it("alpha sort breaks ties between case-colliding titles deterministically", async () => {
     const rows = [row("2", 3), row("1", 2)];
     vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
@@ -191,13 +183,8 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect(res.rows.map((r) => r.tmdbId)).toEqual(["1", "2"]);
   });
 
-  // The status-sort path depends on a `mediaService.getStatusBatch` fan-out.
-  // When that call rejects we MUST surface `partial:true` so the envelope can
-  // signal a degraded sort to the client; today every row falls back to the
-  // `unknown` status rank, collapsing the column to identical rank — that
-  // arbitrary visual order is acceptable ONLY because `partial:true` rides
-  // along. A regression that silently dropped `partial` here would render an
-  // identical-looking page with no client-visible degradation banner.
+  // On `getStatusBatch` rejection: MUST surface `partial:true` so client can show degradation banner.
+  // Regression silently dropping `partial` would render identical-looking page with no warning.
   it("status sort surfaces partial:true when getStatusBatch rejects", async () => {
     const rows = [row("a", 3), row("b", 2)];
     vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);

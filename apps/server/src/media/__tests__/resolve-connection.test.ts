@@ -1,12 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 
-/**
- * Gates admin shared-credential fallback on request scope. Shared credentials are app/OAuth
- * identities (e.g. Trakt `clientId`), never per-user tokens — satisfy `global` but never
- * `user` scope. Using for user-scoped requests causes guaranteed auth failure, downgrading
- * home rows to `all_failed` instead of clean drop (regression: #503 on users with no Trakt
- * connection once admin creds existed). Tests lock that contract.
- */
+// Shared credentials (app/OAuth identities) only for `global` scope, never `user`.
+// Using for user-scoped requests = guaranteed auth failure → all_failed instead of clean drop (#503).
 
 const queryEnabledConnectionsForPluginMock = vi.fn();
 const decryptFieldMock = vi.fn();

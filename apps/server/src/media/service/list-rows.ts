@@ -9,35 +9,20 @@ import type { MediaSource } from "../source";
 import type { Page, PipelineConfig, PipelineSort, RawPageToken, SourceContext } from "../types";
 
 /**
- * Turns a source's raw row set into enriched, public `CompactMediaItem`s. The
- * default (watchlist) strategy is `batchLoad` + the shared `enrich`; consumers
- * whose rows are not persisted `ActiveRow`s and whose enrichment differs (home,
- * which projects catalog feeds and adds a row-aware match-reason chip) inject
- * their own. This is the one pipeline stage that legitimately varies by
- * consumer; sort/filter/paginate stay shared (invariant V.MC1).
+ * Turns raw rows into enriched `CompactMediaItem`s. Default (watchlist): `batchLoad` +
+ * `enrich`. Home injects custom enrichment (catalog projections, match-reason chip).
+ * This is the only stage that varies by consumer; sort/filter/paginate stay shared (V.MC1).
  */
 export type EnrichRowsFn<Row> = (
   rows: Row[],
 ) => Promise<{ items: CompactMediaItem[]; partial: boolean }>;
 
 /**
- * The single media read path (design §C). A consumer hands a `MediaSource`
- * (which only knows how to produce a raw row set) plus an already-decoded
- * `PipelineConfig`, and `listRows` runs the shared stages:
- *
- *   fetchRawSet → enrich → [classify + filter] → sort → paginate
- *
- * The source carries no enrich/sort/slice/cursor logic — all of that lives here
- * (invariant V.MC1). Stages opt in via `source.stages` (with `cfg` overrides).
- * Soft failures (a plugin feed degrading, a sub-load falling back) surface as
- * `partial: true` rather than throwing, so the consumer envelope decides
- * whether to ship the degraded page.
- *
- * `enrichRows` overrides the default `batchLoad` + `enrich` projection. When
- * omitted, `Row` is the persisted `ActiveRow` (watchlist) and the default
- * fan-out runs; home supplies it (its feed rows are not `ActiveRow`s and its
- * enrichment owns the match-reason chip), in which case the default fan-out is
- * skipped entirely.
+ * Single media read path (design §C): fetchRawSet → enrich → [classify + filter] → sort → paginate.
+ * Source produces raw rows only; all enrichment/sort/slice/cursor logic lives here (V.MC1).
+ * Stages opt in via `source.stages` (overridable by `cfg`). Soft failures surface as
+ * `partial: true` so consumer decides whether to ship degraded page. Custom `enrichRows`
+ * overrides the default `batchLoad` + `enrich` (used by home for catalog projections).
  */
 // Default path: a persisted-row source (`Row` = `ActiveRow`). No `enrichRows` —
 // the pipeline runs its own `batchLoad` + `enrich` fan-out over the rows.
@@ -109,12 +94,9 @@ async function defaultEnrich(
 }
 
 /**
- * The classify + filter stage. Bucket classification is media-owned, so the
- * bucket predicate runs here over the FULL enriched set — paginate then slices
- * the whole filtered tail in one pass, preserving the #501 single-pass
- * sparse-bucket fix. Mood is a watchlist-product concept media must not import,
- * so a mood source filters inside its own `fetchRawSet`; the pipeline does not
- * re-derive it here (a `filter: "preapplied"` source falls straight through).
+ * Classify + filter stage. Bucket classification runs here over the FULL enriched set,
+ * then paginate slices in one pass (#501 sparse-bucket fix). Mood is pre-filtered by the
+ * source's `fetchRawSet`; pipeline does not re-derive (V.MC1: `filter: "preapplied"` passes through).
  */
 function applyBucketFilter<P, Row>(
   items: CompactMediaItem[],
@@ -142,12 +124,9 @@ function bucketTarget<P, Row>(
 }
 
 /**
- * Order the enriched set by `addedAt`. `"none"` is the identity sort — the
- * source already returned rows in final order (a metadata-presorted offset
- * source or a pre-ranked feed), so the pipeline must leave them untouched.
- * Otherwise items without an `addedAt` (discovery feeds) compare equal, so the
- * stable sort preserves the order the source returned them in — a feed's
- * relevance ranking survives a `recentDesc` default unchanged.
+ * Order by `addedAt`. `"none"` is identity: source already returned final order
+ * (metadata-presorted or pre-ranked), so leave untouched. Otherwise missing `addedAt`
+ * items compare equal; stable sort preserves source order, so feed ranking survives default.
  */
 function sortItems(items: CompactMediaItem[], sort: PipelineSort): CompactMediaItem[] {
   if (sort === "none") return items;

@@ -15,10 +15,9 @@ export interface QualityParams {
 }
 
 /**
- * Quality library lens (design §The 5 lenses): pages owned set EXPANDED across
- * `json_each(quality_tiers)`, so a title in two tiers appears once per tier.
- * {@link ExpandedLibraryRow} carries tier section and SQL rank ordinal;
- * keyset codec reuses rank verbatim so hop token never disagrees with `ORDER BY`.
+ * Quality lens (design §The 5 lenses): EXPANDED pages across `json_each(quality_tiers)`
+ * so titles in multiple tiers appear once per tier. {@link ExpandedLibraryRow}
+ * carries tier section + rank; keyset codec reuses rank so cursor never mismatches.
  */
 export const qualitySource: MediaSource<QualityParams, ExpandedLibraryRow> = {
   sourceId: "library-quality",

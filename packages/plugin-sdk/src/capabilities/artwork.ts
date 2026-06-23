@@ -9,14 +9,8 @@ import { defineCapability, method } from "../define";
 import { mediaTypeSchema } from "@nama/shared";
 
 /**
- * artwork@v1 — HD posters, backdrops, clear logos, and thumbs per item.
- * Aggregate dispatch: every eligible provider runs in parallel and the host
- * merges per-kind in `providerPriority` order. Plugins implementing this
- * capability declare which id types they can serve via `supportedIdTypes`
- * and their merge priority via `providerPriority` in the manifest's
- * capabilities entry.
- *
- * See `docs/2026-04-26-plugin-fanart-design.md` for the full design.
+ * artwork@v1 — posters, backdrops, logos, thumbs per item. Parallel aggregate dispatch
+ * merged per-kind by `providerPriority` (design 2026-04-26-plugin-fanart-design.md).
  */
 export const ArtworkV1 = defineCapability({
   id: "artwork",
@@ -39,10 +33,8 @@ export const ArtworkV1 = defineCapability({
 });
 
 /**
- * Manifest-level shape every artwork@v1 provider declares. The Zod schema
- * is the runtime source of truth — install-time validation and dispatcher
- * eligibility checks both go through it. The TypeScript interface is
- * derived so plugin authors keep static-type guidance.
+ * Manifest-level shape for artwork@v1 providers. Zod schema is runtime source
+ * of truth for validation and eligibility checks; TypeScript interface derived for static guidance.
  */
 export const artworkV1ManifestExtrasSchema = z.object({
   version: z.literal("v1"),

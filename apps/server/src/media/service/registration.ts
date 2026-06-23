@@ -6,18 +6,10 @@ import type { PipelineConfig, SourceContext } from "../types";
 import type { EnrichRowsFn } from "./list-rows";
 
 /**
- * The pipeline pieces a registration's `build` hands the resolver: the source
- * (raw-row producer), the already-decoded `PipelineConfig`, and the optional
- * enrich override (home injects one for its non-`ActiveRow` feed rows; watchlist
- * omits it and the default `ActiveRow` fan-out runs). The resolver feeds these
- * straight into `media.listRows` (design §A3).
- *
- * `SP` is the SOURCE param type, which is not always the wire param the
- * resolver parsed: `build` maps the wire shape onto the source's internal one
- * (e.g. `watchlist-items` parses `WatchlistItemsParams` but builds an
- * `ItemsParams` source; `watchlist-tonight` parses `{}` but builds a `void`
- * source). `source` + `cfg` therefore share `SP`, decoupled from the
- * registration's wire `P`.
+ * Pipeline pieces for `media.listRows` (design §A3): source (raw-row producer),
+ * decoded `PipelineConfig`, optional enrich override. `SP` is the SOURCE param
+ * type (not always the wire param); `build` maps wire shape to source's internal
+ * one (e.g. `watchlist-items` parses `WatchlistItemsParams` but builds `ItemsParams`).
  */
 export interface BuiltMediaSource<SP, Row> {
   source: MediaSource<SP, Row>;
@@ -26,18 +18,9 @@ export interface BuiltMediaSource<SP, Row> {
 }
 
 /**
- * The adapter-visible contract a consumer module surfaces so the `/api/media`
- * resolver can dispatch one generic read endpoint across every source (design
- * §A4). Each consumer (`home`, `watchlist`) exposes a map of these through its
- * barrel; the adapter composes them into one registry WITHOUT `media` ever
- * importing a concrete source (invariant V.RG1) and WITHOUT any composition
- * logic moving between modules (invariant V.A1 — the wiring stays in the owning
- * module, this only re-packages it).
- *
- * The interface deliberately mirrors the per-source variation the hand-written
- * endpoints encode today, so the resolver stays dumb dispatch (RISK-201): rate
- * limit, param schema, cursor mode + null mapping, eligibility, and the
- * source/cfg build all ride as explicit fields.
+ * Adapter contract for `/api/media` dispatcher (design §A4). Mirrors per-source
+ * variations so resolver stays dumb dispatch (RISK-201). Maintains V.RG1 (media
+ * never imports concrete source) and V.A1 (wiring stays in owning module).
  */
 export interface MediaSourceRegistration<P = unknown, SP = P, Row = ActiveRow> {
   /** Stable wire slug from the shared tuple (design §A5). */
@@ -51,11 +34,9 @@ export interface MediaSourceRegistration<P = unknown, SP = P, Row = ActiveRow> {
   /** Schema the resolver parses `c.req.query` against (invalid → 400). */
   paramSchema: ZodType<P>;
   /**
-   * The source's declared/representative pagination mode. Home rows are static
-   * (this equals `build(...).source.stages.cursorMode`). `watchlist-items` is
-   * the one dynamic source — its mode depends on `sort`/`bucket`/`mood`, so for
-   * it this field is the default (`keyset`) and the built source's
-   * `stages.cursorMode` is authoritative (see `watchlistMediaSources`).
+   * Declared pagination mode. Home rows: static, equals `build(...).source.stages.cursorMode`.
+   * `watchlist-items`: dynamic (depends on `sort`/`bucket`/`mood`); this field is default
+   * (`keyset`), built source's `stages.cursorMode` is authoritative.
    */
   cursorMode: CursorMode;
   /**
@@ -73,21 +54,15 @@ export interface MediaSourceRegistration<P = unknown, SP = P, Row = ActiveRow> {
    */
   eligibility?(ctx: SourceContext): Promise<boolean>;
   /**
-   * Assemble the source + decoded-cursor config (+ optional enrich override)
-   * for one read, mapping the wire `params` onto the source's internal shape.
-   * Pure construction — it must not run `fetchRawSet`; the resolver runs
-   * `listRows` over the result.
+   * Assemble source + config for one read, mapping wire `params` to source's internal shape.
+   * Pure construction: must not call `fetchRawSet` (resolver runs `listRows` over result).
    */
   build(ctx: SourceContext, params: P, cursor: Cursor | null): BuiltMediaSource<SP, Row>;
 }
 
 /**
- * Erased element type for the heterogeneous registry. `P`/`Row` are invariant on
- * `MediaSourceRegistration` (`paramSchema`/`cfg` use them covariantly while
- * `build`/`source` use them contravariantly), so `any` is the only sound
- * erasure that lets one map hold registrations of differing param shapes —
- * mirroring how `Record<string, RowProvider>` erases each row's generics behind
- * `load`. Define each registration with its concrete `P` (type-checked at the
- * definition site), then collect into a map of this alias.
+ * Erased element type: `P`/`Row` invariant on `MediaSourceRegistration` (covariant in
+ * `paramSchema`/`cfg`, contravariant in `build`/`source`), so `any` is the only sound
+ * erasure for a map of differing param shapes. Type-check at definition site, erase on collection.
  */
 export type AnyMediaSourceRegistration = MediaSourceRegistration<any, any, any>;

@@ -20,20 +20,9 @@ export interface ClassifiedRow {
   bucket: MediaRowBucket;
 }
 
-/**
- * The single bucket-classify pass (design §G): `batchLoad → classify`, skipping
- * the enrich/sort/paginate stages of the read pipeline. Walks each row once with
- * the shared status + metadata + progress fan-out plus the cached matching-server
- * probes — no artwork dispatch, no cold-fill — and pairs it with its bucket. The
- * read pipeline's classify stage consumes the pairing; the tonight source filters
- * the classified rows to the watchable buckets. This is the one definition of the
- * classify loop the watchlist `tonight/section` copy used to hand-roll.
- *
- * Probe failures fall back per-row (`Promise.allSettled` → "no servers") and the
- * status/metadata batches degrade to empty rather than throwing — a soft-failed
- * signal mis-buckets a single row, it never fails the whole pass. `partial` is
- * surfaced (from `batchLoad`); a caller that does not track it can discard it.
- */
+// Single bucket-classify pass (design §G): batchLoad + classify, skipping enrich/
+// sort/paginate. Per-row probes fallback via allSettled; status/metadata batches
+// degrade to empty (soft-failed row mis-buckets, never fails whole pass).
 export async function classifyRows(
   rows: ReadonlyArray<ActiveRow>,
   ctx: ClassifyRowsContext,

@@ -13,14 +13,9 @@ export interface RecentlyParams {
 }
 
 /**
- * The watchlist `recently` `MediaSource` (design §S.4 / consolidation §H).
- * Recently-added is a bounded, no-cursor preview of the last `limit` rows by
- * `addedAt` DESC: the source fetches exactly `limit` keyset rows (the first
- * window, no resume position) and supplies them raw; the media pipeline
- * (`listRows`) enriches + sorts (`recentDesc`, a stable no-op over the already
- * `addedAt`-DESC window). It supplies ONLY the raw rows + a `stages` declaration
- * (V.MC1). The section envelope discards the page cursor (the preview is not
- * paginated), so the source never threads a `nextRaw` hop token.
+ * design §S.4 / consolidation §H: bounded no-cursor preview of last `limit` rows by `addedAt` DESC.
+ * Fetches keyset rows (first window), supplies raw + stages (V.MC1); pipeline sorts as no-op.
+ * Section envelope discards cursor (not paginated), no `nextRaw` hop token.
  */
 export const recentlySource: MediaSource<RecentlyParams> = {
   sourceId: "watchlist.recently",
@@ -34,11 +29,8 @@ export function recentlyCfg(params: RecentlyParams): PipelineConfig<RecentlyPara
 }
 
 /**
- * Fetch the first keyset window (`limit` rows, `addedAt` DESC / `id` DESC). This
- * is a bounded preview, so it never threads a `nextRaw` hop token — the pipeline
- * mints `cursor:null` and the section envelope discards it. Matches the
- * pre-refactor `getRecentlyAdded` (`listActiveRowsKeyset(userId, {limit})`)
- * exactly.
+ * Fetch first keyset window (`limit` rows, `addedAt`/`id` DESC). Bounded preview: no `nextRaw` token.
+ * Equivalent to pre-refactor `getRecentlyAdded(userId, {limit})`.
  */
 async function fetchRecentlyRawSet(
   ctx: SourceContext,

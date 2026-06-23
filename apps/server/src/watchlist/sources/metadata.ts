@@ -3,11 +3,8 @@ import type { ActiveRow } from "@nama/shared/media";
 import type { SourceContext } from "../../media";
 
 /**
- * Batch-load canonical metadata for `rows`, warning + degrading to an empty map
- * (and flagging `partial`) on failure rather than throwing. Shared by the
- * watchlist sources that read catalog metadata source-side — the mood predicate
- * (`mood-items`) and the alpha/runtime sort (`items`) — so both load it the same
- * way. `logTag` distinguishes the warning's source in the logs.
+ * Batch-load metadata for rows. On failure: warn, degrade to empty map, flag `partial`.
+ * Shared by mood-items and items sources. `logTag` distinguishes log source.
  */
 export async function loadRowMetadata(
   ctx: Pick<SourceContext, "catalog" | "logger">,

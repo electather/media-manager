@@ -13,12 +13,7 @@ export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 /** Shared cutoff for treating a continue-watching entry as still active. */
 export const FINISHING_THRESHOLD = 0.85;
 
-/**
- * Canonical "finishing soon" test over a projected `{ watched, total }`
- * progress. A title is finishing once watched ≥ 85% of its total. Returns
- * `false` for a non-positive `total` so callers do not divide by zero. This is
- * the one definition the home match-reason and the watchlist projection share.
- */
+/** Canonical "finishing soon" test: watched ≥ FINISHING_THRESHOLD. Returns false for non-positive total (prevents division by zero). Shared across home and watchlist. */
 export function isFinishing(progress: ProgressEntry): boolean {
   if (progress.total <= 0) return false;
   return progress.watched / progress.total >= FINISHING_THRESHOLD;
@@ -29,16 +24,7 @@ const cache = new WeakMap<MediaProgressService, Promise<{ map: ProgressMap; part
 
 type ProgressCtx = MediaProgressContext;
 
-/**
- * Per-request memoized fetch of the continue-watching aggregate, projected
- * down to a `compositeId → { watched, total }` map. `enrich` and `classifyRows`
- * both reach this — the WeakMap key is the request-scoped `MediaService`
- * instance so the plugin fan-out happens at most once per request.
- *
- * On every plugin failing, returns `{ map: empty, partial: true }`; the
- * watchlist list paths surface `partial` to the client without
- * blocking the response on a missing CW signal.
- */
+/** Per-request memoized CW aggregate keyed by MediaService instance (fan-out once/request). On plugin error returns {map: empty, partial: true} so client gets a response without blocking. */
 export async function loadProgressMap(
   ctx: ProgressCtx,
 ): Promise<{ map: ProgressMap; partial: boolean }> {
@@ -120,13 +106,7 @@ export function projectProgressMapEntry(
   };
 }
 
-/**
- * Canonical tmdb-id probe shared across home/watchlist/media. Plugins surface
- * the cross-service ids differently — under `ids.tmdb`, `ids.tmdb_id`, or a
- * top-level `tmdbId` — so this single best-effort order keeps every adapter
- * consistent. Accepts `unknown` so the divergent consumer payloads collapse
- * onto this one definition.
- */
+/** Canonical tmdb-id probe: tries ids.tmdb → ids.tmdb_id → tmdbId in order. Plugins surface IDs differently, so one definition keeps adapters consistent. */
 // fallow-ignore-next-line complexity
 export function extractTmdbId(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;

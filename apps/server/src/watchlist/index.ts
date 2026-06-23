@@ -1,10 +1,7 @@
 /**
- * Public barrel for `watchlist/`. Boundaries test rule: re-exports come only
- * from `./service`, `./errors`, and `./jobs`. Internal `repo.ts`, `enrich.ts`,
- * and individual files under `./jobs/` are intentionally not re-exported. The
- * `watchlist_items` write events moved to media (design §M.2); the subscribers
- * (`./jobs/on-watchlist-item-added`, `./jobs/on-watchlist-item-removed`) import
- * them from the media barrel.
+ * Public barrel: re-exports from `./service`, `./errors`, `./jobs` only.
+ * `watchlist_items` write events moved to media (design §M.2); subscribers
+ * import from media barrel.
  */
 export {
   // fallow-ignore-next-line code-duplication

@@ -273,11 +273,7 @@ describe("watchlist/service v2 (pagination + filter)", () => {
     expect(new Set(all.map((i) => i.tmdbId)).size).toBe(7);
   });
 
-  // Regression: when a single keyset overshoot window yields fewer than
-  // `limit` mood matches, `listMoodItems` MUST keep scanning the next
-  // window(s) until the page is filled (up to MAX_EMPTY_HOPS). The first
-  // version broke at the first non-empty hop, so sparse moods truncated to
-  // a single item even when more matches existed deeper in the user's set.
+  // Regression: single overshoot window with <limit matches must scan next windows (up to MAX_EMPTY_HOPS). First version broke at first non-empty hop, truncating sparse moods.
   it("listMoodItems accumulates matches across hops when the mood is sparse", async () => {
     const ctx = makeCtx();
     // fetchSize = limit (3) * OVERSHOOT_FACTOR (3) = 9. Seed 12 rows so the
@@ -308,12 +304,7 @@ describe("watchlist/service v2 (pagination + filter)", () => {
     expect(res.items.map((i) => i.tmdbId)).toEqual(["m4", "m3", "m2"]);
   });
 
-  // Regression: when matches are scattered DEEP across many overshoot
-  // windows (e.g. user has 40+ rows and the mood only fires every 15-20
-  // rows), the loop MUST keep scanning while it's still making progress.
-  // An earlier fix capped total hops at 3 — large sparse watchlists then
-  // returned 1 or 2 items even though the summary endpoint claimed `count`
-  // ≥ MIN_CLUSTER_SIZE. Underfilled hops no longer burn the budget.
+  // Regression: matches scattered deep across many windows must keep scanning while making progress. Earlier fix capped hops at 3, underfilling large sparse lists. Underfilled hops no longer burn budget.
   it("listMoodItems scans past the empty-hop budget when each hop still adds matches", async () => {
     const ctx = makeCtx();
     // 36 rows, fetchSize = 9. Plant 1 dark match every 12 rows so the page

@@ -11,12 +11,7 @@ vi.mock("../../env", () => ({
 
 const { mergeSecretCredentials } = await import("../internal/deliver-handler");
 
-// Regression: no-auth plugins (e.g. Telegram) declare x-secret fields like
-// `botToken`. The connection create path lifts those into the encrypted
-// credentials blob, but plugin `deliver()` implementations read them from
-// `args.channelConfig`. The delivery job must merge decrypted credentials back
-// into channelConfig before invoking deliver — otherwise every notification
-// fails with a missing token.
+// Regression: no-auth plugins (e.g. Telegram) declare x-secret fields like `botToken`. Connection create lifts these into encrypted credentials blob, but deliver() reads from args.channelConfig. Delivery job must merge decrypted credentials into channelConfig before invoke, else every notification fails with missing token.
 describe("mergeSecretCredentials", () => {
   it("merges credential fields into channelConfig", () => {
     const merged = mergeSecretCredentials({ chatId: "456" }, { botToken: "tkn" });

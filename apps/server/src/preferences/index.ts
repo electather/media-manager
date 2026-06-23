@@ -1,10 +1,4 @@
-/**
- * Public barrel for `preferences/`. Boundaries test asserts re-exports come
- * only from `./service`, `./events`, `./errors`, `./types`, and `./jobs`.
- * `./repo/**`, `./internal/**`, and individual job-handler files in
- * `./jobs/<x>.ts` are deliberately not re-exported — external callers go
- * through the service.
- */
+/** Public barrel: re-exports only from ./service, ./events, ./errors, ./types, ./jobs. Blocks ./repo/**, ./internal/**, individual ./jobs/<x>.ts. */
 export {
   PreferencesService,
   getPreferencesService,

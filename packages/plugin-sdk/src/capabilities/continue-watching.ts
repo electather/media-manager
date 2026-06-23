@@ -25,14 +25,9 @@ const continueWatchingEntry = z.object({
 export type ContinueWatchingEntry = z.infer<typeof continueWatchingEntry>;
 
 /**
- * continueWatching@v1 — the server's own "pick up where you left off" feed,
- * including Next Up episode stitching. Distinct from `playback@v1`, which
- * returns raw resume points from external sync APIs (Trakt) rather than a
- * server-curated ranking. Reuses `LibraryItem` so sessions and continue feeds
- * nest the same media shape.
- *
- * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
- * implementations (#22, #23).
+ * continueWatching@v1 — server's "pick up where you left off" feed with Next
+ * Up stitching. Distinct from playback@v1 (external sync APIs like Trakt).
+ * Reuses LibraryItem shape. No mcpTools yet (#22, #23).
  */
 export const ContinueWatchingV1 = defineCapability({
   id: "continueWatching",

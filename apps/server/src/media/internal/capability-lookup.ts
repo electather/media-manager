@@ -17,12 +17,7 @@ export function requireCapability(id: string, version: string): CapabilityDefini
   return cap;
 }
 
-/**
- * Resolves dispatch scope; drives provider enumeration and cache keying (MUST agree).
- * For constant scopes ("global"/"user"), is trivial; for "mixed" capabilities (idResolve@v1),
- * uses `scopeForInput` to classify request (computed once, threaded through all steps to prevent impure divergence).
- * CapabilityDefinition union guarantees scopeForInput when scope==="mixed", so no runtime guard needed.
- */
+// Resolves dispatch scope; drives provider enumeration and cache keying (MUST agree). For constant scopes ("global"/"user"), trivial; for "mixed", uses scopeForInput (computed once, threaded through all steps to prevent divergence). Union guarantees scopeForInput when scope==="mixed", no runtime guard needed.
 export function scopeForRequest(
   capability: CapabilityDefinition,
   input: unknown,

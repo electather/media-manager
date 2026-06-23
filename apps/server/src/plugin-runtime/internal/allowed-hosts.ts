@@ -3,14 +3,10 @@ import { PluginError } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
 
 /**
- * JSON Schema extension for dynamic `ctx.fetch` allowlisting. Resolved hostname is unioned with
- * `manifest.allowedHosts` per invocation. ⚠ User-controlled: any marked field lets the
- * authenticated user direct `ctx.fetch` to the hostname they supply — internal networks,
- * RFC1918 ranges, anything DNS resolves. Only apply to the plugin's own intended upstream
- * (Plex/Jellyfin URL, self-hosted mirror), never free-form
- * proxy targets — RFC1918 ranges are permitted (LAN deployments), but `isBlockedHostname` blocks
- * loopback, link-local, IMDS, and IPv4-mapped IPv6 forms. DNS-rebinding mitigation is deferred
- * to fetch time (tracked separately); plugin author owns the intent boundary.
+ * JSON Schema extension for dynamic `ctx.fetch` allowlisting. ⚠ User-controlled SSRF surface:
+ * any marked field lets the authenticated user direct `ctx.fetch` to an arbitrary hostname —
+ * RFC1918/LAN ranges permitted (Plex/Jellyfin), but `isBlockedHostname` blocks loopback, link-local,
+ * IMDS, and IPv4-mapped IPv6. DNS-rebinding mitigation deferred to fetch time; plugin author owns intent boundary.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -168,12 +164,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   return hostname;
 }
 
-/**
- * Walks a JSON Schema node in tandem with a config value, collecting hostnames
- * from any `x-allowed-host: true` properties found at or below this node. Only
- * descends into `properties` (objects) and `items` (arrays) — everything else
- * is treated as a leaf.
- */
+/** Walks schema+value collecting hostnames from `x-allowed-host: true` fields. Descends only into `properties` and `items`; everything else is a leaf. */
 // fallow-ignore-next-line complexity
 function walk(
   pluginId: string,

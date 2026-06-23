@@ -16,22 +16,11 @@ import { tonightCfg, tonightSource } from "../sources/tonight";
 import { clampLimit } from "./context";
 
 /**
- * Surface the four watchlist sections as `MediaSourceRegistration`s so the
- * `/api/media` resolver (design §A4) can compose one registry from the home +
- * watchlist barrels. Unlike home (which lifts `ROW_PROVIDERS` thinly), the
- * section source + cfg wiring is private to `watchlist/service.ts` today, so
- * this re-packages that pairing — the wiring stays in `watchlist` (invariant
- * V.A1: no composition logic moves; it is only surfaced through the barrel).
- *
- * Shared watchlist policy: every section is `rateLimit: "read"` (the
- * `watchlistReadLimiter`, §A7) and `cursorOnNull: "firstPage"` (a bad/foreign
- * cursor falls back to the first page, invariant V.CU1 — never 400).
- *
- * Cursor mode is `"keyset"` for every section EXCEPT that `watchlist-items` is
- * the one dynamic source: `itemsSource(params)` flips to `"offset"` for a
- * non-recent metadata sort or any bucket/mood filter. The static field here is
- * the default (recent → keyset); the built source's `stages.cursorMode` is the
- * authoritative per-request mode the resolver must decode against.
+ * Surface four watchlist sections as `MediaSourceRegistration`s for `/api/media` resolver
+ * (design §A4) to compose home + watchlist registry. Wiring stays in `watchlist` (V.A1).
+ * Shared policy: `rateLimit: "read"` (§A7), `cursorOnNull: "firstPage"` (V.CU1).
+ * Cursor mode: `"keyset"` for all EXCEPT `watchlist-items` flips to `"offset"` on
+ * non-recent sort or bucket/mood filter; resolver decodes `stages.cursorMode` per-request.
  */
 const itemsRegistration: MediaSourceRegistration<WatchlistItemsParams, ItemsParams> = {
   sourceId: "watchlist-items",

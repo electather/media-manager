@@ -62,12 +62,7 @@ function resolveEventType(input: DemoInput | null | undefined): NotificationEven
   return requested;
 }
 
-/**
- * Validates `DemoInput` and returns the resolved (userId, eventType) pair.
- * Kept thin (delegates branching to `requireUserId` + `resolveEventType`) so
- * each function's CRAP score stays under `health.maxCrap` — the original
- * inline check exceeded the budget.
- */
+/** Validates DemoInput and returns resolved (userId, eventType). Delegates to requireUserId + resolveEventType to keep CRAP score under health.maxCrap. */
 function resolveDemoInput(input: DemoInput | null | undefined): {
   userId: string;
   eventType: NotificationEventType;

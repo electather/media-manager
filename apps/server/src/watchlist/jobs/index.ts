@@ -5,11 +5,9 @@ import { registerSyncPluginWatchlist } from "./sync-plugin-watchlist";
 export { WATCHLIST_SYNC_JOB_ID } from "./sync-plugin-watchlist";
 
 /**
- * Registers every watchlist job at boot. Invoked exactly once from
- * `apps/server/src/index.ts`. The mutation handlers carry no idempotency guard
- * (matching the notifications convention) because this single registration site
- * is what prevents duplicate subscriptions — call it more than once per process
- * and each event would fan out its cache invalidation twice.
+ * Boot-time registration (invoked once from `apps/server/src/index.ts`).
+ * Mutation handlers have no idempotency guard (notifications convention) because
+ * single registration site prevents duplicates — calling twice fans event twice.
  */
 export function registerJobs(): void {
   registerOnWatchlistItemAdded();

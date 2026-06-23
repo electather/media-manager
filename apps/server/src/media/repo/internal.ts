@@ -6,10 +6,8 @@ import { watchlistItems } from "../../db/schema/media";
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /**
- * Single-row lookup for `(userId, key)` on `watchlist_items`. Shared by the
- * read path and the transactional writes so the `(userId, tmdbId, mediaType)`
- * predicate has one definition. `exec` is either the request `Db` or the
- * in-transaction `tx` so writes serialize their read against the same handle.
+ * Single-row lookup for `(userId, key)` on `watchlist_items`. Shared by read
+ * + transactional writes so the predicate is defined once; `exec` is `Db` or `tx`.
  */
 export function selectRowByKey(
   exec: Db | Tx,

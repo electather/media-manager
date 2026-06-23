@@ -2,14 +2,9 @@ import type { NotificationEvent } from "@nama/shared/notifications";
 import { notificationEventSchema } from "@nama/shared/notifications";
 
 /**
- * Safely parses a stored delivery event payload. Returns `null` when the JSON
- * is corrupt OR when the parsed shape no longer matches the current
- * `notificationEventSchema` — schema drift across deploys is silent
- * otherwise, and casting through `as NotificationEvent` would surface
- * partial objects to downstream renderers / templates.
- *
- * Shared by `service.getDeliveryDetail` (admin detail view) and
- * `jobs/delivery.ts` (the per-delivery handler that drives `renderTemplate`).
+ * Safely parses stored event payload. Returns null if JSON is corrupt or shape
+ * no longer matches notificationEventSchema—prevents schema drift from surfacing
+ * partial objects to renderers/templates. Used by getDeliveryDetail + jobs/delivery.
  */
 export function parseStoredEventPayload(raw: string): NotificationEvent | null {
   let parsed: unknown;

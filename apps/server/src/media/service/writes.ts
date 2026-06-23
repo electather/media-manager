@@ -15,17 +15,10 @@ import { clearSeedLock, trySeedLock } from "../repo/seed";
 import { bulkInsertActiveRows, softRemoveRow, upsertActiveRow } from "../repo/writes";
 
 /**
- * Cross-module events emitted by media's `watchlist_items` writes. Media owns
- * the table writes (design §M.2), so the events those writes produce live with
- * the producer. Consumers subscribe through the `../media` barrel — never from
- * this file directly. The watchlist module's `on-watchlist-item-added` /
- * `on-watchlist-item-removed` handlers are the only subscribers (they
- * invalidate the Tonight / mood caches).
- *
- * These are deliberately NOT declared in `media/events.ts`: the boot-time
- * handler-coverage scan pairs each `<MODULE>_EVENTS` const in `media/events.ts`
- * with an `on(...)` handler under a fixed set of module `jobs` dirs, and this
- * event's handler lives in `watchlist/jobs/` — outside that scan.
+ * Cross-module events emitted by media's `watchlist_items` writes (design §M.2).
+ * NOT declared in `media/events.ts` because handler lives in `watchlist/jobs/`,
+ * outside the boot-time handler-coverage scan that pairs `<MODULE>_EVENTS` with
+ * `on(...)` handlers under module `jobs/` dirs.
  */
 export const WATCHLIST_EVENTS = {
   ITEM_ADDED: "watchlist.itemAdded" as EventName,
@@ -136,10 +129,8 @@ interface WatchlistFeedService {
 }
 
 /**
- * Resolved per-request context for the plugin seed/sync writes. Like the other
- * media `watchlist_items` writes, these take an already-resolved context — the
- * watchlist wrapper and the sync job build it — so media never touches the
- * watchlist module's context resolution.
+ * Already-resolved context for plugin seed/sync writes (built by watchlist wrapper
+ * and sync job) — media never touches the watchlist module's context resolution.
  */
 export interface SeedSyncContext {
   userId: string;
@@ -149,12 +140,9 @@ export interface SeedSyncContext {
 }
 
 /**
- * Pull the plugin watchlist feed with a swallowed deadline-bounded call and
- * normalize the items into `WatchlistKey`s. Returns `null` when the feed call
- * threw — callers decide how to react (seed rolls its lock back; sync simply
- * reports `partial`). Shared by `seedFromPlugins` / `syncFromPlugins` so the
- * feed-fetch + key-fanout shape lives in one place instead of being open-coded
- * twice (fallow dupes baseline cleanup, design §M.2).
+ * Fetch plugin watchlist feed and normalize to `WatchlistKey`s. Returns null on
+ * error (seed rolls lock back; sync reports `partial` — design §M.2). Shared
+ * by seed/sync to avoid duplicate feed-fetch + fanout logic (fallow dupes baseline).
  */
 async function fetchPluginWatchlistKeys(
   ctx: SeedSyncContext,
@@ -176,10 +164,9 @@ async function fetchPluginWatchlistKeys(
 }
 
 /**
- * Pulls the plugin watchlist feed and bulk-inserts new items. Serializes
- * concurrent first-GETs via `trySeedLock` so only the winning caller fans
- * out to plugins; losers short-circuit with `added: 0`. On a plugin error
- * the lock is rolled back so the next GET retries.
+ * Bulk-insert new plugin watchlist items. Serializes concurrent GETs via
+ * `trySeedLock` — winners fan to plugins, losers return `added: 0`. Plugin
+ * errors roll lock back so next GET retries.
  */
 export async function seedFromPlugins(ctx: SeedSyncContext): Promise<SeedResult> {
   const now = Date.now();

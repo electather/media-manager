@@ -60,10 +60,8 @@ export function isRunning(jobId: string, scopeKey?: string | null): boolean {
 }
 
 /**
- * Returns true if any of the named jobs has an active run regardless of
- * scope. Used by `host.catalog.prune` to skip a sweep while the rec-build
- * jobs (nightly + manual rebuild) are still writing — eviction would
- * otherwise race their in-flight catalog references.
+ * Returns true if any named job is running. Used by `host.catalog.prune` to skip
+ * eviction while rec-build jobs (nightly + manual rebuild) write in-flight catalog refs.
  */
 // fallow-ignore-next-line complexity
 export function anyRunning(jobIds: readonly string[]): boolean {

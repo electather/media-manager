@@ -31,12 +31,9 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
   return inserted.length;
 }
 
-// Tombstones owned rows for userId absent from keepKeys (latest feed).
-// When keepKeys exceeds SQLITE_VARIABLE_LIMIT: read owned ids, compute absent set in JS,
-// tombstone in bounded chunks to stay within SQLite's bound-parameter limit.
-// fallow's coverage-free CRAP estimate flags the three-path overflow guard
-// (empty / fast `notInArray` / slow chunked `inArray`) the SQLite variable
-// limit intrinsically needs.
+// Tombstones owned rows absent from keepKeys. When keepKeys exceeds
+// SQLITE_VARIABLE_LIMIT: read ids, compute absent set, tombstone in chunks.
+// Three-path guard (empty/fast notInArray/slow chunked inArray) handles variable limit.
 // fallow-ignore-next-line complexity
 export async function tombstoneMissing(
   userId: string,
@@ -75,12 +72,9 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: read-then-update (not atomic). Safe ONLY because caller holds
-  // per-user seed lock across both upsert + tombstone (library.sync sole writer,
-  // design §Sync). The owned=true predicate prevents double-tombstone but NOT a
-  // TOCTOU window: a row inserted-then-absent-from-keepKeys after step 1 escapes
-  // if a second writer runs concurrently. Future callers outside seed lock risk that.
-  //
+  // Slow path: read-then-update (not atomic). Safe only because caller holds
+  // per-user seed lock (library.sync sole writer, design §Sync). TOCTOU window:
+  // a row inserted-then-absent after step 1 escapes if a second writer runs.
   // Step 1: collect currently-owned ids.
   const ownedRows = await db
     .select({ id: libraryItems.id })

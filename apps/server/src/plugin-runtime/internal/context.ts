@@ -11,18 +11,13 @@ export interface BuildContextArgs {
   pluginId: string;
   allowedHosts: string[];
   /**
-   * Additional hostnames resolved per-invocation from `x-allowed-host` fields
-   * in the plugin's `userConfigSchema` or `sharedCredentialsSchema`. Unioned
-   * with `allowedHosts` before being passed to `buildFetch`. Optional so
-   * call sites that don't have dynamic hosts (e.g. aux contexts for auth or
-   * job handlers) keep working.
+   * Per-invocation hostnames from `x-allowed-host` fields in `userConfigSchema`/`sharedCredentialsSchema`.
+   * Unioned with `allowedHosts` in `buildFetch`. Optional — auth/job aux contexts omit it.
    */
   dynamicAllowedHosts?: ReadonlySet<string>;
   /**
-   * Admin-set host allowlist. Intersected with `allowedHosts` inside
-   * `buildFetch`. `null` / `undefined` means "inherit manifest" (no
-   * narrowing). Applies only to the static side; `dynamicAllowedHosts` is
-   * never filtered by admin policy.
+   * Admin-set host allowlist. Intersected with `allowedHosts` in `buildFetch`; `null`/`undefined` = inherit manifest.
+   * Never filters `dynamicAllowedHosts` — user-supplied LAN URLs must stay reachable.
    */
   adminAllowlist?: string[] | null;
   /**

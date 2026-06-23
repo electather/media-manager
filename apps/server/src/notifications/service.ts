@@ -18,22 +18,12 @@ import { NotificationErrorSink } from "./internal/error-sink";
 import { parseStoredEventPayload } from "./internal/parse-event-payload";
 import type { NotificationSettings } from "./types";
 
-/**
- * Public sync surface for `notifications/`. Other modules call methods on the
- * singleton via `getNotificationsService()`; cross-module callers that
- * previously imported `notifications/emit` now go through typed events (see
- * `jobs/runtime-events.ts`, `media/events.ts`, `plugin-runtime/events.ts`)
- * whose handlers in `jobs/` land on `publishNotification`.
- *
- * `service.ts` calls `repo.*` only — drizzle-orm is isolated inside `repo/**`.
- */
+// Public sync surface for `notifications/`. Cross-module callers use typed events (see
+// `jobs/runtime-events.ts`, `media/events.ts`, `plugin-runtime/events.ts`) whose handlers
+// land on `publishNotification`. `service.ts` calls `repo.*` only — drizzle-orm is isolated inside `repo/**`.
 export class NotificationsService {
-  /**
-   * Validates the event, resolves recipients, inserts deliveries in a single
-   * transaction, and triggers the delivery job per row. No-op when the runtime
-   * has notifications disabled. Throws on zod validation failure so the
-   * caller's transaction (if any) rolls back.
-   */
+  // Validates event, resolves recipients, inserts deliveries, triggers delivery jobs.
+  // No-op when disabled. Throws on zod validation failure so caller's transaction rolls back.
   async publishNotification(
     event: NotificationEvent | Omit<NotificationEvent, "id" | "occurredAt">,
   ): Promise<void> {
@@ -129,14 +119,8 @@ export class NotificationsService {
     return rows.map(repo.deliveryRowToDto);
   }
 
-  /**
-   * Returns the delivery DTO plus the parsed event payload for the admin
-   * detail view. `eventPayload` is `null` when the stored JSON is corrupt OR
-   * when its shape no longer matches the current `notificationEventSchema`
-   * (schema drift between an old row and a newer notion of the event); the
-   * client hides the section when the field is missing rather than rendering
-   * a confusing partial object.
-   */
+  // Returns delivery DTO + parsed event payload. eventPayload is null on corrupt JSON or
+  // schema drift (schema mismatch vs old row); client hides section rather than render partial.
   async getDeliveryDetail(
     id: string,
   ): Promise<{ delivery: AdminDeliveryRow; eventPayload: NotificationEvent | null } | null> {
@@ -150,11 +134,7 @@ export class NotificationsService {
     return repo.resetDeliveryForRetry(id);
   }
 
-  /**
-   * Triggers a single delivery row. Returns `true` if the job ran, `false` if
-   * the `notification.deliver` job is not registered yet (stale-pending sweep
-   * is the fallback path in that case).
-   */
+  // Returns true if job ran, false if notification.deliver not yet registered (sweep is fallback).
   async triggerDeliveryRetry(id: string): Promise<boolean> {
     const jobEntry = findEntry("notification.deliver");
     if (!jobEntry?.triggerFromApi) return false;
@@ -167,16 +147,8 @@ export class NotificationsService {
 
   // ─── internal fan-out ────────────────────────────────────────────────────
 
-  /**
-   * Per-row trigger fan-out used by `publishNotification`. Marked `cron` so
-   * the `job_runs` audit trail attributes these as system-initiated; the
-   * admin path (`triggerDeliveryRetry`) keeps `admin` because that one IS a
-   * direct admin action.
-   *
-   * Uses `Promise.allSettled` so a single failed trigger does not abort the
-   * remaining rows — the stale-pending sweep is the documented safety net for
-   * any row whose trigger fires and rejects.
-   */
+  // Per-row fan-out marked `cron` so job_runs audit trail shows system-initiated (vs admin).
+  // Uses Promise.allSettled so one failed trigger doesn't abort the rest; sweep catches rejections.
   private async triggerDeliveryFanout(deliveryIds: readonly string[]): Promise<void> {
     const jobEntry = findEntry("notification.deliver");
     if (!jobEntry?.triggerFromApi) return;
@@ -196,12 +168,8 @@ export class NotificationsService {
   }
 }
 
-/**
- * Enriches an event with host-generated id + occurredAt (when absent), then
- * runs the zod schema. Kept outside the class so `publishNotification` stays
- * thin and its CRAP score stays under the `health.maxCrap` budget; the
- * branching here is what bloats the metric.
- */
+// Enriches event with id + occurredAt, validates schema. Separate so publishNotification
+// stays thin and CRAP score stays under health.maxCrap budget (branching would bloat metric).
 function enrichAndValidate(
   event: NotificationEvent | Omit<NotificationEvent, "id" | "occurredAt">,
 ): NotificationEvent {
@@ -227,24 +195,15 @@ export function resetNotificationsServiceForTest(): void {
   instance = null;
 }
 
-/**
- * Registers the diagnostics sink that converts critical errors into
- * `system.error` notifications. Called from `apps/server/src/index.ts`
- * after `registerJobs()` so the delivery job is already in the registry by the
- * time the first error fires.
- */
+// Registers diagnostics sink converting critical errors to system.error notifications.
+// Called after registerJobs() so delivery job is in registry before first error fires.
 export function registerNotificationErrorSink(): void {
   const service = getNotificationsService();
   registerSink(new NotificationErrorSink((event) => service.publishNotification(event)));
 }
 
-/**
- * Used by the stale-pending sweep to retrigger one delivery row. Returns
- * `true` when the trigger fired, `false` when the delivery job is not yet
- * registered (cold worker before `registerJobs()` settles); the caller logs
- * the no-op so the row does not silently spin in pending-reset purgatory.
- * Marked `cron` because the sweep is a scheduled retry, not an admin action.
- */
+// Retriggers one delivery row. Returns true if fired, false if delivery job not yet registered
+// (cold worker before registerJobs). Marked cron because sweep is scheduled retry, not admin action.
 export async function triggerDeliveryForId(deliveryId: string): Promise<boolean> {
   const jobEntry = findEntry("notification.deliver");
   if (!jobEntry?.triggerFromApi) return false;

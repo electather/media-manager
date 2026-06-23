@@ -1,10 +1,4 @@
-/**
- * Public barrel for `notifications/`. Canonical layout exemplar — the
- * boundaries test asserts re-exports come only from `./service`, `./events`,
- * `./errors`, `./types`, and `./jobs`. `./repo/**`, `./internal/**`,
- * individual handler files in `./jobs/<x>.ts`, and `./templates/**` are
- * deliberately not re-exported.
- */
+/** Canonical public barrel: only re-export service, events, errors, types, jobs. Internal repo/**, internal/**, jobs/<x>.ts handlers, and templates/** are NOT exported (fallow-enforced). */
 export {
   NotificationsService,
   getNotificationsService,

@@ -13,10 +13,8 @@ import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./ids";
 export { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./ids";
 
 /**
- * Triggerable on-demand rebuild. Used by the user-facing settings page
- * (`POST /api/preferences/rebuild`) and by admins. Runs the three partition
- * rebuilds + writes a fresh recommendation list so the result is visible
- * immediately rather than waiting for the next 02:00 sweep.
+ * On-demand rebuild (user settings + admin). Runs three partition rebuilds
+ * + writes fresh rec list immediately (vs waiting for 02:00 sweep).
  */
 export function registerManualRebuild(): void {
   registerTriggerable<
@@ -52,12 +50,9 @@ export function registerManualRebuild(): void {
       try {
         const { results, warnings, traces } = await rebuildPartitions(userId, ctx);
 
-        // Mirror the nightly catalog rec build so the manual trigger surfaces
-        // a fresh recommendation list immediately rather than waiting for the
-        // next 02:00 sweep. The per-partition rebuild above already bumped
-        // `profile_version`; `writeRecommendationsForUser` skips the rebuild
-        // step and only writes the rec list against the freshly-versioned
-        // profile.
+        // Mirror nightly catalog rec build. Per-partition rebuild above bumped
+        // `profile_version`; `writeRecommendationsForUser` skips rebuild and
+        // only writes rec list against the freshly-versioned profile.
         const catalog = getCatalogService();
         const recStart = performance.now();
         let recWriteFailed = false;

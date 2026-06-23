@@ -7,14 +7,10 @@ import { triggerDeliveryForId } from "../service";
 const STALE_THRESHOLD_MS = 2 * 60 * 1000;
 
 /**
- * Scheduled sweep that re-triggers deliveries whose retry window has opened
- * or whose initial trigger was lost. Two retriggers, one query:
- *   1. `pending` rows whose backoff window has opened (`nextAttemptAt <= now`).
- *   2. `pending` rows that never had a `nextAttemptAt` set but have been
- *      sitting longer than the stale threshold — covers the post-emit /
- *      pre-trigger crash gap.
- *   3. `in_progress` rows that exceed the stale threshold — reset to pending
- *      so the CAS in the delivery handler can pick them up.
+ * Scheduled sweep: retriggers whose retry/backoff window opened or initial trigger lost
+ * (one query, design §V18). Three conditions: (1) `pending` where `nextAttemptAt <= now`,
+ * (2) `pending` with no `nextAttemptAt` past stale threshold (post-emit/pre-trigger crash gap),
+ * (3) `in_progress` past stale threshold (reset to pending for CAS pickup).
  */
 export function registerStalePendingSweep(): void {
   registerScheduled({

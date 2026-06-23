@@ -73,12 +73,9 @@ export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMemb
   return { added, removed, partial: parsed.partial };
 }
 
-/**
- * Eager-seed on first library read (mirrors watchlist/internal/reads.ts).
- * Atomically claims seed lock (only one caller fetches); on error rolls back
- * so next read retries. Hydration stays lazy/async per design §Known fuzzy areas.
- * Never fails the read it rode in on.
- */
+// Eager-seed on first read (mirrors watchlist/internal/reads.ts). Atomically
+// claims seed lock; on error rolls back for retry. Hydration stays lazy/async per
+// design §Known fuzzy areas. Never fails the read it rode in on.
 export async function ensureSeeded(ctx: MaybeLibraryContext): Promise<void> {
   const c = asLibraryContext(ctx);
   const acquired = await trySeedLock(c.userId, Date.now());

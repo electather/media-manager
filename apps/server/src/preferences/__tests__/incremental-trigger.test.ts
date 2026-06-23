@@ -54,15 +54,9 @@ const { registerJobs } = await import("../jobs");
 const { triggerIncremental, resetIncrementalHandleForTest } =
   await import("../jobs/incremental-handle");
 
-/**
- * Regression for the pre-Phase-3a silent-no-op bug: `ent_feedback` previously
- * cast the `RegistryEntry` returned by `find(jobId)` to `{ trigger? }` and
- * called `trigger(...)`. The registry entry never carries `trigger` — only the
- * `CoalescedJobHandle` returned by `registerCoalesced` does — so every
- * incremental update was silently dropped. These tests pin that
- * `registerJobs()` captures the handle into the leaf module and that
- * `triggerIncremental()` actually invokes the underlying handle.
- */
+// Regression: registry entry never carries trigger (only CoalescedJobHandle does),
+// so previous code silently dropped all incremental updates. Pins registerJobs()
+// captures the handle and triggerIncremental() actually invokes it.
 describe("incremental trigger handle capture", () => {
   beforeEach(() => {
     resetIncrementalHandleForTest();

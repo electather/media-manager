@@ -40,10 +40,8 @@ export function extractFeatureDicts(
 }
 
 /**
- * Returns unnormalized profile score plus the per-feature contributions that
- * composed it. Contributors are `categoryWeight * profileWeight` — i.e. their
- * final contribution to the blended profile score — and are already sorted
- * descending.
+ * Returns unnormalized profile score and per-feature contributions (`categoryWeight * profileWeight`,
+ * sorted descending by final blended contribution).
  */
 // fallow-ignore-next-line complexity
 export function scoreCandidate(
@@ -94,10 +92,8 @@ export function effectiveAlpha(sampleSize: number, alphaOverride?: number): numb
 }
 
 /**
- * The public ranker. Scores every candidate against the profile, normalizes
- * across the set, and blends with the upstream order. Returns per-candidate
- * metadata so callers can render match reasons for only the items they'll
- * surface.
+ * Public ranker: scores candidates, normalizes across set, blends with upstream order.
+ * Returns per-candidate metadata for match reasons.
  */
 // fallow-ignore-next-line complexity
 export function rankCandidatesAgainst(

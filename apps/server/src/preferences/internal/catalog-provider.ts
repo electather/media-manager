@@ -14,13 +14,8 @@ import type {
   WatchlistSignal,
 } from "../types";
 
-/**
- * Preference data provider backed by the catalog. Reads serve from
- * `canonical_metadata`; misses fall through to a wrapped fallback (typically
- * `MediaServicePreferenceProvider`) and, on success, schedule a detached
- * write-back so the next read is warm. History/ratings/watchlist/comments
- * stay on the fallback until Phase 5 wires the mirrors in.
- */
+// Reads from `canonical_metadata`, falls back to wrapped provider, cold-fill writes on miss.
+// History/ratings/watchlist/comments stay on fallback until Phase 5 mirrors them.
 export interface FeatureCacheMetrics {
   /** Hits served straight from `canonical_metadata.features`. */
   hits: number;
@@ -68,12 +63,8 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
     return features;
   }
 
-  /**
-   * Schedules a detached cold-fill write-back, deduplicating in-flight writes so
-   * the same item missed across multiple rebuild partitions (movie/tv/combined)
-   * in one job run triggers a single `writeMetadata` rather than concurrent
-   * writes to the same canonical row.
-   */
+  // Detached write-back, deduplicating across partitions (movie/tv/combined) so
+  // same item missed in one job run triggers single `writeMetadata`, not concurrent writes.
   private scheduleColdFill(
     tmdbId: string,
     mediaType: "movie" | "tv",

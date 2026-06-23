@@ -42,12 +42,8 @@ export {
 export type { MediaProgressContext } from "../types";
 
 /**
- * Per-user facade. Constructed per-request with the authenticated user id;
- * every method delegates to the responsibility modules in this directory
- * (`./metadata`, `./aggregate-reads`, `./requests`, `./home-feeds`,
- * `./library-availability`), which dispatch through the strategy router, so
- * callers never see the plugin layer directly. Shapes results so the MCP
- * tools and RPC procedures can consume arrays/objects directly.
+ * Per-user facade delegating to responsibility modules (./metadata, ./aggregate-reads, etc.)
+ * which dispatch through strategy router; callers never see plugin layer directly.
  */
 export class MediaService {
   /** Request-scoped `libraryAvailability@v1` prober with its memo caches. */
@@ -249,11 +245,8 @@ export class MediaService {
   }
 
   /**
-   * Returns true when at least one enabled provider for `capability@version`
-   * is reachable for this user. Cheap presence check the home feed snapshot
-   * uses to gate row eligibility before any plugin call. Walks the registry
-   * for providers, then `resolveConnections` for the first plugin that has
-   * a usable connection — short-circuits on first match.
+   * Cheap presence check: registry → resolveConnections, short-circuits on first usable connection.
+   * Used by home feed snapshot to gate row eligibility before plugin calls.
    */
   async hasCapabilityProvider(
     capability: string,

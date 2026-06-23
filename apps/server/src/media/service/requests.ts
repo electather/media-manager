@@ -79,10 +79,8 @@ export async function requestDownload(
 }
 
 /**
- * Aggregates one entry per (user-connection × downstream target) for the
- * request picker. Per-connection failures are logged and skipped so a single
- * broken Seerr instance does not blank the whole picker; targets whose
- * `targetId` violates `TARGET_ID_RE` are dropped per-entry.
+ * Lists targets per (user-connection × downstream target). Per-connection failures
+ * are logged and skipped; invalid targetIds (violating TARGET_ID_RE) are dropped.
  */
 // fallow-ignore-next-line complexity
 export async function listRequestTargets(
@@ -182,10 +180,8 @@ export async function cancelRequest(userId: string, requestId: string): Promise<
 }
 
 /**
- * Coalesced batch availability lookup. `mediaRequest@v1` is a `single`
- * strategy capability, so one plugin owns the response. Failures resolve
- * to an empty map — callers (today: the home feed dataloader) fall back to
- * `status: "unknown"` per item.
+ * Coalesced batch availability lookup. `mediaRequest@v1` is single-strategy
+ * (one plugin owns response). Failures resolve to empty map; callers default to "unknown" status.
  */
 // fallow-ignore-next-line complexity
 export async function getStatusBatch(

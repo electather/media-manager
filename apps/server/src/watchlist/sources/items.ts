@@ -22,10 +22,9 @@ import { decodeKeyset, rawToken } from "./keyset";
 import { loadRowMetadata } from "./metadata";
 
 /**
- * Request params for the watchlist `items` source. `sort`/`bucket`/`mood` come
- * from the `/items` query; the source bakes them into its `stages` (which sort
- * + cursor mode + filter the pipeline runs) and reads `mood` inside
- * `fetchRawSet` (mood is a watchlist-product predicate media must not derive).
+ * Request params for the watchlist `items` source. `sort`/`bucket`/`mood` are
+ * baked into `stages`; `mood` is read inside `fetchRawSet` (watchlist-product
+ * predicate, not media-derived).
  */
 export interface ItemsParams {
   limit: number;
@@ -45,11 +44,9 @@ const STATUS_PRIORITY: Record<string, number> = {
 };
 
 /**
- * `recent` with no filter is the only read that can ride the efficient keyset
- * window. Every other read (a non-recent metadata sort, or a `bucket`/`mood`
- * filter) goes through offset mode: the source loads the full active set and
- * the pipeline classifies/filters/sorts/slices over it in one pass, preserving
- * the #501 single-pass sparse-bucket fix (media `paginate`, design §S.1).
+ * `recent` + no filter = keyset window (efficient indexed). All others =
+ * offset (full load, single-pass filter/sort/slice). Preserves #501 sparse-bucket
+ * fix (design §S.1).
  */
 function isKeysetRead(params: ItemsParams): boolean {
   return params.sort === "recent" && !params.bucket && !params.mood;
@@ -69,19 +66,10 @@ function pipelineSort(params: ItemsParams, keyset: boolean): PipelineSort {
 }
 
 /**
- * The watchlist `items` `MediaSource` (design §S.1 / consolidation §B/§H). It
- * supplies ONLY the raw row set + a `stages` declaration; the media pipeline
- * (`listRows`) owns enrich / classify / filter / sort / paginate / cursor
- * (invariant V.MC1). It is a per-request factory because the cursor mode and
- * pipeline sort depend on the requested `sort`/`bucket`/`mood`:
- *
- * - `recent` + no filter → `keyset` (addedAt DESC, id DESC); efficient indexed
- *   window, strict-stable across mutations, #500 empty-streak preserved.
- * - `recent` + bucket/mood → `offset`; full-load so the bucket/mood predicate
- *   runs over the whole set (#501), pipeline re-sorts by `addedAt` (`recentDesc`).
- * - `alpha`/`runtime`/`status` → `offset`; the source pre-sorts the raw rows by
- *   catalog metadata (which `RowSort` cannot express) and declares `sort:"none"`
- *   so the pipeline preserves that order, then slices `(offset, limit)`.
+ * MediaSource factory (design §S.1, invariant V.MC1). Cursor mode and pipeline
+ * sort depend on `sort`/`bucket`/`mood`: `recent`+no filter→keyset (indexed,
+ * #500); `recent`+filter→offset (full-load, #501); `alpha`/`runtime`/`status`→offset
+ * (pre-sorted by catalog metadata, which RowSort cannot express).
  */
 export function itemsSource(params: ItemsParams): MediaSource<ItemsParams> {
   const keyset = isKeysetRead(params);
@@ -128,10 +116,8 @@ export function itemsCfg(params: ItemsParams, cursor: Cursor | null): PipelineCo
 
 /**
  * Keyset window for `recent` + no filter. Fetches exactly `limit` rows (no
- * over-fetch — there is no downstream filter to prune them), and threads back
- * the last row as `nextRaw` when the window was full. A short window means the
- * scan is exhausted, so `nextRaw` is omitted and the pipeline emits `cursor:null`
- * (#500). Matches the pre-refactor `getItems`/`listItems` recent path exactly.
+ * over-fetch), threads back last row as `nextRaw` if full. Short window =
+ * exhausted, omit `nextRaw` → `cursor:null` (#500).
  */
 // fallow-ignore-next-line complexity
 async function fetchKeyset(
@@ -151,12 +137,10 @@ async function fetchKeyset(
 }
 
 /**
- * Full active set for an offset read (non-recent metadata sort, or any
- * bucket/mood filter). The mood predicate and the alpha/runtime/status sort
- * both need catalog metadata, so the source batches it here; the pipeline's own
- * `batchLoad` re-reads it from the warmed catalog cache. `recent` (+ bucket)
- * skips the source sort — the pipeline sorts `recentDesc`. Offset sources mint
- * no `nextRaw`; the pipeline slices by the incoming offset cursor index.
+ * Full active set for offset reads (non-recent sort or bucket/mood filter).
+ * Mood predicate and alpha/runtime/status sort need catalog metadata, batched
+ * here; pipeline's `batchLoad` re-reads from warmed cache. No `nextRaw`; pipeline
+ * slices by offset cursor index.
  */
 // fallow-ignore-next-line complexity
 async function fetchOffset(
@@ -237,22 +221,12 @@ function compareForSort(
 function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): number {
   const at = aMeta?.title ?? "";
   const bt = bMeta?.title ?? "";
-  // Pin both the locale and the sensitivity so ordering is reproducible across
-  // environments (dev machine vs server vs CI). Without a pinned locale,
-  // localeCompare resolves to the ICU host default, which varies and can
-  // produce different orderings for accented or non-ASCII titles. The "accent"
-  // sensitivity is case-insensitive but accent-sensitive, exactly reproducing
-  // the pre-fix net behaviour (host-default toLocaleLowerCase() followed by an
-  // accent-sensitive compare) while removing the host-dependent pre-pass — that
-  // step was itself locale-dependent (e.g. Turkish dotless-i). So this is a
-  // pure locale pin: collation semantics are unchanged from before.
-  //
-  // The secondary compare (no sensitivity option, i.e. full collation) acts as a
-  // deterministic tie-break for titles that are equal under "accent" sensitivity:
-  // case variants such as "elite" / "Elite" / "ELITE" all return 0 from the first
-  // compare (case-insensitive) and would otherwise be ordered by JS sort
-  // stability, which is input-order-dependent and non-reproducible across
-  // environments.
+  // Pinned locale ("en") + "accent" sensitivity (case-insensitive, accent-sensitive)
+  // for reproducible ordering across envs. Host-default localeCompare varies; pre-fix
+  // used host-default toLocaleLowerCase (itself locale-dependent, e.g. Turkish
+  // dotless-i). Second compare (full collation) deterministically breaks ties for
+  // case variants ("elite"/"Elite"/"ELITE"), which otherwise rely on JS sort stability
+  // (input-order-dependent, non-reproducible across envs).
   return at.localeCompare(bt, "en", { sensitivity: "accent" }) || at.localeCompare(bt, "en");
 }
 

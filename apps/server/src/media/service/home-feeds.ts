@@ -34,13 +34,7 @@ export interface RankedFeedOptions {
   deadlineMs?: number;
 }
 
-/**
- * Aggregate `watchHistory@v1.getInProgress`. Plugins that do not implement
- * the method are skipped at the dispatcher layer; if any of the surviving
- * providers return data the row renders, with `partial: true` set when at
- * least one peer errored. Throws `AllPluginsFailedError` only when every
- * resolved provider errored, so the row can be flagged `all_failed`.
- */
+/** Aggregate `watchHistory@v1.getInProgress` with partial-failure signalling. */
 export async function getInProgress(
   userId: string,
   opts: { limit?: number; deadlineMs?: number } = {},
@@ -77,10 +71,8 @@ export async function getWatchlistCount(userId: string): Promise<number> {
 }
 
 /**
- * Count of in-progress shows that have at least one upcoming episode. The
- * home feed uses this as a layout-time gate for `upcomingForYou`; if the
- * underlying calendar cache is cold the layout falls back to dropping the
- * row this snapshot, so failures here resolve to zero.
+ * Count of in-progress shows with upcoming episodes. Gates `upcomingForYou` row;
+ * fails gracefully to zero when calendar cache is cold.
  */
 // fallow-ignore-next-line complexity
 export async function getCalendarProgressCount(userId: string): Promise<number> {
@@ -150,11 +142,8 @@ export async function getSimilarFeed(
 }
 
 /**
- * Shared fan-out for the home-feed aggregate getters. Dispatches `method` on
- * `capability@v1` with an empty input, then interprets the result so the
- * `partial` flag and `AllPluginsFailedError` semantics are identical across
- * every feed. The `capability@v1` interpret key is derived from `capability`
- * so the two never drift.
+ * Shared dispatch for home feeds: ensures `partial` flag and `AllPluginsFailedError`
+ * semantics are consistent. The interpret key is derived from capability so they never drift.
  */
 async function aggregateFeed<T>(
   userId: string,
@@ -174,10 +163,8 @@ async function aggregateFeed<T>(
 }
 
 /**
- * Aggregate `calendar@v1.getUpcoming`. Distinct from the legacy
- * `getUpcoming` getter on the facade: this variant surfaces a `partial`
- * flag and an `AllPluginsFailedError` so the home feed orchestrator can
- * classify the row outcome correctly.
+ * Aggregate `calendar@v1.getUpcoming`. Unlike legacy `getUpcoming`, surfaces
+ * `partial` flag and `AllPluginsFailedError` for row outcome classification.
  */
 export async function getUpcomingFeed(
   userId: string,
@@ -199,11 +186,8 @@ export async function getWatchlistFeed(
 }
 
 /**
- * Aggregate `collection@v1.getCollection` for the owned-library membership
- * sync. Mirrors `getWatchlistFeed`: surfaces the `partial` flag and throws
- * `AllPluginsFailedError` on a terminal all-providers failure so the library
- * sync can classify the run outcome. The library module is the first consumer
- * of this capability (design §Sync + hydrate).
+ * Aggregate `collection@v1.getCollection` for library membership sync.
+ * Surfaces `partial` flag and `AllPluginsFailedError` (design §Sync + hydrate).
  */
 export async function getCollectionFeed(
   userId: string,
@@ -245,11 +229,8 @@ export async function getRecommendationsFeed(
 }
 
 /**
- * Aggregate `continueWatching@v1.getContinueWatching`. Mirrors the
- * `getWatchlistFeed` pattern — surfaces a `partial` flag plus throws
- * `AllPluginsFailedError` when every attempted provider errors so the home
- * orchestrator can flag the row outcome. Used by the
- * `continueWatching-active`, `continueWatching-next`, and hero cascade.
+ * Aggregate `continueWatching@v1.getContinueWatching`. Surfaces `partial`
+ * flag and `AllPluginsFailedError` for row outcome classification.
  */
 export async function getContinueWatchingFeed(
   userId: string,
