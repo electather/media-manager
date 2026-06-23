@@ -5,9 +5,8 @@ import type { HeroReason, MatchReasonKey, RowKind } from "./enums";
 
 /**
  * Typed match-reason payload. Client renders i18n message for `key` with ICU
- * `params` so server-side context (seed title, genre, etc.) flows to copy.
- * PR1→PR6 transitional: MCP discover tool still emits plain prose; home wire
- * accepts both shapes until all emitters migrate.
+ * `params` (e.g. `{ seedTitle: "Heat" }`) to inject server context into copy.
+ * PR1→PR6 transitional: MCP discover tool emits plain prose; home wire accepts both shapes until migrated.
  */
 export interface MatchReason {
   key: MatchReasonKey;
@@ -110,20 +109,15 @@ export interface CompactMediaItem {
   addedSource?: WatchlistSource | null;
   /**
    * Section grouping for library `server`/`quality` lenses (json_each expansion).
-   * `id` is group key (server connection id or tier label); `label` is header.
-   * FE inserts header when `section.id` changes, keys list on `id + section.id`
-   * (not `id` alone). Absent on non-grouped sources.
+   * FE inserts header when `section.id` changes; must key list items on `id + section.id` (not `id` alone).
    */
   section?: { id: string; label: string };
 }
 
 /**
  * One hero slide. Each carries own `source`/`reason`/`resumeUrl` because hero
- * now mixes items across sources (continueWatching, recommendedForYou, etc.)
- * instead of cascading to single source per render.
- *
- * `resumeUrl` always `null` v1 — plugin SDK lacks `playback@v1.getResumeUrl`
- * method, so client treats Play as navigate-to-detail.
+ * mixes items across sources (continueWatching, recommendedForYou, etc.).
+ * `resumeUrl` always `null` v1 — plugin SDK lacks `playback@v1.getResumeUrl`, so client navigates to detail.
  */
 export interface HeroSlide {
   item: CompactMediaItem;

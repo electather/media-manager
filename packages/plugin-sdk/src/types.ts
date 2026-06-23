@@ -81,12 +81,9 @@ export type AuthResult =
       status: "completed";
       credentials: unknown;
       /**
-       * Optional patch merged into `userConfig` before `service_connections`
-       * row write. Avoids round-tripping server-resolved IDs (Plex
-       * `machineIdentifier`, Jellyfin `userId` from `/Users/Me`) through
-       * client. Set key to `null` to delete from persisted `userConfig`.
-       * Built-in plugins trusted to only set `userConfigSchema` keys or
-       * clear via `null`; user-plugin schema validation not yet implemented.
+       * Optional patch merged into `userConfig` before write.
+       * Avoids round-tripping server-resolved IDs (Plex `machineIdentifier`,
+       * Jellyfin `userId` from `/Users/Me`) through client; set key to `null` to delete.
        */
       userConfigPatch?: Record<string, unknown>;
     }
@@ -182,10 +179,9 @@ export interface CapabilityMethodSpec<
    */
   invalidates?: string[];
   /**
-   * When true, existing plugins can omit the implementation. Dispatcher
-   * surfaces `plugin.missing_method` which aggregate strategy skips.
-   * Used for home-feed extensions (`watchHistory@v1.getInProgress`,
-   * `mediaRequest@v1.getStatusBatch`) so existing plugins keep loading.
+   * When true, existing plugins can omit the implementation (dispatcher surfaces
+   * `plugin.missing_method`). Used for home-feed extensions
+   * (`watchHistory@v1.getInProgress`, `mediaRequest@v1.getStatusBatch`).
    */
   optional?: boolean;
 }
@@ -218,11 +214,9 @@ export interface CapabilityMcpTool {
 }
 
 /**
- * Scope a dispatched call is routed at. `"global"`: one shared result,
- * cache not userId-qualified. `"user"`: result per caller, cache
- * userId-qualified. `"mixed"`: dispatcher chooses per-request via
- * `scopeForInput` (e.g. `idResolve@v1`: `from: "tmdb"` is global,
- * `from: "plex:ratingKey"` must resolve against user's own server).
+ * Scope a dispatched call is routed at: `"global"` (shared result, cache not
+ * userId-qualified), `"user"` (per-caller result), or `"mixed"` (dispatcher
+ * chooses per-request via `scopeForInput`).
  */
 export type CapabilityScopeMode = "global" | "user" | "mixed";
 
@@ -245,11 +239,9 @@ interface CapabilityDefinitionBase {
 }
 
 /**
- * Fixed-scope (`"global"` or `"user"`): every call resolves same scope,
- * `scopeForInput` prohibited. `"mixed"`: scope per-request via `scopeForInput`
- * (must be pure, side-effect free). Dispatcher calls once per dispatch,
- * threads result through provider lookup and cache keying (userId-qualified
- * only for `"user"` scope) — user result never served from global cache.
+ * Fixed-scope (`"global"` or `"user"`) uses same scope per call; `"mixed"` uses
+ * per-request scope via pure `scopeForInput`. Cache keying is userId-qualified
+ * only for `"user"` scope — user results never served from global cache.
  */
 export type CapabilityDefinition = CapabilityDefinitionBase &
   (

@@ -8,9 +8,8 @@ import type { ArtworkIdMap } from "./types";
 const CANONICAL_ID_PRECEDENCE = ["tmdb", "imdb", "tvdb"] as const;
 
 /**
- * Stable canonical key from highest-precedence ID present (not whole subset).
- * E.g., `{tmdb:"550"}` and `{tmdb:"550", imdb:"tt1"}` both yield `movie|tmdb:550`.
- * Throws if no recognized ID (prevents unrelated empty-id items from collapsing).
+ * Uses highest-precedence ID only (e.g. `{tmdb:"550", imdb:"tt1"}` → `movie|tmdb:550`).
+ * Throws if no recognized ID to prevent unrelated empty-id items from collapsing.
  * Single source of truth for service dedupe and rate-limiter token charges — callers must validate with `artworkIdMapSchema` first.
  */
 export function canonicalArtworkKey(ids: ArtworkIdMap, type: MediaType): string {
