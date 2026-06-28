@@ -13,6 +13,6 @@ export const Route = createFileRoute("/_authenticated/_app/library/server")({
   loader: ({ context: { queryClient }, deps }) =>
     prefetchLibraryLens(queryClient, "server", searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
-  errorComponent: LibraryRouteError,
+  errorComponent: (props) => <LibraryRouteError {...props} lens="server" />,
   component: ServersLensPage,
 });

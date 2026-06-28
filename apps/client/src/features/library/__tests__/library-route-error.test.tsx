@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { MediaApiError } from "@/shared/media/error";
-import { mediaKeys } from "@/shared/media/query-keys";
+import { lensResetKey } from "../lib/fetchers";
 import { libraryKeys } from "../lib/query-keys";
 import { LibraryApiError } from "../lib/types";
 import { LibraryRouteError } from "../components/library-route-error";
@@ -102,8 +102,30 @@ describe("LibraryRouteError", () => {
   // The four item lenses ride the shared media source under `mediaKeys`, not
   // `libraryKeys`; resetting only `libraryKeys.all` (collections + facets) would
   // leave a failed lens read cached, so retry would appear to do nothing. The
-  // fallback must reset both families.
-  it("resets both the library and the media-source query families on retry", () => {
+  // reset must target THIS lens's source — `lensResetKey(lens)`, a prefix that
+  // sweeps every filter variant — not all of media (which would also drop other
+  // surfaces' source reads).
+  it("resets the library family and this lens's media source on retry", () => {
+    const client = new QueryClient();
+    const resetQueries = vi.spyOn(client, "resetQueries").mockResolvedValue(undefined);
+    const reset = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={new Error("boom")} reset={reset} lens="timeline" />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(resetQueries).toHaveBeenCalledTimes(2);
+    expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
+    expect(resetQueries).toHaveBeenCalledWith({ queryKey: lensResetKey("timeline") });
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  // The layout + collections routes read no media source, so their fallback
+  // omits `lens` and must reset only the library family — never a media source.
+  it("resets only the library family when no lens is given", () => {
     const client = new QueryClient();
     const resetQueries = vi.spyOn(client, "resetQueries").mockResolvedValue(undefined);
     const reset = vi.fn();
@@ -115,8 +137,8 @@ describe("LibraryRouteError", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 
+    expect(resetQueries).toHaveBeenCalledTimes(1);
     expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
-    expect(resetQueries).toHaveBeenCalledWith({ queryKey: mediaKeys.root });
     expect(reset).toHaveBeenCalledTimes(1);
   });
 });

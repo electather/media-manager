@@ -6,6 +6,7 @@ import type {
 } from "@nama/shared/library";
 import type { MediaSourceId } from "@nama/shared/media";
 import { api } from "@/shared/lib/api";
+import { mediaKeys } from "@/shared/media/query-keys";
 import { defineMediaSource } from "@/shared/media/source";
 import type { LibraryFilters } from "./types";
 import { throwOnError } from "./types";
@@ -54,13 +55,25 @@ export function defineLensSource(
   lens: Exclude<LibraryLens, "collections">,
   filters: LibraryFilters,
 ) {
-  const sourceId = `library-${lens}` as MediaSourceId;
   return defineMediaSource({
-    sourceId,
+    sourceId: lensSourceId(lens),
     params: lensSourceParams(filters),
     mode: "infinite",
     cursorOnNull: "firstPage",
   });
+}
+
+/** The unified-resolver source id each item lens reads under (`library-az`, …). */
+function lensSourceId(lens: Exclude<LibraryLens, "collections">): MediaSourceId {
+  return `library-${lens}` as MediaSourceId;
+}
+
+/**
+ * Query-key prefix sweeping an item lens's source across every filter variant.
+ * Retry/refresh resets this so a failed lens read refetches, not all of media.
+ */
+export function lensResetKey(lens: Exclude<LibraryLens, "collections">) {
+  return mediaKeys.sourceAll(lensSourceId(lens));
 }
 
 /**

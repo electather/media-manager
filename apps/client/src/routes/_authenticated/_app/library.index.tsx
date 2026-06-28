@@ -15,6 +15,6 @@ export const Route = createFileRoute("/_authenticated/_app/library/")({
   loader: ({ context: { queryClient }, deps }) =>
     prefetchLibraryLens(queryClient, "az", searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
-  errorComponent: LibraryRouteError,
+  errorComponent: (props) => <LibraryRouteError {...props} lens="az" />,
   component: AzLensPage,
 });
