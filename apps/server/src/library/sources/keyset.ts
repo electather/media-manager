@@ -1,5 +1,5 @@
 import type { AzCursor, QualityCursor, ServerCursor, TimelineCursor } from "../repo";
-import { rankQualityTier } from "../internal/rank-quality";
+import { rankQualityTier } from "@nama/shared/library";
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
 import type { Cursor, RawPageToken } from "../../media";
 
