@@ -70,9 +70,10 @@ describe("LibraryRouteError", () => {
   it("resets only the library family when no lens is given", () => {
     const client = new QueryClient();
     const resetQueries = vi.spyOn(client, "resetQueries").mockResolvedValue(undefined);
+    const reset = vi.fn();
     render(
       <QueryClientProvider client={client}>
-        <LibraryRouteError error={new Error("boom")} reset={vi.fn()} />
+        <LibraryRouteError error={new Error("boom")} reset={reset} />
       </QueryClientProvider>,
     );
 
@@ -80,5 +81,6 @@ describe("LibraryRouteError", () => {
 
     expect(resetQueries).toHaveBeenCalledTimes(1);
     expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
+    expect(reset).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 import type { MediaSourceId, MediaType } from "@nama/shared/media";
 
-/** Media query-key root + factory (design §B1, V.CL1). Single `invalidateQueries(mediaKeys.root)` sweeps whole surface (#505). `source(sourceId, params)` folds request params into key (#514). */
+/** Media query-key root + factory (design §B1, V.CL1). Single `invalidateQueries(mediaKeys.root)` sweeps whole surface (#505). `source(sourceId, params)` folds request params into key (#514). `sourceAll(sourceId)` is the prefix key sweeping all param variants of one source without evicting others (#876). */
 export const mediaKeys = {
   root: ["media"] as const,
   source: (sourceId: MediaSourceId, params?: Record<string, unknown>) =>
