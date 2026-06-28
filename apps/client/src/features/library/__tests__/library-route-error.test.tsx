@@ -60,6 +60,7 @@ describe("LibraryRouteError", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 
+    expect(resetQueries).toHaveBeenCalledTimes(2);
     expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
     expect(resetQueries).toHaveBeenCalledWith({ queryKey: lensResetKey("timeline") });
     expect(reset).toHaveBeenCalledTimes(1);
