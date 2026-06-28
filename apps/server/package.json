@@ -27,9 +27,9 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "catalog:",
-    "@hono/zod-validator": "^0.7.6",
+    "@hono/zod-validator": "^0.8.0",
     "@jridgewell/trace-mapping": "^0.3.31",
-    "@libsql/client": "^0.17.2",
+    "@libsql/client": "^0.17.4",
     "@nama/plugin-discord": "workspace:*",
     "@nama/plugin-fanart": "workspace:*",
     "@nama/plugin-inbox": "workspace:*",
@@ -44,7 +44,7 @@
     "@nama/plugin-tvdb": "workspace:*",
     "@nama/shared": "workspace:*",
     "@t3-oss/env-core": "^0.13.11",
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "better-auth": "catalog:",
     "consola": "^3.4.2",
     "croner": "^10.0.1",
@@ -52,9 +52,9 @@
     "drizzle-zod": "^0.8.3",
     "es-toolkit": "catalog:",
     "hono": "catalog:",
-    "ioredis": "^5.10.1",
+    "ioredis": "^5.11.1",
     "jszip": "catalog:",
-    "lru-cache": "^11.3.5",
+    "lru-cache": "^11.5.1",
     "zod": "catalog:"
   },
   "devDependencies": {
