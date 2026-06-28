@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { libraryKeys } from "../lib/query-keys";
+import { LibraryApiError } from "../lib/types";
 import { LibraryRouteError } from "../components/library-route-error";
 
 afterEach(cleanup);
@@ -40,6 +41,23 @@ describe("LibraryRouteError", () => {
     );
 
     expect(screen.queryByText("prefetch boom")).toBeNull();
+  });
+
+  // The body is keyed off the typed `LibraryApiError.status`, so a known status
+  // gets specific localized copy instead of the generic body. A leaked English
+  // `devMessage` in the error body must still never surface.
+  it("renders status-specific localized copy for a typed LibraryApiError", () => {
+    const client = new QueryClient();
+    const error = new LibraryApiError(404, { devMessage: "row not found in catalog table" });
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={error} reset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(m.errors_not_found_body())).toBeTruthy();
+    expect(screen.queryByText(m.errors_default_body())).toBeNull();
+    expect(screen.queryByText(/row not found in catalog table/)).toBeNull();
   });
 
   // The four item lenses ride the shared media source under `mediaKeys`, not
