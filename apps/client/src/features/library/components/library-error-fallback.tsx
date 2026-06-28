@@ -23,6 +23,8 @@ interface LibraryErrorFallbackProps {
  * diagnostic, meaningless to a non-English user and a leak of internal detail).
  * Reuses the shared `errors_*_body` copy; unknown errors get the generic body.
  */
+// 403 excluded: errors_unauthorized_body says "session ended" — wrong for a
+// valid-session forbidden. Falls through to errors_default_body below.
 const STATUS_BODY: Record<number, () => string> = {
   401: m.errors_unauthorized_body,
   404: m.errors_not_found_body,

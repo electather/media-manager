@@ -66,7 +66,7 @@ describe("LibraryRouteError", () => {
     [429, "errors_rate_limited_body", () => m.errors_rate_limited_body()],
     [503, "errors_maintenance_body", () => m.errors_maintenance_body()],
     [500, "errors_server_body", () => m.errors_server_body()],
-    [500, "errors_server_body (502)", () => m.errors_server_body()],
+    [502, "errors_server_body (other 5xx)", () => m.errors_server_body()],
   ])("renders %s → %s for LibraryApiError", (status, _label, expected) => {
     const client = new QueryClient();
     render(
