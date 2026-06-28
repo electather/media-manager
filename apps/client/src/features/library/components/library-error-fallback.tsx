@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
+import { MediaApiError } from "@/shared/media/error";
 import { mediaKeys } from "@/shared/media/query-keys";
 import { Button } from "@/shared/ui/button";
 import { LibraryApiError } from "../lib/types";
@@ -24,18 +25,22 @@ interface LibraryErrorFallbackProps {
  */
 const STATUS_BODY: Record<number, () => string> = {
   401: m.errors_unauthorized_body,
-  403: m.errors_unauthorized_body,
   404: m.errors_not_found_body,
   429: m.errors_rate_limited_body,
   503: m.errors_maintenance_body,
 };
 
+// fallow-ignore-next-line complexity
 function resolveErrorBody(error: unknown): string {
-  if (!(error instanceof LibraryApiError)) return m.errors_default_body();
-  const exact = STATUS_BODY[error.status];
+  // Lens routes throw MediaApiError (via defineMediaSource); collection/facet
+  // routes throw LibraryApiError. Both carry a typed status — handle both.
+  const status =
+    error instanceof LibraryApiError || error instanceof MediaApiError ? error.status : null;
+  if (status === null) return m.errors_default_body();
+  const exact = STATUS_BODY[status];
   if (exact) return exact();
   // Any other 5xx is a generic server fault; below that, unknown to the user.
-  return error.status >= 500 ? m.errors_server_body() : m.errors_default_body();
+  return status >= 500 ? m.errors_server_body() : m.errors_default_body();
 }
 
 /**
