@@ -16,6 +16,7 @@ apps/client/src/paraglide/
 test-server.ts
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/settings.local.json
 .token-savior-cache.json
 .token-savior-checkpoints/
 .fallow/*

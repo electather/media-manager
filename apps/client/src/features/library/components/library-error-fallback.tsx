@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { LibraryLens } from "@nama/shared/library";
 import * as m from "@/paraglide/messages";
+import { MediaApiError } from "@/shared/media/error";
 import { Button } from "@/shared/ui/button";
+import { LibraryApiError } from "../lib/types";
 import { lensResetKey } from "../lib/fetchers";
 import { libraryKeys } from "../lib/query-keys";
 
@@ -13,27 +15,57 @@ interface LibraryErrorFallbackProps {
    */
   lens?: Exclude<LibraryLens, "collections">;
   /**
-   * The thrown error, accepted to satisfy the `ErrorComponentProps` passthrough
-   * from `LibraryRouteError`. Intentionally not rendered or reported here: a
-   * `LibraryApiError` already reports at the fetch layer (`shared/lib/api.ts`),
-   * and its raw `message` / `devMessage` must never reach the UI — see the body
-   * note below.
+   * The thrown error. Only its typed `status` is read to pick localized copy;
+   * its raw `message` / `devMessage` is never rendered — that defaults to the
+   * server-shipped English diagnostic (see body note below). A `LibraryApiError`
+   * already reports at the fetch layer (`shared/lib/api.ts`).
    */
   error: unknown;
   resetErrorBoundary: () => void;
 }
 
 /**
- * Shared fallback for the `/library/*` routes. The body is a generic localized
- * string, never the error's `message` / `devMessage`: for a `LibraryApiError`
- * the message defaults to the server-shipped English diagnostic, which is
- * meaningless to a non-English user and can leak internal detail into the UI.
+ * Localized body for the fallback, keyed off the typed `LibraryApiError.status`
+ * (never `message` / `devMessage` — those default to the server-shipped English
+ * diagnostic, meaningless to a non-English user and a leak of internal detail).
+ * Reuses the shared `errors_*_body` copy; unknown errors get the generic body.
+ */
+// 403 excluded: errors_unauthorized_body says "session ended" — wrong for a
+// valid-session forbidden. Falls through to errors_default_body below.
+const STATUS_BODY: Record<number, () => string> = {
+  401: m.errors_unauthorized_body,
+  404: m.errors_not_found_body,
+  429: m.errors_rate_limited_body,
+  503: m.errors_maintenance_body,
+};
+
+// fallow-ignore-next-line complexity
+function resolveErrorBody(error: unknown): string {
+  // Lens routes throw MediaApiError (via defineMediaSource); collection/facet
+  // routes throw LibraryApiError. Both carry a typed status — handle both.
+  const status =
+    error instanceof LibraryApiError || error instanceof MediaApiError ? error.status : null;
+  if (status === null) return m.errors_default_body();
+  const exact = STATUS_BODY[status];
+  if (exact) return exact();
+  // Any other 5xx is a generic server fault; below that, unknown to the user.
+  return status >= 500 ? m.errors_server_body() : m.errors_default_body();
+}
+
+/**
+ * Shared fallback for the `/library/*` routes. Body is a localized string chosen
+ * from the typed error's `status` (see `resolveErrorBody`), never the error's
+ * raw `message` / `devMessage`.
  *
  * Retry resets the library queries before clearing the boundary: resetting only
  * the boundary leaves the failed query cached, so the next mount re-throws the
  * same error and retry appears to do nothing.
  */
-export function LibraryErrorFallback({ lens, resetErrorBoundary }: LibraryErrorFallbackProps) {
+export function LibraryErrorFallback({
+  lens,
+  error,
+  resetErrorBoundary,
+}: LibraryErrorFallbackProps) {
   const queryClient = useQueryClient();
 
   function handleRetry() {
@@ -55,7 +87,7 @@ export function LibraryErrorFallback({ lens, resetErrorBoundary }: LibraryErrorF
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16 text-center">
       <h2 className="text-lg font-semibold">{m.library_load_error_title()}</h2>
-      <p className="text-sm text-muted-foreground">{m.errors_default_body()}</p>
+      <p className="text-sm text-muted-foreground">{resolveErrorBody(error)}</p>
       <Button size="sm" onClick={handleRetry}>
         {m.library_load_error_retry()}
       </Button>
