@@ -1,10 +1,17 @@
 import { useQueryClient } from "@tanstack/react-query";
+import type { LibraryLens } from "@nama/shared/library";
 import * as m from "@/paraglide/messages";
-import { mediaKeys } from "@/shared/media/query-keys";
 import { Button } from "@/shared/ui/button";
+import { lensResetKey } from "../lib/fetchers";
 import { libraryKeys } from "../lib/query-keys";
 
 interface LibraryErrorFallbackProps {
+  /**
+   * The item lens whose route owns this fallback, scoping the retry's media
+   * reset. Omitted by the layout + collections routes — they read only this
+   * feature's own endpoints (`libraryKeys.all`), no media source.
+   */
+  lens?: Exclude<LibraryLens, "collections">;
   /**
    * The thrown error, accepted to satisfy the `ErrorComponentProps` passthrough
    * from `LibraryRouteError`. Intentionally not rendered or reported here: a
@@ -26,19 +33,22 @@ interface LibraryErrorFallbackProps {
  * the boundary leaves the failed query cached, so the next mount re-throws the
  * same error and retry appears to do nothing.
  */
-export function LibraryErrorFallback({ resetErrorBoundary }: LibraryErrorFallbackProps) {
+export function LibraryErrorFallback({ lens, resetErrorBoundary }: LibraryErrorFallbackProps) {
   const queryClient = useQueryClient();
 
   function handleRetry() {
     // `resetQueries` synchronously marks the cache stale (its returned refetch
     // is fire-and-forget); the boundary can clear right away and the re-mounted
     // Suspense child suspends on the fresh fetch. Don't await it — that would
-    // make retry block on the refetch completing. The library renders two query
-    // families: its own collections + facets (`libraryKeys.all`) and the four
-    // item lenses, which ride the shared media source under `mediaKeys`. Reset
-    // both so a failed lens read actually refetches, not just collections.
+    // make retry block on the refetch completing. `libraryKeys.all` covers
+    // collections + facets (this feature's own endpoints). The four item lenses
+    // don't key through here — they ride the shared media source under
+    // `mediaKeys`, so reset just THIS lens's source rather than nuking all of
+    // media, scoping the retry to the queries this route actually displays.
     void queryClient.resetQueries({ queryKey: libraryKeys.all });
-    void queryClient.resetQueries({ queryKey: mediaKeys.root });
+    if (lens) {
+      void queryClient.resetQueries({ queryKey: lensResetKey(lens) });
+    }
     resetErrorBoundary();
   }
 

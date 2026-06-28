@@ -5,6 +5,9 @@ export const mediaKeys = {
   root: ["media"] as const,
   source: (sourceId: MediaSourceId, params?: Record<string, unknown>) =>
     [...mediaKeys.root, "source", sourceId, params ?? null] as const,
+  // Prefix for one source across every param variant: resetQueries here sweeps
+  // all filter combinations of that source without touching other sources (#514).
+  sourceAll: (sourceId: MediaSourceId) => [...mediaKeys.root, "source", sourceId] as const,
   title: (type: MediaType, tmdbId: string) => [...mediaKeys.root, "title", type, tmdbId] as const,
   // Season availability is a separate read from the title details, but it must
   // still nest under `mediaKeys.root` so a post-mutation

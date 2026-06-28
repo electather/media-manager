@@ -13,6 +13,6 @@ export const Route = createFileRoute("/_authenticated/_app/library/quality")({
   loader: ({ context: { queryClient }, deps }) =>
     prefetchLibraryLens(queryClient, "quality", searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
-  errorComponent: LibraryRouteError,
+  errorComponent: (props) => <LibraryRouteError {...props} lens="quality" />,
   component: QualityLensPage,
 });
