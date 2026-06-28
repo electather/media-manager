@@ -1,7 +1,6 @@
 import { and, asc, eq, gt, inArray, or, sql, type Column, type SQL } from "drizzle-orm";
 import type { MediaType } from "@nama/shared/media";
-import { QUALITY_TIERS, type WatchedState } from "@nama/shared/library";
-import { QUALITY_RANK_UNRANKED } from "../internal/rank-quality";
+import { QUALITY_RANK_UNRANKED, QUALITY_TIERS, type WatchedState } from "@nama/shared/library";
 import { getDb, type Db } from "../../db/client";
 import { libraryItems } from "../../db/schema/library";
 import type { ExpandedLibraryRow, LibraryRow } from "../types";
