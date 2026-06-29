@@ -106,4 +106,18 @@ describe("resolveConnections", () => {
 
     expect(conns).toEqual([]);
   });
+
+  it("prefers a real shared credential over the bundled default", async () => {
+    // WHY: listDecryptedActive appends the bundled default last; this 2nd consumer
+    // takes shared[0], so a real admin key must win over the bundled fallback.
+    queryEnabledConnectionsForPluginMock.mockResolvedValue([]);
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "real", value: { apiKey: "admin-key" } },
+      { id: "__bundled__", value: { apiKey: "bundled-key" } },
+    ]);
+
+    const conns = await resolveConnections("user-1", "tmdb", "global");
+
+    expect(conns[0]?.credentials).toEqual({ apiKey: "admin-key" });
+  });
 });

@@ -29,6 +29,8 @@ export interface SharedCredentialSummary {
   retryAfter: number | null;
   createdAt: number;
   updatedAt: number;
+  /** True for the synthesized read-only bundled default entry (design §4). */
+  bundled?: boolean;
 }
 
 /**
@@ -57,6 +59,8 @@ export interface PluginRow {
   globalConfig: string | null;
   personalKeyFallback: PersonalKeyFallbackPolicy;
   manifest: string;
+  installedAt: number;
+  updatedAt: number;
 }
 
 /** Fetches the plugins row by id, throwing when the plugin is not installed. */
@@ -72,8 +76,74 @@ async function requirePluginManifestJson(pluginId: string): Promise<string> {
   return row.manifest;
 }
 
+/** Reserved id/label for the synthesized bundled default entry. By-id mutators
+ *  reject this id; `add` rejects the label case-insensitively via `list`. */
+export const BUNDLED_CREDENTIAL_ID = "__bundled__";
+const BUNDLED_CREDENTIAL_LABEL = "Bundled (default)";
+
+/** A bundled default is still unconfigured while any string leaf carries the
+ *  `REPLACE_WITH_` sentinel — synthesis stays off so tmdbConfigured stays false
+ *  and onboarding stays required (design §2/§6 blank-poster guard). */
+const PLACEHOLDER_PREFIX = "REPLACE_WITH_";
+
+/** The bundled default has no DB row; every by-id mutator/reader rejects it so
+ *  the admin "test"/edit/delete/toggle paths surface `bundled_readonly` rather
+ *  than a misleading `shared_credential_not_found` (design §3). */
+function assertNotBundled(credentialId: string, pluginId: string): void {
+  if (credentialId === BUNDLED_CREDENTIAL_ID) {
+    throw new PluginError(
+      "plugin.bundled_readonly",
+      `the bundled default credential for plugin ${pluginId} is read-only`,
+    );
+  }
+}
+
+function hasPlaceholderLeaf(value: unknown): boolean {
+  if (typeof value === "string") return value.startsWith(PLACEHOLDER_PREFIX);
+  // Arrays are objects, so Object.values covers both — one branch, recurse.
+  if (typeof value !== "object" || value === null) return false;
+  return Object.values(value).some(hasPlaceholderLeaf);
+}
+
+/** Parses the manifest's bundled default, normalizing absent/unparseable to null. */
+function manifestDefaultCredential(manifestJson: string): unknown {
+  try {
+    return (
+      (JSON.parse(manifestJson) as Partial<ValidatedManifest>).defaultSharedCredentials ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** The plugin's bundled default credential value, or null when absent or still
+ *  holding the placeholder sentinel. */
+function readBundledDefault(manifestJson: string): unknown {
+  const value = manifestDefaultCredential(manifestJson);
+  if (value === null) return null;
+  return hasPlaceholderLeaf(value) ? null : value;
+}
+
+/** Synthesized summary for the bundled default. Timestamps borrow the plugin's
+ *  install/update times ("bundled since install") — stable across restarts,
+ *  no epoch-0 churn (design §2). */
+function buildBundledSummary(row: PluginRow): SharedCredentialSummary | null {
+  if (readBundledDefault(row.manifest) === null) return null;
+  return {
+    id: BUNDLED_CREDENTIAL_ID,
+    label: BUNDLED_CREDENTIAL_LABEL,
+    enabled: true,
+    lastExhaustedAt: null,
+    retryAfter: null,
+    createdAt: row.installedAt,
+    updatedAt: row.updatedAt,
+    bundled: true,
+  };
+}
+
 export const sharedCredentialsService = {
-  /** Summaries only; decrypted values are never leaked over this API. */
+  /** Summaries only; decrypted values are never leaked over this API. The
+   *  bundled default (if any) is appended last so real rows take priority. */
   async list(pluginId: string): Promise<SharedCredentialSummary[]> {
     const db = getDb();
     const rows = await db
@@ -81,10 +151,15 @@ export const sharedCredentialsService = {
       .from(pluginSharedCredentials)
       .where(eq(pluginSharedCredentials.pluginId, pluginId))
       .all();
-    return rows.map(toSummary);
+    const summaries = rows.map(toSummary);
+    const bundled = buildBundledSummary(await requirePluginRow(pluginId));
+    if (bundled) summaries.push(bundled);
+    return summaries;
   },
 
-  /** Lists enabled entries in round-robin order alongside their decrypted values. */
+  /** Lists enabled entries in round-robin order alongside their decrypted
+   *  values, then the bundled default last (lowest priority). A non-empty
+   *  return keeps `buildCredentialPlan` off the `capability_unavailable` path. */
   async listDecryptedActive(pluginId: string): Promise<PoolPick[]> {
     const db = getDb();
     const rows = await db
@@ -100,6 +175,10 @@ export const sharedCredentialsService = {
       const value = await decryptJson(iv, encryptedValue);
       picks.push({ id: row.id, label: row.label, value });
     }
+    const bundled = readBundledDefault((await requirePluginRow(pluginId)).manifest);
+    if (bundled !== null) {
+      picks.push({ id: BUNDLED_CREDENTIAL_ID, label: BUNDLED_CREDENTIAL_LABEL, value: bundled });
+    }
     return picks;
   },
 
@@ -113,7 +192,12 @@ export const sharedCredentialsService = {
   async add(args: { pluginId: string; label: string; value: unknown }): Promise<string> {
     const manifestJson = await requirePluginManifestJson(args.pluginId);
     const existing = await this.list(args.pluginId);
-    if (!isPoolable(manifestJson) && existing.length > 0) {
+    // The synthetic bundled entry must not consume the single non-poolable slot,
+    // or a non-poolable plugin with a bundled default could never add a real
+    // override key (design §3). Count real rows only here; the label-collision
+    // check below still sees the bundled entry so its label stays reserved.
+    const realCount = existing.filter((e) => e.id !== BUNDLED_CREDENTIAL_ID).length;
+    if (!isPoolable(manifestJson) && realCount > 0) {
       throw new PluginError(
         "plugin.not_poolable",
         `plugin ${args.pluginId} is not poolable — only one shared credential entry is permitted`,
@@ -153,6 +237,7 @@ export const sharedCredentialsService = {
     value?: unknown;
     enabled?: boolean;
   }): Promise<void> {
+    assertNotBundled(args.credentialId, args.pluginId);
     const db = getDb();
     if (args.label !== undefined) {
       const labelLower = args.label.trim().toLowerCase();
@@ -202,6 +287,7 @@ export const sharedCredentialsService = {
   },
 
   async delete(args: { pluginId: string; credentialId: string }): Promise<void> {
+    assertNotBundled(args.credentialId, args.pluginId);
     const db = getDb();
     await db
       .delete(pluginSharedCredentials)
@@ -214,6 +300,7 @@ export const sharedCredentialsService = {
   },
 
   async getDecrypted(args: { pluginId: string; credentialId: string }): Promise<PoolPick> {
+    assertNotBundled(args.credentialId, args.pluginId);
     const db = getDb();
     const row = await db
       .select()
@@ -245,6 +332,8 @@ export const sharedCredentialsService = {
     credentialId: string;
     retryAfterSec?: number;
   }): Promise<void> {
+    // No bundled guard: the UPDATE matches 0 rows for "__bundled__" (no DB row),
+    // a correct silent no-op — the public key is simply retried (design §3).
     const db = getDb();
     const now = Math.floor(Date.now() / 1000);
     const backoffSec = args.retryAfterSec ?? 60;

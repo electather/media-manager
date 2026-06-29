@@ -253,22 +253,44 @@ function CredentialsTable({
 
   return (
     <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
-      {rows.map((entry) => (
-        <CredentialRow
-          key={entry.id}
-          entry={entry}
-          pluginId={pluginId}
-          nowMs={nowMs}
-          onEdit={() => onEdit(entry)}
-          onDeleteRequest={() => onDeleteRequest(entry)}
-          onPoolChange={onPoolChange}
-        />
-      ))}
+      {rows.map((entry) =>
+        entry.bundled ? (
+          <BundledCredentialRow key={entry.id} entry={entry} />
+        ) : (
+          <CredentialRow
+            key={entry.id}
+            entry={entry}
+            pluginId={pluginId}
+            nowMs={nowMs}
+            onEdit={() => onEdit(entry)}
+            onDeleteRequest={() => onDeleteRequest(entry)}
+            onPoolChange={onPoolChange}
+          />
+        ),
+      )}
     </ul>
   );
 }
 
 // ─── Single row ──────────────────────────────────────────────────────────────
+
+// Read-only row for the synthesized bundled default. No DB row exists, so it
+// carries no enable/edit/delete actions — see design §5.
+function BundledCredentialRow({ entry }: { entry: SharedCredentialEntry }) {
+  return (
+    <li className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-sm font-medium">{entry.label}</span>
+        <span className="text-xs text-muted-foreground">
+          {m.admin_plugins_shared_creds_bundled_note()}
+        </span>
+      </div>
+      <span className="self-start rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:self-center">
+        {m.admin_plugins_shared_creds_bundled_badge()}
+      </span>
+    </li>
+  );
+}
 
 // fallow-ignore-next-line complexity
 function CredentialRow({

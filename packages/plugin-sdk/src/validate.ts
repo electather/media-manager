@@ -135,6 +135,68 @@ function validateAuth(manifest: ParsedManifest, module: PluginModule): void {
   }
 }
 
+const JSON_TYPE_CHECKS: Record<string, (v: unknown) => boolean> = {
+  string: (v) => typeof v === "string",
+  number: (v) => typeof v === "number",
+  integer: (v) => typeof v === "number" && Number.isInteger(v),
+  boolean: (v) => typeof v === "boolean",
+  object: (v) => typeof v === "object" && v !== null && !Array.isArray(v),
+  array: (v) => Array.isArray(v),
+};
+
+/**
+ * ponytail: validates the flat-object credential-schema subset (object,
+ * `required` present, top-level property primitive `type`) — not full JSON
+ * Schema. Bundled creds are always flat key/value secrets; upgrade to ajv
+ * server-side if a nested credential schema ever ships. Returns reason or null.
+ */
+function describeMissingRequired(obj: Record<string, unknown>, schema: Record<string, unknown>) {
+  const required = Array.isArray(schema.required) ? (schema.required as string[]) : [];
+  for (const key of required) {
+    if (!(key in obj)) return `missing required property "${key}"`;
+  }
+  return null;
+}
+
+// fallow-ignore-next-line complexity
+function describeWrongType(obj: Record<string, unknown>, schema: Record<string, unknown>) {
+  const props = (schema.properties ?? {}) as Record<string, { type?: string }>;
+  for (const [key, spec] of Object.entries(props)) {
+    if (!(key in obj)) continue;
+    const check = spec.type ? JSON_TYPE_CHECKS[spec.type] : undefined;
+    if (check && !check(obj[key])) return `property "${key}" must be of type ${spec.type}`;
+  }
+  return null;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function describeSchemaMismatch(value: unknown, schema: Record<string, unknown>): string | null {
+  if (!isPlainObject(value)) return "expected an object";
+  return describeMissingRequired(value, schema) ?? describeWrongType(value, schema);
+}
+
+/**
+ * Bundled defaults are author-supplied, so a shape mismatch is an install-time
+ * authoring error — fail loud, never synthesize an unvalidated pool entry. The
+ * manifest schema already guarantees `sharedCredentialsSchema` is present here.
+ */
+function validateDefaultSharedCredentials(manifest: ParsedManifest): void {
+  const value = manifest.defaultSharedCredentials;
+  if (value === undefined) return;
+  const schema = manifest.sharedCredentialsSchema;
+  if (!schema) return;
+  const reason = describeSchemaMismatch(value, schema);
+  if (reason) {
+    throw new PluginError(
+      "plugin.input_invalid",
+      `defaultSharedCredentials does not match sharedCredentialsSchema: ${reason}`,
+    );
+  }
+}
+
 // fallow-ignore-next-line complexity
 function validateMcpTools(manifest: ParsedManifest, module: PluginModule): void {
   const seenNames = new Set<string>();
@@ -177,6 +239,7 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
   validateCapabilities(manifest, module);
   validateJobs(manifest, module);
   validateAuth(manifest, module);
+  validateDefaultSharedCredentials(manifest);
   validateMcpTools(manifest, module);
   return { module, manifestJson: JSON.stringify(manifest) };
 }

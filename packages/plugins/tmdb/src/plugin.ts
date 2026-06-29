@@ -6,7 +6,7 @@ import { idResolve } from "./capabilities/id-resolve";
 import { watchProviders } from "./capabilities/watch-providers";
 import { trailers } from "./capabilities/trailers";
 import { artwork } from "./capabilities/artwork";
-import { BASE } from "./constants";
+import { BASE, TMDB_BUNDLED_KEY } from "./constants";
 import type { Ctx } from "./types";
 
 export default definePlugin({
@@ -55,6 +55,9 @@ export default definePlugin({
       },
       required: ["apiKey"],
     },
+    // Public by design (mirrors seerr); admin pool entry or user key overrides.
+    // Synthesized as a read-only lowest-priority pool entry — see design §1.
+    defaultSharedCredentials: { apiKey: TMDB_BUNDLED_KEY },
     auth: { kind: "none" },
     capabilities: {
       metadata: { version: "v1", scope: "global" },

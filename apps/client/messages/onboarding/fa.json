@@ -56,6 +56,7 @@
   "onboarding_tmdb_label": "کلید API مربوط به TMDB",
   "onboarding_tmdb_placeholder": "کلید API مربوط به TMDB شما",
   "onboarding_tmdb_why": "الزامی: nama برای همهٔ تصاویر و فراداده از TMDB استفاده می‌کند.",
+  "onboarding_tmdb_bundled_default": "کلید پیش‌فرض ارائه شده — برای جایگزینی، کلید خود را اضافه کنید.",
   "onboarding_tmdb_get_key": "دریافت کلید API مربوط به TMDB",
   "onboarding_tmdb_test": [
     {
