@@ -34,8 +34,11 @@ export function validateNewPassword(value: string): string | undefined {
   // which bound failed so the message points the right direction.
   const result = createUserSchema.shape.password.safeParse(value);
   if (result.success) return undefined;
-  const tooLong = result.error.issues.some((issue) => issue.code === "too_big");
-  return tooLong ? m.auth_password_too_long() : m.auth_password_too_short();
+  // Length wins over composition: report a bound failure before the alphanumeric refine.
+  const codes = result.error.issues.map((issue) => issue.code);
+  if (codes.includes("too_big")) return m.auth_password_too_long();
+  if (codes.includes("too_small")) return m.auth_password_too_short();
+  return m.auth_password_missing_alphanumeric();
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {

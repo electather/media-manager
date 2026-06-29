@@ -11,7 +11,7 @@ describe("bootstrapClaimSchema name field", () => {
   const base = {
     token: "A".repeat(43),
     email: "admin@example.com",
-    password: "a".repeat(12),
+    password: "a".repeat(11) + "1",
   };
 
   it("accepts a name at the maximum length", () => {

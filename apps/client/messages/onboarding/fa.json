@@ -18,7 +18,7 @@
   ],
   "onboarding_bootstrap_name_required": "نام الزامی است.",
   "onboarding_bootstrap_email_invalid": "یک ایمیل معتبر وارد کنید.",
-  "onboarding_bootstrap_password_too_short": "گذرواژه باید حداقل ۱۲ نویسه باشد.",
+  "onboarding_bootstrap_password_too_short": "گذرواژه باید حداقل ۸ نویسه باشد.",
   "onboarding_bootstrap_password_too_long": "گذرواژه باید حداکثر ۲۵۶ نویسه باشد.",
   "onboarding_bootstrap_token_required": "توکن کامل راه‌اندازی را از کنسول سرور وارد کنید.",
   "onboarding_bootstrap_invalid_token": "این توکن راه‌اندازی نامعتبر است. کنسول سرور را بررسی کنید و دوباره تلاش کنید.",

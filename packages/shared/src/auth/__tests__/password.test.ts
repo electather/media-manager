@@ -8,20 +8,28 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, passwordSchema } from "../pas
  */
 describe("passwordSchema", () => {
   it("exposes the documented bounds", () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(12);
+    expect(PASSWORD_MIN_LENGTH).toBe(8);
     expect(PASSWORD_MAX_LENGTH).toBe(256);
   });
 
+  it("accepts an 8-char alphanumeric password", () => {
+    expect(passwordSchema.safeParse("abcdefg1").success).toBe(true);
+  });
+
   it("rejects a password below the minimum", () => {
-    expect(passwordSchema.safeParse("a".repeat(PASSWORD_MIN_LENGTH - 1)).success).toBe(false);
+    expect(passwordSchema.safeParse("abcdef1").success).toBe(false);
   });
 
-  it("accepts a password at the minimum", () => {
-    expect(passwordSchema.safeParse("a".repeat(PASSWORD_MIN_LENGTH)).success).toBe(true);
+  it("rejects an alphanumeric password missing a digit", () => {
+    expect(passwordSchema.safeParse("abcdefgh").success).toBe(false);
   });
 
-  it("accepts a password at the maximum", () => {
-    expect(passwordSchema.safeParse("a".repeat(PASSWORD_MAX_LENGTH)).success).toBe(true);
+  it("rejects an alphanumeric password missing a letter", () => {
+    expect(passwordSchema.safeParse("12345678").success).toBe(false);
+  });
+
+  it("accepts a long password with symbols and spaces", () => {
+    expect(passwordSchema.safeParse("Tr0ub4dour & the white horse!").success).toBe(true);
   });
 
   it("rejects a password above the maximum with a too_big issue", () => {

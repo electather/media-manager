@@ -109,7 +109,7 @@ describe("BootstrapForm — shared-schema validation", () => {
     // validation is async, so each message is awaited rather than read
     // synchronously.
     expect(await screen.findByText(/enter a valid email/i)).toBeTruthy();
-    expect(await screen.findByText(/at least 12 characters/i)).toBeTruthy();
+    expect(await screen.findByText(/at least 8 characters/i)).toBeTruthy();
     expect(await screen.findByText(/name is required/i)).toBeTruthy();
     expect(await screen.findByText(/full setup token/i)).toBeTruthy();
 
@@ -124,7 +124,7 @@ describe("BootstrapForm — shared-schema validation", () => {
 
     await user.type(nameInput(), "Ada Lovelace");
     await user.type(emailInput(), "ada@example.com");
-    await user.type(passwordInput(), "correct-horse");
+    await user.type(passwordInput(), "correct-horse1");
     await user.type(tokenInput(), VALID_TOKEN);
     await user.click(screen.getByRole("button", { name: /create administrator/i }));
 
@@ -136,13 +136,13 @@ describe("BootstrapForm — shared-schema validation", () => {
     expect(fetchers.claimBootstrap.mock.calls[0]?.[0]).toEqual({
       name: "Ada Lovelace",
       email: "ada@example.com",
-      password: "correct-horse",
+      password: "correct-horse1",
       token: VALID_TOKEN,
     });
     await waitFor(() =>
       expect(auth.signIn.email).toHaveBeenCalledWith({
         email: "ada@example.com",
-        password: "correct-horse",
+        password: "correct-horse1",
       }),
     );
   });
@@ -161,7 +161,7 @@ describe("BootstrapForm — post-claim session", () => {
   async function submitValidForm(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     await user.type(nameInput(), "Ada Lovelace");
     await user.type(emailInput(), "ada@example.com");
-    await user.type(passwordInput(), "correct-horse");
+    await user.type(passwordInput(), "correct-horse1");
     await user.type(tokenInput(), VALID_TOKEN);
     await user.click(screen.getByRole("button", { name: /create administrator/i }));
   }

@@ -14,7 +14,7 @@ describe("createUserSchema", () => {
     const result = createUserSchema.safeParse({
       name: "a".repeat(NAME_MAX_LENGTH),
       email: "alice@example.com",
-      password: "a".repeat(12),
+      password: "a".repeat(11) + "1",
     });
     expect(result.success).toBe(true);
   });
@@ -23,7 +23,7 @@ describe("createUserSchema", () => {
     const result = createUserSchema.safeParse({
       name: "",
       email: "alice@example.com",
-      password: "a".repeat(12),
+      password: "a".repeat(11) + "1",
     });
     expect(result.success).toBe(false);
   });
@@ -32,7 +32,7 @@ describe("createUserSchema", () => {
     const result = createUserSchema.safeParse({
       name: "  Alice  ",
       email: "alice@example.com",
-      password: "a".repeat(12),
+      password: "a".repeat(11) + "1",
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -44,7 +44,7 @@ describe("createUserSchema", () => {
     const result = createUserSchema.safeParse({
       name: "   ",
       email: "alice@example.com",
-      password: "a".repeat(12),
+      password: "a".repeat(11) + "1",
     });
     expect(result.success).toBe(false);
   });
@@ -53,7 +53,7 @@ describe("createUserSchema", () => {
     const result = createUserSchema.safeParse({
       name: "a".repeat(NAME_MAX_LENGTH + 1),
       email: "alice@example.com",
-      password: "a".repeat(12),
+      password: "a".repeat(11) + "1",
     });
     expect(result.success).toBe(false);
   });
