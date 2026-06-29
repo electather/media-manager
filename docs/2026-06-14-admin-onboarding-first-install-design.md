@@ -7,6 +7,7 @@
   - `docs/2026-04-22-frontend-plugin-connections-design.md` (connections UI)
   - `docs/2026-04-24-plugin-advanced-admin-design.md` (admin plugins / shared credentials)
   - `docs/2026-04-24-deployment-design.md` (self-hosted deploy model)
+  - `docs/2026-06-29-plugin-bundled-default-credential-design.md` (bundled TMDB key → connect-services step now optional)
 
 ## Summary
 

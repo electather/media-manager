@@ -6,6 +6,7 @@
 **Supersedes:** Initial Connections design (non-plugin)
 **Updated:** 2026-04-25 — packaging layout reorganised, see `docs/2026-04-25-plugin-monorepo-design.md` for details. Runtime, capability, & DB designs remain authoritative.
 **Updated:** 2026-04-25 — `notificationDelivery@v1` capability & `ctx.notify()` added; see `docs/2026-04-25-notifications-design.md` for full design.
+**Updated:** 2026-06-29 — manifest `defaultSharedCredentials` (bundled default shared credential, lowest-priority synthetic pick); see `docs/2026-06-29-plugin-bundled-default-credential-design.md`.
 
 ## Summary
 
