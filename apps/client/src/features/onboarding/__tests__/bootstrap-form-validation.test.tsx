@@ -118,6 +118,21 @@ describe("BootstrapForm — shared-schema validation", () => {
     expect(auth.signIn.email).not.toHaveBeenCalled();
   });
 
+  it("reports the alphanumeric rule (not 'too short') for a long letters-only password", async () => {
+    // Regression: a >=8-char password with no digit fails the new `.refine`,
+    // not the length bound — the form must surface the composition message
+    // instead of the misleading "at least 8 characters" copy.
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(passwordInput(), "abcdefghij");
+    await user.click(screen.getByRole("button", { name: /create administrator/i }));
+
+    expect(await screen.findByText(/at least one letter and one number/i)).toBeTruthy();
+    expect(screen.queryByText(/at least 8 characters/i)).toBeNull();
+    expect(fetchers.claimBootstrap).not.toHaveBeenCalled();
+  });
+
   it("passes validation and submits the claim when every field is valid", async () => {
     const user = userEvent.setup();
     renderPage();

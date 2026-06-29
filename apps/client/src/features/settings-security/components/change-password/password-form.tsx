@@ -14,6 +14,7 @@ export interface PasswordFormProps {
   setConfirm: (v: string) => void;
   tooShort: boolean;
   tooLong: boolean;
+  missingAlphanumeric: boolean;
   mismatch: boolean;
   canSubmit: boolean;
   submitting: boolean;
@@ -33,6 +34,7 @@ export function PasswordForm({
   setConfirm,
   tooShort,
   tooLong,
+  missingAlphanumeric,
   mismatch,
   canSubmit,
   submitting,
@@ -61,7 +63,7 @@ export function PasswordForm({
           onChange={setNext}
           autoComplete="new-password"
           placeholder={m.settings_security_password_new_placeholder()}
-          ariaInvalid={tooShort || tooLong}
+          ariaInvalid={tooShort || tooLong || missingAlphanumeric}
           data-testid="new-password"
         />
         <PasswordMeter value={next} />
@@ -69,6 +71,8 @@ export function PasswordForm({
           <FieldError>{m.settings_security_password_too_short()}</FieldError>
         ) : tooLong ? (
           <FieldError>{m.settings_security_password_too_long()}</FieldError>
+        ) : missingAlphanumeric ? (
+          <FieldError>{m.settings_security_password_missing_alphanumeric()}</FieldError>
         ) : null}
       </Field>
       <Field data-invalid={mismatch ? true : undefined}>

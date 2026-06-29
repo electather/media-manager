@@ -27,11 +27,18 @@ export function ChangePasswordCard({
 
   const tooShort = next.length > 0 && next.length < PASSWORD_MIN_LENGTH;
   const tooLong = next.length > PASSWORD_MAX_LENGTH;
+  // Mirror the shared `passwordSchema` refine: length wins, so only flag the
+  // composition rule once the value is long enough to clear the bounds.
+  const missingAlphanumeric =
+    next.length >= PASSWORD_MIN_LENGTH &&
+    next.length <= PASSWORD_MAX_LENGTH &&
+    !(/[a-zA-Z]/.test(next) && /\d/.test(next));
   const mismatch = confirm.length > 0 && confirm !== next;
   const canSubmit =
     current.length > 0 &&
     next.length >= PASSWORD_MIN_LENGTH &&
     next.length <= PASSWORD_MAX_LENGTH &&
+    !missingAlphanumeric &&
     confirm === next &&
     !submitting;
 
@@ -110,6 +117,7 @@ export function ChangePasswordCard({
           setConfirm={setConfirm}
           tooShort={tooShort}
           tooLong={tooLong}
+          missingAlphanumeric={missingAlphanumeric}
           mismatch={mismatch}
           canSubmit={canSubmit}
           submitting={submitting}

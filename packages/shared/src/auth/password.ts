@@ -13,5 +13,5 @@ export const passwordSchema = z
   .min(PASSWORD_MIN_LENGTH)
   .max(PASSWORD_MAX_LENGTH)
   .refine((value) => /[a-zA-Z]/.test(value) && /\d/.test(value), {
-    error: "Password must contain at least one letter and one digit.",
+    message: "Password must contain at least one letter and one digit.",
   });
