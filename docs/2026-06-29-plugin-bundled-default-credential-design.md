@@ -55,6 +55,8 @@ Synthesize bundled entry from manifest **inside these methods** → every consum
 
 Add optional `defaultSharedCredentials?: JsonValue` to **shared** manifest: `PluginManifest` (`packages/shared/src/plugins/types.ts:46`) + `pluginManifestSchema` (`packages/shared/src/plugins/schemas.ts:80`). **Must live in shared schema** — `validate.ts:20` does `pluginManifestSchema.safeParse(...)` and returns `parsed.data` as `manifestJson`; field absent from schema → Zod **strips** it → never reach `sharedCredentialsService` (read manifest JSON). Then validate value at load against plugin own `sharedCredentialsSchema` (`packages/plugin-sdk/src/validate.ts`) — bad shape → load fail, ⊥ silent.
 
+**Derived rule (add to existing `superRefine` in `pluginManifestSchema`, schemas.ts:80):** `defaultSharedCredentials !== undefined && sharedCredentialsSchema === undefined` → reject `plugin.input_invalid` "defaultSharedCredentials requires sharedCredentialsSchema". ⊥ schema → nothing to validate against → reject at install.
+
 TMDB (`packages/plugins/tmdb/src/plugin.ts` manifest):
 
 ```ts
@@ -69,12 +71,12 @@ defaultSharedCredentials: { apiKey: TMDB_BUNDLED_KEY }, // constants.ts
 
 Reserved id const: `BUNDLED_CREDENTIAL_ID = "__bundled__"`. Label `"Bundled (default)"`.
 
-Helper: read manifest of `pluginId`, return `defaultSharedCredentials` (or null).
+Helper: read manifest of `pluginId`, return `defaultSharedCredentials` (or null). **Placeholder gate:** if value is the placeholder sentinel (`TMDB_BUNDLED_KEY === "REPLACE_WITH_NAMA_TMDB_V3_KEY"`), helper return **null** → ⊥ synthetic entry anywhere → `tmdbConfigured` stay **false** → onboarding step stay required. Prevents "configured but blank posters" trap (admin sees configured, no error, ⊥ posters). Real key registered → entry appears. (Chosen over build-time assert: works for self-host builds, degrade gracefully.)
 
 - **`listDecryptedActive(pluginId)`** — append synthetic pick **after** real rows:
   `{ id: "__bundled__", label: "Bundled (default)", value: defaultSharedCredentials }`.
   → `buildCredentialPlan` global path non-empty → ⊥ `capability_unavailable`. Real keys sort first (override). Bundled = last-resort.
-- **`list(pluginId)`** — append `SharedCredentialSummary` w/ new flag `bundled: true`, `enabled: true`, `lastExhaustedAt: null`, `retryAfter: null`.
+- **`list(pluginId)`** — append `SharedCredentialSummary` w/ new flag `bundled: true`, `enabled: true`, `lastExhaustedAt: null`, `retryAfter: null`. **Required `createdAt`/`updatedAt`** (both `number`, non-optional on summary): use the plugin row's `plugins.createdAt`/`updatedAt` ("installed since" — meaningful + stable across restarts; ⊥ epoch-0 churn).
   → `countEnabled` (derive from `list`, `shared-credentials.ts:106`) ≥ 1 → `tmdbConfigured` true → connect-services auto-complete = **optional**. ⊥ onboarding server change.
   → admin UI render read-only row.
 
@@ -84,8 +86,8 @@ Append order: real entries first (priority), bundled last.
 
 - `add` collision — existing check (`shared-credentials.ts:123`) already lowercases both sides AND iterates `this.list` output; once `list` include bundled summary, duplicate `"Bundled (default)"` label auto-rejected ci → `plugin.duplicate_label`. ⊥ new code.
 - **`add` non-poolable gate — REAL BUG to fix.** `add` (`shared-credentials.ts:116`) throws `not_poolable` when `!isPoolable(manifestJson) && existing.length > 0`, `existing = this.list()`. Bundled appended → `existing` always ≥1 → non-poolable plugin w/ bundled default can **never** add real key (override blocked). Fix: compute the poolable-gate count **excluding** synthetic `__bundled__` (real rows only). TMDB poolable so unaffected, but generic mechanism breaks for non-poolable w/o this.
-- `remove` / `setEnabled` / test-by-id — reject `id === "__bundled__"` → new code `plugin.bundled_readonly`. Bundled ⊥ deletable/disablable.
-- `markPickExhausted` (`runtime.ts:270`) — no-op for `pick.entryId === "__bundled__"`: ⊥ row to persist; public key not rotated, retried next call. Rotation loop already `continue` past it harmlessly (bundled is last pick → loop ends → `pool_exhausted` if it 429s, correct).
+- **Read-only guards centralized in service layer** (single symmetric place; keep guard in same method that owns the by-id row). Every by-id mutator/reader reject `id === "__bundled__"` → new code `plugin.bundled_readonly`: `remove` (`shared-credentials.ts`), `setEnabled`, `update` (`:149`), `getDecrypted` (`:216`). `getDecrypted` matters: `runtime.ts:500 testSharedCredential` call it by id → admin "test" on bundled row must `bundled_readonly`, ⊥ `shared_credential_not_found`.
+- `markExhausted` (`shared-credentials.ts:243`) — **no explicit guard, natural no-op**: DB UPDATE `id="__bundled__"` matches 0 rows → silent no-op (correct: ⊥ row to persist, public key retried). Chosen layer = service natural no-op (not runtime guard) — symmetric w/ other service guards, and 401≠429 so bundled rarely reach exhaustion path anyway. Bundled is last pick → loop ends → `pool_exhausted` if it 429s, correct.
 - **401 / invalid bundled key** — upstream 401 → `handleHttpStatus` `plugin.bad_credentials` (`client.ts:40`). Bundled is last pick → no further failover → capability fail; `/public/trending` snapshot stay empty → backdrop fall back to bundled art. Placeholder key (`REPLACE_WITH_NAMA_TMDB_V3_KEY`) → exactly this until real key registered. ⊥ infinite retry: 401 ≠ 429, ⊥ `markExhausted`.
 
 ### 4. Types
@@ -98,7 +100,7 @@ Shared-credentials table (per `docs/2026-04-24-plugin-advanced-admin-design.md`,
 
 ### 6. Key value — release blocker
 
-⚠️ Do **NOT** reuse jellyseerr key `431a8708161bcd1f1fbe7536137e61ed` (piggyback their TMDB account). Register **nama own free TMDB v3 key** before ship. Until then: placeholder const `TMDB_BUNDLED_KEY = "REPLACE_WITH_NAMA_TMDB_V3_KEY"` + this blocker. Security: key public in source/bundle — same tradeoff as seerr, accepted (self-hosted).
+⚠️ Do **NOT** reuse jellyseerr key `431a8708161bcd1f1fbe7536137e61ed` (piggyback their TMDB account). Register **nama own free TMDB v3 key** before ship. Until then: placeholder const `TMDB_BUNDLED_KEY = "REPLACE_WITH_NAMA_TMDB_V3_KEY"`. **Enforced (§2 placeholder gate):** while key === placeholder, helper returns null → ⊥ synthetic entry → `tmdbConfigured` false → onboarding step stay required, ⊥ silent "configured but blank". Real key flips it on. Not just a doc note. Security: key public in source/bundle — same tradeoff as seerr, accepted (self-hosted).
 
 ## Data flow
 
@@ -123,6 +125,10 @@ admin add own key "Mine"
 - `remove`/`setEnabled`("__bundled__") → `plugin.bundled_readonly`. WHY: bundled immutable.
 - `add` reserved label → `duplicate_label`. WHY: ⊥ shadow bundled.
 - `add` real key on **non-poolable** plugin w/ bundled default → succeeds (not `not_poolable`). WHY: bundled must ⊥ block override; poolable-gate excludes synthetic.
+- `update`/`getDecrypted`/`remove`/`setEnabled`(`"__bundled__"`) → `plugin.bundled_readonly` (⊥ `shared_credential_not_found`). WHY: bundled immutable + decrypted value never fetched via by-id path; consistent error surface.
+- `add` ci-variant reserved label (`"Bundled (Default)"`) → `duplicate_label`. WHY: lock case-insensitive normalization.
+- placeholder key → `list`/`countEnabled` ⊥ bundled entry, `tmdbConfigured` false; real key → entry appears, true. WHY: ⊥ "configured but blank" trap.
+- manifest `defaultSharedCredentials` w/o `sharedCredentialsSchema` → load reject `input_invalid`. WHY: nothing to validate against.
 - `resolveConnections` (`resolve-connection.ts:57`) non-user scope, empty pool → returns bundled (`shared[0]`). WHY: out-of-box keyless fetch.
 - same, real key present → `shared[0]` = real, ⊥ bundled. WHY: bundled lowest priority in 2nd consumer too.
 - `markPickExhausted("__bundled__")` → no DB write. WHY: ⊥ row exist; public key retried.
@@ -136,7 +142,8 @@ admin add own key "Mine"
 - `packages/plugins/tmdb/src/constants.ts` — `TMDB_BUNDLED_KEY`.
 - `packages/plugins/tmdb/src/plugin.ts` — manifest `defaultSharedCredentials`.
 - `apps/server/src/plugin-runtime/internal/shared-credentials.ts` — synth in `list`/`listDecryptedActive`, guards, `bundled` flag, const.
-- `apps/server/src/plugin-runtime/service/runtime.ts` — `markPickExhausted` skip `__bundled__`.
+- `packages/shared/src/plugins/schemas.ts` — `superRefine`: `defaultSharedCredentials` requires `sharedCredentialsSchema`.
+- (runtime.ts unchanged — `markExhausted` natural 0-row no-op; guards live in service.)
 - `apps/client/.../admin/plugins.tsx` — read-only bundled row.
 - `apps/client/src/features/onboarding/.../tmdb-key-form.tsx` — copy.
 - Changeset: `@nama/server` minor, `@nama/client` minor, `@nama/plugin-tmdb` minor.
