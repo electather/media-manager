@@ -53,7 +53,7 @@ Synthesize bundled entry from manifest **inside these methods** → every consum
 
 ### 1. Manifest field (generic)
 
-Add optional `defaultSharedCredentials?: JsonValue` to plugin manifest type (`packages/plugin-sdk/src/types.ts`, `ValidatedManifest`). Validate at load against plugin own `sharedCredentialsSchema` (`packages/plugin-sdk/src/validate.ts`) — bad shape → load fail, ⊥ silent.
+Add optional `defaultSharedCredentials?: JsonValue` to **shared** manifest: `PluginManifest` (`packages/shared/src/plugins/types.ts:46`) + `pluginManifestSchema` (`packages/shared/src/plugins/schemas.ts:80`). **Must live in shared schema** — `validate.ts:20` does `pluginManifestSchema.safeParse(...)` and returns `parsed.data` as `manifestJson`; field absent from schema → Zod **strips** it → never reach `sharedCredentialsService` (read manifest JSON). Then validate value at load against plugin own `sharedCredentialsSchema` (`packages/plugin-sdk/src/validate.ts`) — bad shape → load fail, ⊥ silent.
 
 TMDB (`packages/plugins/tmdb/src/plugin.ts` manifest):
 
@@ -82,13 +82,15 @@ Append order: real entries first (priority), bundled last.
 
 ### 3. Guards — fail loud
 
-- `add` — existing collision check (`shared-credentials.ts:123`) already lowercases both sides AND iterates `this.list` output; once `list` include bundled summary, duplicate `"Bundled (default)"` label auto-rejected ci → `plugin.duplicate_label`. ⊥ new code.
+- `add` collision — existing check (`shared-credentials.ts:123`) already lowercases both sides AND iterates `this.list` output; once `list` include bundled summary, duplicate `"Bundled (default)"` label auto-rejected ci → `plugin.duplicate_label`. ⊥ new code.
+- **`add` non-poolable gate — REAL BUG to fix.** `add` (`shared-credentials.ts:116`) throws `not_poolable` when `!isPoolable(manifestJson) && existing.length > 0`, `existing = this.list()`. Bundled appended → `existing` always ≥1 → non-poolable plugin w/ bundled default can **never** add real key (override blocked). Fix: compute the poolable-gate count **excluding** synthetic `__bundled__` (real rows only). TMDB poolable so unaffected, but generic mechanism breaks for non-poolable w/o this.
 - `remove` / `setEnabled` / test-by-id — reject `id === "__bundled__"` → new code `plugin.bundled_readonly`. Bundled ⊥ deletable/disablable.
 - `markPickExhausted` (`runtime.ts:270`) — no-op for `pick.entryId === "__bundled__"`: ⊥ row to persist; public key not rotated, retried next call. Rotation loop already `continue` past it harmlessly (bundled is last pick → loop ends → `pool_exhausted` if it 429s, correct).
+- **401 / invalid bundled key** — upstream 401 → `handleHttpStatus` `plugin.bad_credentials` (`client.ts:40`). Bundled is last pick → no further failover → capability fail; `/public/trending` snapshot stay empty → backdrop fall back to bundled art. Placeholder key (`REPLACE_WITH_NAMA_TMDB_V3_KEY`) → exactly this until real key registered. ⊥ infinite retry: 401 ≠ 429, ⊥ `markExhausted`.
 
 ### 4. Types
 
-`SharedCredentialSummary` (`shared-credentials.ts:24`) add `bundled?: boolean`. Mirror into shared wire type if client read via `@nama/shared`. Client treat `bundled` row read-only.
+`SharedCredentialSummary` is **server-only** (`apps/server/src/plugin-runtime/internal/shared-credentials.ts:24`) — **stays server-side** (Rule 11, ⊥ relocate to shared). Add `bundled?: boolean` there. The `GET /api/plugins/:id/shared-credentials` response wire type (whatever the client decodes) also gets `bundled?: boolean` so client render row read-only. ⊥ new shared type.
 
 ### 5. Client (admin UI)
 
@@ -120,14 +122,17 @@ admin add own key "Mine"
 - `countEnabled("tmdb")` empty pool → ≥1. WHY: onboarding step optional.
 - `remove`/`setEnabled`("__bundled__") → `plugin.bundled_readonly`. WHY: bundled immutable.
 - `add` reserved label → `duplicate_label`. WHY: ⊥ shadow bundled.
+- `add` real key on **non-poolable** plugin w/ bundled default → succeeds (not `not_poolable`). WHY: bundled must ⊥ block override; poolable-gate excludes synthetic.
+- `resolveConnections` (`resolve-connection.ts:57`) non-user scope, empty pool → returns bundled (`shared[0]`). WHY: out-of-box keyless fetch.
+- same, real key present → `shared[0]` = real, ⊥ bundled. WHY: bundled lowest priority in 2nd consumer too.
 - `markPickExhausted("__bundled__")` → no DB write. WHY: ⊥ row exist; public key retried.
 - manifest `defaultSharedCredentials` bad shape vs `sharedCredentialsSchema` → load fail. WHY: fail loud.
 - plugin w/o field → ⊥ synthetic entry anywhere. WHY: generic opt-in, ⊥ regress other plugins.
 
 ## Files touched
 
-- `packages/plugin-sdk/src/types.ts` — manifest `defaultSharedCredentials?`.
-- `packages/plugin-sdk/src/validate.ts` — validate vs `sharedCredentialsSchema`.
+- `packages/shared/src/plugins/types.ts` + `schemas.ts` — manifest `defaultSharedCredentials?` (type + `pluginManifestSchema`, else stripped on parse).
+- `packages/plugin-sdk/src/validate.ts` — validate value vs `sharedCredentialsSchema`.
 - `packages/plugins/tmdb/src/constants.ts` — `TMDB_BUNDLED_KEY`.
 - `packages/plugins/tmdb/src/plugin.ts` — manifest `defaultSharedCredentials`.
 - `apps/server/src/plugin-runtime/internal/shared-credentials.ts` — synth in `list`/`listDecryptedActive`, guards, `bundled` flag, const.

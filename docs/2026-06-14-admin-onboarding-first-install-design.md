@@ -324,7 +324,8 @@ an MCP endpoint for clients like Claude/Cursor. No inputs.
 
 Two regions, reflecting the [TMDB discovery](#key-discovery--tmdb-is-a-shared-credential-not-a-user-connection):
 
-**Required — TMDB metadata key (admin shared credential).**
+**TMDB metadata key (admin shared credential).**
+> **Superseded 2026-06-29 (see [bundled default credential design](2026-06-29-plugin-bundled-default-credential-design.md)).** No longer required: TMDB ships a bundled default key, so `tmdbConfigured` is satisfied out-of-box and this step is **optional** — admins may add their own key to override. Form below stays as the override path.
 - A form bound to TMDB's `sharedCredentialsSchema` (a single `apiKey`, `x-secret`).
 - "Test key" calls `POST /api/plugins/tmdb/shared-credentials/test-ephemeral`
   (`{ value: { apiKey } }`) → green/red result without persisting.
