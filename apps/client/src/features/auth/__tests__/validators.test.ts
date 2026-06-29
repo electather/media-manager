@@ -7,10 +7,12 @@ vi.mock("@/paraglide/messages", () => ({
     auth_email_required: () => "Email is required.",
     auth_email_invalid: () => "Enter a valid email address.",
     auth_password_required: () => "Password is required.",
-    auth_password_too_short: () => "Password must be at least 8 characters.",
-    auth_password_too_long: () => "Password must be at most 256 characters.",
-    auth_password_missing_alphanumeric: () =>
-      "Password must contain at least one letter and one number.",
+    auth_password_error: ({ reason }: { reason: string }) =>
+      reason === "too_long"
+        ? "Password must be at most 256 characters."
+        : reason === "missing_alphanumeric"
+          ? "Password must contain at least one letter and one number."
+          : "Password must be at least 8 characters.",
     auth_confirm_password_required: () => "Please confirm your password.",
     auth_passwords_do_not_match: () => "Passwords do not match.",
     auth_name_required: () => "Name is required.",

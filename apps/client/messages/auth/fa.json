@@ -29,9 +29,16 @@
   "auth_email_required": "ایمیل الزامی است.",
   "auth_email_invalid": "یک ایمیل معتبر وارد کنید.",
   "auth_password_required": "رمز عبور الزامی است.",
-  "auth_password_too_short": "رمز عبور باید حداقل ۸ کاراکتر باشد.",
-  "auth_password_too_long": "رمز عبور باید حداکثر ۲۵۶ کاراکتر باشد.",
-  "auth_password_missing_alphanumeric": "رمز عبور باید حداقل یک حرف و یک عدد داشته باشد.",
+  "auth_password_error": [
+    {
+      "selectors": ["reason"],
+      "match": {
+        "reason=too_long": "رمز عبور باید حداکثر ۲۵۶ کاراکتر باشد.",
+        "reason=missing_alphanumeric": "رمز عبور باید حداقل یک حرف و یک عدد داشته باشد.",
+        "reason=*": "رمز عبور باید حداقل ۸ کاراکتر باشد."
+      }
+    }
+  ],
   "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
   "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
   "auth_social_signin_error": "ورود اجتماعی ناموفق بود. لطفاً دوباره تلاش کنید.",
