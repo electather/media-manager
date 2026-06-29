@@ -29,6 +29,8 @@ export function ChangePasswordCard({
   // drifts from `passwordSchema`. Null reason = empty field (no error shown yet).
   const passwordReason = next.length > 0 ? passwordIssueReason(next) : null;
   const mismatch = confirm.length > 0 && confirm !== next;
+  // Call directly (not passwordReason): passwordReason is null when next="" to
+  // suppress the error UI, but canSubmit must still block the empty case.
   const canSubmit =
     current.length > 0 && passwordIssueReason(next) === null && confirm === next && !submitting;
 

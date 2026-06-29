@@ -107,16 +107,6 @@
   "settings_security_password_placeholder": "••••••••",
   "settings_security_password_new_placeholder": "At least 8 characters",
   "settings_security_password_confirm_placeholder": "Repeat new password",
-  "settings_security_password_error": [
-    {
-      "selectors": ["reason"],
-      "match": {
-        "reason=too_long": "Must be at most 256 characters.",
-        "reason=missing_alphanumeric": "Must contain at least one letter and one number.",
-        "reason=*": "Must be at least 8 characters."
-      }
-    }
-  ],
   "settings_security_password_mismatch": "Passwords don't match.",
   "settings_security_password_submit": "Update password",
   "settings_security_password_submitting": "Updating…",

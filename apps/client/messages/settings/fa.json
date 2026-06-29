@@ -107,16 +107,6 @@
   "settings_security_password_placeholder": "••••••••",
   "settings_security_password_new_placeholder": "حداقل ۸ کاراکتر",
   "settings_security_password_confirm_placeholder": "تکرار گذرواژه جدید",
-  "settings_security_password_error": [
-    {
-      "selectors": ["reason"],
-      "match": {
-        "reason=too_long": "باید حداکثر ۲۵۶ کاراکتر باشد.",
-        "reason=missing_alphanumeric": "باید دست‌کم یک حرف و یک عدد داشته باشد.",
-        "reason=*": "باید حداقل ۸ کاراکتر باشد."
-      }
-    }
-  ],
   "settings_security_password_mismatch": "گذرواژه‌ها مطابقت ندارند.",
   "settings_security_password_submit": "به‌روزرسانی گذرواژه",
   "settings_security_password_submitting": "در حال به‌روزرسانی…",

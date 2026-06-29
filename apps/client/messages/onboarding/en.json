@@ -18,16 +18,6 @@
   ],
   "onboarding_bootstrap_name_required": "Name is required.",
   "onboarding_bootstrap_email_invalid": "Enter a valid email address.",
-  "onboarding_bootstrap_password_error": [
-    {
-      "selectors": ["reason"],
-      "match": {
-        "reason=too_long": "Password must be at most 256 characters.",
-        "reason=missing_alphanumeric": "Password must contain at least one letter and one number.",
-        "reason=*": "Password must be at least 8 characters."
-      }
-    }
-  ],
   "onboarding_bootstrap_token_required": "Enter the full setup token from the server console.",
   "onboarding_bootstrap_invalid_token": "That setup token is invalid. Check the server console and try again.",
   "onboarding_bootstrap_failed": "Could not create the administrator account. Please try again.",

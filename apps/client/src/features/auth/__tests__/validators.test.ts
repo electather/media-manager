@@ -7,7 +7,7 @@ vi.mock("@/paraglide/messages", () => ({
     auth_email_required: () => "Email is required.",
     auth_email_invalid: () => "Enter a valid email address.",
     auth_password_required: () => "Password is required.",
-    auth_password_error: ({ reason }: { reason: string }) =>
+    shared_password_error: ({ reason }: { reason: string }) =>
       reason === "too_long"
         ? "Password must be at most 256 characters."
         : reason === "missing_alphanumeric"

@@ -14,7 +14,7 @@ export function hasLetterAndDigit(value: string): boolean {
   return /\p{L}/u.test(value) && /\p{N}/u.test(value);
 }
 
-export const PASSWORD_ISSUE_REASONS = ["too_long", "too_short", "missing_alphanumeric"] as const;
+const PASSWORD_ISSUE_REASONS = ["too_long", "too_short", "missing_alphanumeric"] as const;
 export type PasswordIssueReason = (typeof PASSWORD_ISSUE_REASONS)[number];
 
 /**

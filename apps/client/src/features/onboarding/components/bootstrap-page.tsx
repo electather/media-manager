@@ -204,7 +204,9 @@ function BootstrapForm() {
               <FieldError
                 errors={fieldError(
                   field.state.meta.errors.length > 0,
-                  m.onboarding_bootstrap_password_error({
+                  // `??` is unreachable: errors.length > 0 means the value failed the
+                  // same schema passwordIssueReason mirrors, so it returns non-null here.
+                  m.shared_password_error({
                     reason: passwordIssueReason(field.state.value) ?? "too_short",
                   }),
                 )}

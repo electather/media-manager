@@ -66,7 +66,7 @@ export function PasswordForm({
         />
         <PasswordMeter value={next} />
         {passwordReason ? (
-          <FieldError>{m.settings_security_password_error({ reason: passwordReason })}</FieldError>
+          <FieldError>{m.shared_password_error({ reason: passwordReason })}</FieldError>
         ) : null}
       </Field>
       <Field data-invalid={mismatch ? true : undefined}>

@@ -32,7 +32,7 @@ export function validateLoginPassword(value: string): string | undefined {
 export function validateNewPassword(value: string): string | undefined {
   if (!value) return m.auth_password_required();
   const reason = passwordIssueReason(value);
-  return reason ? m.auth_password_error({ reason }) : undefined;
+  return reason ? m.shared_password_error({ reason }) : undefined;
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {
