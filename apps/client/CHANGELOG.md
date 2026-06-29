@@ -1,5 +1,16 @@
 # @nama/client
 
+## 0.8.0
+
+### Minor Changes
+
+- 39a5a51: Relaxed the password requirement to 8 characters while now requiring at least one letter and one number.
+
+### Patch Changes
+
+- 1c3bf42: Localized the library error message and stopped showing raw server diagnostic text when a page fails to load.
+- 6f34ec2: Fixed the library error screen's retry so it refreshes the failed lens instead of every cached media view.
+
 ## 0.7.0
 
 ### Minor Changes

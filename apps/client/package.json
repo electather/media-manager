@@ -1,6 +1,6 @@
 {
   "name": "@nama/client",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": false,
   "description": "React dashboard for nama — browse watchlist, history, requests, and settings for your self-hosted entertainment platform.",
   "keywords": [
