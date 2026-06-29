@@ -1,4 +1,5 @@
 import type { ZodTypeAny } from "zod";
+import { type PasswordIssueReason, passwordIssueReason } from "@nama/shared/auth";
 import { createUserSchema } from "@nama/shared/users";
 import { m } from "@/paraglide/messages";
 
@@ -28,17 +29,18 @@ export function validateLoginPassword(value: string): string | undefined {
   return undefined;
 }
 
+// Maps the shared reason to its localized message, so reason logic stays in
+// `passwordIssueReason` (single source) and this only owns the copy.
+const PASSWORD_MESSAGE: Record<PasswordIssueReason, () => string> = {
+  too_long: m.auth_password_too_long,
+  too_short: m.auth_password_too_short,
+  missing_alphanumeric: m.auth_password_missing_alphanumeric,
+};
+
 export function validateNewPassword(value: string): string | undefined {
   if (!value) return m.auth_password_required();
-  // Validate against the shared schema (single source of truth), then branch on
-  // which bound failed so the message points the right direction.
-  const result = createUserSchema.shape.password.safeParse(value);
-  if (result.success) return undefined;
-  // Length wins over composition: report a bound failure before the alphanumeric refine.
-  const codes = result.error.issues.map((issue) => issue.code);
-  if (codes.includes("too_big")) return m.auth_password_too_long();
-  if (codes.includes("too_small")) return m.auth_password_too_short();
-  return m.auth_password_missing_alphanumeric();
+  const reason = passwordIssueReason(value);
+  return reason ? PASSWORD_MESSAGE[reason]() : undefined;
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { bootstrapClaimSchema } from "@nama/shared/bootstrap";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
+import { passwordIssueReason } from "@nama/shared/auth";
 import { AuthShell, PasswordField } from "@/features/auth";
 import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
@@ -204,16 +204,8 @@ function BootstrapForm() {
               <FieldError
                 errors={fieldError(
                   field.state.meta.errors.length > 0,
-                  // Length wins over composition, matching `validateNewPassword`:
-                  // a too-short/too-long value reports its bound before the
-                  // alphanumeric refine.
                   m.onboarding_bootstrap_password_error({
-                    reason:
-                      field.state.value.length > PASSWORD_MAX_LENGTH
-                        ? "too_long"
-                        : field.state.value.length < PASSWORD_MIN_LENGTH
-                          ? "too_short"
-                          : "missing_alphanumeric",
+                    reason: passwordIssueReason(field.state.value) ?? "too_short",
                   }),
                 )}
               />

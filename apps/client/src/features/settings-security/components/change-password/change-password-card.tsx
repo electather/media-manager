@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
+import { passwordIssueReason } from "@nama/shared/auth";
 
 import { Button } from "@/shared/ui/button";
 import { authClient } from "@/shared/lib/auth";
@@ -25,22 +25,12 @@ export function ChangePasswordCard({
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const tooShort = next.length > 0 && next.length < PASSWORD_MIN_LENGTH;
-  const tooLong = next.length > PASSWORD_MAX_LENGTH;
-  // Mirror the shared `passwordSchema` refine: length wins, so only flag the
-  // composition rule once the value is long enough to clear the bounds.
-  const missingAlphanumeric =
-    next.length >= PASSWORD_MIN_LENGTH &&
-    next.length <= PASSWORD_MAX_LENGTH &&
-    !(/[a-zA-Z]/.test(next) && /\d/.test(next));
+  // Defer the whole new-password policy to the shared helper so this never
+  // drifts from `passwordSchema`. Null reason = empty field (no error shown yet).
+  const passwordReason = next.length > 0 ? passwordIssueReason(next) : null;
   const mismatch = confirm.length > 0 && confirm !== next;
   const canSubmit =
-    current.length > 0 &&
-    next.length >= PASSWORD_MIN_LENGTH &&
-    next.length <= PASSWORD_MAX_LENGTH &&
-    !missingAlphanumeric &&
-    confirm === next &&
-    !submitting;
+    current.length > 0 && passwordIssueReason(next) === null && confirm === next && !submitting;
 
   const reset = () => {
     setCurrent("");
@@ -115,9 +105,7 @@ export function ChangePasswordCard({
           }}
           setNext={setNext}
           setConfirm={setConfirm}
-          tooShort={tooShort}
-          tooLong={tooLong}
-          missingAlphanumeric={missingAlphanumeric}
+          passwordReason={passwordReason}
           mismatch={mismatch}
           canSubmit={canSubmit}
           submitting={submitting}
