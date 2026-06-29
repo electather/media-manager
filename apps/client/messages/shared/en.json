@@ -6,7 +6,8 @@
       "match": {
         "reason=too_long": "Password must be at most 256 characters.",
         "reason=missing_alphanumeric": "Password must contain at least one letter and one number.",
-        "reason=*": "Password must be at least 8 characters."
+        "reason=too_short": "Password must be at least 8 characters.",
+        "reason=*": "Invalid password."
       }
     }
   ],
