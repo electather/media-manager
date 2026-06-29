@@ -45,12 +45,17 @@ function FallbackInner({
     void reportError(error, "warning", { requestId }, TELEMETRY_CODE);
   }, [error, requestId]);
 
-  // Drop the onboarding-state cache then clear the boundary so the wizard
-  // re-suspends on a fresh fetch; show the skeleton during the in-flight reset
+  // Drop both onboarding caches then clear the boundary so the wizard
+  // re-suspends on fresh fetches; show the skeleton during the in-flight reset
   // so the page never flashes the stale error before re-suspending.
+  // Resets public-config too — the MCP step suspends on its own `["public-config"]`
+  // key, so an onboarding-only reset would rethrow the cached error (#882).
   const onRetry = useCallback(() => {
     setIsResetting(true);
-    void queryClient.resetQueries({ queryKey: onboardingKeys.all }).finally(reset);
+    void Promise.all([
+      queryClient.resetQueries({ queryKey: onboardingKeys.all }),
+      queryClient.resetQueries({ queryKey: onboardingKeys.publicConfig() }),
+    ]).finally(reset);
   }, [queryClient, reset]);
 
   if (isResetting) return <OnboardingSkeleton />;

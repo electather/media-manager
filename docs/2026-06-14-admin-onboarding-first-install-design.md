@@ -415,11 +415,13 @@ New feature folder `apps/client/src/features/onboarding/` (per
 `frontend-feature-architecture`):
 
 - `components/` — `bootstrap-page.tsx`, `onboarding-wizard.tsx` (shell + stepper),
+  `onboarding-skeleton.tsx` (pending UI mirroring the wizard chrome),
   `steps/welcome-step.tsx`, `steps/connect-services-step.tsx`,
   `steps/tmdb-key-form.tsx`.
 - `lib/` — `step-registry.ts` (presentational only: `id → { Component, title }`; the
   authoritative descriptor list + predicates live server-side), `fetchers.ts`,
-  `query-keys.ts`, `types.ts`.
+  `query-keys.ts`, `types.ts`, `error-boundary.tsx` (feature-local boundary +
+  route `errorComponent`, reads typed `OnboardingApiError.status`).
 - `hooks/` — `use-needs-bootstrap.ts` (reads `needsBootstrap` off the
   public-config query), `use-onboarding-state.ts`, `use-claim-bootstrap.ts`,
   `use-complete-onboarding.ts`.
@@ -439,6 +441,7 @@ re-implementing it.
 | TMDB test/save failure (bad key, upstream down) | Inline result in the TMDB form; step stays incomplete; Finish stays disabled. |
 | Finish attempted with TMDB unconfigured | Server returns `onboarding.requirements_unmet`; wizard keeps Finish disabled (defense in depth). |
 | Network errors | Standard query error boundaries already used across features. |
+| Setup config load failure (onboarding-state or public-config fetch throws) | Feature-local `OnboardingErrorBoundary` (render-time) + route `errorComponent` (loader); shows the typed-status error page with Retry, which resets both queries and re-suspends behind the skeleton. |
 
 All server errors use the unified `{ code, devMessage, requestId }` envelope from
 `diagnostics/http-errors`.
