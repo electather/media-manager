@@ -1,5 +1,16 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shared_password_error": [
+    {
+      "selectors": ["reason"],
+      "match": {
+        "reason=too_long": "گذرواژه باید حداکثر ۲۵۶ نویسه باشد.",
+        "reason=missing_alphanumeric": "گذرواژه باید حداقل یک حرف و یک عدد داشته باشد.",
+        "reason=too_short": "گذرواژه باید حداقل ۸ نویسه باشد.",
+        "reason=*": "گذرواژه نامعتبر است."
+      }
+    }
+  ],
   "shared_time_missing": "—",
   "shared_time_never": "هرگز",
   "shared_time_just_now": "همین حالا",

@@ -1,5 +1,16 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shared_password_error": [
+    {
+      "selectors": ["reason"],
+      "match": {
+        "reason=too_long": "Password must be at most 256 characters.",
+        "reason=missing_alphanumeric": "Password must contain at least one letter and one number.",
+        "reason=too_short": "Password must be at least 8 characters.",
+        "reason=*": "Invalid password."
+      }
+    }
+  ],
   "shared_time_missing": "—",
   "shared_time_never": "never",
   "shared_time_just_now": "just now",

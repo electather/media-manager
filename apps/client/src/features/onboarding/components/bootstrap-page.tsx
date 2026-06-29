@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "@tanstack/react-form";
 import { bootstrapClaimSchema } from "@nama/shared/bootstrap";
-import { PASSWORD_MAX_LENGTH } from "@nama/shared/auth";
+import { passwordIssueReason } from "@nama/shared/auth";
 import { AuthShell, PasswordField } from "@/features/auth";
 import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
@@ -188,29 +188,33 @@ function BootstrapForm() {
             onSubmit: bootstrapClaimSchema.shape.password,
           }}
         >
-          {(field) => (
-            <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-              <FieldLabel htmlFor="bootstrap-password">
-                {m.onboarding_bootstrap_password_label()}
-              </FieldLabel>
-              <PasswordField
-                id="bootstrap-password"
-                value={field.state.value}
-                autoComplete="new-password"
-                disabled={pending}
-                onChange={field.handleChange}
-                onBlur={field.handleBlur}
-              />
-              <FieldError
-                errors={fieldError(
-                  field.state.meta.errors.length > 0,
-                  field.state.value.length > PASSWORD_MAX_LENGTH
-                    ? m.onboarding_bootstrap_password_too_long()
-                    : m.onboarding_bootstrap_password_too_short(),
-                )}
-              />
-            </Field>
-          )}
+          {(field) => {
+            // Drive the message and its visibility from the same reason so a
+            // schema-valid value can never surface a stale error (TanStack only
+            // populates errors after blur/submit, hence the meta gate too).
+            const reason = passwordIssueReason(field.state.value);
+            return (
+              <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+                <FieldLabel htmlFor="bootstrap-password">
+                  {m.onboarding_bootstrap_password_label()}
+                </FieldLabel>
+                <PasswordField
+                  id="bootstrap-password"
+                  value={field.state.value}
+                  autoComplete="new-password"
+                  disabled={pending}
+                  onChange={field.handleChange}
+                  onBlur={field.handleBlur}
+                />
+                <FieldError
+                  errors={fieldError(
+                    field.state.meta.errors.length > 0 && reason !== null,
+                    reason ? m.shared_password_error({ reason }) : "",
+                  )}
+                />
+              </Field>
+            );
+          }}
         </form.Field>
 
         <form.Field
