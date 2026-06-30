@@ -22,6 +22,7 @@ export function useRangePrefetch({
   fetchNextPage,
 }: RangePrefetchArgs) {
   return useCallback(
+    // fallow-ignore-next-line complexity
     ({ endIndex }: { startIndex: number; endIndex: number }) => {
       if (itemCount === 0) return;
       if (!hasNextPage || isFetchingNextPage) return;

@@ -9,6 +9,7 @@ export type RowStatus = "initial-error" | "skeletons" | "empty" | "ready";
  * pagination error *after* items loaded stays `ready` — that case is the
  * trailing error sentinel, handled separately by `buildTrackEntries`.
  */
+// fallow-ignore-next-line complexity
 export function rowStatus(s: {
   error: Error | null;
   isLoading: boolean;

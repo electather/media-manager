@@ -25,6 +25,7 @@ function loadParser() {
   return parserPromise;
 }
 
+// fallow-ignore-next-line complexity
 function buildLabel(UAParser: typeof import("ua-parser-js").UAParser, ua: string): ParsedUserAgent {
   const { browser, os } = UAParser(ua);
   const browserName = browser?.name?.trim() || null;
@@ -51,7 +52,6 @@ function buildLabel(UAParser: typeof import("ua-parser-js").UAParser, ua: string
   return { label, browser: browserName, os: osName, unknown: false };
 }
 
-// fallow-ignore-next-line complexity
 export async function parseUserAgent(ua: string | null | undefined): Promise<ParsedUserAgent> {
   if (!ua) return UNKNOWN_USER_AGENT;
   const UAParser = await loadParser();

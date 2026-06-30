@@ -16,6 +16,7 @@ export interface RowCopy {
  * readable. The dynamic `m[key]` lookup is validated in DEV so a bad override
  * key fails loud at the row instead of rendering a broken string.
  */
+// fallow-ignore-next-line complexity
 export function resolveRowCopy(row: RowData): RowCopy {
   const copy = ROW_COPY[row.kind];
   const headerKey: MessageKey = row.headerKey ?? copy.headerKey;

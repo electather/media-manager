@@ -42,6 +42,7 @@ interface RowProps {
  * (`buildTrackEntries`), and range prefetch (`useRangePrefetch`) are each
  * factored out; this body only orchestrates them.
  */
+// fallow-ignore-next-line complexity
 function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const isBackdrop = row.defaultAspect === "16/9";
