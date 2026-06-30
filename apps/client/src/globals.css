@@ -382,3 +382,16 @@ html[lang="fa"] {
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   box-shadow: var(--nav-frosted-shadow);
 }
+
+/* Card surface with a destructive corner wash. Shared by the full-page
+   (ErrorPageDetails) and inline (ErrorState) error primitives so both scales
+   read as the same material. */
+@utility error-surface {
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in oklab, var(--destructive) 18%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--card);
+}

@@ -10,16 +10,15 @@ import { RecentlyAdded } from "./sections/recently-added";
 import { TonightPick } from "./sections/tonight-pick";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
-// Approximate skeleton heights for each section type. These values match the
-// typical rendered height when data is present; sections that resolve to null
-// when empty will cause a layout shift from skeleton to nothing — a known
+// Skeleton heights matched to each section's rendered height. Sections that
+// resolve to null when empty cause a skeleton-to-nothing layout shift — a known
 // trade-off until each section exposes its own typed skeleton component.
-const SK_HERO = 420; // Tonight pick: 16/9 hero card + alternates list.
-const SK_SCROLL_ROW = 360; // Poster scroll row (2/3 cards ≈ 300px + head).
-const SK_MOOD_MOSAIC = 560; // 3-column mood cluster grid.
-const SK_GRID_ROW = 300; // Single-row backdrop (16/9) grid.
-const SK_GRID_TALL = 400; // Awaiting: multi-row poster grid.
-const SK_LIST = 360; // Recently-added list rows.
+const SK_HERO = 420;
+const SK_SCROLL_ROW = 360;
+const SK_MOOD_MOSAIC = 560;
+const SK_GRID_ROW = 300;
+const SK_GRID_TALL = 400;
+const SK_LIST = 360;
 
 /**
  * Curated content for `/watchlist`. Each section fetches its own data behind

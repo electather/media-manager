@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "catalog:",
-    "@hono/zod-validator": "^0.7.6",
+    "@hono/zod-validator": "^0.8.0",
     "@jridgewell/trace-mapping": "^0.3.31",
     "@libsql/client": "^0.17.2",
     "@nama/plugin-discord": "workspace:*",
