@@ -6,6 +6,8 @@
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
   "home_nav_brand_label": "Nama",
+  "home_user_menu_label": "Account menu",
+  "home_user_menu_sign_out": "Sign out",
   "home_error_retry": "Try again",
   "home_error_ref_prefix": "Ref: {ref}",
   "home_error_title": [
