@@ -4,9 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+import type { RowKind } from "@nama/shared/home";
 import * as m from "@/paraglide/messages";
 import { Card } from "../components/card/index";
-import type { HomeMediaItem, RowKind } from "../lib/types";
+import type { HomeMediaItem } from "../lib/types";
 
 afterEach(() => cleanup());
 

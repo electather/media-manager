@@ -21,7 +21,7 @@ import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
 import { Card } from "../card/index";
 import { homeRowSource } from "../../lib/sources";
 import { ROW_COPY } from "../../lib/home-feed-config";
-import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
+import type { HomeMediaItem, MessageKey, RowAspect, RowData } from "../../lib/types";
 import { RowError, RowErrorInlineCard } from "./row-error";
 
 const SKELETON_COUNT = 5;
@@ -56,7 +56,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const isBackdrop = row.defaultAspect === "16/9";
   const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
-  const aspect: "16/9" | "2/3" = isBackdrop ? "16/9" : "2/3";
+  const aspect: RowAspect = isBackdrop ? "16/9" : "2/3";
 
   const copy = ROW_COPY[row.kind];
   const headerKey: MessageKey = row.headerKey ?? copy.headerKey;
