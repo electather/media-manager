@@ -1,5 +1,3 @@
-import { UAParser } from "ua-parser-js";
-
 export interface ParsedUserAgent {
   /** Display string such as "Chrome 120 on macOS" or "Unknown device". */
   label: string;
@@ -10,22 +8,30 @@ export interface ParsedUserAgent {
   unknown: boolean;
 }
 
-const UNKNOWN_LABEL = "Unknown device";
+export const UNKNOWN_USER_AGENT: ParsedUserAgent = {
+  label: "Unknown device",
+  browser: null,
+  os: null,
+  unknown: true,
+};
 
-// fallow-ignore-next-line complexity
-export function parseUserAgent(ua: string | null | undefined): ParsedUserAgent {
-  if (!ua) {
-    return { label: UNKNOWN_LABEL, browser: null, os: null, unknown: true };
-  }
+// ua-parser-js (~74 kB) is only needed once there's a real UA string to parse.
+// Load it on demand and cache the module promise so it stays out of the entry
+// chunk and repeat parses don't re-import.
+let parserPromise: Promise<typeof import("ua-parser-js").UAParser> | null = null;
 
+function loadParser() {
+  parserPromise ??= import("ua-parser-js").then((m) => m.UAParser);
+  return parserPromise;
+}
+
+function buildLabel(UAParser: typeof import("ua-parser-js").UAParser, ua: string): ParsedUserAgent {
   const { browser, os } = UAParser(ua);
   const browserName = browser?.name?.trim() || null;
   const browserMajor = browser?.major?.trim() || null;
   const osName = os?.name?.trim() || null;
 
-  if (!browserName && !osName) {
-    return { label: UNKNOWN_LABEL, browser: null, os: null, unknown: true };
-  }
+  if (!browserName && !osName) return UNKNOWN_USER_AGENT;
 
   const browserLabel = browserName
     ? browserMajor
@@ -43,4 +49,11 @@ export function parseUserAgent(ua: string | null | undefined): ParsedUserAgent {
   }
 
   return { label, browser: browserName, os: osName, unknown: false };
+}
+
+// fallow-ignore-next-line complexity
+export async function parseUserAgent(ua: string | null | undefined): Promise<ParsedUserAgent> {
+  if (!ua) return UNKNOWN_USER_AGENT;
+  const UAParser = await loadParser();
+  return buildLabel(UAParser, ua);
 }

@@ -11,7 +11,7 @@ export function DeliveryRow({ delivery, onClick }: Props) {
     <button
       type="button"
       onClick={() => onClick(delivery.id)}
-      className="grid w-full grid-cols-[160px_1fr_180px_140px_120px_60px] items-center gap-3 border-b border-border/50 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/40"
+      className="grid w-full grid-cols-[160px_1fr_180px_140px_120px_60px] items-center gap-3 border-b border-border/50 px-4 py-2 text-start text-sm transition-colors hover:bg-muted/40"
     >
       <span className="tabular-nums text-xs text-muted-foreground">
         {new Date(delivery.createdAt).toISOString().slice(11, 19)}
@@ -22,7 +22,7 @@ export function DeliveryRow({ delivery, onClick }: Props) {
         {delivery.recipientConnectionId ?? "—"}
       </span>
       <DeliveryStatusBadge status={delivery.status} />
-      <span className="text-right tabular-nums text-xs text-muted-foreground">
+      <span className="text-end tabular-nums text-xs text-muted-foreground">
         {delivery.attemptCount}
       </span>
     </button>

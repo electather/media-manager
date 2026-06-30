@@ -25,7 +25,7 @@ export function RoleRow({ role, memberCount, isFirst, onOpen }: Props) {
       type="button"
       onClick={onOpen}
       className={cn(
-        "grid w-full grid-cols-[auto_minmax(0,1fr)_auto_24px] items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-muted/40",
+        "grid w-full grid-cols-[auto_minmax(0,1fr)_auto_24px] items-center gap-4 px-4 py-3.5 text-start transition-colors hover:bg-muted/40",
         !isFirst && "border-t border-border",
       )}
     >
@@ -49,7 +49,7 @@ export function RoleRow({ role, memberCount, isFirst, onOpen }: Props) {
           {m.admin_roles_row_perms_count({ count: permCount })}
         </p>
       </div>
-      <div className="flex flex-col items-end gap-0.5 text-right">
+      <div className="flex flex-col items-end gap-0.5 text-end">
         <span className="font-mono text-sm tabular-nums text-foreground">{memberCount}</span>
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {m.admin_roles_members({ count: memberCount })}

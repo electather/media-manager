@@ -22,9 +22,17 @@
   "admin_plugins_overview_stat_shared_keys": "کلیدهای مشترک",
   "admin_plugins_overview_stat_capabilities": "قابلیت‌ها",
   "admin_plugins_overview_stat_scope": "محدوده",
-  "admin_plugins_overview_scope_user": "محدوده کاربر",
-  "admin_plugins_overview_scope_global": "فقط متادیتا",
-  "admin_plugins_overview_scope_mixed": "ترکیبی",
+  "admin_plugins_overview_scope": [
+    {
+      "declarations": ["input purity"],
+      "selectors": ["purity"],
+      "match": {
+        "purity=user": "محدوده کاربر",
+        "purity=global": "فقط متادیتا",
+        "purity=mixed": "ترکیبی"
+      }
+    }
+  ],
   "admin_plugins_overview_caps_title": "قابلیت‌ها",
   "admin_plugins_overview_caps_description": "این افزونه چه کاری می‌تواند انجام دهد. قابلیت‌های سراسری بدون هیچ اتصالی کار می‌کنند. قابلیت‌های کاربری نیاز دارند هر کاربر حساب خود را متصل کند.",
   "admin_plugins_overview_caps_global": "سراسری",
@@ -32,12 +40,28 @@
   "admin_plugins_overview_fallback_title": "سیاست بازگشت کلید شخصی",
   "admin_plugins_overview_fallback_description": "وقتی درخواست کاربری به تماس {name} نیاز دارد، سرور کدام اعتبارنامه‌ها را امتحان می‌کند؟",
   "admin_plugins_overview_fallback_aria": "سیاست بازگشت کلید شخصی",
-  "admin_plugins_overview_policy_off_label": "خاموش",
-  "admin_plugins_overview_policy_off_desc": "کلیدهای مدیر و کاربر جدا می‌مانند. تماس‌های محدوده کاربری فقط از کلیدهای خود کاربر استفاده می‌کنند.",
-  "admin_plugins_overview_policy_admin_first_label": "مدیر اول",
-  "admin_plugins_overview_policy_admin_first_desc": "ابتدا اعتبارنامه‌های مشترک امتحان می‌شوند؛ در صورت اتمام، به اتصال شخصی کاربر برمی‌گردد.",
-  "admin_plugins_overview_policy_personal_first_label": "شخصی اول",
-  "admin_plugins_overview_policy_personal_first_desc": "ابتدا اتصال کاربر امتحان می‌شود؛ در صورت شکست یا نبود، به اعتبارنامه‌های مشترک برمی‌گردد.",
+  "admin_plugins_overview_policy_label": [
+    {
+      "declarations": ["input policy"],
+      "selectors": ["policy"],
+      "match": {
+        "policy=off": "خاموش",
+        "policy=admin-first": "مدیر اول",
+        "policy=personal-first": "شخصی اول"
+      }
+    }
+  ],
+  "admin_plugins_overview_policy_desc": [
+    {
+      "declarations": ["input policy"],
+      "selectors": ["policy"],
+      "match": {
+        "policy=off": "کلیدهای مدیر و کاربر جدا می‌مانند. تماس‌های محدوده کاربری فقط از کلیدهای خود کاربر استفاده می‌کنند.",
+        "policy=admin-first": "ابتدا اعتبارنامه‌های مشترک امتحان می‌شوند؛ در صورت اتمام، به اتصال شخصی کاربر برمی‌گردد.",
+        "policy=personal-first": "ابتدا اتصال کاربر امتحان می‌شود؛ در صورت شکست یا نبود، به اعتبارنامه‌های مشترک برمی‌گردد."
+      }
+    }
+  ],
   "admin_plugins_overview_identity_title": "هویت",
   "admin_plugins_overview_identity_id": "شناسه افزونه",
   "admin_plugins_overview_identity_vendor": "سازنده",

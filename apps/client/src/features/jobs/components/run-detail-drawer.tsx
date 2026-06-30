@@ -66,7 +66,7 @@ export function RunDetailDrawer({
     <Drawer open={!!run} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="h-[85vh] max-h-[85vh] flex flex-col rounded-t-xl bg-background border-border">
         <DrawerHeader className="border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex flex-col gap-1 text-left">
+          <div className="flex flex-col gap-1 text-start">
             <DrawerTitle className="font-mono text-base truncate">Run: {run?.id}</DrawerTitle>
             <span className="text-sm text-muted-foreground font-mono">{job?.id}</span>
           </div>

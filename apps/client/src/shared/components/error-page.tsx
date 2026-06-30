@@ -175,7 +175,7 @@ function ErrorPageDetails({
             <Button
               type="button"
               variant="ghost"
-              className="group h-auto w-full justify-between rounded-none px-3.5 py-3 text-left text-sm font-medium hover:bg-muted/40"
+              className="group h-auto w-full justify-between rounded-none px-3.5 py-3 text-start text-sm font-medium hover:bg-muted/40"
             />
           }
         >
