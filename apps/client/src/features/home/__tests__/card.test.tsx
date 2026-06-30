@@ -121,7 +121,7 @@ describe("Card", () => {
 
   it("renders the watchlist quick-action with an aria-label containing the item title", () => {
     renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
-    const btn = screen.getByRole("button", { name: /watchlist.*test movie/i });
+    const btn = screen.getByRole("button", { name: /test movie.*watchlist/i });
     expect(btn).toBeTruthy();
   });
 
