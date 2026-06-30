@@ -10,10 +10,6 @@ import type { CommandScope } from "../types";
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 200;
-// Shorter than the 60s default: search results should track the live index
-// closely, but cache long enough that retyping the same query within a session
-// stays instant.
-const STALE_MS = 30_000;
 
 function scopeToKind(scope: CommandScope): SearchKind {
   return isNil(scope) ? "all" : scope;
@@ -47,7 +43,6 @@ export function useSearchResults(rawQuery: string, scope: CommandScope): UseSear
     queryKey: commandMenuKeys.search(trimmed, kind),
     queryFn: () => fetchSearch({ q: trimmed, kind }),
     enabled,
-    staleTime: STALE_MS,
     // Only show stale results as a placeholder when the scope (kind) has not
     // changed — cross-scope placeholder data would label the wrong titles as
     // results for the new scope until the fresh fetch resolves.
