@@ -86,5 +86,7 @@
   "onboarding_mcp_setup_endpoint_label": "MCP endpoint",
   "onboarding_mcp_setup_copy": "Copy",
   "onboarding_mcp_setup_copied": "Copied",
-  "onboarding_mcp_setup_guide_button": "View setup guide"
+  "onboarding_mcp_setup_guide_button": "View setup guide",
+  "onboarding_error_title": "We couldn't load setup",
+  "onboarding_error_body": "Setup hit a snag loading your configuration. Retry, and if it keeps happening note the reference below."
 }

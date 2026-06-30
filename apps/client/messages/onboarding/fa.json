@@ -86,5 +86,7 @@
   "onboarding_mcp_setup_endpoint_label": "نقطهٔ پایانی MCP",
   "onboarding_mcp_setup_copy": "کپی",
   "onboarding_mcp_setup_copied": "کپی شد",
-  "onboarding_mcp_setup_guide_button": "مشاهدهٔ راهنمای راه‌اندازی"
+  "onboarding_mcp_setup_guide_button": "مشاهدهٔ راهنمای راه‌اندازی",
+  "onboarding_error_title": "بارگیری راه‌اندازی ممکن نشد",
+  "onboarding_error_body": "هنگام بارگیری پیکربندی شما مشکلی پیش آمد. دوباره تلاش کنید و اگر ادامه داشت، شناسهٔ زیر را یادداشت کنید."
 }
