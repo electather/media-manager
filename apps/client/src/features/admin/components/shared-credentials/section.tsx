@@ -103,7 +103,9 @@ export function SharedCredentialsSection({
   const [deleteState, setDeleteState] = useState<SharedCredentialEntry | null>(null);
 
   const list = entries.data ?? [];
-  const atCapacity = !poolable && list.length >= 1;
+  // Exclude the synthesized bundled row: server ignores `__bundled__` for the
+  // non-poolable limit, so admins must still be able to add one real override.
+  const atCapacity = !poolable && list.filter((e) => !e.bundled).length >= 1;
 
   return (
     <section className="flex flex-col gap-3">

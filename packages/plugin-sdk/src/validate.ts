@@ -187,7 +187,9 @@ function validateDefaultSharedCredentials(manifest: ParsedManifest): void {
   const value = manifest.defaultSharedCredentials;
   if (value === undefined) return;
   const schema = manifest.sharedCredentialsSchema;
-  if (!schema) return;
+  // Unreachable: pluginManifestSchema's superRefine (schemas.ts) rejects
+  // defaultSharedCredentials-without-sharedCredentialsSchema before this runs.
+  if (!schema) throw new Error("invariant: sharedCredentialsSchema missing after manifest parse");
   const reason = describeSchemaMismatch(value, schema);
   if (reason) {
     throw new PluginError(
