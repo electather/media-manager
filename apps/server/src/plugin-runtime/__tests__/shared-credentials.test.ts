@@ -122,8 +122,7 @@ const SHARED_SCHEMA = {
   required: ["apiKey"],
 };
 
-/** Installs a plugin that ships a bundled default credential. `key` defaults to
- *  a real (non-placeholder) value so synthesis is active. */
+/** Installs a plugin that ships a bundled default credential. */
 function installWithBundled(pluginId: string, poolable: boolean, key = "BUNDLED_KEY") {
   installPlugin(pluginId, poolable, {
     sharedCredentialsSchema: SHARED_SCHEMA,
@@ -320,18 +319,6 @@ describe("sharedCredentialsService", () => {
     await expect(
       sharedCredentialsService.add({ pluginId: "jellyfin", label: "Mine", value: { apiKey: "x" } }),
     ).resolves.toBeDefined();
-  });
-
-  it("withholds the bundled default while the key is the placeholder sentinel", async () => {
-    // WHY: avoid the "configured but blank posters" trap — onboarding stays required
-    // until a real key ships, then the entry appears.
-    installWithBundled("tmdb", true, "REPLACE_WITH_NAMA_TMDB_V3_KEY");
-    expect(await sharedCredentialsService.list("tmdb")).toHaveLength(0);
-    expect(await sharedCredentialsService.countEnabled("tmdb")).toBe(0);
-    expect(await sharedCredentialsService.listDecryptedActive("tmdb")).toHaveLength(0);
-
-    installWithBundled("tmdb", true, "real-key");
-    expect((await sharedCredentialsService.list("tmdb")).some((e) => e.bundled)).toBe(true);
   });
 
   it("treats markExhausted on the bundled default as a no-op", async () => {

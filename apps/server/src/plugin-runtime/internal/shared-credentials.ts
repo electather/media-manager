@@ -81,11 +81,6 @@ async function requirePluginManifestJson(pluginId: string): Promise<string> {
 export const BUNDLED_CREDENTIAL_ID = "__bundled__";
 const BUNDLED_CREDENTIAL_LABEL = "Bundled (default)";
 
-/** A bundled default is still unconfigured while any string leaf carries the
- *  `REPLACE_WITH_` sentinel — synthesis stays off so tmdbConfigured stays false
- *  and onboarding stays required (design §2/§6 blank-poster guard). */
-const PLACEHOLDER_PREFIX = "REPLACE_WITH_";
-
 /** The bundled default has no DB row; every by-id mutator/reader rejects it so
  *  the admin "test"/edit/delete/toggle paths surface `bundled_readonly` rather
  *  than a misleading `shared_credential_not_found` (design §3). */
@@ -98,15 +93,9 @@ function assertNotBundled(credentialId: string, pluginId: string): void {
   }
 }
 
-function hasPlaceholderLeaf(value: unknown): boolean {
-  if (typeof value === "string") return value.startsWith(PLACEHOLDER_PREFIX);
-  // Arrays are objects, so Object.values covers both — one branch, recurse.
-  if (typeof value !== "object" || value === null) return false;
-  return Object.values(value).some(hasPlaceholderLeaf);
-}
-
-/** Parses the manifest's bundled default, normalizing absent/unparseable to null. */
-function manifestDefaultCredential(manifestJson: string): unknown {
+/** The plugin's bundled default credential value, or null when absent or the
+ *  manifest JSON is unparseable. */
+function readBundledDefault(manifestJson: string): unknown {
   try {
     return (
       (JSON.parse(manifestJson) as Partial<ValidatedManifest>).defaultSharedCredentials ?? null
@@ -114,14 +103,6 @@ function manifestDefaultCredential(manifestJson: string): unknown {
   } catch {
     return null;
   }
-}
-
-/** The plugin's bundled default credential value, or null when absent or still
- *  holding the placeholder sentinel. */
-function readBundledDefault(manifestJson: string): unknown {
-  const value = manifestDefaultCredential(manifestJson);
-  if (value === null) return null;
-  return hasPlaceholderLeaf(value) ? null : value;
 }
 
 /** Synthesized summary for the bundled default. Timestamps borrow the plugin's

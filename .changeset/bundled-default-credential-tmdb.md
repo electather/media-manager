@@ -2,4 +2,4 @@
 "@nama/plugin-tmdb": minor
 ---
 
-TMDB can now provide a bundled default API key so it works without admin configuration once the key is published.
+TMDB now ships with a bundled default API key, so artwork and metadata work out of the box without any admin configuration.
