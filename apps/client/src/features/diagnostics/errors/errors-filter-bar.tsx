@@ -13,6 +13,9 @@ import type { ErrorsFilters } from "../shared/types";
 interface Props {
   filters: ErrorsFilters;
   onChange: (next: ErrorsFilters) => void;
+  /** True while a filter-change transition is in flight; dims the bar so a
+   *  slow refetch reads as busy rather than idle (#833). */
+  isPending?: boolean;
 }
 
 const SEVERITY_PRESSED: Record<ErrorSeverity, string> = {
@@ -49,9 +52,13 @@ function isDirty(filters: ErrorsFilters): boolean {
   );
 }
 
-export function ErrorsFilterBar({ filters, onChange }: Props) {
+// fallow-ignore-next-line complexity
+export function ErrorsFilterBar({ filters, onChange, isPending = false }: Props) {
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      aria-busy={isPending || undefined}
+      className={cn("flex flex-col gap-3", isPending && "opacity-60 transition-opacity")}
+    >
       <div className="flex flex-wrap items-center gap-4">
         <FilterLabel>{m.diagnostics_filter_label_severity()}</FilterLabel>
         <ToggleGroup<ErrorSeverity>

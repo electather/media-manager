@@ -36,7 +36,11 @@ interface PluginRow {
 const state: {
   connections: ConnectionRow[];
   plugins: PluginRow[];
-} = { connections: [], plugins: [] };
+  // Fires before the promotion UPDATE inside promoteToDefault (the `set` carrying isDefault=1).
+  // Lets a test delete the target row *after* requireConnection's SELECT found it but *before*
+  // the promotion UPDATE reads the rowset, forcing the .returning() zero-row miss (issue #849).
+  beforePromotionUpdate: (() => void) | null;
+} = { connections: [], plugins: [], beforePromotionUpdate: null };
 
 // Drizzle operators are opaque in these mocks — only referential identity is needed.
 vi.mock("drizzle-orm", () => {
@@ -102,6 +106,12 @@ vi.mock("../../db/client", () => {
     update(table: unknown) {
       return {
         set(patch: Partial<ConnectionRow>) {
+          // promoteToDefault runs a demotion UPDATE (isDefault=0) then a promotion UPDATE
+          // (isDefault=1); the hook fires only on the latter so a test can drop the target
+          // row between the two, exercising the .returning() zero-row miss (issue #849).
+          // GOTCHA: delete's fallback-default promotion also sets isDefault=1, so this hook
+          // fires there too — a delete-path test must leave beforePromotionUpdate null.
+          if (patch.isDefault === 1 && state.beforePromotionUpdate) state.beforePromotionUpdate();
           return {
             where(_: unknown) {
               const rows = rowsFor(table) as ConnectionRow[];
@@ -135,11 +145,17 @@ vi.mock("../../db/client", () => {
         },
       };
     },
-    // The transactional delete handler runs its delete + fallback-default
-    // promotion inside db.transaction(); the mock just invokes the callback
-    // with itself as the tx handle so the same select/update/delete shims apply.
-    transaction(fn: (tx: unknown) => unknown) {
-      return Promise.resolve(fn(dbMock));
+    // Runs the callback with the db as the tx handle so the same select/update/delete shims apply.
+    // Snapshots the rowset on entry and restores it if the callback throws, mirroring a real
+    // ROLLBACK — this is what lets a test assert the sibling demotion is undone (issue #849).
+    async transaction(fn: (tx: unknown) => unknown) {
+      const snapshot = state.connections.map((row) => ({ ...row }));
+      try {
+        return await fn(dbMock);
+      } catch (err) {
+        state.connections = snapshot;
+        throw err;
+      }
     },
   };
 
@@ -225,6 +241,7 @@ function seedConnection(opts: { id?: string; userConfig?: string | null } = {}) 
 beforeEach(() => {
   state.connections = [];
   state.plugins = [];
+  state.beforePromotionUpdate = null;
   invalidateUserCacheMock.mockReset();
   testConnectionMock.mockReset();
 });
@@ -378,6 +395,51 @@ describe("setDefault guard (issue #698)", () => {
     await connectionsService.setDefault({ userId: "user-1", connectionId: "conn-1" });
 
     expect(invalidateUserCacheMock).toHaveBeenCalledWith("user-1");
+  });
+
+  it("throws connection.not_found and rolls back the demotion when the target is deleted mid-flight", async () => {
+    // TOCTOU (issue #849): setDefault's requireConnection SELECT finds the target, then inside
+    // promoteToDefault the demotion UPDATE clears the sibling's isDefault, but the row is deleted
+    // before the promotion UPDATE — its .returning() finds zero rows and throws. The transaction
+    // must roll back so the sibling keeps isDefault=1 and no cache invalidation runs.
+    installPlugin();
+    // Seed the promotion target (index 0) plus the currently-default sibling. The mock ignores WHERE,
+    // so requireConnection's .get() returns rowsFor[0] (conn-target); the returned row's pluginId
+    // is passed to promoteToDefault, and both UPDATEs operate on the full rowset.
+    const now = Date.now();
+    const base = {
+      userId: "user-1",
+      pluginId: "test-plugin",
+      status: "connected",
+      enabled: 1,
+      displayName: null,
+      encryptedCredentials: Buffer.from(JSON.stringify({ token: "t" })).toString("base64"),
+      credentialsIv: "iv",
+      userConfig: null,
+      tokenExpiresAt: null,
+      lastVerifiedAt: now,
+      errorMessage: null,
+      createdAt: now,
+      updatedAt: now,
+    } satisfies Omit<ConnectionRow, "id" | "isDefault">;
+    state.connections = [
+      { ...base, id: "conn-target", isDefault: 0 },
+      { ...base, id: "conn-sibling", isDefault: 1 },
+    ];
+    // Mid-flight delete: fires after the demotion UPDATE, before the promotion UPDATE reads the
+    // rowset — so the SELECT hit and the UPDATE miss are distinguishable, unlike a static rowset.
+    state.beforePromotionUpdate = () => {
+      state.connections = [];
+    };
+
+    await expect(
+      connectionsService.setDefault({ userId: "user-1", connectionId: "conn-target" }),
+    ).rejects.toMatchObject({ status: 404, code: "connection.not_found" });
+
+    // Rollback restores the pre-transaction snapshot: the sibling is still the sole default.
+    expect(state.connections.find((r) => r.id === "conn-sibling")?.isDefault).toBe(1);
+    expect(state.connections.filter((r) => r.isDefault === 1)).toHaveLength(1);
+    expect(invalidateUserCacheMock).not.toHaveBeenCalled();
   });
 });
 

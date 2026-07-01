@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { REQUEST_ID_PATTERN } from "@nama/shared/diagnostics";
 import { z } from "zod";
 import { Tabs, TabsContent } from "@/shared/ui/tabs";
 import {
@@ -15,11 +16,7 @@ const tabSchema = z.enum(["errors", "performance"]).optional();
 
 const searchSchema = z.object({
   tab: tabSchema,
-  rid: z
-    .string()
-    .max(64)
-    .regex(/^[0-9a-zA-Z_-]+$/)
-    .optional(),
+  rid: z.string().max(64).regex(REQUEST_ID_PATTERN).optional(),
   // pid is a plugin id (cuid2, 24 chars); 128 gives headroom for future ID format changes.
   pid: z
     .string()
@@ -40,7 +37,7 @@ function AdminDiagnosticsPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
-  const summary = useQuery({
+  const { data: summaryData } = useQuery({
     queryKey: diagnosticsKeys.errors.summary(),
     queryFn: fetchErrorSummary,
     // Polls every 60s. Shorter staleTime than the interval matches the live
@@ -51,7 +48,7 @@ function AdminDiagnosticsPage() {
     networkMode: "online",
     staleTime: 30_000,
   });
-  const errorCount = summary.data?.hourlyBuckets.reduce((acc, b) => acc + b.error, 0) ?? 0;
+  const errorCount = summaryData?.hourlyBuckets.reduce((acc, b) => acc + b.error, 0) ?? 0;
 
   const tab = search.tab ?? "errors";
   const requestId = search.rid ?? "";
