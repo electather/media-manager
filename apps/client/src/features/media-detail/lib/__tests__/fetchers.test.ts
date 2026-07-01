@@ -39,16 +39,22 @@ describe("fetchSeasonAvailability", () => {
     apiMock.availabilityGet.mockResolvedValueOnce(
       jsonResponse({ code: "media.not_found", message: "title not found" }, 404),
     );
-    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
-      (e) => e instanceof MediaApiError && e.status === 404 && e.code === "media.not_found",
-    );
+    const err = (await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e) => e,
+    )) as MediaApiError;
+    expect(err).toBeInstanceOf(MediaApiError);
+    expect(err.status).toBe(404);
+    expect(err.code).toBe("media.not_found");
   });
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
     apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
-    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
-      (e) => e instanceof MediaApiError && e.status === 503 && e.message.includes("503"),
-    );
+    const err = (await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e) => e,
+    )) as MediaApiError;
+    expect(err).toBeInstanceOf(MediaApiError);
+    expect(err.status).toBe(503);
+    expect(err.message).toContain("503");
   });
 
   it("returns the parsed JSON payload on a 2xx response", async () => {
