@@ -29,7 +29,7 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
     () =>
       groupBy(
         usersQuery.data.users.filter(
-          (u): u is typeof u & { role: NonNullable<typeof u.role> } => u.role != null,
+          (u): u is typeof u & { role: { id: string; name: string | null } } => u.role != null,
         ),
         (u) => u.role.id,
       ),
