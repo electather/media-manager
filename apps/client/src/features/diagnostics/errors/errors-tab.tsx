@@ -1,4 +1,4 @@
-import { Suspense, useTransition } from "react";
+import { Suspense, useCallback, useTransition } from "react";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { ErrorsHeader } from "./errors-header";
@@ -16,19 +16,23 @@ interface Props {
 }
 
 export function ErrorsTab({ filters, onFiltersChange, selectedId, onSelect, onJumpThread }: Props) {
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   // Wrap in transition so the Suspense subtree stays alive during filter refetch.
-  const handleFiltersChange = (next: ErrorsFilters) => {
-    startTransition(() => {
-      onFiltersChange(next);
-    });
-  };
+  // Rapid filter changes queue as concurrent transitions — React coalesces them, so no debounce needed.
+  const handleFiltersChange = useCallback(
+    (next: ErrorsFilters) => {
+      startTransition(() => {
+        onFiltersChange(next);
+      });
+    },
+    [onFiltersChange],
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <ErrorsHeader />
-      <ErrorsFilterBar filters={filters} onChange={handleFiltersChange} />
+      <ErrorsFilterBar filters={filters} onChange={handleFiltersChange} isPending={isPending} />
       <DiagnosticsErrorBoundary queryKey={diagnosticsKeys.errors.all()}>
         <Suspense fallback={<ErrorsTableSkeleton />}>
           <ErrorsTable
