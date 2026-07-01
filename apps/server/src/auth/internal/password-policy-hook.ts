@@ -1,5 +1,5 @@
 import { APIError } from "better-auth/api";
-import { passwordSchema } from "@nama/shared/auth";
+import { passwordSchema, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "@nama/shared/auth";
 
 // Path of Better Auth's changePassword endpoint (dist/api/routes/update-user.mjs).
 // Better Auth never runs `passwordSchema` on `newPassword`, so authClient.changePassword
@@ -20,16 +20,12 @@ function isPolicyViolation(body: RequestHookCtxLike["body"]): boolean {
   return typeof newPassword === "string" && !passwordSchema.safeParse(newPassword).success;
 }
 
-/**
- * Rejects a changePassword request whose `newPassword` fails the shared policy, closing the
- * server-side bypass in #879. Throws Better Auth's `APIError` so the client sees the same
- * 400 shape as other auth validation failures. Only guards `/change-password`; all other
- * auth paths pass through untouched.
- */
+// Re-validates newPassword on /change-password; throws APIError(400) on policy violation (#879).
+// All other paths pass through. Extracted to allow direct unit-testing without the Better Auth stack.
 export async function enforcePasswordPolicy(ctx: RequestHookCtxLike): Promise<void> {
   if (ctx.path === CHANGE_PASSWORD_PATH && isPolicyViolation(ctx.body)) {
     throw new APIError("BAD_REQUEST", {
-      message: "Password must be 8–256 characters and contain at least one letter and one digit.",
+      message: `Password must be ${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} characters and contain at least one letter and one digit.`,
     });
   }
 }
