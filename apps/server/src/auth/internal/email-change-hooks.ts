@@ -86,10 +86,9 @@ export function createEmailChangeHooks(deps: EmailChangeHookDeps): EmailChangeHo
 
   return {
     before: async (data, ctx) => {
-      // Cap the re-synced provider display name first. This runs on every
-      // social login (the update path), where #831 showed the create-path guard
-      // is bypassed from the second login onward. The email capture below is an
-      // independent DB side effect and must run regardless of truncation.
+      // Cap the re-synced provider name first: #831 showed the create-path guard
+      // is bypassed on every social login after the first. Email capture below is
+      // an independent DB side effect and must run regardless of truncation.
       const truncated = truncateOverlongName(data);
       const targetId = extractTargetUserId(ctx);
       if (targetId !== null) await capturePreviousEmail(targetId);

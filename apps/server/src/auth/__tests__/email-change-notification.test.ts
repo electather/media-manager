@@ -136,10 +136,9 @@ describe("createEmailChangeHooks", () => {
   });
 });
 
-// #815 only guarded the create path; Better Auth re-syncs the provider `name`
-// on every subsequent social login via the update hook. #831 requires the same
-// length cap composed into that hook's `before` without breaking the
-// email-change capture, whose run must not depend on truncation.
+// #815 only guarded the create path; Better Auth re-syncs `name` on every later
+// social login via the update hook. #831 caps it in that hook's `before` without
+// breaking email-change capture, whose run must not depend on truncation.
 describe("createEmailChangeHooks name-length guard (update path)", () => {
   const noopDeps = () => ({
     readUserEmail: vi.fn().mockResolvedValue(null),
