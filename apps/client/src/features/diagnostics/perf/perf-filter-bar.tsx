@@ -11,6 +11,9 @@ import type { PerfFilters } from "../shared/types";
 interface Props {
   filters: PerfFilters;
   onChange: (next: PerfFilters) => void;
+  /** True while a filter-change transition is in flight; dims the bar so a
+   *  slow refetch reads as busy rather than idle (#833). */
+  isPending?: boolean;
 }
 
 const KIND_OPTIONS: ReadonlyArray<{ id: PerfFilters["kind"]; label: () => string }> = [
@@ -45,9 +48,13 @@ function isDirty(filters: PerfFilters): boolean {
   );
 }
 
-export function PerfFilterBar({ filters, onChange }: Props) {
+// fallow-ignore-next-line complexity
+export function PerfFilterBar({ filters, onChange, isPending = false }: Props) {
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      aria-busy={isPending || undefined}
+      className={cn("flex flex-col gap-3", isPending && "opacity-60 transition-opacity")}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <SegmentedToggle
           value={filters.kind}
