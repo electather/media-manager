@@ -106,7 +106,14 @@ describe("diagnostics schemas — admin viewer pluginId filter", () => {
     });
 
     it(`${name} rejects plugin ids with characters outside the lowercase slug shape`, () => {
-      for (const pluginId of ["Trakt", "has space", "semi;colon", "../traversal", "wild*card"]) {
+      for (const pluginId of [
+        "Trakt",
+        "has space",
+        "semi;colon",
+        "../traversal",
+        "wild*card",
+        "under_score",
+      ]) {
         expect(schema.safeParse({ pluginId }).success).toBe(false);
       }
     });
