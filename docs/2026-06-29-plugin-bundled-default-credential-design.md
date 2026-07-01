@@ -71,7 +71,7 @@ defaultSharedCredentials: { apiKey: TMDB_BUNDLED_KEY }, // constants.ts
 
 Reserved id const: `BUNDLED_CREDENTIAL_ID = "__bundled__"`. Label `"Bundled (default)"`.
 
-Helper: read manifest of `pluginId`, return `defaultSharedCredentials` (or null). **Placeholder gate:** if value is the placeholder sentinel (`TMDB_BUNDLED_KEY === "REPLACE_WITH_NAMA_TMDB_V3_KEY"`), helper return **null** → ⊥ synthetic entry anywhere → `tmdbConfigured` stay **false** → onboarding step stay required. Prevents "configured but blank posters" trap (admin sees configured, no error, ⊥ posters). Real key registered → entry appears. (Chosen over build-time assert: works for self-host builds, degrade gracefully.)
+Helper: read manifest of `pluginId`, return `defaultSharedCredentials` (or null when absent / manifest unparseable). The nama-owned TMDB v4 read token now ships in `TMDB_BUNDLED_KEY`, so the entry synthesizes unconditionally and `tmdbConfigured` is true out of the box. (The earlier `REPLACE_WITH_` placeholder gate was removed once the real key shipped — no placeholder build remains to guard.)
 
 - **`listDecryptedActive(pluginId)`** — append synthetic pick **after** real rows:
   `{ id: "__bundled__", label: "Bundled (default)", value: defaultSharedCredentials }`.
@@ -88,7 +88,7 @@ Append order: real entries first (priority), bundled last.
 - **`add` non-poolable gate — REAL BUG to fix.** `add` (`shared-credentials.ts:116`) throws `not_poolable` when `!isPoolable(manifestJson) && existing.length > 0`, `existing = this.list()`. Bundled appended → `existing` always ≥1 → non-poolable plugin w/ bundled default can **never** add real key (override blocked). Fix: compute the poolable-gate count **excluding** synthetic `__bundled__` (real rows only). TMDB poolable so unaffected, but generic mechanism breaks for non-poolable w/o this.
 - **Read-only guards centralized in service layer** (single symmetric place; keep guard in same method that owns the by-id row). Every by-id mutator/reader reject `id === "__bundled__"` → new code `plugin.bundled_readonly`: `remove` (`shared-credentials.ts`), `setEnabled`, `update` (`:149`), `getDecrypted` (`:216`). `getDecrypted` matters: `runtime.ts:500 testSharedCredential` call it by id → admin "test" on bundled row must `bundled_readonly`, ⊥ `shared_credential_not_found`.
 - `markExhausted` (`shared-credentials.ts:243`) — **no explicit guard, natural no-op**: DB UPDATE `id="__bundled__"` matches 0 rows → silent no-op (correct: ⊥ row to persist, public key retried). Chosen layer = service natural no-op (not runtime guard) — symmetric w/ other service guards, and 401≠429 so bundled rarely reach exhaustion path anyway. Bundled is last pick → loop ends → `pool_exhausted` if it 429s, correct.
-- **401 / invalid bundled key** — upstream 401 → `handleHttpStatus` `plugin.bad_credentials` (`client.ts:40`). Bundled is last pick → no further failover → capability fail; `/public/trending` snapshot stay empty → backdrop fall back to bundled art. Placeholder key (`REPLACE_WITH_NAMA_TMDB_V3_KEY`) → exactly this until real key registered. ⊥ infinite retry: 401 ≠ 429, ⊥ `markExhausted`.
+- **401 / invalid bundled key** — upstream 401 → `handleHttpStatus` `plugin.bad_credentials` (`client.ts:40`). Bundled is last pick → no further failover → capability fail; `/public/trending` snapshot stay empty → backdrop fall back to bundled art. ⊥ infinite retry: 401 ≠ 429, ⊥ `markExhausted`.
 
 ### 4. Types
 
@@ -98,9 +98,9 @@ Append order: real entries first (priority), bundled last.
 
 Shared-credentials table (per `docs/2026-04-24-plugin-advanced-admin-design.md`, `admin/plugins.tsx`): bundled row → delete/disable/edit disabled, "Bundled" badge, one line "your own key takes priority". Onboarding `tmdb-key-form.tsx` copy: "Default key bundled — add your own to override." ⊥ server onboarding logic change.
 
-### 6. Key value — release blocker
+### 6. Key value
 
-⚠️ Do **NOT** reuse jellyseerr key `431a8708161bcd1f1fbe7536137e61ed` (piggyback their TMDB account). Register **nama own free TMDB v3 key** before ship. Until then: placeholder const `TMDB_BUNDLED_KEY = "REPLACE_WITH_NAMA_TMDB_V3_KEY"`. **Enforced (§2 placeholder gate):** while key === placeholder, helper returns null → ⊥ synthetic entry → `tmdbConfigured` false → onboarding step stay required, ⊥ silent "configured but blank". Real key flips it on. Not just a doc note. Security: key public in source/bundle — same tradeoff as seerr, accepted (self-hosted).
+⚠️ Do **NOT** reuse jellyseerr key `431a8708161bcd1f1fbe7536137e61ed` (piggyback their TMDB account). Shipped: a nama-owned TMDB v4 read token in `TMDB_BUNDLED_KEY` (`constants.ts`). The placeholder gate is gone — the real key synthesizes the bundled entry unconditionally. **Security:** key public in source/bundle — same tradeoff as seerr, accepted (self-hosted). To rotate, replace the const and bump the TMDB manifest version so upgraded installs re-persist the manifest.
 
 ## Data flow
 
@@ -127,7 +127,7 @@ admin add own key "Mine"
 - `add` real key on **non-poolable** plugin w/ bundled default → succeeds (not `not_poolable`). WHY: bundled must ⊥ block override; poolable-gate excludes synthetic.
 - `update`/`getDecrypted`/`remove`/`setEnabled`(`"__bundled__"`) → `plugin.bundled_readonly` (⊥ `shared_credential_not_found`). WHY: bundled immutable + decrypted value never fetched via by-id path; consistent error surface.
 - `add` ci-variant reserved label (`"Bundled (Default)"`) → `duplicate_label`. WHY: lock case-insensitive normalization.
-- placeholder key → `list`/`countEnabled` ⊥ bundled entry, `tmdbConfigured` false; real key → entry appears, true. WHY: ⊥ "configured but blank" trap.
+- bundled key present → `list`/`countEnabled` include the synthetic entry, `tmdbConfigured` true. WHY: out-of-box keyless metadata/artwork.
 - manifest `defaultSharedCredentials` w/o `sharedCredentialsSchema` → load reject `input_invalid`. WHY: nothing to validate against.
 - `resolveConnections` (`resolve-connection.ts:57`) non-user scope, empty pool → returns bundled (`shared[0]`). WHY: out-of-box keyless fetch.
 - same, real key present → `shared[0]` = real, ⊥ bundled. WHY: bundled lowest priority in 2nd consumer too.

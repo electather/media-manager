@@ -63,6 +63,9 @@ const manifestShape = z.object({
   allowedHosts: z.array(z.string().min(1)).default([]),
   globalConfigSchema: z.record(z.string(), z.unknown()).optional(),
   sharedCredentialsSchema: z.record(z.string(), z.unknown()).optional(),
+  // Kept in the manifest schema (not stripped) so it reaches sharedCredentialsService,
+  // which reads manifest JSON. Value shape validated at load — see validate.ts.
+  defaultSharedCredentials: z.unknown().optional(),
   userConfigSchema: z.record(z.string(), z.unknown()).optional(),
   credentialsSchema: z.record(z.string(), z.unknown()).optional(),
   auth: z.object({ kind: authKindSchema }),
@@ -92,6 +95,20 @@ export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) =>
       path: ["capabilities"],
     });
     return;
+  }
+
+  // A bundled default has nothing to validate against without the schema that
+  // describes its shape (design §1). Reject at install rather than synthesize
+  // an unvalidated entry.
+  if (
+    manifest.defaultSharedCredentials !== undefined &&
+    manifest.sharedCredentialsSchema === undefined
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "defaultSharedCredentials requires sharedCredentialsSchema",
+      path: ["defaultSharedCredentials"],
+    });
   }
 
   if (isPureGlobal) {
