@@ -375,4 +375,52 @@ describe("validatePluginModule", () => {
       expect(err.message).toContain("deliver");
     });
   });
+
+  describe("defaultSharedCredentials", () => {
+    const schema = {
+      type: "object",
+      properties: { apiKey: { type: "string" } },
+      required: ["apiKey"],
+    };
+
+    it("accepts a bundled default that matches sharedCredentialsSchema", () => {
+      const module = makeGlobalModule({
+        manifest: makeGlobalManifest({
+          sharedCredentialsSchema: schema,
+          defaultSharedCredentials: { apiKey: "BUNDLED" },
+        }),
+      });
+      expect(() => validatePluginModule(module)).not.toThrow();
+    });
+
+    it("rejects a bundled default without sharedCredentialsSchema (input_invalid)", () => {
+      // WHY: nothing to validate the value against — reject at install.
+      const module = makeGlobalModule({
+        manifest: makeGlobalManifest({ defaultSharedCredentials: { apiKey: "BUNDLED" } }),
+      });
+      expectPluginError(() => validatePluginModule(module), "plugin.input_invalid");
+    });
+
+    it("rejects a bundled default whose shape violates the schema (input_invalid)", () => {
+      // WHY: fail loud — a malformed bundled key must not reach the pool.
+      const module = makeGlobalModule({
+        manifest: makeGlobalManifest({
+          sharedCredentialsSchema: schema,
+          defaultSharedCredentials: { apiKey: 123 } as unknown as Record<string, string>,
+        }),
+      });
+      const err = expectPluginError(() => validatePluginModule(module), "plugin.input_invalid");
+      expect(err.message).toContain("apiKey");
+    });
+
+    it("rejects a bundled default missing a required property (input_invalid)", () => {
+      const module = makeGlobalModule({
+        manifest: makeGlobalManifest({
+          sharedCredentialsSchema: schema,
+          defaultSharedCredentials: {},
+        }),
+      });
+      expectPluginError(() => validatePluginModule(module), "plugin.input_invalid");
+    });
+  });
 });
