@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vite-plus/test";
-import { APIError } from "better-auth/api";
 import { PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
 import { enforcePasswordPolicy } from "../internal/password-policy-hook";
 
@@ -26,7 +25,7 @@ describe("changePassword password-policy hook", () => {
   ])("rejects a %s newPassword with an APIError", async (_reason, newPassword) => {
     await expect(
       enforcePasswordPolicy({ path: "/change-password", body: { newPassword } }),
-    ).rejects.toBeInstanceOf(APIError);
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   // WHY: the before-hook runs on every auth request; it must only guard /change-password so
