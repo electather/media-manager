@@ -43,7 +43,7 @@ export interface SectionNavGroup {
 interface SectionLayoutProps {
   title: string;
   groups: ReadonlyArray<SectionNavGroup>;
-  /** Optional extra elements rendered alongside the shell, e.g. a sticky save bar. */
+  /** Optional extra elements rendered inside the page landmark, e.g. a sticky save bar. */
   overlay?: ReactNode;
 }
 
@@ -58,10 +58,10 @@ export function SectionLayout({ title, groups, overlay }: SectionLayoutProps) {
             <Outlet />
           </div>
         </div>
+        {overlay}
       </main>
       <BottomNav />
       <CommandMenu />
-      {overlay}
     </div>
   );
 }
