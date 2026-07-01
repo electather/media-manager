@@ -4,7 +4,7 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { relativeTime } from "@/shared/lib/time-format";
-import { parseUserAgent } from "@/shared/lib/user-agent";
+import { useParsedUserAgent } from "@/shared/hooks/use-parsed-user-agent";
 import { m } from "@/paraglide/messages";
 
 export interface SessionListItem {
@@ -31,19 +31,16 @@ export interface SessionRowProps {
  */
 // fallow-ignore-next-line complexity
 export function SessionRow({ session, isCurrent, onRevoke, pending = false }: SessionRowProps) {
-  const ua = parseUserAgent(session.userAgent);
+  const ua = useParsedUserAgent(session.userAgent);
   const ip = session.ipAddress?.trim() || null;
   const showIp = !ua.unknown && !!ip;
-
-  const created = toDate(session.createdAt);
-  const updated = toDate(session.updatedAt);
 
   // Build the meta line piece-by-piece so missing fields don't leave dangling
   // separators ("Unknown device, ").
   const meta: string[] = [];
   if (showIp) meta.push(ip!);
-  meta.push(m.settings_security_sessions_signed_in({ time: relativeTime(created) }));
-  meta.push(m.settings_security_sessions_last_active({ time: relativeTime(updated) }));
+  meta.push(m.settings_security_sessions_signed_in({ time: relativeTime(session.createdAt) }));
+  meta.push(m.settings_security_sessions_last_active({ time: relativeTime(session.updatedAt) }));
 
   return (
     <div
@@ -93,11 +90,4 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
       ) : null}
     </div>
   );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function toDate(input: string | number | Date): Date {
-  if (input instanceof Date) return input;
-  return new Date(input);
 }

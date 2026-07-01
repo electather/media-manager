@@ -19,25 +19,7 @@ interface OverviewTabProps {
   fallbackPending: boolean;
 }
 
-function getPolicies() {
-  return [
-    {
-      id: "off" as PersonalKeyFallbackPolicy,
-      label: m.admin_plugins_overview_policy_off_label(),
-      desc: m.admin_plugins_overview_policy_off_desc(),
-    },
-    {
-      id: "admin-first" as PersonalKeyFallbackPolicy,
-      label: m.admin_plugins_overview_policy_admin_first_label(),
-      desc: m.admin_plugins_overview_policy_admin_first_desc(),
-    },
-    {
-      id: "personal-first" as PersonalKeyFallbackPolicy,
-      label: m.admin_plugins_overview_policy_personal_first_label(),
-      desc: m.admin_plugins_overview_policy_personal_first_desc(),
-    },
-  ];
-}
+const FALLBACK_POLICIES: PersonalKeyFallbackPolicy[] = ["off", "admin-first", "personal-first"];
 
 function StatCell({
   label,
@@ -82,12 +64,7 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
   const hasShared = Boolean(plugin.manifest.sharedCredentialsSchema);
   const purity = pluginPurity(plugin);
 
-  const scopeLabel =
-    purity === "user"
-      ? m.admin_plugins_overview_scope_user()
-      : purity === "global"
-        ? m.admin_plugins_overview_scope_global()
-        : m.admin_plugins_overview_scope_mixed();
+  const scopeLabel = m.admin_plugins_overview_scope({ purity });
 
   return (
     <div className="flex flex-col gap-5">
@@ -162,14 +139,14 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
               aria-label={m.admin_plugins_overview_fallback_aria()}
               className="flex flex-col gap-1"
             >
-              {getPolicies().map((p) => {
+              {FALLBACK_POLICIES.map((policy) => {
                 return (
                   <Radio.Root
-                    key={p.id}
-                    value={p.id}
+                    key={policy}
+                    value={policy}
                     disabled={fallbackPending}
                     className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-start transition-colors",
                       "border-transparent hover:bg-muted/60",
                       "data-checked:border-border data-checked:bg-muted",
                       "disabled:cursor-not-allowed disabled:opacity-50",
@@ -184,8 +161,12 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
                       <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
                     </Radio.Indicator>
                     <span className="flex-1">
-                      <span className="block text-sm font-medium">{p.label}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">{p.desc}</span>
+                      <span className="block text-sm font-medium">
+                        {m.admin_plugins_overview_policy_label({ policy })}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {m.admin_plugins_overview_policy_desc({ policy })}
+                      </span>
                     </span>
                   </Radio.Root>
                 );

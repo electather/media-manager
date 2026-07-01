@@ -229,6 +229,7 @@
   "watchlist_add_error": "Couldn't add to watchlist. {message}",
   "watchlist_remove_error": "Couldn't remove from watchlist. {message}",
   "watchlist_toggle_add": "Add to watchlist",
+  "watchlist_remove_aria": "Remove {title} from watchlist",
   "watchlist_toggle_remove": "Remove from watchlist",
   "watchlist_load_error_title": "Watchlist couldn't load",
   "watchlist_load_error_retry": "Retry",

@@ -10,9 +10,8 @@ import { RecentlyAdded } from "./sections/recently-added";
 import { TonightPick } from "./sections/tonight-pick";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
-// Approximate skeleton heights for each section type. These values match the
-// typical rendered height when data is present; sections that resolve to null
-// when empty will cause a layout shift from skeleton to nothing — a known
+// Skeleton heights matched to each section's rendered height. Sections that
+// resolve to null when empty cause a skeleton-to-nothing layout shift — a known
 // trade-off until each section exposes its own typed skeleton component.
 const SK_HERO = 420; // Tonight pick: 16/9 hero card + alternates list.
 const SK_SCROLL_ROW = 360; // Poster scroll row (2/3 cards ≈ 300px + head).

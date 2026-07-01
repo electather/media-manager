@@ -5,10 +5,7 @@ import { CircleAlertIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 const errorStateVariants = cva(
-  cn(
-    "group/error-state relative flex border border-border",
-    "bg-[radial-gradient(120%_140%_at_0%_0%,color-mix(in_oklab,var(--destructive)_18%,transparent)_0%,transparent_55%),var(--card)]",
-  ),
+  "group/error-state error-surface relative flex border border-border",
   {
     variants: {
       orientation: {

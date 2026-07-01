@@ -23,7 +23,7 @@
     "concurrently": "^10.0.3",
     "fallow": "^2.103.0",
     "react-doctor": "^0.5.8",
-    "vite-plus": "^0.2.0"
+    "vite-plus": "^0.2.1"
   },
   "overrides": {
     "vite": "catalog:",
@@ -35,8 +35,8 @@
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vitest": "^4.1.9",
     "vite-plus": "latest",
-    "@better-auth/oauth-provider": "^1.6.22",
-    "better-auth": "^1.6.22",
+    "@better-auth/oauth-provider": "^1.6.23",
+    "better-auth": "^1.6.23",
     "hono": "^4.12.27",
     "jszip": "^3.10.1",
     "typescript": "^6.0.0",

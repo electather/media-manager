@@ -1,5 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { ChevronDown, Library, LogOut, Plug, Settings, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronDown, Library, LogOut, Plug, Settings, ShieldCheck } from "lucide-react";
+import * as m from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
 import { UserAvatar } from "@/shared/components/user-avatar";
 import {
@@ -30,10 +31,10 @@ export function UserMenu() {
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label="Account menu"
+            aria-label={m.home_user_menu_label()}
             variant="outline"
             size="sm"
-            className={cn("cursor-pointer gap-1 rounded-full py-1 pl-1 pr-2")}
+            className={cn("cursor-pointer gap-1 rounded-full py-1 ps-1 pe-2")}
           >
             <UserAvatar name={name} email={email} size="sm" />
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -41,35 +42,26 @@ export function UserMenu() {
         }
       />
       <DropdownMenuContent align="end" sideOffset={8} className="w-60">
-        <div className="px-3 py-2.5">
-          <div className="text-sm font-medium text-foreground">{name}</div>
-          <div className="text-xs text-muted-foreground">Personal · 4 sources</div>
-        </div>
-        <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link to="/settings" />}>
           <Settings className="size-4" />
-          Settings
+          {m.settings_title()}
         </DropdownMenuItem>
         <DropdownMenuItem render={<Link to="/admin" />}>
           <ShieldCheck className="size-4" />
-          Admin
+          {m.admin_title()}
         </DropdownMenuItem>
         <DropdownMenuItem render={<Link to="/settings/connections" />}>
           <Plug className="size-4" />
-          Connections
+          {m.settings_connections_title()}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => {}}>
-          <Sparkles className="size-4" />
-          Taste
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => {}}>
+        <DropdownMenuItem render={<Link to="/watchlist" />}>
           <Library className="size-4" />
-          Watchlist
+          {m.watchlist_title()}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void handleSignOut()}>
           <LogOut className="size-4" />
-          Sign out
+          {m.home_user_menu_sign_out()}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

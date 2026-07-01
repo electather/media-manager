@@ -12,7 +12,6 @@ export function usePerfAggregate(filters: PerfFilters) {
   return useSuspenseQuery({
     queryKey: diagnosticsKeys.perf.aggregate(filters),
     queryFn: () => fetchPerfAggregate(filters),
-    staleTime: 30_000,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     networkMode: "online",

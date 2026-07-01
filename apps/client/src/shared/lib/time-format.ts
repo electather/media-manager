@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
 
-type TimeInput = Date | number | null | undefined;
+type TimeInput = Date | number | string | null | undefined;
 type RelativeTimeUnit = "year" | "month" | "week" | "day" | "hour" | "minute" | "second";
 
 type RelativeTimeOptions = {
@@ -15,8 +15,9 @@ const WEEK_MS = 7 * DAY_MS;
 const MONTH_MS = 30 * DAY_MS;
 const YEAR_MS = 365 * DAY_MS;
 
-function toEpochMs(input: Date | number): number {
-  return input instanceof Date ? input.getTime() : input;
+function toEpochMs(input: Date | number | string): number {
+  if (input instanceof Date) return input.getTime();
+  return typeof input === "string" ? new Date(input).getTime() : input;
 }
 
 function resolveNowMs(now: Date | number | undefined): number {
@@ -25,7 +26,7 @@ function resolveNowMs(now: Date | number | undefined): number {
 
 // fallow-ignore-next-line complexity
 function toRelativeDuration(
-  input: Date | number,
+  input: Date | number | string,
   options: RelativeTimeOptions = {},
 ): { duration: number; unit: RelativeTimeUnit } | null {
   const delta = toEpochMs(input) - resolveNowMs(options.now);

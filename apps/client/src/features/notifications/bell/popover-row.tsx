@@ -8,7 +8,7 @@ import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 import { useDismiss, useMarkRead } from "../inbox/use-inbox-mutations";
 import { isSafeActionUrl } from "../shared/url";
-import Markdown from "react-markdown";
+import { LazyMarkdown } from "../shared/lazy-markdown";
 
 interface Props {
   item: NotificationItemDto;
@@ -27,7 +27,7 @@ function ItemBody({ item, compact }: { item: NotificationItemDto; compact: boole
   if (item.bodyMarkdown) {
     return (
       <div className={cls}>
-        <Markdown>{item.bodyMarkdown}</Markdown>
+        <LazyMarkdown>{item.bodyMarkdown}</LazyMarkdown>
       </div>
     );
   }

@@ -112,10 +112,10 @@ function PerfTableHeader() {
   return (
     <div className="hidden grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2 font-mono text-xs tracking-wider text-muted-foreground/80 uppercase sm:grid">
       <span>{m.diagnostics_perf_route_or_call()}</span>
-      <span className="text-right">{m.diagnostics_perf_label_p50()}</span>
-      <span className="text-right">{m.diagnostics_perf_label_p95()}</span>
-      <span className="text-right">{m.diagnostics_perf_label_p99()}</span>
-      <span className="text-right">{m.diagnostics_perf_label_max()}</span>
+      <span className="text-end">{m.diagnostics_perf_label_p50()}</span>
+      <span className="text-end">{m.diagnostics_perf_label_p95()}</span>
+      <span className="text-end">{m.diagnostics_perf_label_p99()}</span>
+      <span className="text-end">{m.diagnostics_perf_label_max()}</span>
       <span />
     </div>
   );
