@@ -56,6 +56,7 @@
   "onboarding_tmdb_label": "TMDB API key",
   "onboarding_tmdb_placeholder": "Your TMDB API key",
   "onboarding_tmdb_why": "Required: nama uses TMDB for all artwork and metadata.",
+  "onboarding_tmdb_bundled_default": "Default key bundled — add your own to override.",
   "onboarding_tmdb_get_key": "Get a TMDB API key",
   "onboarding_tmdb_test": [
     {

@@ -1,4 +1,4 @@
-import type { JSONSchema } from "../common";
+import type { JSONSchema, JsonValue } from "../common";
 import type { NotificationContentKind } from "../notifications/enums";
 import type { AuthKind, CapabilityScope } from "./enums";
 
@@ -57,6 +57,13 @@ export interface PluginManifest {
   globalConfigSchema?: JSONSchema;
   /** Encrypted admin secrets — one schema, many pool entries for `poolable` plugins. */
   sharedCredentialsSchema?: JSONSchema;
+  /**
+   * Built-in default shared credential baked into source. Synthesized as a
+   * read-only, lowest-priority pool entry so the plugin works with zero admin
+   * config (design 2026-06-29 §1). Requires `sharedCredentialsSchema` (the value
+   * is validated against it at load). Public by design — same tradeoff as seerr.
+   */
+  defaultSharedCredentials?: JsonValue;
   /** Plaintext user config. Rendered on connection forms. */
   userConfigSchema?: JSONSchema;
   /**
