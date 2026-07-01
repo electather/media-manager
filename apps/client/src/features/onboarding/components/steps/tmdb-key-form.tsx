@@ -47,6 +47,7 @@ export function TmdbKeyForm() {
       </Field>
 
       <p className="text-xs text-muted-foreground">{m.onboarding_tmdb_why()}</p>
+      <p className="text-xs text-muted-foreground">{m.onboarding_tmdb_bundled_default()}</p>
 
       <a
         href={TMDB_API_KEY_URL}
