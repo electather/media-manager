@@ -1,5 +1,6 @@
 import { consola } from "consola";
 import type { OutboundEmail } from "./email";
+import { truncateOverlongName } from "./name-guard";
 
 interface Logger {
   warn: (message: string, ...args: unknown[]) => void;
@@ -35,7 +36,14 @@ export interface EmailChangeHookDeps {
 // `databaseHooks.user.update` shape (which passes Partial<User> / User plus
 // `GenericEndpointContext | null`) without importing internal BA types.
 export interface EmailChangeHooks {
-  before: (data: Record<string, unknown>, ctx: unknown) => Promise<void>;
+  // Returns `{ data }` when the incoming name exceeds NAME_MAX_LENGTH so Better
+  // Auth writes the truncated value; otherwise void, leaving the update payload
+  // untouched. The email-change capture is a DB side effect and never affects
+  // this return — the two concerns are composed, not intertwined.
+  before: (
+    data: Record<string, unknown>,
+    ctx: unknown,
+  ) => Promise<{ data: Record<string, unknown> } | undefined>;
   after: (
     updatedUser: { id: string; email: string } & Record<string, unknown>,
     ctx?: unknown,
@@ -78,10 +86,15 @@ export function createEmailChangeHooks(deps: EmailChangeHookDeps): EmailChangeHo
   };
 
   return {
-    before: async (_data, ctx) => {
+    before: async (data, ctx) => {
+      // Cap the re-synced provider display name first. This runs on every
+      // social login (the update path), where #831 showed the create-path guard
+      // is bypassed from the second login onward. The email capture below is an
+      // independent DB side effect and must run regardless of truncation.
+      const truncated = truncateOverlongName(data);
       const targetId = extractTargetUserId(ctx);
-      if (targetId === null) return;
-      await capturePreviousEmail(targetId);
+      if (targetId !== null) await capturePreviousEmail(targetId);
+      return truncated;
     },
     after: async (updatedUser) => {
       const previousEmail = pending.get(updatedUser.id);
