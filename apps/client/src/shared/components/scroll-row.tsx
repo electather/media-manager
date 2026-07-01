@@ -170,6 +170,8 @@ interface ScrollRowTrackVirtualizedProps<T> extends ScrollRowTrackBaseProps {
    * list (#888). Pass `<PaginationSlot variant="card" .../>`; it occupies a
    * single `--card-w` slot so the row's height/width stays stable as it swaps
    * loading ↔ error ↔ none. Excluded from the `onRangeChange` prefetch range.
+   * Pass `undefined` (not a null-rendering element) when no slot is needed — any
+   * non-null ReactNode inflates the virtualizer count and adds a blank card.
    */
   trailingSlot?: ReactNode;
 }
