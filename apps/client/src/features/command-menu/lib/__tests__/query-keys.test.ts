@@ -12,7 +12,6 @@ describe("isSearchKey", () => {
   });
 
   it("returns false for a search key with an unrecognised kind string", () => {
-    // Runtime check validates kind against SEARCH_KINDS so the predicate matches SearchKind.
     expect(isSearchKey(["command-menu", "search", { q: "x", kind: "invalid" }])).toBe(false);
   });
 
