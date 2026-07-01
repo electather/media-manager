@@ -24,13 +24,19 @@ const EST_ROW_HEIGHT = 296;
 
 /**
  * Whether the `onEndReached` sentinel should kick off the next page fetch: only
- * when another cursor exists AND no fetch is already in flight. Extracted as a
- * pure predicate so the infinite-scroll guard is unit-testable without rendering
- * the virtualizer (the grid's `onEndReached` and the "load more" button both go
- * through it, so the two affordances never disagree).
+ * when another cursor exists, no fetch is already in flight, AND the last append
+ * didn't error. Extracted as a pure predicate so the infinite-scroll guard is
+ * unit-testable without rendering the virtualizer (the grid's `onEndReached` and
+ * the "load more" button both go through it, so the two affordances never
+ * disagree). The `error == null` term stops an auto re-fire from clobbering the
+ * trailing retry slot after an append failure (#888).
  */
-export function shouldFetchNext(hasNextPage: boolean, isFetchingNextPage: boolean): boolean {
-  return hasNextPage && !isFetchingNextPage;
+export function shouldFetchNext(
+  hasNextPage: boolean,
+  isFetchingNextPage: boolean,
+  error: Error | null,
+): boolean {
+  return hasNextPage && !isFetchingNextPage && error == null;
 }
 
 export interface LibrarySectionGridProps {
@@ -72,8 +78,8 @@ export function LibrarySectionGrid({
 }: LibrarySectionGridProps) {
   const sections = useMemo(() => toSections(entries), [entries]);
   const onEndReached = useCallback(() => {
-    if (shouldFetchNext(hasNextPage, isFetchingNextPage)) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (shouldFetchNext(hasNextPage, isFetchingNextPage, error)) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
   const slot = usePaginationSlot({
     itemCount: entries.length,
     hasNextPage,

@@ -130,7 +130,7 @@ function CollectionCard({ collection, index }: { collection: LibraryCollection; 
  * an arc that expands on hover. The endpoint is group-first and filter-aware, so
  * this lens just renders the cards (no client filtering or lookup) and paginates
  * the group stream through the shared `VirtualGrid` — `onEndReached` fetches the
- * next cursor, guarded by `hasNextPage && !isFetchingNextPage`.
+ * next cursor, guarded by `hasNextPage && !isFetchingNextPage && error == null`.
  */
 export function CollectionsLens({
   collections,
@@ -139,9 +139,11 @@ export function CollectionsLens({
   fetchNextPage,
   error,
 }: CollectionsLensProps) {
+  // `error == null` stops the auto-load re-firing after an append failure,
+  // which would clobber the retry slot with a fresh fetch every render (#888).
   const onEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (hasNextPage && !isFetchingNextPage && error == null) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
   const slot = usePaginationSlot({
     itemCount: collections.length,
     hasNextPage,

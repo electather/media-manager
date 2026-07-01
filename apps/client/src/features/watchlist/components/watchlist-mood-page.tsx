@@ -45,9 +45,11 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     MOOD_PAGE_LIMIT,
   );
   const onPeek = useWatchlistPeek();
+  // `error == null` stops the auto-load re-firing after an append failure,
+  // which would clobber the retry slot with a fresh fetch every render (#888).
   const onEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (hasNextPage && !isFetchingNextPage && error == null) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
   const slot = usePaginationSlot({
     itemCount: items.length,
     hasNextPage,
