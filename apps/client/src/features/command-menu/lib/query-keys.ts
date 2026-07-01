@@ -1,4 +1,4 @@
-import type { SearchKind } from "@nama/shared/search";
+import { SEARCH_KINDS, type SearchKind } from "@nama/shared/search";
 
 import type { TrendingScope } from "./fetchers";
 
@@ -12,7 +12,7 @@ export const commandMenuKeys = {
 function hasSearchParam(value: unknown): value is { q: string; kind: SearchKind } {
   if (value === null || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
-  return typeof v.q === "string" && typeof v.kind === "string";
+  return typeof v.q === "string" && (SEARCH_KINDS as readonly unknown[]).includes(v.kind);
 }
 
 /** Type-safe guard for search query-keys produced by {@link commandMenuKeys.search}. */

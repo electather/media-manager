@@ -6,14 +6,14 @@ import { idResolve } from "./capabilities/id-resolve";
 import { watchProviders } from "./capabilities/watch-providers";
 import { trailers } from "./capabilities/trailers";
 import { artwork } from "./capabilities/artwork";
-import { BASE } from "./constants";
+import { BASE, TMDB_BUNDLED_KEY } from "./constants";
 import type { Ctx } from "./types";
 
 export default definePlugin({
   manifest: {
     id: "tmdb",
     name: "The Movie Database",
-    version: "2.1.0",
+    version: "2.2.0",
     description:
       "Metadata and id-resolution provider powered by TMDB (themoviedb.org). Admin configures one or more API keys; the host rotates across them on rate-limit.",
     author: { name: "Nama", url: "https://github.com/" },
@@ -55,6 +55,9 @@ export default definePlugin({
       },
       required: ["apiKey"],
     },
+    // Public by design (mirrors seerr); admin pool entry or user key overrides.
+    // Synthesized as a read-only lowest-priority pool entry — see design §1.
+    defaultSharedCredentials: { apiKey: TMDB_BUNDLED_KEY },
     auth: { kind: "none" },
     capabilities: {
       metadata: { version: "v1", scope: "global" },
