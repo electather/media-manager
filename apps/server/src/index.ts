@@ -22,6 +22,7 @@ import * as watchlist from "./watchlist";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
+import { newRequestId } from "./diagnostics/request-context";
 
 async function bootstrap(): Promise<void> {
   getDb();
@@ -42,6 +43,7 @@ async function bootstrap(): Promise<void> {
   artwork.registerJobs();
   auth.registerJobs();
   catalog.registerJobs();
+
   home.registerJobs();
   library.registerJobs();
   media.registerJobs();
@@ -60,6 +62,43 @@ async function bootstrap(): Promise<void> {
   registerBuiltinPlugins();
   bootstrapMcpHostTools();
   await pluginRuntime.pluginRuntime.bootstrapBuiltins();
+
+  // Seed today's discover snapshot at startup so the home feed has data on
+  // first boot (or a restart before the 6 AM cron). Runs AFTER bootstrapBuiltins
+  // (#890): discoverFeed dispatches to metadata plugins, so seeding before they
+  // load would write zero snapshots. The "newReleases" tuple is the sentinel;
+  // a prior run that crashed mid-job may leave other feeds absent until cron,
+  // but discoverFeed falls back to the live path so that is degraded, not broken.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const todayBucket = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+  const catalogService = catalog.getCatalogService();
+  const snapshotExists = await catalogService.hasDiscoverFeed(
+    "newReleases",
+    "popularity_desc",
+    todayBucket,
+  );
+  if (!snapshotExists) {
+    consola.info("[catalog:discover-snapshot] seeding today's snapshot at bootstrap");
+    await catalog
+      .runCatalogDiscoverSnapshot(
+        { catalog: catalogService },
+        {
+          runId: "bootstrap",
+          // Server-initiated administrative run, not a scheduler tick — "cron"
+          // would misreport origin in job-history audit filtering.
+          triggeredBy: "admin",
+          requestId: newRequestId(),
+          logger: consola,
+          // Bound the seed so a hung/unconfigured metadata plugin cannot block
+          // startup indefinitely; server always finishes booting within 60s.
+          abortSignal: AbortSignal.timeout(60_000),
+        },
+      )
+      .catch((err) => {
+        consola.warn("[catalog:discover-snapshot] bootstrap seed failed (non-fatal)", err);
+      });
+  }
+
   await scheduler.start();
 }
 

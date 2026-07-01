@@ -11,5 +11,6 @@ export {
 export {
   CATALOG_DISCOVER_SNAPSHOT_JOB_ID,
   registerCatalogJobs as registerJobs,
+  runCatalogDiscoverSnapshot,
   writeRecommendationsForUser,
 } from "./jobs";
