@@ -401,8 +401,9 @@ describe("setDefault guard (issue #698)", () => {
     // before the promotion UPDATE — its .returning() finds zero rows and throws. The transaction
     // must roll back so the sibling keeps isDefault=1 and no cache invalidation runs.
     installPlugin();
-    // Seed the currently-default sibling plus the promotion target; requireConnection returns the
-    // first row, which the shared-rowset mock also uses for the transaction UPDATEs.
+    // Seed the promotion target (index 0) plus the currently-default sibling. The mock ignores WHERE,
+    // so requireConnection's .get() returns conn-target (rowsFor[0]) for its pluginId; the transaction
+    // UPDATEs operate on the whole rowset independently of that return value.
     const now = Date.now();
     const base = {
       userId: "user-1",
