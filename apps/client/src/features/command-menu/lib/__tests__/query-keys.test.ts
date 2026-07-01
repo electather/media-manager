@@ -11,10 +11,13 @@ describe("isSearchKey", () => {
     expect(isSearchKey(commandMenuKeys.search("", "all"))).toBe(true);
   });
 
-  it("returns true (type-narrowing only) for a search key with an unrecognised kind string", () => {
-    // hasSearchParam checks typeof kind === "string", not enum membership.
-    // Guard narrows structurally; callers must validate kind downstream.
-    expect(isSearchKey(["command-menu", "search", { q: "x", kind: "invalid" }])).toBe(true);
+  it("returns false for a search key with an unrecognised kind string", () => {
+    // Runtime check validates kind against SEARCH_KINDS so the predicate matches SearchKind.
+    expect(isSearchKey(["command-menu", "search", { q: "x", kind: "invalid" }])).toBe(false);
+  });
+
+  it("returns false for a key with non-string q", () => {
+    expect(isSearchKey(["command-menu", "search", { q: 42, kind: "all" }])).toBe(false);
   });
 
   it("returns false for a trending key", () => {
