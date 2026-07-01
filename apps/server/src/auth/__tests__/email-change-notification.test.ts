@@ -194,4 +194,23 @@ describe("createEmailChangeHooks name-length guard (update path)", () => {
 
     expect(result?.data?.name).toBe("z".repeat(NAME_MAX_LENGTH));
   });
+
+  it("returns void (no clone) for a within-limit name while still capturing the email", async () => {
+    const sendEmail = vi.fn().mockResolvedValue(undefined);
+    const hooks = createEmailChangeHooks({
+      readUserEmail: async () => "old@example.com",
+      sendEmail,
+    });
+
+    // Within-limit name + email change: the return must stay undefined (Better
+    // Auth skips the clone) yet the capture/notification path must still fire.
+    const result = await hooks.before(
+      { email: "new@example.com", name: "a".repeat(NAME_MAX_LENGTH) },
+      ctxFor("user-1"),
+    );
+    await hooks.after({ id: "user-1", email: "new@example.com" });
+
+    expect(result).toBeUndefined();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
 });
