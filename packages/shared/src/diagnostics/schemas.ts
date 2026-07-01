@@ -17,18 +17,21 @@ export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
  *  regex yields actionable length error, not silent quantifier fail on oversized input. */
 const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
 
-/** Plugin-id filter for admin viewer query strings. Prevents unbounded strings in
- *  `eq(records.pluginId, …)` filter (#840). Plugin ids are lowercase slug identifiers
- *  (trakt, tmdb, …); `.max(64)` before regex yields an actionable length error, not a
- *  silent quantifier fail on oversized input. */
+// Lowercase slug: letters, digits, hyphens (trakt, tmdb-1, …). Local const, not
+// exported: no second trust boundary consumes it, and an unused export would grow
+// the fallow baseline (Rule 14). Export when a real consumer appears.
 const PLUGIN_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
+/** Plugin-id filter for admin viewer query strings. Prevents unbounded strings in
+ *  `eq(records.pluginId, …)` filter (#840). `.max(64)` before regex yields an actionable
+ *  length error, not a silent quantifier fail on oversized input. */
 const pluginIdQuerySchema = z.string().max(64).regex(PLUGIN_ID_PATTERN).optional();
 
 /** Route filter for admin viewer query strings. Bounds the value fed into
  *  `eq(perfRecords.route, …)` (#840). Routes carry path/query punctuation, so a
  *  charset regex would risk false rejections; a length cap alone closes the
  *  unbounded-input risk. 500 chars matches `errorReportSchema.route`. `.min(1)`
- *  rejects `?route=` so it matches `pluginIdQuerySchema`'s no-empty behavior. */
+ *  rejects `?route=`; pluginId rejects empty via its `{1,64}` regex, route has no
+ *  regex so the min is explicit. */
 const routeQuerySchema = z.string().min(1).max(500).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
