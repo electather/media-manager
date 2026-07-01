@@ -20,29 +20,40 @@ export interface PaginationSlot {
 }
 
 /**
+ * Order matters: a fetch that errored but is now retrying reports `loading` so
+ * the retry spinner wins over the stale error card. `error` only surfaces once
+ * items exist (an *append* failure, not initial load) AND a next page exists —
+ * on an exhausted list a failed background refetch has no page to retry, so the
+ * slot's `fetchNextPage` retry can't recover it and must stay `none` (#888).
+ */
+/** An *append* failure the slot's retry can actually recover: items already
+ * loaded (not initial load) and a next page still exists to re-request (#888). */
+function isRecoverableAppendError({
+  itemCount,
+  hasNextPage,
+  error,
+}: PaginationSlotSource): boolean {
+  return error != null && itemCount > 0 && hasNextPage;
+}
+
+function deriveState(source: PaginationSlotSource): PaginationSlotState {
+  if (source.isFetchingNextPage) return "loading";
+  if (isRecoverableAppendError(source)) return "error";
+  return "none";
+}
+
+/**
  * Collapses an infinite query's `{ hasNextPage, isFetchingNextPage, error }`
  * into the single trailing-slot branch every virtualized list shares (#888):
- * `loading` while a page is in flight, `error` when the *append* page failed
- * after items already loaded, else `none`. Initial-load failure stays a caller
- * concern (ErrorBoundary / full-region fallback) — it never routes here.
- * Order matters: a fetch that errored but is now retrying reports `loading` so
- * the retry spinner wins over the stale error card.
+ * `loading` while a page is in flight, `error` when the *append* page failed,
+ * else `none`. Initial-load failure stays a caller concern (ErrorBoundary /
+ * full-region fallback) — it never routes here.
  */
-export function usePaginationSlot({
-  itemCount,
-  isFetchingNextPage,
-  error,
-  fetchNextPage,
-}: PaginationSlotSource): PaginationSlot {
+export function usePaginationSlot(source: PaginationSlotSource): PaginationSlot {
+  const { isFetchingNextPage, error, fetchNextPage } = source;
   const retry = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
 
-  const state: PaginationSlotState = isFetchingNextPage
-    ? "loading"
-    : error != null && itemCount > 0
-      ? "error"
-      : "none";
-
-  return { state, error, isRetrying: isFetchingNextPage, retry };
+  return { state: deriveState(source), error, isRetrying: isFetchingNextPage, retry };
 }

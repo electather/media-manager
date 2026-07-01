@@ -53,7 +53,9 @@ export function DeliveriesTable({ filters, onSelect }: Props) {
   const virtualItems = virtualizer.getVirtualItems();
   const lastItem = virtualItems[virtualItems.length - 1];
   const nearEnd = lastItem !== undefined && lastItem.index >= items.length - 1;
-  const shouldLoad = nearEnd && hasNextPage && !isFetchingNextPage;
+  // `error == null` stops the auto-load from re-firing after an append failure:
+  // otherwise it would clobber the retry slot with a fresh fetch every render (#888).
+  const shouldLoad = nearEnd && hasNextPage && !isFetchingNextPage && error == null;
 
   useEffect(() => {
     if (shouldLoad) void fetchNextPage();

@@ -42,6 +42,15 @@ describe("usePaginationSlot", () => {
     expect(result.current.state).toBe("none");
   });
 
+  it("stays none on an exhausted list even when a background refetch errored", () => {
+    // No next page means the slot's `fetchNextPage` retry can't recover the
+    // failure, so a query-wide error must not surface a dead retry card (#888).
+    const { result } = renderHook(() =>
+      usePaginationSlot({ ...base, hasNextPage: false, error: new Error("boom") }),
+    );
+    expect(result.current.state).toBe("none");
+  });
+
   it("retry calls fetchNextPage", () => {
     const fetchNextPage = vi.fn();
     const { result } = renderHook(() => usePaginationSlot({ ...base, fetchNextPage }));

@@ -156,7 +156,9 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
             getKey={(item) => item.id}
             estimateItemWidth={isBackdrop ? 320 : 200}
             onRangeChange={handleRange}
-            trailingSlot={<PaginationSlot slot={slot} variant="card" />}
+            trailingSlot={
+              slot.state === "none" ? undefined : <PaginationSlot slot={slot} variant="card" />
+            }
             renderItem={(item) => (
               <Card
                 item={item}
