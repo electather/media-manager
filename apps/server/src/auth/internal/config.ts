@@ -102,8 +102,6 @@ const options = {
         // logging in.
         before: async (userData) => {
           if (typeof userData.name === "string" && userData.name.length > NAME_MAX_LENGTH) {
-            // truncateName caps at NAME_MAX_LENGTH UTF-16 units without splitting a
-            // surrogate pair, so an emoji at the boundary can't leave a lone surrogate.
             return { data: { ...userData, name: truncateName(userData.name) } };
           }
           // Returning nothing tells Better Auth to proceed with the row
