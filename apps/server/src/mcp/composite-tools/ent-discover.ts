@@ -220,7 +220,9 @@ async function resolveQueryToKey(
   if (colonIdx !== -1) {
     const t = query.slice(0, colonIdx);
     const id = query.slice(colonIdx + 1);
-    if ((t === "movie" || t === "tv") && id) return { tmdbId: id, resolvedType: t };
+    // Reject non-numeric ids — prevents path traversal into plugin URL segments (#933).
+    if ((t === "movie" || t === "tv") && /^[0-9]+$/.test(id))
+      return { tmdbId: id, resolvedType: t };
   }
   if (/^[0-9]+$/.test(query)) return { tmdbId: query, resolvedType: type ?? "movie" };
   const searchResult = await dispatchPrimary<Array<{ item: { id: string; type: "movie" | "tv" } }>>(
