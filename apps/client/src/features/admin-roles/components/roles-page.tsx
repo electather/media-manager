@@ -37,8 +37,7 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
   );
 
   const memberCount = (id: string) => membersByRole[id]?.length ?? 0;
-  const membersFor = (id: string): RoleMember[] =>
-    (membersByRole[id] ?? []).map(({ id, name, email }) => ({ id, name, email }));
+  const membersFor = (id: string): RoleMember[] => (membersByRole[id] ?? []) as RoleMember[];
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;
 
