@@ -9,5 +9,8 @@ export function usePopoverInbox(filters: InboxFilters = EMPTY_FILTERS) {
   return useSuspenseQuery({
     queryKey: notificationsKeys.popoverInbox(filters),
     queryFn: () => fetchInboxPage(filters, null),
+    // 30s (tighter than the 60s app default): the bell should show recent
+    // deliveries promptly on reopen while still serving cache for rapid re-opens.
+    staleTime: 30_000,
   });
 }
