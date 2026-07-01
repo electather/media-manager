@@ -180,6 +180,17 @@ describe("scrubText", () => {
     expect(logOut).not.toContain("-----BEGIN");
   });
 
+  it("redacts quoted values (JSON-embedded and shell-style)", () => {
+    // Double-quoted JSON pair — quotes are consumed, value is gone
+    const jsonOut = scrubText(`{"password":"hunter2","user":"alice"}`);
+    expect(jsonOut).not.toContain("hunter2");
+    expect(jsonOut).toContain("password");
+    // Single-quoted shell assignment
+    const shellOut = scrubText("token='abc123' debug=true");
+    expect(shellOut).not.toContain("abc123");
+    expect(shellOut).toContain("debug=true");
+  });
+
   it("returns empty string unchanged (null/undefined are filtered upstream)", () => {
     expect(scrubText("")).toBe("");
   });

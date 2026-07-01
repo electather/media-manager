@@ -77,11 +77,13 @@ const BEARER_RE = /\bBearer\s+\S+/gi;
  *  that leak into error strings or log lines. */
 const JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
 
-/** Key=value / key: value matcher for sensitive keys (covers OAuth variants without per-name entries).
- *  Works for URL params and log-line pairs. `(?!Bearer\b)` lookahead avoids re-matching after Bearer pass.
- *  Value stops at whitespace, `&`, quotes, `#` to respect URL boundaries. */
+/** Key=value / key: value matcher for sensitive keys (covers URL params, log-line pairs, and
+ *  JSON-embedded pairs). `(?!Bearer\b)` lookahead avoids re-matching after the Bearer pass.
+ *  Separator allows an optional trailing quote (JSON `":"` shape) or plain `=`/`: `.
+ *  Value matches quoted (single or double) or unquoted (stops at whitespace, `&`, `#`).
+ *  Quotes around the value are consumed — acceptable for diagnostic scrubbing. */
 const SENSITIVE_KV_RE = new RegExp(
-  `\\b([\\w-]*(?:${SENSITIVE_KEY_PATTERNS.join("|")})[\\w-]*)(\\s*[:=]\\s*)(?!Bearer\\b)([^\\s#"'&]+)`,
+  `\\b([\\w-]*(?:${SENSITIVE_KEY_PATTERNS.join("|")})[\\w-]*)(\\s*"?\\s*[:=]\\s*"?\\s*)(?!Bearer\\b)(?:"[^"]*"|'[^']*'|[^\\s#"'&]+)`,
   "gi",
 );
 
