@@ -45,6 +45,7 @@ describe("fetchSeasonAvailability", () => {
     expect(err).toBeInstanceOf(MediaApiError);
     expect(err.status).toBe(404);
     expect(err.code).toBe("media.not_found");
+    expect(err.message).toBe("title not found");
     // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
     expect(apiMock.availabilityGet).toHaveBeenCalledWith(
       { param: { type: "tv", tmdbId: "12345" } },
