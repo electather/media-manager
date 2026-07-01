@@ -26,6 +26,8 @@ interface VirtualGridProps<T> {
    * Trailing pagination slot (loading / append-error + retry) rendered below
    * the grid (#888). Pass `<PaginationSlot variant="row" .../>` — the grid owns
    * where it mounts so every consumer surfaces append failures identically.
+   * Rendered outside the virtualized range (always mounted, not windowed), so
+   * keep it a compact strip — a tall component here breaks the scroll budget.
    */
   trailingSlot?: ReactNode;
 }

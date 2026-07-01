@@ -19,13 +19,6 @@ export interface PaginationSlot {
   retry: () => void;
 }
 
-/**
- * Order matters: a fetch that errored but is now retrying reports `loading` so
- * the retry spinner wins over the stale error card. `error` only surfaces once
- * items exist (an *append* failure, not initial load) AND a next page exists —
- * on an exhausted list a failed background refetch has no page to retry, so the
- * slot's `fetchNextPage` retry can't recover it and must stay `none` (#888).
- */
 /** An *append* failure the slot's retry can actually recover: items already
  * loaded (not initial load) and a next page still exists to re-request (#888). */
 function isRecoverableAppendError({
@@ -36,6 +29,13 @@ function isRecoverableAppendError({
   return error != null && itemCount > 0 && hasNextPage;
 }
 
+/**
+ * Order matters: a fetch that errored but is now retrying reports `loading` so
+ * the retry spinner wins over the stale error card. `error` only surfaces once
+ * items exist (an *append* failure, not initial load) AND a next page exists —
+ * on an exhausted list a failed background refetch has no page to retry, so the
+ * slot's `fetchNextPage` retry can't recover it and must stay `none` (#888).
+ */
 function deriveState(source: PaginationSlotSource): PaginationSlotState {
   if (source.isFetchingNextPage) return "loading";
   if (isRecoverableAppendError(source)) return "error";
