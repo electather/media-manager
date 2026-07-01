@@ -43,7 +43,7 @@ describe("truncateName", () => {
   // WHY: when the boundary index is a low surrogate the pair is already
   // complete inside the slice; back-off must NOT trigger.
   it("does not over-trim when the boundary index is a low surrogate", () => {
-    // two emojis (4 units) repeated so index NAME_MAX_LENGTH-1 is always a low surrogate
+    // 50 emojis (100 UTF-16 units) fill indices 0–99, so index NAME_MAX_LENGTH-1 is always a low surrogate.
     const name = EMOJI.repeat(NAME_MAX_LENGTH / 2) + EMOJI.repeat(NAME_MAX_LENGTH);
     const result = truncateName(name);
     expect(result.length).toBe(NAME_MAX_LENGTH);
