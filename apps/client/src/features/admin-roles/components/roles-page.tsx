@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { groupBy } from "es-toolkit";
 import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,22 +25,19 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
 
   // Precompute a map from role id to members so each row lookup is O(1) instead
   // of re-filtering the full user list on every render.
-  const membersByRole = useMemo(() => {
-    const map = new Map<string, RoleMember[]>();
-    for (const u of usersQuery.data.users) {
-      if (!u.role) continue;
-      let list = map.get(u.role.id);
-      if (!list) {
-        list = [];
-        map.set(u.role.id, list);
-      }
-      list.push({ id: u.id, name: u.name, email: u.email });
-    }
-    return map;
-  }, [usersQuery.data.users]);
+  const membersByRole = useMemo(
+    () =>
+      groupBy(
+        usersQuery.data.users.filter(
+          (u): u is typeof u & { role: NonNullable<typeof u.role> } => u.role != null,
+        ),
+        (u) => u.role.id,
+      ),
+    [usersQuery.data.users],
+  );
 
-  const memberCount = (id: string) => membersByRole.get(id)?.length ?? 0;
-  const membersFor = (id: string): RoleMember[] => membersByRole.get(id) ?? [];
+  const memberCount = (id: string) => membersByRole[id]?.length ?? 0;
+  const membersFor = (id: string): RoleMember[] => membersByRole[id] ?? [];
 
   const selected = selectedRoleId ? (roles.find((r) => r.id === selectedRoleId) ?? null) : null;
 
