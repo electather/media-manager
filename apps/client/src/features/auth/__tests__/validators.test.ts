@@ -7,8 +7,12 @@ vi.mock("@/paraglide/messages", () => ({
     auth_email_required: () => "Email is required.",
     auth_email_invalid: () => "Enter a valid email address.",
     auth_password_required: () => "Password is required.",
-    auth_password_too_short: () => "Password must be at least 12 characters.",
-    auth_password_too_long: () => "Password must be at most 256 characters.",
+    shared_password_error: ({ reason }: { reason: string }) =>
+      reason === "too_long"
+        ? "Password must be at most 256 characters."
+        : reason === "missing_alphanumeric"
+          ? "Password must contain at least one letter and one number."
+          : "Password must be at least 8 characters.",
     auth_confirm_password_required: () => "Please confirm your password.",
     auth_passwords_do_not_match: () => "Passwords do not match.",
     auth_name_required: () => "Name is required.",
@@ -52,20 +56,26 @@ describe("validateNewPassword", () => {
     expect(validateNewPassword("")).toBe("Password is required.");
   });
 
-  it("rejects passwords shorter than 12 characters", () => {
-    expect(validateNewPassword("short1")).toBe("Password must be at least 12 characters.");
+  it("rejects passwords shorter than 8 characters", () => {
+    expect(validateNewPassword("abc123")).toBe("Password must be at least 8 characters.");
   });
 
-  it("accepts passwords of 12 characters or more", () => {
-    expect(validateNewPassword("longenough12")).toBeUndefined();
+  it("accepts an 8-character alphanumeric password", () => {
+    expect(validateNewPassword("abcdefg1")).toBeUndefined();
+  });
+
+  it("flags a password missing a letter or digit", () => {
+    expect(validateNewPassword("abcdefgh")).toBe(
+      "Password must contain at least one letter and one number.",
+    );
   });
 
   it("rejects passwords longer than 256 characters with the too-long message", () => {
-    expect(validateNewPassword("a".repeat(257))).toBe("Password must be at most 256 characters.");
+    expect(validateNewPassword("a1".repeat(129))).toBe("Password must be at most 256 characters.");
   });
 
   it("accepts a password at the 256-character maximum", () => {
-    expect(validateNewPassword("a".repeat(256))).toBeUndefined();
+    expect(validateNewPassword(`${"a".repeat(255)}1`)).toBeUndefined();
   });
 });
 

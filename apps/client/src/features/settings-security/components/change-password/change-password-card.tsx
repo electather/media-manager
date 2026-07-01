@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@nama/shared/auth";
+import { passwordIssueReason } from "@nama/shared/auth";
 
 import { Button } from "@/shared/ui/button";
 import { authClient } from "@/shared/lib/auth";
@@ -25,15 +25,14 @@ export function ChangePasswordCard({
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const tooShort = next.length > 0 && next.length < PASSWORD_MIN_LENGTH;
-  const tooLong = next.length > PASSWORD_MAX_LENGTH;
+  // Defer the whole new-password policy to the shared helper so this never
+  // drifts from `passwordSchema`. Null reason = empty field (no error shown yet).
+  const passwordReason = next.length > 0 ? passwordIssueReason(next) : null;
   const mismatch = confirm.length > 0 && confirm !== next;
+  // Call directly (not passwordReason): passwordReason is null when next="" to
+  // suppress the error UI, but canSubmit must still block the empty case.
   const canSubmit =
-    current.length > 0 &&
-    next.length >= PASSWORD_MIN_LENGTH &&
-    next.length <= PASSWORD_MAX_LENGTH &&
-    confirm === next &&
-    !submitting;
+    current.length > 0 && passwordIssueReason(next) === null && confirm === next && !submitting;
 
   const reset = () => {
     setCurrent("");
@@ -108,8 +107,7 @@ export function ChangePasswordCard({
           }}
           setNext={setNext}
           setConfirm={setConfirm}
-          tooShort={tooShort}
-          tooLong={tooLong}
+          passwordReason={passwordReason}
           mismatch={mismatch}
           canSubmit={canSubmit}
           submitting={submitting}

@@ -5,6 +5,7 @@
 **Author:** Omid Astaraki
 **Companion:** `2026-04-19-plugin-architecture-design.md` (backend)
 **Companion:** `2026-04-22-frontend-plugin-connections-design.md` (frontend)
+**Related:** `2026-06-29-plugin-bundled-default-credential-design.md` (read-only "Bundled" row in shared-credentials table)
 
 ## Summary
 

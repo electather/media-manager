@@ -18,8 +18,6 @@
   ],
   "onboarding_bootstrap_name_required": "نام الزامی است.",
   "onboarding_bootstrap_email_invalid": "یک ایمیل معتبر وارد کنید.",
-  "onboarding_bootstrap_password_too_short": "گذرواژه باید حداقل ۱۲ نویسه باشد.",
-  "onboarding_bootstrap_password_too_long": "گذرواژه باید حداکثر ۲۵۶ نویسه باشد.",
   "onboarding_bootstrap_token_required": "توکن کامل راه‌اندازی را از کنسول سرور وارد کنید.",
   "onboarding_bootstrap_invalid_token": "این توکن راه‌اندازی نامعتبر است. کنسول سرور را بررسی کنید و دوباره تلاش کنید.",
   "onboarding_bootstrap_failed": "ساخت حساب مدیر ممکن نشد. لطفاً دوباره تلاش کنید.",
@@ -58,6 +56,7 @@
   "onboarding_tmdb_label": "کلید API مربوط به TMDB",
   "onboarding_tmdb_placeholder": "کلید API مربوط به TMDB شما",
   "onboarding_tmdb_why": "الزامی: nama برای همهٔ تصاویر و فراداده از TMDB استفاده می‌کند.",
+  "onboarding_tmdb_bundled_default": "کلید پیش‌فرض ارائه شده — برای جایگزینی، کلید خود را اضافه کنید.",
   "onboarding_tmdb_get_key": "دریافت کلید API مربوط به TMDB",
   "onboarding_tmdb_test": [
     {
@@ -87,5 +86,7 @@
   "onboarding_mcp_setup_endpoint_label": "نقطهٔ پایانی MCP",
   "onboarding_mcp_setup_copy": "کپی",
   "onboarding_mcp_setup_copied": "کپی شد",
-  "onboarding_mcp_setup_guide_button": "مشاهدهٔ راهنمای راه‌اندازی"
+  "onboarding_mcp_setup_guide_button": "مشاهدهٔ راهنمای راه‌اندازی",
+  "onboarding_error_title": "بارگیری راه‌اندازی ممکن نشد",
+  "onboarding_error_body": "هنگام بارگیری پیکربندی شما مشکلی پیش آمد. دوباره تلاش کنید و اگر ادامه داشت، شناسهٔ زیر را یادداشت کنید."
 }

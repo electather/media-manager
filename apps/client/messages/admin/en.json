@@ -200,6 +200,8 @@
   "admin_plugins_shared_creds_row_test": "Test",
   "admin_plugins_shared_creds_row_test_failed": "Test failed",
   "admin_plugins_shared_creds_row_edit": "Edit",
+  "admin_plugins_shared_creds_bundled_badge": "Bundled",
+  "admin_plugins_shared_creds_bundled_note": "Default key — your own key takes priority.",
   "admin_plugins_shared_creds_row_more_aria": "More actions for {label}",
   "admin_plugins_shared_creds_row_delete": "Delete",
   "admin_plugins_shared_creds_row_verified": "Verified",

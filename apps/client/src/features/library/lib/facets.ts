@@ -1,16 +1,10 @@
-import { QUALITY_TIERS, type LibraryFacetCounts } from "@nama/shared/library";
+import { rankQualityTier, type LibraryFacetCounts } from "@nama/shared/library";
 
 /** The value lists the filter popover offers per multi-valued axis. */
 export interface LibraryFacetValues {
   genres: string[];
   qualities: string[];
   servers: string[];
-}
-
-/** Rank quality label by position in `QUALITY_TIERS` (unknown labels sink below listed tiers); mirrors server `rankQualityTier` to keep popover order in sync. */
-function rankQualityTier(label: string): number {
-  const index = (QUALITY_TIERS as readonly string[]).indexOf(label);
-  return index === -1 ? QUALITY_TIERS.length : index;
 }
 
 /** Keys of count maps are present values; sort genres/servers alphabetically (en-pinned for consistent FA builds), qualities by fidelity rank then en collation. */

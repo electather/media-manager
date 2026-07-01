@@ -8,7 +8,7 @@ import { acceptInviteSchema } from "../schemas";
 describe("acceptInviteSchema name field", () => {
   const base = {
     email: "user@example.com",
-    password: "a".repeat(12),
+    password: "a".repeat(11) + "1",
   };
 
   it("accepts a name at the maximum length", () => {

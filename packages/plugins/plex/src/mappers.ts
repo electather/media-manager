@@ -88,9 +88,8 @@ export function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
 }
 
 /**
- * Maps Plex metadata to cross-service `MediaItem` (playback@v1, watchHistory@v1),
- * distinct from `toLibraryItem` which emits server-local shape to avoid obscuring
- * schema differences. `cfg` kept on signature for future poster-URL enrichment
+ * Maps to `MediaItem` (playback@v1, watchHistory@v1). Unlike `toLibraryItem`,
+ * uses cross-service shape. `cfg` kept for future poster-URL enrichment
  * without rethreading callsites.
  */
 export function toItemShape(

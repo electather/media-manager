@@ -24,11 +24,9 @@ interface TestArgs {
 type Ctx = PluginContext<unknown, unknown, NtfyUserCfg>;
 
 /**
- * Resolves the per-attempt delay an upstream's `Retry-After` header asks the
- * client to wait. The header is either an integer seconds value or an
- * HTTP-date; we accept both and return milliseconds. Returns `undefined` when
- * the header is absent or unparseable so the caller falls back to the
- * configured backoff schedule.
+ * Parses `Retry-After` header (integer seconds or HTTP-date format) to
+ * milliseconds. Returns `undefined` if absent/unparseable; caller falls back
+ * to configured backoff schedule.
  */
 function parseRetryAfterMs(res: Response): number | undefined {
   const raw = res.headers.get("retry-after");

@@ -1,5 +1,11 @@
 # @nama/server
 
+## 0.8.0
+
+### Minor Changes
+
+- 39a5a51: Relaxed the password requirement to 8 characters while now requiring at least one letter and one number.
+
 ## 0.7.0
 
 ### Minor Changes

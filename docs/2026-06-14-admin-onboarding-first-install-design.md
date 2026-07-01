@@ -7,6 +7,7 @@
   - `docs/2026-04-22-frontend-plugin-connections-design.md` (connections UI)
   - `docs/2026-04-24-plugin-advanced-admin-design.md` (admin plugins / shared credentials)
   - `docs/2026-04-24-deployment-design.md` (self-hosted deploy model)
+  - `docs/2026-06-29-plugin-bundled-default-credential-design.md` (bundled TMDB key → connect-services step now optional)
 
 ## Summary
 
@@ -203,9 +204,11 @@ A new **public** Hono sub-app `bootstrapApp` mounted at `/api/bootstrap` (no
 `requireSession`):
 
 - `POST /api/bootstrap/claim` with body `{ token, email, password, name }`
-  (`password` must be 12–256 characters, enforced by the shared `passwordSchema`
-  in `@nama/shared/auth` and reused by the admin user-create endpoint; per NIST
-  SP 800-63B, favour length over composition rules and cap the input so an
+  (`password` must be 8–256 characters and contain at least one letter and one
+  digit, enforced by the shared `passwordSchema` in `@nama/shared/auth` and
+  reused by the admin user-create endpoint; the 8-char floor + alphanumeric rule
+  is a deliberate net entropy reduction from the original 12-char length-only
+  policy, accepted as a usability tradeoff. The max caps the input so an
   over-long value cannot inflate the scrypt hashing cost):
   1. Inside a single transaction, assert the `user` table is empty. If not, throw
      `409 bootstrap.already_completed` ("This server is already set up").
@@ -321,7 +324,8 @@ an MCP endpoint for clients like Claude/Cursor. No inputs.
 
 Two regions, reflecting the [TMDB discovery](#key-discovery--tmdb-is-a-shared-credential-not-a-user-connection):
 
-**Required — TMDB metadata key (admin shared credential).**
+**TMDB metadata key (admin shared credential).**
+> **Superseded 2026-06-29 (see [bundled default credential design](2026-06-29-plugin-bundled-default-credential-design.md)).** No longer required: TMDB ships a bundled default key, so `tmdbConfigured` is satisfied out-of-box and this step is **optional** — admins may add their own key to override. Form below stays as the override path.
 - A form bound to TMDB's `sharedCredentialsSchema` (a single `apiKey`, `x-secret`).
 - "Test key" calls `POST /api/plugins/tmdb/shared-credentials/test-ephemeral`
   (`{ value: { apiKey } }`) → green/red result without persisting.
@@ -411,11 +415,13 @@ New feature folder `apps/client/src/features/onboarding/` (per
 `frontend-feature-architecture`):
 
 - `components/` — `bootstrap-page.tsx`, `onboarding-wizard.tsx` (shell + stepper),
+  `onboarding-skeleton.tsx` (pending UI mirroring the wizard chrome),
   `steps/welcome-step.tsx`, `steps/connect-services-step.tsx`,
   `steps/tmdb-key-form.tsx`.
 - `lib/` — `step-registry.ts` (presentational only: `id → { Component, title }`; the
   authoritative descriptor list + predicates live server-side), `fetchers.ts`,
-  `query-keys.ts`, `types.ts`.
+  `query-keys.ts`, `types.ts`, `error-boundary.tsx` (feature-local boundary +
+  route `errorComponent`, reads typed `OnboardingApiError.status`).
 - `hooks/` — `use-needs-bootstrap.ts` (reads `needsBootstrap` off the
   public-config query), `use-onboarding-state.ts`, `use-claim-bootstrap.ts`,
   `use-complete-onboarding.ts`.
@@ -435,6 +441,7 @@ re-implementing it.
 | TMDB test/save failure (bad key, upstream down) | Inline result in the TMDB form; step stays incomplete; Finish stays disabled. |
 | Finish attempted with TMDB unconfigured | Server returns `onboarding.requirements_unmet`; wizard keeps Finish disabled (defense in depth). |
 | Network errors | Standard query error boundaries already used across features. |
+| Setup config load failure (onboarding-state or public-config fetch throws) | Feature-local `OnboardingErrorBoundary` (render-time) + route `errorComponent` (loader); shows the typed-status error page with Retry, which resets both queries and re-suspends behind the skeleton. |
 
 All server errors use the unified `{ code, devMessage, requestId }` envelope from
 `diagnostics/http-errors`.

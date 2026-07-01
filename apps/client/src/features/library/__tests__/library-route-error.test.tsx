@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
-import { mediaKeys } from "@/shared/media/query-keys";
+import { MediaApiError } from "@/shared/media/error";
+import { lensResetKey } from "../lib/fetchers";
 import { libraryKeys } from "../lib/query-keys";
+import { LibraryApiError } from "../lib/types";
 import { LibraryRouteError } from "../components/library-route-error";
 
 afterEach(cleanup);
@@ -42,11 +44,88 @@ describe("LibraryRouteError", () => {
     expect(screen.queryByText("prefetch boom")).toBeNull();
   });
 
+  // The body is keyed off the typed `LibraryApiError.status`, so a known status
+  // gets specific localized copy instead of the generic body. A leaked English
+  // `devMessage` in the error body must still never surface.
+  it("renders status-specific localized copy for a typed LibraryApiError", () => {
+    const client = new QueryClient();
+    const error = new LibraryApiError(404, { devMessage: "row not found in catalog table" });
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={error} reset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(m.errors_not_found_body())).toBeTruthy();
+    expect(screen.queryByText(m.errors_default_body())).toBeNull();
+    expect(screen.queryByText(/row not found in catalog table/)).toBeNull();
+  });
+
+  it.each([
+    [401, "errors_unauthorized_body", () => m.errors_unauthorized_body()],
+    [429, "errors_rate_limited_body", () => m.errors_rate_limited_body()],
+    [503, "errors_maintenance_body", () => m.errors_maintenance_body()],
+    [500, "errors_server_body", () => m.errors_server_body()],
+    [502, "errors_server_body (other 5xx)", () => m.errors_server_body()],
+  ])("renders %s → %s for LibraryApiError", (status, _label, expected) => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={new LibraryApiError(status, null)} reset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(expected())).toBeTruthy();
+  });
+
+  it("renders errors_default_body for LibraryApiError 403 (forbidden, not session-expired)", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={new LibraryApiError(403, null)} reset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(m.errors_default_body())).toBeTruthy();
+  });
+
+  // Lens routes (timeline/quality/server/default) throw MediaApiError via
+  // defineMediaSource, not LibraryApiError. The fallback must handle both.
+  it("renders status-specific copy for a MediaApiError from a lens route", () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={new MediaApiError(404, null)} reset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(m.errors_not_found_body())).toBeTruthy();
+  });
+
   // The four item lenses ride the shared media source under `mediaKeys`, not
   // `libraryKeys`; resetting only `libraryKeys.all` (collections + facets) would
   // leave a failed lens read cached, so retry would appear to do nothing. The
-  // fallback must reset both families.
-  it("resets both the library and the media-source query families on retry", () => {
+  // reset must target THIS lens's source — `lensResetKey(lens)`, a prefix that
+  // sweeps every filter variant — not all of media (which would also drop other
+  // surfaces' source reads).
+  it("resets the library family and this lens's media source on retry", () => {
+    const client = new QueryClient();
+    const resetQueries = vi.spyOn(client, "resetQueries").mockResolvedValue(undefined);
+    const reset = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <LibraryRouteError error={new Error("boom")} reset={reset} lens="timeline" />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(resetQueries).toHaveBeenCalledTimes(2);
+    expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
+    expect(resetQueries).toHaveBeenCalledWith({ queryKey: lensResetKey("timeline") });
+    expect(reset).toHaveBeenCalledTimes(1);
+  });
+
+  // The layout + collections routes read no media source, so their fallback
+  // omits `lens` and must reset only the library family — never a media source.
+  it("resets only the library family when no lens is given", () => {
     const client = new QueryClient();
     const resetQueries = vi.spyOn(client, "resetQueries").mockResolvedValue(undefined);
     const reset = vi.fn();
@@ -58,8 +137,8 @@ describe("LibraryRouteError", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
 
+    expect(resetQueries).toHaveBeenCalledTimes(1);
     expect(resetQueries).toHaveBeenCalledWith({ queryKey: libraryKeys.all });
-    expect(resetQueries).toHaveBeenCalledWith({ queryKey: mediaKeys.root });
     expect(reset).toHaveBeenCalledTimes(1);
   });
 });

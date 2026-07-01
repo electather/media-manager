@@ -18,8 +18,6 @@
   ],
   "onboarding_bootstrap_name_required": "Name is required.",
   "onboarding_bootstrap_email_invalid": "Enter a valid email address.",
-  "onboarding_bootstrap_password_too_short": "Password must be at least 12 characters.",
-  "onboarding_bootstrap_password_too_long": "Password must be at most 256 characters.",
   "onboarding_bootstrap_token_required": "Enter the full setup token from the server console.",
   "onboarding_bootstrap_invalid_token": "That setup token is invalid. Check the server console and try again.",
   "onboarding_bootstrap_failed": "Could not create the administrator account. Please try again.",
@@ -58,6 +56,7 @@
   "onboarding_tmdb_label": "TMDB API key",
   "onboarding_tmdb_placeholder": "Your TMDB API key",
   "onboarding_tmdb_why": "Required: nama uses TMDB for all artwork and metadata.",
+  "onboarding_tmdb_bundled_default": "Default key bundled — add your own to override.",
   "onboarding_tmdb_get_key": "Get a TMDB API key",
   "onboarding_tmdb_test": [
     {
@@ -87,5 +86,7 @@
   "onboarding_mcp_setup_endpoint_label": "MCP endpoint",
   "onboarding_mcp_setup_copy": "Copy",
   "onboarding_mcp_setup_copied": "Copied",
-  "onboarding_mcp_setup_guide_button": "View setup guide"
+  "onboarding_mcp_setup_guide_button": "View setup guide",
+  "onboarding_error_title": "We couldn't load setup",
+  "onboarding_error_body": "Setup hit a snag loading your configuration. Retry, and if it keeps happening note the reference below."
 }

@@ -13,6 +13,6 @@ export const Route = createFileRoute("/_authenticated/_app/library/timeline")({
   loader: ({ context: { queryClient }, deps }) =>
     prefetchLibraryLens(queryClient, "timeline", searchToFilters(deps.search)),
   pendingComponent: LibraryContentSkeleton,
-  errorComponent: LibraryRouteError,
+  errorComponent: (props) => <LibraryRouteError {...props} lens="timeline" />,
   component: TimelineLensPage,
 });

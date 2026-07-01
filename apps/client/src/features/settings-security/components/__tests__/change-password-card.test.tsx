@@ -31,7 +31,21 @@ describe("ChangePasswordCard", () => {
     await user.type(screen.getByTestId("current-password"), "old");
     await user.type(screen.getByTestId("new-password"), "short");
 
-    expect(await screen.findByText(/must be at least 12/i)).toBeTruthy();
+    expect(await screen.findByText(/must be at least 8/i)).toBeTruthy();
+  });
+
+  it("requires a letter and a digit even when long enough", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ChangePasswordCard />);
+
+    await user.click(screen.getByRole("button", { name: /change password/i }));
+    await user.type(screen.getByTestId("current-password"), "old");
+    await user.type(screen.getByTestId("new-password"), "abcdefghij");
+
+    // Letters-only password clears the length bound but fails the alphanumeric
+    // rule, so submit stays disabled with the composition message shown.
+    expect(await screen.findByText(/must contain at least one letter/i)).toBeTruthy();
+    expect(screen.getByTestId("submit-password")).toBeDisabled();
   });
 
   it("calls onChangePassword with the trimmed inputs and toasts on success", async () => {

@@ -1,3 +1,5 @@
+import type { PasswordIssueReason } from "@nama/shared/auth";
+
 import { Button } from "@/shared/ui/button";
 import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { m } from "@/paraglide/messages";
@@ -12,8 +14,7 @@ export interface PasswordFormProps {
   setCurrent: (v: string) => void;
   setNext: (v: string) => void;
   setConfirm: (v: string) => void;
-  tooShort: boolean;
-  tooLong: boolean;
+  passwordReason: PasswordIssueReason | null;
   mismatch: boolean;
   canSubmit: boolean;
   submitting: boolean;
@@ -31,8 +32,7 @@ export function PasswordForm({
   setCurrent,
   setNext,
   setConfirm,
-  tooShort,
-  tooLong,
+  passwordReason,
   mismatch,
   canSubmit,
   submitting,
@@ -54,21 +54,19 @@ export function PasswordForm({
         />
         {serverError ? <FieldError>{serverError}</FieldError> : null}
       </Field>
-      <Field data-invalid={tooShort || tooLong ? true : undefined}>
+      <Field data-invalid={passwordReason !== null ? true : undefined}>
         <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
         <PasswordInput
           value={next}
           onChange={setNext}
           autoComplete="new-password"
           placeholder={m.settings_security_password_new_placeholder()}
-          ariaInvalid={tooShort || tooLong}
+          ariaInvalid={passwordReason !== null}
           data-testid="new-password"
         />
         <PasswordMeter value={next} />
-        {tooShort ? (
-          <FieldError>{m.settings_security_password_too_short()}</FieldError>
-        ) : tooLong ? (
-          <FieldError>{m.settings_security_password_too_long()}</FieldError>
+        {passwordReason ? (
+          <FieldError>{m.shared_password_error({ reason: passwordReason })}</FieldError>
         ) : null}
       </Field>
       <Field data-invalid={mismatch ? true : undefined}>

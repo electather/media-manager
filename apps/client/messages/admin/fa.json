@@ -200,6 +200,8 @@
   "admin_plugins_shared_creds_row_test": "آزمون",
   "admin_plugins_shared_creds_row_test_failed": "آزمون ناموفق بود",
   "admin_plugins_shared_creds_row_edit": "ویرایش",
+  "admin_plugins_shared_creds_bundled_badge": "پیش‌فرض",
+  "admin_plugins_shared_creds_bundled_note": "کلید پیش‌فرض — کلید شما اولویت دارد.",
   "admin_plugins_shared_creds_row_more_aria": "اقدامات بیشتر برای {label}",
   "admin_plugins_shared_creds_row_delete": "حذف",
   "admin_plugins_shared_creds_row_verified": "تأییدشده",

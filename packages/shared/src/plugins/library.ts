@@ -37,11 +37,10 @@ export const libraryItemQualitySchema = z.object({
 export type LibraryItemQuality = z.infer<typeof libraryItemQualitySchema>;
 
 /**
- * Shared shape for "item on user's media server" (returned by libraryAvailability@v1,
- * continueWatching@v1, playbackSessions@v1, libraryAdmin@v1). `id` is server-local
- * (e.g. Plex ratingKey, Jellyfin itemId). `playerLink` and `webLink` must use
- * external server URL to resolve on caller's device; see "Self-hosted network
- * topology" in docs/2026-04-19-plugin-architecture-design.md.
+ * Item on user's media server (libraryAvailability@v1, continueWatching@v1,
+ * playbackSessions@v1, libraryAdmin@v1). `id` is server-local (Plex ratingKey,
+ * Jellyfin itemId). `playerLink` and `webLink` must use external server URL so
+ * caller can resolve on their device; see docs/2026-04-19-plugin-architecture-design.md.
  */
 export const libraryItemSchema = z.object({
   /** Server-local id. Used by subsequent calls back to the same server. */

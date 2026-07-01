@@ -43,6 +43,7 @@ export const HOST_ERROR_CODES = {
   "plugin.shared_credential_not_found": { severity: "info" },
   "plugin.shared_credential_conflict": { severity: "info" },
   "plugin.not_poolable": { severity: "info" },
+  "plugin.bundled_readonly": { severity: "info" },
   "plugin.scope_invalid": { severity: "info" },
   "plugin.host_blocked_by_admin": { severity: "warning" },
   // Form-validation errors carrying a `params.field` so the client can inline-route them.
