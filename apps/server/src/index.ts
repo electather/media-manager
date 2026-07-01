@@ -44,37 +44,6 @@ async function bootstrap(): Promise<void> {
   auth.registerJobs();
   catalog.registerJobs();
 
-  // Seed today's discover snapshot synchronously at startup so the home feed
-  // has data on first boot (or after a restart before the 6 AM cron fires).
-  // The "newReleases" tuple is the sentinel — if it exists the full set was
-  // already written by a prior run or the cron, so we skip.
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const todayBucket = Math.floor(Date.now() / DAY_MS) * DAY_MS;
-  const catalogService = catalog.getCatalogService();
-  const snapshotExists = await catalogService.hasDiscoverFeed(
-    "newReleases",
-    "popularity_desc",
-    todayBucket,
-  );
-  if (!snapshotExists) {
-    consola.info("[catalog:discover-snapshot] seeding today's snapshot at bootstrap");
-    const aborter = new AbortController();
-    await catalog
-      .runCatalogDiscoverSnapshot(
-        { catalog: catalogService },
-        {
-          runId: "bootstrap",
-          triggeredBy: "cron",
-          requestId: newRequestId(),
-          logger: consola,
-          abortSignal: aborter.signal,
-        },
-      )
-      .catch((err) => {
-        consola.warn("[catalog:discover-snapshot] bootstrap seed failed (non-fatal)", err);
-      });
-  }
-
   home.registerJobs();
   library.registerJobs();
   media.registerJobs();
@@ -93,6 +62,43 @@ async function bootstrap(): Promise<void> {
   registerBuiltinPlugins();
   bootstrapMcpHostTools();
   await pluginRuntime.pluginRuntime.bootstrapBuiltins();
+
+  // Seed today's discover snapshot at startup so the home feed has data on
+  // first boot (or a restart before the 6 AM cron). Runs AFTER bootstrapBuiltins
+  // (#890): discoverFeed dispatches to metadata plugins, so seeding before they
+  // load would write zero snapshots. The "newReleases" tuple is the sentinel;
+  // a prior run that crashed mid-job may leave other feeds absent until cron,
+  // but discoverFeed falls back to the live path so that is degraded, not broken.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const todayBucket = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+  const catalogService = catalog.getCatalogService();
+  const snapshotExists = await catalogService.hasDiscoverFeed(
+    "newReleases",
+    "popularity_desc",
+    todayBucket,
+  );
+  if (!snapshotExists) {
+    consola.info("[catalog:discover-snapshot] seeding today's snapshot at bootstrap");
+    await catalog
+      .runCatalogDiscoverSnapshot(
+        { catalog: catalogService },
+        {
+          runId: "bootstrap",
+          // Server-initiated administrative run, not a scheduler tick — "cron"
+          // would misreport origin in job-history audit filtering.
+          triggeredBy: "admin",
+          requestId: newRequestId(),
+          logger: consola,
+          // Bound the seed so a hung/unconfigured metadata plugin cannot block
+          // startup indefinitely; server always finishes booting within 60s.
+          abortSignal: AbortSignal.timeout(60_000),
+        },
+      )
+      .catch((err) => {
+        consola.warn("[catalog:discover-snapshot] bootstrap seed failed (non-fatal)", err);
+      });
+  }
+
   await scheduler.start();
 }
 
