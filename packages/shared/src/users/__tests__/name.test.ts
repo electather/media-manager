@@ -22,8 +22,9 @@ describe("truncateName", () => {
   // a surrogate pair leaves a lone high surrogate; truncateName must drop it instead,
   // yielding NAME_MAX_LENGTH - 1 units and a string with no unpaired surrogate.
   it("never leaves a lone surrogate when the boundary lands mid-pair", () => {
-    // (NAME_MAX_LENGTH / 2) emojis + one 'a' shifts every pair so the split at
-    // index NAME_MAX_LENGTH falls between a high and low surrogate.
+    // The leading 'a' shifts every emoji pair right by 1: pairs are at indices
+    // [1,2], [3,4], …, [99,100]. Index NAME_MAX_LENGTH-1 (99) is always a
+    // high surrogate, so truncateName must back off to avoid a lone surrogate.
     const name = "a" + EMOJI.repeat(NAME_MAX_LENGTH);
     const result = truncateName(name);
     expect(result.length).toBe(NAME_MAX_LENGTH - 1);
