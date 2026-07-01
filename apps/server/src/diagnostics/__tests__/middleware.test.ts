@@ -104,15 +104,21 @@ describe("errorHandler", () => {
     const body = (await res.json()) as {
       code: string;
       devMessage: string;
-      details?: { errors: Array<{ pluginId: string; code: string; devMessage?: string }> };
+      details?: { errors: Array<{ pluginId?: string; code: string; devMessage?: string }> };
       requestId: string;
     };
     expect(body.code).toBe("media.providers_failed");
     expect(body.devMessage).toContain("watchlist@v1");
+    // #935: per-provider `devMessage` (raw upstream text) and internal `pluginId`
+    // must not reach the client — only the stable `code` hint survives redaction.
     expect(body.details?.errors).toEqual([
-      { pluginId: "trakt", code: "plugin.rate_limited", devMessage: "429" },
-      { pluginId: "jellyfin", code: "plugin.upstream_error", devMessage: "ECONNRESET" },
+      { code: "plugin.rate_limited" },
+      { code: "plugin.upstream_error" },
     ]);
+    const rawErrors = JSON.stringify(body.details?.errors);
+    expect(rawErrors).not.toContain("ECONNRESET");
+    expect(rawErrors).not.toContain("trakt");
+    expect(rawErrors).not.toContain("jellyfin");
     await flushCaptures();
     // 5xx upstream failure is captured so admins still see provider outages.
     // errorHandler stamps severity="error" for every 5xx HttpError per

@@ -80,6 +80,19 @@ function isStreamingResponse(c: Context): boolean {
   return ct.startsWith("text/event-stream") || ct.startsWith("application/octet-stream");
 }
 
+/** Strips per-provider secrets from a client-facing `details` payload (#935).
+ *  `media.providers_failed` carries `errors[]` with raw upstream `devMessage`
+ *  (e.g. `ECONNRESET`) and internal `pluginId` (reveals which providers a user
+ *  configured); keep only the stable `code` hint. Full detail still reaches the
+ *  error store via `captureError`, which receives the untouched `err`. */
+function redactDetails(
+  details: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!details || !Array.isArray(details.errors)) return details;
+  const errors = (details.errors as Array<{ code?: unknown }>).map((e) => ({ code: e.code }));
+  return { ...details, errors };
+}
+
 /** Converts throws to unified JSON shape. Captures 5xx (or untyped); skips expected 4xx.
  *  Single backend boundary where all errors land (Hono internally intercepts handler throws). */
 // fallow-ignore-next-line complexity
@@ -126,7 +139,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
         code: err.code,
         devMessage: err.message,
         params: err.params,
-        details: err.details,
+        details: redactDetails(err.details),
         requestId,
       },
       status,
