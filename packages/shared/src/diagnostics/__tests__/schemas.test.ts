@@ -75,6 +75,62 @@ describe("diagnostics schemas — admin viewer requestId filter", () => {
   }
 });
 
+describe("diagnostics schemas — admin viewer pluginId filter", () => {
+  // pluginId flows straight into `eq(records.pluginId, q.pluginId)` server-side
+  // (errors.ts, perf.ts), so the schema is the real fence against a scripted
+  // caller pushing an unbounded or malformed string past the boundary (#840).
+  const querySchemas = { errorListQuerySchema, perfListQuerySchema } as const;
+
+  for (const [name, schema] of Object.entries(querySchemas)) {
+    it(`${name} accepts a canonical plugin id`, () => {
+      expect(schema.safeParse({ pluginId: "trakt" }).success).toBe(true);
+      expect(schema.safeParse({ pluginId: "tmdb-1" }).success).toBe(true);
+    });
+
+    it(`${name} accepts an omitted plugin id`, () => {
+      expect(schema.safeParse({}).success).toBe(true);
+    });
+
+    it(`${name} accepts a plugin id at exactly the 64-char cap`, () => {
+      expect(schema.safeParse({ pluginId: "a".repeat(64) }).success).toBe(true);
+    });
+
+    it(`${name} rejects a plugin id over the 64-char cap`, () => {
+      expect(schema.safeParse({ pluginId: "a".repeat(65) }).success).toBe(false);
+    });
+
+    it(`${name} rejects an empty plugin id`, () => {
+      // The `{1,64}` quantifier rejects "" today; this documents that intent so a
+      // future `*` typo would fail the test instead of silently widening the field.
+      expect(schema.safeParse({ pluginId: "" }).success).toBe(false);
+    });
+
+    it(`${name} rejects plugin ids with characters outside the lowercase slug shape`, () => {
+      for (const pluginId of ["Trakt", "has space", "semi;colon", "../traversal", "wild*card"]) {
+        expect(schema.safeParse({ pluginId }).success).toBe(false);
+      }
+    });
+  }
+});
+
+describe("diagnostics schemas — perfListQuerySchema route filter", () => {
+  // route flows straight into `eq(perfRecords.route, q.route)` server-side (perf.ts).
+  // A length cap alone bounds the input; routes carry path/query punctuation so no
+  // charset regex is applied (#840). 500 chars matches errorReportSchema.route.
+  it("accepts a route within the 500-char cap", () => {
+    expect(perfListQuerySchema.safeParse({ route: "/api/diagnostics/perf" }).success).toBe(true);
+    expect(perfListQuerySchema.safeParse({ route: "x".repeat(500) }).success).toBe(true);
+  });
+
+  it("accepts an omitted route filter", () => {
+    expect(perfListQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("rejects a route over the 500-char cap so a scripted caller cannot pass an unbounded string into the server-side query", () => {
+    expect(perfListQuerySchema.safeParse({ route: "x".repeat(501) }).success).toBe(false);
+  });
+});
+
 describe("diagnostics schemas — errorListQuerySchema search filter", () => {
   it("accepts a search string within the 200-char cap", () => {
     expect(errorListQuerySchema.safeParse({ search: "TypeError" }).success).toBe(true);
