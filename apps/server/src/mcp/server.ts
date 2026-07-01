@@ -6,6 +6,7 @@ import { mcpToolRegistry } from "./registry";
 import { withOAuthAuth } from "./auth";
 import { jsonRpcResponse, jsonRpcError, type JsonRpcRequest } from "./jsonrpc";
 import { newRequestId } from "../diagnostics/request-context";
+import { defaultMcpLimiter } from "./rate-limit";
 
 export { oauthAuthorizationServerHandler, oauthProtectedResourceHandler } from "../auth";
 
@@ -37,6 +38,17 @@ async function handleJsonRpc(
   scopes: string[],
   requestId: string,
 ): Promise<Response> {
+  // Rate-limit all JSON-RPC methods — initialize/tools/list/ping were
+  // previously unchecked (#934). tools/call previously checked inside
+  // dispatchTool; unified here so every method shares the per-user bucket.
+  // Unknown-tool / missing-scope tool calls still consume a token because
+  // the check runs before the switch (#343).
+  const limited = defaultMcpLimiter.check(userId);
+  if (limited) {
+    const retryAfter = (limited.details as { retry_after: number }).retry_after;
+    return jsonRpcError(body.id, -32000, limited.message, { retry_after: retryAfter });
+  }
+
   switch (body.method) {
     case "initialize": {
       return jsonRpcResponse(body.id, {

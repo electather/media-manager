@@ -10,7 +10,6 @@ import { badInput, EXPECTED_MCP_CODES, McpError, outputInvalid, toolNotFound } f
 import { hasAllScopes, missingScopes } from "./scopes";
 import { forbidden } from "./errors";
 import { mcpToolRegistry, type RegisteredTool, type ToolCallContext } from "./registry";
-import { defaultMcpLimiter } from "./rate-limit";
 import { isNil } from "es-toolkit/predicate";
 
 export interface DispatchCaller {
@@ -88,15 +87,6 @@ export async function dispatchTool(
   rawInput: unknown,
 ): Promise<DispatchResult> {
   const requestId = caller.requestId ?? currentRequestContext()?.requestId ?? newRequestId();
-
-  // Rate limit is the first gate after caller identity is known: unknown-tool
-  // and missing-scope branches must still consume a token, otherwise an
-  // authenticated client can issue an unbounded stream of cheap-failing
-  // requests without ever depleting its bucket (issue #343).
-  const limited = defaultMcpLimiter.check(caller.userId);
-  if (limited) {
-    return { ok: false, error: limited.toUserFacing(requestId) };
-  }
 
   const tool = mcpToolRegistry.get(toolName);
   if (!tool) {
