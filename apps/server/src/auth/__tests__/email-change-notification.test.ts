@@ -163,6 +163,16 @@ describe("createEmailChangeHooks name-length guard (update path)", () => {
     expect(result).toBeUndefined();
   });
 
+  it("returns void for an update payload that carries no name field", async () => {
+    const hooks = createEmailChangeHooks(noopDeps());
+
+    // Email-only update (no `name` key): the guard must not fabricate a clone,
+    // else Better Auth would rewrite the row on every such update.
+    const result = await hooks.before({ email: "new@x.com" }, ctxFor("user-1"));
+
+    expect(result).toBeUndefined();
+  });
+
   it("still captures the previous email even when it also truncates the name", async () => {
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     const hooks = createEmailChangeHooks({
