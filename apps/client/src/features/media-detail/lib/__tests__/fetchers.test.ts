@@ -28,11 +28,11 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-beforeEach(() => {
-  apiMock.availabilityGet.mockReset();
-});
-
 describe("fetchSeasonAvailability", () => {
+  beforeEach(() => {
+    apiMock.availabilityGet.mockReset();
+  });
+
   it("throws MediaApiError with the parsed code on a 4xx response", async () => {
     // Ensures the ErrorBoundary's retry-copy keying off `err.code` (V.CL1)
     // receives a typed error rather than a raw fetch rejection.
