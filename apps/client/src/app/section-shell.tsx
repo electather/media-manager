@@ -2,13 +2,15 @@ import { Link, Navigate, Outlet, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
-import { AppShell } from "@/app/app-shell";
 import { Can } from "@/shared/components/can";
 import { useHasAnyPermission } from "@/shared/hooks/use-has-any-permission";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
 import type { Permission } from "@nama/shared/auth";
+import { BottomNav } from "./bottom-nav";
+import { CommandMenu } from "./command-menu";
+import { TopNav } from "./top-nav";
 
 // When every item in a group is permission-gated and the user holds none of
 // those permissions, the whole group (heading included) collapses out of the
@@ -47,15 +49,20 @@ interface SectionLayoutProps {
 
 export function SectionLayout({ title, groups, overlay }: SectionLayoutProps) {
   return (
-    <AppShell>
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-6 md:grid-cols-[240px_minmax(0,1fr)] md:py-10 lg:px-6">
-        <SectionSidebar title={title} groups={groups} />
-        <div className="min-w-0 pb-32 [view-transition-name:section-content] md:[view-transition-name:none]">
-          <Outlet />
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <TopNav />
+      <main className="flex-1">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-6 md:grid-cols-[240px_minmax(0,1fr)] md:py-10 lg:px-6">
+          <SectionSidebar title={title} groups={groups} />
+          <div className="min-w-0 pb-32 [view-transition-name:section-content] md:[view-transition-name:none]">
+            <Outlet />
+          </div>
         </div>
-      </div>
+      </main>
+      <BottomNav />
+      <CommandMenu />
       {overlay}
-    </AppShell>
+    </div>
   );
 }
 
