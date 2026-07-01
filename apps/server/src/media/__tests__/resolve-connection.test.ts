@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
+import { BUNDLED_CREDENTIAL_ID } from "../../plugin-runtime/internal/shared-credentials";
 
 // Shared credentials (app/OAuth identities) only for `global` scope, never `user`.
 // Using for user-scoped requests = guaranteed auth failure → all_failed instead of clean drop (#503).
@@ -105,5 +106,19 @@ describe("resolveConnections", () => {
     const conns = await resolveConnections("user-1", "tmdb", "global");
 
     expect(conns).toEqual([]);
+  });
+
+  it("prefers a real shared credential over the bundled default", async () => {
+    // WHY: listDecryptedActive appends the bundled default last; this 2nd consumer
+    // takes shared[0], so a real admin key must win over the bundled fallback.
+    queryEnabledConnectionsForPluginMock.mockResolvedValue([]);
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "real", value: { apiKey: "admin-key" } },
+      { id: BUNDLED_CREDENTIAL_ID, value: { apiKey: "bundled-key" } },
+    ]);
+
+    const conns = await resolveConnections("user-1", "tmdb", "global");
+
+    expect(conns[0]?.credentials).toEqual({ apiKey: "admin-key" });
   });
 });
