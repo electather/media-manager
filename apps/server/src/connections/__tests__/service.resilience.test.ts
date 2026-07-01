@@ -109,6 +109,8 @@ vi.mock("../../db/client", () => {
           // promoteToDefault runs a demotion UPDATE (isDefault=0) then a promotion UPDATE
           // (isDefault=1); the hook fires only on the latter so a test can drop the target
           // row between the two, exercising the .returning() zero-row miss (issue #849).
+          // GOTCHA: delete's fallback-default promotion also sets isDefault=1, so this hook
+          // fires there too — a delete-path test must leave beforePromotionUpdate null.
           if (patch.isDefault === 1 && state.beforePromotionUpdate) state.beforePromotionUpdate();
           return {
             where(_: unknown) {
@@ -402,8 +404,8 @@ describe("setDefault guard (issue #698)", () => {
     // must roll back so the sibling keeps isDefault=1 and no cache invalidation runs.
     installPlugin();
     // Seed the promotion target (index 0) plus the currently-default sibling. The mock ignores WHERE,
-    // so requireConnection's .get() returns conn-target (rowsFor[0]) for its pluginId; the transaction
-    // UPDATEs operate on the whole rowset independently of that return value.
+    // so requireConnection's .get() returns rowsFor[0] (conn-target); the returned row's pluginId
+    // is passed to promoteToDefault, and both UPDATEs operate on the full rowset.
     const now = Date.now();
     const base = {
       userId: "user-1",
