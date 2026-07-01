@@ -183,7 +183,7 @@ describe("createEmailChangeHooks name-length guard (update path)", () => {
     expect(sendEmail.mock.calls[0]?.[0]?.to).toBe("old@example.com");
   });
 
-  it("truncates the name even with no session id (returns void from capture path)", async () => {
+  it("truncates the name even when ctx is null (email capture is skipped)", async () => {
     const hooks = createEmailChangeHooks(noopDeps());
     const longName = "z".repeat(NAME_MAX_LENGTH + 5);
 

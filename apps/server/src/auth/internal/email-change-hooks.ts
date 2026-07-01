@@ -36,10 +36,9 @@ export interface EmailChangeHookDeps {
 // `databaseHooks.user.update` shape (which passes Partial<User> / User plus
 // `GenericEndpointContext | null`) without importing internal BA types.
 export interface EmailChangeHooks {
-  // Returns `{ data }` when the incoming name exceeds NAME_MAX_LENGTH so Better
-  // Auth writes the truncated value; otherwise void, leaving the update payload
-  // untouched. The email-change capture is a DB side effect and never affects
-  // this return — the two concerns are composed, not intertwined.
+  // Returns `{ data }` when name exceeds NAME_MAX_LENGTH (Better Auth writes the
+  // truncated value); otherwise void. Email-capture is an independent DB side
+  // effect — the two concerns compose, not intertwine.
   before: (
     data: Record<string, unknown>,
     ctx: unknown,
