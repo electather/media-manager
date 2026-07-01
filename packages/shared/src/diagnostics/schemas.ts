@@ -17,11 +17,11 @@ export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
  *  regex yields actionable length error, not silent quantifier fail on oversized input. */
 const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
 
-/** Plugin-id filter for admin viewer query strings. Applies {@link PLUGIN_ID_PATTERN}
- *  to prevent unbounded strings in `eq(records.pluginId, …)` filter (#840). Plugin ids
- *  are lowercase slug identifiers (trakt, tmdb, …); `.max(64)` before regex yields an
- *  actionable length error, not a silent quantifier fail on oversized input. */
-export const PLUGIN_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
+/** Plugin-id filter for admin viewer query strings. Prevents unbounded strings in
+ *  `eq(records.pluginId, …)` filter (#840). Plugin ids are lowercase slug identifiers
+ *  (trakt, tmdb, …); `.max(64)` before regex yields an actionable length error, not a
+ *  silent quantifier fail on oversized input. */
+const PLUGIN_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
 const pluginIdQuerySchema = z.string().max(64).regex(PLUGIN_ID_PATTERN).optional();
 
 /** Route filter for admin viewer query strings. Bounds the value fed into

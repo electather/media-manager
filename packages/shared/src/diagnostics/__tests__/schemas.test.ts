@@ -126,7 +126,7 @@ describe("diagnostics schemas — perfListQuerySchema route filter", () => {
     expect(perfListQuerySchema.safeParse({}).success).toBe(true);
   });
 
-  it("rejects a route over the 500-char cap so a scripted caller cannot pass an unbounded string into the server-side query", () => {
+  it("rejects a route over the 500-char cap", () => {
     expect(perfListQuerySchema.safeParse({ route: "x".repeat(501) }).success).toBe(false);
   });
 });
