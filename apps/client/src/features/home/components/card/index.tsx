@@ -52,7 +52,7 @@ export const Card = memo(function Card({
       openLabel={m.home_card_open_details({ title: item.title })}
       kindLabel={kindLabel}
       progressLabel={homeProgressLabel}
-      onOpen={() => onClick?.(item.id)}
+      onOpen={onClick ? () => onClick(item.id) : undefined}
       action={
         <MediaCardQuickAction
           aria-label={toggleLabel}

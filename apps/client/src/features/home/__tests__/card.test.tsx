@@ -138,6 +138,14 @@ describe("Card", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it("does not intercept plain clicks when no onClick is passed, so native anchor navigation works", () => {
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    overlay.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+
   it("exposes the canonical detail href so cmd-click opens a new tab", () => {
     renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
     const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
