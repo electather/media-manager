@@ -45,6 +45,11 @@ describe("fetchSeasonAvailability", () => {
     expect(err).toBeInstanceOf(MediaApiError);
     expect(err.status).toBe(404);
     expect(err.code).toBe("media.not_found");
+    // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
+    expect(apiMock.availabilityGet).toHaveBeenCalledWith(
+      { param: { type: "tv", tmdbId: "12345" } },
+      { init: { signal: expect.any(AbortSignal) } },
+    );
   });
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
@@ -55,6 +60,11 @@ describe("fetchSeasonAvailability", () => {
     expect(err).toBeInstanceOf(MediaApiError);
     expect(err.status).toBe(503);
     expect(err.message).toContain("503");
+    // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
+    expect(apiMock.availabilityGet).toHaveBeenCalledWith(
+      { param: { type: "tv", tmdbId: "12345" } },
+      { init: { signal: expect.any(AbortSignal) } },
+    );
   });
 
   it("returns the parsed JSON payload on a 2xx response", async () => {
