@@ -43,9 +43,10 @@ describe("truncateName", () => {
   // WHY: when the boundary index is a low surrogate the pair is already
   // complete inside the slice; back-off must NOT trigger.
   it("does not over-trim when the boundary index is a low surrogate", () => {
-    // Requires NAME_MAX_LENGTH to be even so EMOJI.repeat(NAME_MAX_LENGTH / 2) fills exactly
-    // NAME_MAX_LENGTH units, making NAME_MAX_LENGTH-1 the low surrogate of the last pair.
-    expect(NAME_MAX_LENGTH % 2).toBe(0);
+    // Requires NAME_MAX_LENGTH even: EMOJI.repeat(NAME_MAX_LENGTH / 2) must fill exactly
+    // NAME_MAX_LENGTH units so index NAME_MAX_LENGTH-1 is the low surrogate of the last pair.
+    if (NAME_MAX_LENGTH % 2 !== 0)
+      throw new Error("test invariant broken: NAME_MAX_LENGTH must be even");
     const name = EMOJI.repeat(NAME_MAX_LENGTH / 2) + EMOJI.repeat(NAME_MAX_LENGTH);
     const result = truncateName(name);
     expect(result.length).toBe(NAME_MAX_LENGTH);
