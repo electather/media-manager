@@ -17,12 +17,13 @@ import {
   ScrollRowTrack,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
+import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
 import { Card } from "../card/index";
 import { homeRowSource } from "../../lib/sources";
 import { ROW_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
-import { RowError, RowErrorInlineCard } from "./row-error";
+import { RowError } from "./row-error";
 
 const SKELETON_COUNT = 5;
 const PREFETCH_OFFSET = 4;
@@ -35,14 +36,6 @@ interface RowProps {
   row: RowData;
   onWatchlistToggle?: (item: HomeMediaItem) => void;
   onCardClick?: (id: string) => void;
-}
-
-const ERROR_SENTINEL = { __kind: "error-sentinel" as const };
-type ErrorSentinel = typeof ERROR_SENTINEL;
-type TrackEntry = HomeMediaItem | ErrorSentinel;
-
-function isErrorSentinel(entry: TrackEntry): entry is ErrorSentinel {
-  return (entry as ErrorSentinel).__kind === "error-sentinel";
 }
 
 /**
@@ -91,13 +84,15 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   } = useMediaRowsLazy(source, { staleTime: ROW_STALE_MS });
 
   const showInitialError = error !== null && items.length === 0;
-  const showInlineError = error !== null && items.length > 0;
   const showSkeletons = !showInitialError && isLoading && items.length === 0;
 
-  const renderItems = useMemo<TrackEntry[]>(
-    () => (showInlineError ? [...items, ERROR_SENTINEL] : [...items]),
-    [items, showInlineError],
-  );
+  const slot = usePaginationSlot({
+    itemCount: items.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
 
   const handleRange = useCallback(
     // fallow-ignore-next-line complexity
@@ -134,7 +129,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   }
 
   return (
-    <ScrollRow revalidationKey={renderItems.length} className="mb-8">
+    <ScrollRow revalidationKey={`${items.length}:${slot.state}`} className="mb-8">
       <SectionHead>
         <SectionHeadHeading>
           {eyebrow ? <SectionHeadEyebrow>{eyebrow}</SectionHeadEyebrow> : null}
@@ -157,28 +152,19 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
             virtualize
             aria-label={heading}
             className="scroll-px-8 pb-3"
-            items={renderItems}
-            getKey={(entry, i) => (isErrorSentinel(entry) ? `error-sentinel-${i}` : entry.id)}
+            items={items}
+            getKey={(item) => item.id}
             estimateItemWidth={isBackdrop ? 320 : 200}
             onRangeChange={handleRange}
-            renderItem={(entry) =>
-              isErrorSentinel(entry) ? (
-                error ? (
-                  <RowErrorInlineCard
-                    error={error}
-                    onRetry={() => fetchNextPage()}
-                    isRetrying={isFetchingNextPage}
-                  />
-                ) : null
-              ) : (
-                <Card
-                  item={entry}
-                  rowKind={row.kind}
-                  onWatchlistToggle={onWatchlistToggle}
-                  onClick={onCardClick}
-                />
-              )
-            }
+            trailingSlot={<PaginationSlot slot={slot} variant="card" />}
+            renderItem={(item) => (
+              <Card
+                item={item}
+                rowKind={row.kind}
+                onWatchlistToggle={onWatchlistToggle}
+                onClick={onCardClick}
+              />
+            )}
           />
         )}
       </ScrollRowViewport>

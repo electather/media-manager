@@ -14,7 +14,7 @@ type ItemLens = Exclude<LibraryLens, "collections">;
  */
 export function useLibraryContent(lens: ItemLens) {
   const { filters, resetFilters } = useLibraryFilters();
-  const { items, partial, hasNextPage, isFetchingNextPage, fetchNextPage } = useLibraryLens(
+  const { items, partial, hasNextPage, isFetchingNextPage, fetchNextPage, error } = useLibraryLens(
     lens,
     filters,
   );
@@ -26,6 +26,7 @@ export function useLibraryContent(lens: ItemLens) {
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
+    error,
     resetFilters,
   };
 }

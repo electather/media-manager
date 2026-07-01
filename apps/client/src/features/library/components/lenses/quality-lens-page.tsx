@@ -6,12 +6,13 @@ export function QualityLensPage() {
   return (
     <LensPage
       lens="quality"
-      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage }) => (
+      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage, error }) => (
         <QualityLens
           entries={entries}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
+          error={error}
         />
       )}
     />

@@ -77,5 +77,9 @@
         "unit=min_s": "{formattedValue}m {formattedSecondaryValue}s"
       }
     }
-  ]
+  ],
+  "shared_pagination_error_message": "TODO",
+  "shared_pagination_error_body": "TODO",
+  "shared_pagination_retry": "TODO",
+  "shared_pagination_loading": "TODO"
 }

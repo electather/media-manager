@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { m } from "@/paraglide/messages";
+import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import { InboxRow } from "./inbox-row";
 import { InboxEmpty } from "./inbox-empty";
 import { useInbox } from "./use-inbox";
@@ -13,14 +13,39 @@ interface Props {
   onToggleSelect: (id: string, selected: boolean) => void;
 }
 
+/** One inbox row, or nothing when the virtual index outran the loaded page. */
+function InboxRowSlot({
+  item,
+  selected,
+  onToggleSelect,
+}: {
+  item: NotificationItemDto | undefined;
+  selected: ReadonlySet<string>;
+  onToggleSelect: (id: string, selected: boolean) => void;
+}) {
+  if (!item) return null;
+  return <InboxRow item={item} selected={selected.has(item.id)} onToggleSelect={onToggleSelect} />;
+}
+
+// fallow-ignore-next-line complexity
 export function InboxList({ filters, selected, onToggleSelect }: Props) {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInbox(filters);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, error } = useInbox(filters);
   const items = useMemo<NotificationItemDto[]>(
     () => data.pages.flatMap((p) => p.items as NotificationItemDto[]),
     [data.pages],
   );
+  const slot = usePaginationSlot({
+    itemCount: items.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
   const parentRef = useRef<HTMLDivElement>(null);
-  const rowCount = items.length + (hasNextPage ? 1 : 0);
+  // Reserve the trailing slot row whenever a next page exists OR an append
+  // page failed (#888) — the failed case keeps `hasNextPage` but must still
+  // surface a retry instead of silently swallowing the error.
+  const rowCount = items.length + (hasNextPage || slot.state !== "none" ? 1 : 0);
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -31,13 +56,12 @@ export function InboxList({ filters, selected, onToggleSelect }: Props) {
 
   const virtualItems = virtualizer.getVirtualItems();
   const lastItem = virtualItems[virtualItems.length - 1];
+  const nearEnd = lastItem !== undefined && lastItem.index >= items.length - 1;
+  const shouldLoad = nearEnd && hasNextPage && !isFetchingNextPage;
 
   useEffect(() => {
-    if (!lastItem) return;
-    if (lastItem.index >= items.length - 1 && hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
-    }
-  }, [lastItem, items.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (shouldLoad) void fetchNextPage();
+  }, [shouldLoad, fetchNextPage]);
 
   if (items.length === 0) {
     const filterLabel = filters.category ? categoryLabel(filters.category) : null;
@@ -49,36 +73,30 @@ export function InboxList({ filters, selected, onToggleSelect }: Props) {
       <div
         style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative", width: "100%" }}
       >
-        {virtualItems.map((vi) => {
-          const isSentinel = vi.index >= items.length;
-          const item = items[vi.index];
-          return (
-            <div
-              key={vi.key}
-              data-index={vi.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${vi.start}px)`,
-              }}
-            >
-              {isSentinel ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                  {isFetchingNextPage ? m.notifications_loading() : ""}
-                </div>
-              ) : item ? (
-                <InboxRow
-                  item={item}
-                  selected={selected.has(item.id)}
-                  onToggleSelect={onToggleSelect}
-                />
-              ) : null}
-            </div>
-          );
-        })}
+        {virtualItems.map((vi) => (
+          <div
+            key={vi.key}
+            data-index={vi.index}
+            ref={virtualizer.measureElement}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${vi.start}px)`,
+            }}
+          >
+            {vi.index >= items.length ? (
+              <PaginationSlot slot={slot} variant="row" />
+            ) : (
+              <InboxRowSlot
+                item={items[vi.index]}
+                selected={selected}
+                onToggleSelect={onToggleSelect}
+              />
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

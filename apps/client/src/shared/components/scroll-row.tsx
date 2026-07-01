@@ -165,6 +165,13 @@ interface ScrollRowTrackVirtualizedProps<T> extends ScrollRowTrackBaseProps {
   onRangeChange?: (range: { startIndex: number; endIndex: number }) => void;
   /** Inline gap between items in px. Matches Tailwind `gap-4` on the non-virtualized track. */
   gapPx?: number;
+  /**
+   * Trailing pagination slot rendered as one extra card-sized item after the
+   * list (#888). Pass `<PaginationSlot variant="card" .../>`; it occupies a
+   * single `--card-w` slot so the row's height/width stays stable as it swaps
+   * loading ↔ error ↔ none. Excluded from the `onRangeChange` prefetch range.
+   */
+  trailingSlot?: ReactNode;
 }
 
 type ScrollRowTrackProps<T> = ScrollRowTrackChildrenProps | ScrollRowTrackVirtualizedProps<T>;
@@ -198,6 +205,7 @@ function VirtualizedScrollRowTrack<T>({
   onRangeChange,
   gapPx = 16,
   className,
+  trailingSlot,
   // The `virtualize` discriminator is intentionally stripped before spread.
   virtualize: _virtualize,
   ...rest
@@ -212,9 +220,10 @@ function VirtualizedScrollRowTrack<T>({
     [setViewport],
   );
 
+  const hasSlot = trailingSlot != null;
   const virtualizer = useVirtualizer({
     horizontal: true,
-    count: items.length,
+    count: items.length + (hasSlot ? 1 : 0),
     getScrollElement: () => trackRef.current,
     estimateSize: () => estimateItemWidth + gapPx,
     overscan,
@@ -227,8 +236,10 @@ function VirtualizedScrollRowTrack<T>({
 
   useEffect(() => {
     if (startIndex < 0) return;
-    onRangeChange?.({ startIndex, endIndex });
-  }, [startIndex, endIndex, onRangeChange]);
+    // Clamp to real items so the trailing slot never inflates the prefetch range.
+    const lastReal = items.length - 1;
+    onRangeChange?.({ startIndex, endIndex: Math.min(endIndex, lastReal) });
+  }, [startIndex, endIndex, items.length, onRangeChange]);
 
   return (
     <ul
@@ -243,26 +254,60 @@ function VirtualizedScrollRowTrack<T>({
       <li aria-hidden="true" style={{ inlineSize: totalSize, blockSize: 1, flexShrink: 0 }} />
       {virtualItems.map((vi) => {
         const item = items[vi.index];
-        if (item === undefined) return null;
+        const isSlot = hasSlot && vi.index >= items.length;
+        const key = isSlot
+          ? "pagination-slot"
+          : item
+            ? getKey(item, vi.index)
+            : `empty-${vi.index}`;
         return (
-          <li
-            // No `ref={virtualizer.measureElement}` — keeps the virtualizer in fixed-size mode so `estimateItemWidth` drives positioning and the gap between cards is preserved.
-            key={getKey(item, vi.index)}
-            data-slot="scroll-row-item"
-            data-index={vi.index}
-            className="shrink-0 snap-start"
-            style={{
-              position: "absolute",
-              insetBlockStart: 0,
-              insetInlineStart: vi.start,
-              width: "var(--card-w)",
-            }}
-          >
-            {renderItem(item, vi.index)}
-          </li>
+          <VirtualTrackItem key={key} start={vi.start} index={vi.index}>
+            {renderTrackChild(isSlot, trailingSlot, item, vi.index, renderItem)}
+          </VirtualTrackItem>
         );
       })}
     </ul>
+  );
+}
+
+/** Picks the trailing slot, the item, or nothing for one virtual index. */
+function renderTrackChild<T>(
+  isSlot: boolean,
+  trailingSlot: ReactNode,
+  item: T | undefined,
+  index: number,
+  renderItem: (item: T, index: number) => ReactNode,
+): ReactNode {
+  if (isSlot) return trailingSlot;
+  if (item === undefined) return null;
+  return renderItem(item, index);
+}
+
+/** One absolutely-positioned card slot in the virtualized horizontal track. */
+function VirtualTrackItem({
+  start,
+  index,
+  children,
+}: {
+  start: number;
+  index: number;
+  children: ReactNode;
+}) {
+  return (
+    <li
+      // No `ref={virtualizer.measureElement}` — keeps the virtualizer in fixed-size mode so `estimateItemWidth` drives positioning and the gap between cards is preserved.
+      data-slot="scroll-row-item"
+      data-index={index}
+      className="shrink-0 snap-start"
+      style={{
+        position: "absolute",
+        insetBlockStart: 0,
+        insetInlineStart: start,
+        width: "var(--card-w)",
+      }}
+    >
+      {children}
+    </li>
   );
 }
 
