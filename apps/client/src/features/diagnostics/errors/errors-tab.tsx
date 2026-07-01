@@ -19,6 +19,7 @@ export function ErrorsTab({ filters, onFiltersChange, selectedId, onSelect, onJu
   const [isPending, startTransition] = useTransition();
 
   // Wrap in transition so the Suspense subtree stays alive during filter refetch.
+  // Rapid filter changes queue as concurrent transitions — React coalesces them, so no debounce needed.
   const handleFiltersChange = useCallback(
     (next: ErrorsFilters) => {
       startTransition(() => {

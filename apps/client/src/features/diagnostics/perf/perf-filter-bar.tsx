@@ -48,11 +48,12 @@ function isDirty(filters: PerfFilters): boolean {
   );
 }
 
+// fallow-ignore-next-line complexity
 export function PerfFilterBar({ filters, onChange, isPending = false }: Props) {
   return (
     <div
-      aria-busy={isPending}
-      className={cn("flex flex-col gap-3 transition-opacity", isPending && "opacity-60")}
+      aria-busy={isPending || undefined}
+      className={cn("flex flex-col gap-3", isPending && "opacity-60 transition-opacity")}
     >
       <div className="flex flex-wrap items-center gap-2">
         <SegmentedToggle

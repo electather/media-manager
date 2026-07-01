@@ -52,11 +52,12 @@ function isDirty(filters: ErrorsFilters): boolean {
   );
 }
 
+// fallow-ignore-next-line complexity
 export function ErrorsFilterBar({ filters, onChange, isPending = false }: Props) {
   return (
     <div
-      aria-busy={isPending}
-      className={cn("flex flex-col gap-3 transition-opacity", isPending && "opacity-60")}
+      aria-busy={isPending || undefined}
+      className={cn("flex flex-col gap-3", isPending && "opacity-60 transition-opacity")}
     >
       <div className="flex flex-wrap items-center gap-4">
         <FilterLabel>{m.diagnostics_filter_label_severity()}</FilterLabel>
