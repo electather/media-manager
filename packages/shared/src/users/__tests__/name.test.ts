@@ -43,8 +43,9 @@ describe("truncateName", () => {
   // WHY: when the boundary index is a low surrogate the pair is already
   // complete inside the slice; back-off must NOT trigger.
   it("does not over-trim when the boundary index is a low surrogate", () => {
-    // EMOJI.repeat(NAME_MAX_LENGTH / 2) places exactly NAME_MAX_LENGTH units before the rest,
-    // so NAME_MAX_LENGTH-1 is a low surrogate (last unit of a complete pair) — no back-off expected.
+    // Requires NAME_MAX_LENGTH to be even so EMOJI.repeat(NAME_MAX_LENGTH / 2) fills exactly
+    // NAME_MAX_LENGTH units, making NAME_MAX_LENGTH-1 the low surrogate of the last pair.
+    expect(NAME_MAX_LENGTH % 2).toBe(0);
     const name = EMOJI.repeat(NAME_MAX_LENGTH / 2) + EMOJI.repeat(NAME_MAX_LENGTH);
     const result = truncateName(name);
     expect(result.length).toBe(NAME_MAX_LENGTH);
