@@ -47,7 +47,7 @@ describe("fetchSeasonAvailability", () => {
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
     apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
     await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
-      (e) => e instanceof MediaApiError && e.status === 503 && e.message.includes("503"),
+      (e) => e instanceof MediaApiError && e.status === 503 && e.code === undefined,
     );
   });
 
