@@ -73,6 +73,8 @@ describe("social sign-up name truncation hook", () => {
   it("truncates without leaving a lone surrogate at the boundary", async () => {
     const name = "a" + "\u{1F600}".repeat(NAME_MAX_LENGTH);
     const result = await createHook!(makeUser({ name }));
+    // "a" + emoji pairs shift every pair so index NAME_MAX_LENGTH-1 is always a
+    // high surrogate; back-off yields exactly NAME_MAX_LENGTH - 1 units.
     expect(result?.data?.name?.length).toBe(NAME_MAX_LENGTH - 1);
     expect(result?.data?.name?.isWellFormed()).toBe(true);
   });
