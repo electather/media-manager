@@ -21,6 +21,8 @@ interface Row {
 interface PluginRow {
   id: string;
   manifest: string;
+  installedAt: number;
+  updatedAt: number;
 }
 
 const state: {
@@ -103,8 +105,29 @@ vi.mock("../../crypto/helpers", () => ({
 
 const { sharedCredentialsService } = await import("../internal/shared-credentials");
 
-function installPlugin(pluginId: string, poolable: boolean) {
-  state.plugins = [{ id: pluginId, manifest: JSON.stringify({ poolable }) }];
+function installPlugin(pluginId: string, poolable: boolean, extras?: Record<string, unknown>) {
+  state.plugins = [
+    {
+      id: pluginId,
+      manifest: JSON.stringify({ poolable, ...extras }),
+      installedAt: 1000,
+      updatedAt: 2000,
+    },
+  ];
+}
+
+const SHARED_SCHEMA = {
+  type: "object",
+  properties: { apiKey: { type: "string" } },
+  required: ["apiKey"],
+};
+
+/** Installs a plugin that ships a bundled default credential. */
+function installWithBundled(pluginId: string, poolable: boolean, key = "BUNDLED_KEY") {
+  installPlugin(pluginId, poolable, {
+    sharedCredentialsSchema: SHARED_SCHEMA,
+    defaultSharedCredentials: { apiKey: key },
+  });
 }
 
 beforeEach(() => {
@@ -208,5 +231,109 @@ describe("sharedCredentialsService", () => {
     });
     const list = await sharedCredentialsService.list("tmdb");
     expect(list[0]?.retryAfter).toBeGreaterThan(Math.floor(Date.now() / 1000));
+  });
+
+  // ─── Bundled default shared credential (design 2026-06-29) ───
+
+  it("appends the bundled default last in listDecryptedActive on an empty pool", async () => {
+    // WHY: an empty pool must still yield a pick so buildCredentialPlan does not
+    // throw capability_unavailable before the handler runs.
+    installWithBundled("tmdb", true);
+    const picks = await sharedCredentialsService.listDecryptedActive("tmdb");
+    expect(picks).toHaveLength(1);
+    expect(picks[0]?.id).toBe("__bundled__");
+    expect(picks[0]?.value).toEqual({ apiKey: "BUNDLED_KEY" });
+  });
+
+  it("orders real entries before the bundled default", async () => {
+    // WHY: an admin key must override the bundled fallback.
+    installWithBundled("tmdb", true);
+    await sharedCredentialsService.add({ pluginId: "tmdb", label: "Mine", value: { apiKey: "x" } });
+    const picks = await sharedCredentialsService.listDecryptedActive("tmdb");
+    expect(picks).toHaveLength(2);
+    expect(picks[0]?.id).not.toBe("__bundled__");
+    expect(picks.at(-1)?.id).toBe("__bundled__");
+  });
+
+  it("counts the bundled default as enabled on an empty pool", async () => {
+    // WHY: countEnabled drives tmdbConfigured — bundled key makes onboarding optional.
+    installWithBundled("tmdb", true);
+    expect(await sharedCredentialsService.countEnabled("tmdb")).toBeGreaterThanOrEqual(1);
+  });
+
+  it("surfaces the bundled default as a read-only summary", async () => {
+    installWithBundled("tmdb", true);
+    const list = await sharedCredentialsService.list("tmdb");
+    const bundled = list.find((e) => e.id === "__bundled__");
+    expect(bundled).toMatchObject({
+      label: "Bundled (default)",
+      enabled: true,
+      bundled: true,
+      createdAt: 1000,
+      updatedAt: 2000,
+    });
+  });
+
+  it("rejects mutating the bundled default through by-id methods", async () => {
+    // WHY: the bundled entry is immutable; its decrypted value is never fetched
+    // via the by-id path, so surface bundled_readonly, not shared_credential_not_found.
+    installWithBundled("tmdb", true);
+    await expect(
+      sharedCredentialsService.update({
+        pluginId: "tmdb",
+        credentialId: "__bundled__",
+        enabled: false,
+      }),
+    ).rejects.toMatchObject({ code: "plugin.bundled_readonly" });
+    await expect(
+      sharedCredentialsService.delete({ pluginId: "tmdb", credentialId: "__bundled__" }),
+    ).rejects.toMatchObject({ code: "plugin.bundled_readonly" });
+    await expect(
+      sharedCredentialsService.getDecrypted({ pluginId: "tmdb", credentialId: "__bundled__" }),
+    ).rejects.toMatchObject({ code: "plugin.bundled_readonly" });
+  });
+
+  it("reserves the bundled label case-insensitively against add", async () => {
+    // WHY: an admin must not shadow the bundled entry with a same-label key.
+    installWithBundled("tmdb", true);
+    await expect(
+      sharedCredentialsService.add({
+        pluginId: "tmdb",
+        label: "Bundled (default)",
+        value: { apiKey: "x" },
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
+    await expect(
+      sharedCredentialsService.add({
+        pluginId: "tmdb",
+        label: "Bundled (Default)",
+        value: { apiKey: "x" },
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
+  });
+
+  it("allows a real key on a non-poolable plugin that ships a bundled default", async () => {
+    // WHY: the synthetic entry must not consume the single non-poolable slot, or
+    // the admin could never override the bundled key.
+    installWithBundled("jellyfin", false);
+    await expect(
+      sharedCredentialsService.add({ pluginId: "jellyfin", label: "Mine", value: { apiKey: "x" } }),
+    ).resolves.toBeDefined();
+  });
+
+  it("treats markExhausted on the bundled default as a no-op", async () => {
+    // WHY: there is no DB row to persist; the public key is simply retried.
+    installWithBundled("tmdb", true);
+    await expect(
+      sharedCredentialsService.markExhausted({ pluginId: "tmdb", credentialId: "__bundled__" }),
+    ).resolves.toBeUndefined();
+    expect(state.entries).toHaveLength(0);
+  });
+
+  it("synthesizes nothing for a plugin without a bundled default", async () => {
+    // WHY: opt-in mechanism must not regress plugins that don't declare the field.
+    installPlugin("tmdb", true);
+    expect(await sharedCredentialsService.list("tmdb")).toHaveLength(0);
+    expect(await sharedCredentialsService.listDecryptedActive("tmdb")).toHaveLength(0);
   });
 });

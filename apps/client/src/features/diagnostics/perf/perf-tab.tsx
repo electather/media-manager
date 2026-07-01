@@ -1,4 +1,4 @@
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useCallback, useState, useTransition } from "react";
 import { m } from "@/paraglide/messages";
 import { DiagnosticsErrorBoundary } from "../shared/error-boundary";
 import { diagnosticsKeys } from "../shared/query-keys";
@@ -27,19 +27,22 @@ export function PerfTab({
 }: Props) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<PerfAggregateGroup | null>(null);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   // Wrap in transition so the Suspense subtree stays alive during filter refetch.
-  const handleFiltersChange = (next: PerfFilters) => {
-    startTransition(() => {
-      onFiltersChange(next);
-    });
-  };
+  const handleFiltersChange = useCallback(
+    (next: PerfFilters) => {
+      startTransition(() => {
+        onFiltersChange(next);
+      });
+    },
+    [onFiltersChange],
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <PerfStatsCards />
-      <PerfFilterBar filters={filters} onChange={handleFiltersChange} />
+      <PerfFilterBar filters={filters} onChange={handleFiltersChange} isPending={isPending} />
       <DiagnosticsErrorBoundary
         title={m.diagnostics_perf_load_failed_title()}
         body={m.diagnostics_perf_load_failed_body()}
