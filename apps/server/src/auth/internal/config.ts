@@ -1,5 +1,6 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { customSession, jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { loadUserPermissions } from "../repo";
@@ -11,6 +12,7 @@ import * as schema from "../../db/schema/index";
 import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
 import { createEmailChangeHooks } from "./email-change-hooks";
+import { enforcePasswordPolicy } from "./password-policy-hook";
 
 // Strip any trailing slashes from the configured base URL so we can derive
 // both audience forms (with and without trailing slash) from one source. The
@@ -46,6 +48,12 @@ const options = {
   // but `requirePermission` still hits the DB so elevated operations can't ride a stale cache.
   session: {
     cookieCache: { enabled: true, maxAge: 5 * 60 },
+  },
+  // Better Auth's changePassword endpoint never runs `passwordSchema` on the new password, so a
+  // crafted authClient.changePassword call could bypass the client-side policy (#879). Re-validate
+  // server-side in the request before-hook; see ./password-policy-hook.ts.
+  hooks: {
+    before: createAuthMiddleware(enforcePasswordPolicy),
   },
   emailAndPassword: {
     enabled: true,
