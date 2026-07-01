@@ -16,7 +16,10 @@ export const env = createEnv({
     BETTER_AUTH_SECRET: z.string().min(1),
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
-    ENCRYPTION_KEY: z.string().min(1),
+    // Must be exactly 64 hex chars (32 bytes = AES-256). A shorter/malformed key is silently coerced to all-zero bytes by importKey's parseInt fallback — immediate data confidentiality loss.
+    ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY must be 64 hex characters (256-bit AES key)"),
     // Public-facing URL (scheme + host + port/path). Plugins use it to build OAuth redirects and deep links. Trailing slash is stripped so plugins can safely append paths.
     // Requires http(s); startup fails fast if missing or malformed.
     APP_EXTERNAL_URL: z

@@ -4,7 +4,10 @@ const ALGO = "AES-GCM";
 const KEY_USAGES: KeyUsage[] = ["encrypt", "decrypt"];
 
 async function importKey(hexKey: string): Promise<CryptoKey> {
-  const raw = Uint8Array.from(hexKey.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) ?? []);
+  // Defense-in-depth: env.ts regex is the primary gate; this stops misuse from non-env call sites.
+  if (!/^[0-9a-fA-F]{64}$/.test(hexKey))
+    throw new Error("ENCRYPTION_KEY must be 64 hex characters (256-bit)");
+  const raw = Uint8Array.from(hexKey.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
   return crypto.subtle.importKey("raw", raw, { name: ALGO }, false, KEY_USAGES);
 }
 
