@@ -28,21 +28,22 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-beforeEach(() => {
-  apiMock.availabilityGet.mockReset();
-});
-
 describe("fetchSeasonAvailability", () => {
+  beforeEach(() => {
+    apiMock.availabilityGet.mockReset();
+  });
+
   it("throws MediaApiError with the parsed code on a 4xx response", async () => {
     // Ensures the ErrorBoundary's retry-copy keying off `err.code` (V.CL1)
     // receives a typed error rather than a raw fetch rejection.
     apiMock.availabilityGet.mockResolvedValueOnce(
       jsonResponse({ code: "media.not_found", message: "title not found" }, 404),
     );
-    const err = (await fetchSeasonAvailability("12345", new AbortController().signal).catch(
-      (e) => e,
-    )) as MediaApiError;
+    const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e: unknown) => e,
+    );
     expect(err).toBeInstanceOf(MediaApiError);
+    if (!(err instanceof MediaApiError)) throw err;
     expect(err.status).toBe(404);
     expect(err.code).toBe("media.not_found");
     expect(err.message).toBe("title not found");
@@ -55,10 +56,11 @@ describe("fetchSeasonAvailability", () => {
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
     apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
-    const err = (await fetchSeasonAvailability("12345", new AbortController().signal).catch(
-      (e) => e,
-    )) as MediaApiError;
+    const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e: unknown) => e,
+    );
     expect(err).toBeInstanceOf(MediaApiError);
+    if (!(err instanceof MediaApiError)) throw err;
     expect(err.status).toBe(503);
     expect(err.message).toContain("503");
     // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
