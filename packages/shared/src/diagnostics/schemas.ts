@@ -14,8 +14,7 @@ export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
 /** Request-id filter for admin viewer query strings. Applies {@link REQUEST_ID_PATTERN}
  *  to prevent unbounded strings in `eq(records.requestId, …)` filter. `.min(1)`/`.max(64)`
- *  before regex give actionable length errors and keep the empty-string guard load-bearing
- *  even if the pattern quantifier is ever relaxed to `*` (#741). */
+ *  before regex give actionable errors; explicit guard survives a future `*` relaxation (#741). */
 const requestIdQuerySchema = z.string().min(1).max(64).regex(REQUEST_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
