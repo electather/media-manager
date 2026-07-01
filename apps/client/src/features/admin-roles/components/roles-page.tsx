@@ -28,9 +28,12 @@ export function RolesPage({ selectedRoleId, onSelectRole }: Props) {
     const map = new Map<string, RoleMember[]>();
     for (const u of usersQuery.data.users) {
       if (!u.role) continue;
-      const list = map.get(u.role.id) ?? [];
+      let list = map.get(u.role.id);
+      if (!list) {
+        list = [];
+        map.set(u.role.id, list);
+      }
       list.push({ id: u.id, name: u.name, email: u.email });
-      map.set(u.role.id, list);
     }
     return map;
   }, [usersQuery.data.users]);
