@@ -22,6 +22,7 @@ import * as watchlist from "./watchlist";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
+import { newRequestId } from "./diagnostics/request-context";
 
 async function bootstrap(): Promise<void> {
   getDb();
@@ -42,6 +43,38 @@ async function bootstrap(): Promise<void> {
   artwork.registerJobs();
   auth.registerJobs();
   catalog.registerJobs();
+
+  // Seed today's discover snapshot synchronously at startup so the home feed
+  // has data on first boot (or after a restart before the 6 AM cron fires).
+  // The "newReleases" tuple is the sentinel — if it exists the full set was
+  // already written by a prior run or the cron, so we skip.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const todayBucket = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+  const catalogService = catalog.getCatalogService();
+  const snapshotExists = await catalogService.hasDiscoverFeed(
+    "newReleases",
+    "popularity_desc",
+    todayBucket,
+  );
+  if (!snapshotExists) {
+    consola.info("[catalog:discover-snapshot] seeding today's snapshot at bootstrap");
+    const aborter = new AbortController();
+    await catalog
+      .runCatalogDiscoverSnapshot(
+        { catalog: catalogService },
+        {
+          runId: "bootstrap",
+          triggeredBy: "cron",
+          requestId: newRequestId(),
+          logger: consola,
+          abortSignal: aborter.signal,
+        },
+      )
+      .catch((err) => {
+        consola.warn("[catalog:discover-snapshot] bootstrap seed failed (non-fatal)", err);
+      });
+  }
+
   home.registerJobs();
   library.registerJobs();
   media.registerJobs();
