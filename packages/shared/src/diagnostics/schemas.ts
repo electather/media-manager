@@ -27,8 +27,9 @@ const pluginIdQuerySchema = z.string().max(64).regex(PLUGIN_ID_PATTERN).optional
 /** Route filter for admin viewer query strings. Bounds the value fed into
  *  `eq(perfRecords.route, …)` (#840). Routes carry path/query punctuation, so a
  *  charset regex would risk false rejections; a length cap alone closes the
- *  unbounded-input risk. 500 chars matches `errorReportSchema.route`. */
-const routeQuerySchema = z.string().max(500).optional();
+ *  unbounded-input risk. 500 chars matches `errorReportSchema.route`. `.min(1)`
+ *  rejects `?route=` so it matches `pluginIdQuerySchema`'s no-empty behavior. */
+const routeQuerySchema = z.string().min(1).max(500).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string

@@ -129,6 +129,11 @@ describe("diagnostics schemas — perfListQuerySchema route filter", () => {
   it("rejects a route over the 500-char cap", () => {
     expect(perfListQuerySchema.safeParse({ route: "x".repeat(501) }).success).toBe(false);
   });
+
+  it("rejects an empty route filter", () => {
+    // {min:1} rejects ""; documents that intent so a future removal would fail the test.
+    expect(perfListQuerySchema.safeParse({ route: "" }).success).toBe(false);
+  });
 });
 
 describe("diagnostics schemas — errorListQuerySchema search filter", () => {
