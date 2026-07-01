@@ -13,9 +13,6 @@ export default definePlugin({
   manifest: {
     id: "tmdb",
     name: "The Movie Database",
-    // 2.2.0: bumped so upgraded installs refresh the persisted manifest and
-    // pick up `defaultSharedCredentials`. Checksum is sha256(builtin:id@version),
-    // so a manifest field change without a version bump is never re-persisted.
     version: "2.2.0",
     description:
       "Metadata and id-resolution provider powered by TMDB (themoviedb.org). Admin configures one or more API keys; the host rotates across them on rate-limit.",
