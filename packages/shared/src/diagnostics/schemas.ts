@@ -13,9 +13,9 @@ export const perfKindSchema = z.enum(PERF_KINDS);
 export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
 /** Request-id filter for admin viewer query strings. Applies {@link REQUEST_ID_PATTERN}
- *  to prevent unbounded strings in `eq(records.requestId, …)` filter. `.max(64)` before
- *  regex yields actionable length error, not silent quantifier fail on oversized input. */
-const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
+ *  to prevent unbounded strings in `eq(records.requestId, …)` filter. `.min(1)`/`.max(64)`
+ *  before regex give actionable errors; explicit guard survives a future `*` relaxation (#741). */
+const requestIdQuerySchema = z.string().min(1).max(64).regex(REQUEST_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string
