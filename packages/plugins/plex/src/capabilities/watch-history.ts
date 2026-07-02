@@ -17,7 +17,7 @@ export const watchHistory = {
     // runtime not via userConfigSchema.required so pre-#929 connections fail
     // loud here instead of bricking at config validation; diverges from
     // getSessions' fallback because leaking history is worse than sessions.
-    if (!cfg.plexAccountId)
+    if (!cfg.plexAccountId?.trim())
       throw pluginError(
         "plugin.bad_credentials",
         "Re-authenticate your Plex connection to restore watch history sync (plexAccountId not resolved at setup)",
