@@ -59,8 +59,9 @@ describe("activityApp auth guard", () => {
 
   it("admits authenticated requests past the guard", async () => {
     mockUserId = "user-1";
-    // /upcoming and /progress take no query params, so they pass validation.
-    for (const path of ["/upcoming", "/progress"]) {
+    // history/watchlist query schemas are all-optional, so an empty query
+    // string validates; every stub returns { items: [] } regardless of params.
+    for (const path of paths) {
       const res = await buildApp().request(`/activity${path}`);
       expect(res.status, `${path} should pass the guard`).toBe(200);
       expect(await res.json()).toEqual({ items: [] });
