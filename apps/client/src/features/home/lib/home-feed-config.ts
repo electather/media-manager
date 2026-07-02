@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
 import { MATCH_REASON_KEYS, type MatchReasonKey, type RowKind } from "@nama/shared/home";
-import type { RowData } from "./types";
+import type { RowAspect, RowData } from "./types";
 
 /**
  * Initial vertical-virtualization estimate per home row; `measureElement` refines
@@ -13,7 +13,7 @@ export function estimateHomeRowHeight(row: RowData): number {
 }
 
 /** Drives card image ratio for each row. Not present in the wire format. */
-export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
+export const ROW_ASPECT: Record<RowKind, RowAspect> = {
   continueWatching: "16/9",
   upcomingForYou: "16/9",
   recommendedForYou: "2/3",

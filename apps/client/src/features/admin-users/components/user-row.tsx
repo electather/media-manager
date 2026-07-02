@@ -32,7 +32,7 @@ export function UserRow({ user, isSelf, isFirst, onOpen }: Props) {
       type="button"
       onClick={() => onOpen(user.id)}
       className={cn(
-        "grid w-full grid-cols-[minmax(0,1fr)_110px_130px_24px] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40",
+        "grid w-full grid-cols-[minmax(0,1fr)_110px_130px_24px] items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/40",
         !isFirst && "border-t border-border",
       )}
     >

@@ -407,7 +407,7 @@ function LogViewerTerminal({
               >
                 {lineNumbers && (
                   <span
-                    className="shrink-0 select-none text-right text-muted-foreground/50"
+                    className="shrink-0 select-none text-end text-muted-foreground/50"
                     style={{ width: `${lineNumberWidth}ch` }}
                     aria-hidden="true"
                   >
@@ -419,7 +419,7 @@ function LogViewerTerminal({
                     {formatTimestampFull(entry.timestamp)}
                   </span>
                 )}
-                <span className={cn("w-[3ch] shrink-0 text-right font-semibold", colors.text)}>
+                <span className={cn("w-[3ch] shrink-0 text-end font-semibold", colors.text)}>
                   {LEVEL_LABELS[entry.level]}
                 </span>
                 <span className="min-w-0 flex-1 whitespace-pre-wrap break-all text-foreground/90">
@@ -776,7 +776,7 @@ function LogEntryRow({
             {formatTimestamp(entry.timestamp)}
           </span>
         )}
-        <span className={cn("w-[3ch] shrink-0 text-right font-semibold", colors.text)}>
+        <span className={cn("w-[3ch] shrink-0 text-end font-semibold", colors.text)}>
           {LEVEL_LABELS[entry.level]}
         </span>
         <span className="min-w-0 flex-1 whitespace-pre-wrap break-all text-foreground/90">

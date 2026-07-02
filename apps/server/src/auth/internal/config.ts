@@ -7,7 +7,7 @@ import { loadUserPermissions } from "../repo";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { MCP_SCOPES, NAME_MAX_LENGTH } from "@nama/shared/users";
+import { MCP_SCOPES, NAME_MAX_LENGTH, truncateName } from "@nama/shared/users";
 import * as schema from "../../db/schema/index";
 import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
@@ -110,7 +110,7 @@ const options = {
         // logging in.
         before: async (userData) => {
           if (typeof userData.name === "string" && userData.name.length > NAME_MAX_LENGTH) {
-            return { data: { ...userData, name: userData.name.slice(0, NAME_MAX_LENGTH) } };
+            return { data: { ...userData, name: truncateName(userData.name) } };
           }
           // Returning nothing tells Better Auth to proceed with the row
           // unchanged, avoiding a needless shallow clone on every social

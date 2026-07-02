@@ -1,5 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from "react";
-import * as m from "@/paraglide/messages";
+import { memo, useMemo, useRef } from "react";
 import {
   SectionHead,
   SectionHeadActions,
@@ -13,20 +12,18 @@ import {
   ScrollRow,
   ScrollRowNextButton,
   ScrollRowPrevButton,
-  ScrollRowSkeleton,
-  ScrollRowTrack,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
 import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
-import { Card } from "../card/index";
+import { useRangePrefetch } from "../../hooks/use-range-prefetch";
 import { homeRowSource } from "../../lib/sources";
-import { ROW_COPY } from "../../lib/home-feed-config";
-import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
+import { resolveRowCopy } from "../../lib/row-copy";
+import { rowStatus } from "../../lib/row-status";
+import type { HomeMediaItem, RowAspect, RowData } from "../../lib/types";
 import { RowError } from "./row-error";
+import { RowItemTrack, RowSkeletonTrack } from "./row-track";
 
-const SKELETON_COUNT = 5;
-const PREFETCH_OFFSET = 4;
 // Longer than the 60s default: home rows are server-warmed feeds that shift
 // slowly, so a 5-min window matches the layout cache and avoids refetching
 // every row when the feed is briefly remounted.
@@ -39,30 +36,20 @@ interface RowProps {
 }
 
 /**
- * Server-driven home-feed row. Composes the shared `ScrollRow` slots
- * around items read through the shared `useMediaRowsLazy(homeRowSource)`.
- * Range-based prefetch + error / skeleton states are owned here; layout
- * primitives live in `shared/components/scroll-row`.
+ * Single home-feed row: lazy infinite scroll. Status routing
+ * (`rowStatus`), copy resolution (`resolveRowCopy`), and range prefetch
+ * (`useRangePrefetch`) are each extracted to keep this component readable.
+ * Pagination errors surface through the shared `PaginationSlot` abstraction
+ * (#888) as a trailing slot rather than an error sentinel in the items array.
  */
-// fallow-ignore-next-line complexity
 function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
+
   const isBackdrop = row.defaultAspect === "16/9";
   const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
-  const aspect: "16/9" | "2/3" = isBackdrop ? "16/9" : "2/3";
+  const aspect: RowAspect = isBackdrop ? "16/9" : "2/3";
 
-  const copy = ROW_COPY[row.kind];
-  const headerKey: MessageKey = row.headerKey ?? copy.headerKey;
-  const headerFn = m[headerKey] as (params?: Record<string, string>) => string;
-  if (import.meta.env.DEV && typeof headerFn !== "function") {
-    throw new Error(`Row: unknown i18n key "${String(headerKey)}"`);
-  }
-  const heading = headerFn(row.seedTitle ? { seedTitle: row.seedTitle } : {});
-  const eyebrowKey: MessageKey | undefined = row.eyebrowKey ?? copy.eyebrowKey;
-  const eyebrowFn = eyebrowKey ? (m[eyebrowKey] as () => string) : null;
-  const eyebrow = eyebrowFn ? eyebrowFn() : undefined;
-  const prevLabel = m.home_row_prev_label({ row: heading });
-  const nextLabel = m.home_row_next_label({ row: heading });
+  const { heading, eyebrow, prevLabel, nextLabel } = resolveRowCopy(row);
 
   // Row stubs carry `sourceId` (= rowId) + `initialCursor`; each feeds a shared
   // `useMediaRowsLazy` source so the home feed reads through the one media list
@@ -83,9 +70,6 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     isRefetching,
   } = useMediaRowsLazy(source, { staleTime: ROW_STALE_MS });
 
-  const showInitialError = error !== null && items.length === 0;
-  const showSkeletons = !showInitialError && isLoading && items.length === 0;
-
   const slot = usePaginationSlot({
     itemCount: items.length,
     hasNextPage,
@@ -94,17 +78,16 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     fetchNextPage,
   });
 
-  const handleRange = useCallback(
-    // fallow-ignore-next-line complexity
-    ({ endIndex }: { startIndex: number; endIndex: number }) => {
-      if (items.length === 0) return;
-      if (!hasNextPage || isFetchingNextPage) return;
-      if (endIndex >= items.length - PREFETCH_OFFSET) void fetchNextPage();
-    },
-    [items.length, hasNextPage, isFetchingNextPage, fetchNextPage],
-  );
+  const status = rowStatus({ error, isLoading, itemCount: items.length });
 
-  if (showInitialError) {
+  const handleRange = useRangePrefetch({
+    itemCount: items.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
+
+  if (status === "initial-error" && error !== null) {
     return (
       <div
         ref={scopeRef}
@@ -117,14 +100,10 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     );
   }
 
-  // A row that resolved with no items renders nothing — no heading, no
-  // reserved track height. Covers both a transient source outage (the feed
-  // soft-degrades to an empty `partial` page rather than erroring) and a
-  // genuinely empty feed; an empty carousel communicates nothing useful
-  // either way. Guarded on `!isLoading` so the skeleton still shows on first
-  // load. `handleRange` already bails on an empty set, so there is no pending
-  // page to wait for here.
-  if (error === null && !isLoading && items.length === 0) {
+  // A resolved-but-empty row renders nothing — no heading, no reserved track
+  // height. Covers a soft-degraded source (empty `partial` page) and a
+  // genuinely empty feed alike; an empty carousel communicates nothing useful.
+  if (status === "empty") {
     return null;
   }
 
@@ -141,32 +120,20 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
         </SectionHeadActions>
       </SectionHead>
       <ScrollRowViewport data-testid="row-scroller-bleed" style={cardVars}>
-        {showSkeletons ? (
-          <ScrollRowTrack aria-label={heading} className="scroll-px-8 pb-3">
-            {Array.from({ length: SKELETON_COUNT }, (_, i) => (
-              <ScrollRowSkeleton key={`skeleton-${i}`} aspect={aspect} />
-            ))}
-          </ScrollRowTrack>
+        {status === "skeletons" ? (
+          <RowSkeletonTrack heading={heading} aspect={aspect} />
         ) : (
-          <ScrollRowTrack
-            virtualize
-            aria-label={heading}
-            className="scroll-px-8 pb-3"
+          <RowItemTrack
+            heading={heading}
             items={items}
-            getKey={(item) => item.id}
-            estimateItemWidth={isBackdrop ? 320 : 200}
-            onRangeChange={handleRange}
+            isBackdrop={isBackdrop}
+            rowKind={row.kind}
             trailingSlot={
               slot.state === "none" ? undefined : <PaginationSlot slot={slot} variant="card" />
             }
-            renderItem={(item) => (
-              <Card
-                item={item}
-                rowKind={row.kind}
-                onWatchlistToggle={onWatchlistToggle}
-                onClick={onCardClick}
-              />
-            )}
+            onRangeChange={handleRange}
+            onWatchlistToggle={onWatchlistToggle}
+            onCardClick={onCardClick}
           />
         )}
       </ScrollRowViewport>

@@ -542,7 +542,7 @@ function AddChannelDialog({
                 disabled={already}
                 onClick={() => !already && onPick(p)}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left text-sm transition-colors",
+                  "flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-start text-sm transition-colors",
                   already ? "opacity-60" : "hover:border-input hover:bg-muted/40",
                 )}
               >

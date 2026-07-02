@@ -12,12 +12,12 @@ interface AllItemsProps {
   mood?: MoodId;
 }
 
-// fallow-ignore-next-line complexity
 export function AllItems({ sort, bucket, mood }: AllItemsProps) {
-  const args: { sort: WatchlistSort; bucket?: WatchlistBucket; mood?: MoodId } = { sort };
-  if (bucket) args.bucket = bucket;
-  if (mood) args.mood = mood;
-  const { items, hasNextPage, isFetchingNextPage, fetchNextPage, error } = useAllItems(args);
+  const { items, hasNextPage, isFetchingNextPage, fetchNextPage, error } = useAllItems({
+    sort,
+    bucket,
+    mood,
+  });
   const onPeek = useWatchlistPeek();
   // `error == null` stops the auto-load re-firing after an append failure,
   // which would clobber the retry slot with a fresh fetch every render (#888).

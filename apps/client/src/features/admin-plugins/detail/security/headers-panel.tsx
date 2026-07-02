@@ -54,7 +54,7 @@ export function HeadersPanel({ plugin }: HeadersPanelProps) {
                 <tr key={name} className="border-t border-border first:border-t-0">
                   <td className="px-3 py-2 font-mono">{name}</td>
                   <td className="px-3 py-2 text-muted-foreground">••••</td>
-                  <td className="py-1.5 pr-2 text-right">
+                  <td className="py-1.5 pe-2 text-end">
                     <Button
                       size="sm"
                       variant="ghost"

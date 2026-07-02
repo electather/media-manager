@@ -22,9 +22,17 @@
   "admin_plugins_overview_stat_shared_keys": "Shared keys",
   "admin_plugins_overview_stat_capabilities": "Capabilities",
   "admin_plugins_overview_stat_scope": "Scope",
-  "admin_plugins_overview_scope_user": "User-scoped",
-  "admin_plugins_overview_scope_global": "Metadata-only",
-  "admin_plugins_overview_scope_mixed": "Mixed",
+  "admin_plugins_overview_scope": [
+    {
+      "declarations": ["input purity"],
+      "selectors": ["purity"],
+      "match": {
+        "purity=user": "User-scoped",
+        "purity=global": "Metadata-only",
+        "purity=mixed": "Mixed"
+      }
+    }
+  ],
   "admin_plugins_overview_caps_title": "Capabilities",
   "admin_plugins_overview_caps_description": "What this plugin can do. Global capabilities work without any connection. User capabilities require each user to connect their own account.",
   "admin_plugins_overview_caps_global": "Global",
@@ -32,12 +40,28 @@
   "admin_plugins_overview_fallback_title": "Personal-key fallback policy",
   "admin_plugins_overview_fallback_description": "When a user's request needs a {name} call, which credentials does the server try?",
   "admin_plugins_overview_fallback_aria": "Personal-key fallback policy",
-  "admin_plugins_overview_policy_off_label": "Off",
-  "admin_plugins_overview_policy_off_desc": "Admin and user keys stay separate. User-scoped calls use the user's own keys only.",
-  "admin_plugins_overview_policy_admin_first_label": "Admin first",
-  "admin_plugins_overview_policy_admin_first_desc": "Try shared credentials first; fall back to the user's personal connection when exhausted.",
-  "admin_plugins_overview_policy_personal_first_label": "Personal first",
-  "admin_plugins_overview_policy_personal_first_desc": "Try the user's connection first; fall back to shared credentials if it fails or is missing.",
+  "admin_plugins_overview_policy_label": [
+    {
+      "declarations": ["input policy"],
+      "selectors": ["policy"],
+      "match": {
+        "policy=off": "Off",
+        "policy=admin-first": "Admin first",
+        "policy=personal-first": "Personal first"
+      }
+    }
+  ],
+  "admin_plugins_overview_policy_desc": [
+    {
+      "declarations": ["input policy"],
+      "selectors": ["policy"],
+      "match": {
+        "policy=off": "Admin and user keys stay separate. User-scoped calls use the user's own keys only.",
+        "policy=admin-first": "Try shared credentials first; fall back to the user's personal connection when exhausted.",
+        "policy=personal-first": "Try the user's connection first; fall back to shared credentials if it fails or is missing."
+      }
+    }
+  ],
   "admin_plugins_overview_identity_title": "Identity",
   "admin_plugins_overview_identity_id": "Plugin ID",
   "admin_plugins_overview_identity_vendor": "Vendor",

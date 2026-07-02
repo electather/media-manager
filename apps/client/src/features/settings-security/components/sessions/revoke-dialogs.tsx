@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { parseUserAgent } from "@/shared/lib/user-agent";
+import { useParsedUserAgent } from "@/shared/hooks/use-parsed-user-agent";
 import { m } from "@/paraglide/messages";
 
 import type { DisplaySession } from "../../lib/types";
@@ -21,6 +21,7 @@ export function RevokeSessionDialog({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const ua = useParsedUserAgent(session?.userAgent ?? null);
   return (
     <Dialog
       open={!!session}
@@ -32,11 +33,7 @@ export function RevokeSessionDialog({
         <DialogHeader>
           <DialogTitle>{m.settings_security_revoke_dialog_title()}</DialogTitle>
           <DialogDescription>
-            {session
-              ? m.settings_security_revoke_dialog_body({
-                  device: parseUserAgent(session.userAgent ?? null).label,
-                })
-              : null}
+            {session ? m.settings_security_revoke_dialog_body({ device: ua.label }) : null}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
