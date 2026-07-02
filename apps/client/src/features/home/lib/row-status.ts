@@ -7,7 +7,7 @@ export type RowStatus = "initial-error" | "skeletons" | "empty" | "ready";
  * fallback; otherwise an empty first load shows skeletons; a resolved-but-empty
  * row collapses to nothing (a soft-degraded source leaves no blank gap). A
  * pagination error *after* items loaded stays `ready` — that case is the
- * trailing error sentinel, handled separately by `buildTrackEntries`.
+ * pagination error after items loaded stays `ready` — the trailing `PaginationSlot` handles it (#888).
  */
 // fallow-ignore-next-line complexity
 export function rowStatus(s: {

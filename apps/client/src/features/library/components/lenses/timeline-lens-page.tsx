@@ -12,13 +12,14 @@ export function TimelineLensPage() {
   return (
     <LensPage
       lens="timeline"
-      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage }) => (
+      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage, error }) => (
         <TimelineLens
           decades={decades}
           entries={entries}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
+          error={error}
         />
       )}
     />
