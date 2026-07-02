@@ -130,6 +130,8 @@ export function registerScheduledPerRow<TRow>(
     // AbortController signals the handler to stop; without abort the handler runs
     // past the timeout concurrently with the next row (#910).
     const controller = new AbortController();
+    // ponytail: AbortSignal.any merges run-level cancel with per-row timeout cancel
+    const rowSignal = AbortSignal.any([ctx.abortSignal, controller.signal]);
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(() => {
@@ -138,7 +140,7 @@ export function registerScheduledPerRow<TRow>(
       }, timeoutSec * 1000);
     });
     try {
-      await Promise.race([opts.handler(ctx, row, controller.signal), timeout]);
+      await Promise.race([opts.handler(ctx, row, rowSignal), timeout]);
     } finally {
       controller.abort();
       if (timeoutHandle) clearTimeout(timeoutHandle);
