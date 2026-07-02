@@ -184,6 +184,14 @@ describe("AuthService.requireSession", () => {
     expect(c.set).toHaveBeenCalledWith("session", session);
     expect(mockNext).toHaveBeenCalledOnce();
   });
+
+  it("bypasses the cookie cache so a revoked session is enforced next request (#926)", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "u1" } } as never);
+    await service.requireSession(makeContext() as never, mockNext);
+    expect(mockGetSession).toHaveBeenCalledWith(
+      expect.objectContaining({ query: { disableCookieCache: true } }),
+    );
+  });
 });
 
 describe("AuthService.requirePermission", () => {
