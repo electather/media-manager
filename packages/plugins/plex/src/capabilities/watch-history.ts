@@ -12,7 +12,10 @@ export const watchHistory = {
     // the literal `>` character in the key (`?viewedAt>=<unix_ts>`), so
     // routing it through URLSearchParams silently drops the filter on
     // some PMS builds and returns every row regardless of `since`.
-    const accountQs = cfg.plexAccountId ? `accountID=${encodeURIComponent(cfg.plexAccountId)}` : "";
+    if (!cfg.plexAccountId) {
+      throw pluginError("plugin.bad_credentials", "Plex account ID missing — please reconnect");
+    }
+    const accountQs = `accountID=${encodeURIComponent(cfg.plexAccountId)}`;
     let sinceQs = "";
     if (since) {
       const t = Math.floor(new Date(since).getTime() / 1000);
