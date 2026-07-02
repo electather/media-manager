@@ -4,8 +4,10 @@ import {
   activityWatchlistQuerySchema as watchlistSchema,
 } from "@nama/shared/media";
 import { zValidator } from "../../diagnostics/validator";
+import { requireSession } from "../../auth";
 
 export const activityApp = new Hono()
+  .use("*", requireSession)
   .get("/history", zValidator("query", historySchema), async (c) => {
     // TODO: inject MediaService and call mediaService.getHistory(c.req.valid('query')).
     return c.json({ items: [] });
