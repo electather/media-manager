@@ -42,9 +42,10 @@ describe("password-policy hook", () => {
 
   // WHY: a request with no string newPassword is left to Better Auth's own body-schema validation
   // (which requires the field) — the hook must not throw the wrong error.
-  it("skips validation when newPassword is absent", async () => {
-    await expect(
-      enforcePasswordPolicy({ path: "/reset-password", body: {} }),
-    ).resolves.toBeUndefined();
-  });
+  it.each([["/change-password"], ["/reset-password"]])(
+    "skips validation when newPassword is absent on %s",
+    async (path) => {
+      await expect(enforcePasswordPolicy({ path, body: {} })).resolves.toBeUndefined();
+    },
+  );
 });
