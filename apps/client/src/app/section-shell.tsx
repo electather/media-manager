@@ -2,14 +2,14 @@ import { Link, Navigate, Outlet, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
+import type { Permission } from "@nama/shared/auth";
+import { CommandMenu } from "@/features/command-menu";
 import { Can } from "@/shared/components/can";
 import { useHasAnyPermission } from "@/shared/hooks/use-has-any-permission";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
-import type { Permission } from "@nama/shared/auth";
 import { BottomNav } from "./bottom-nav";
-import { CommandMenu } from "@/features/command-menu";
 import { TopNav } from "./top-nav";
 
 // When every item in a group is permission-gated and the user holds none of
