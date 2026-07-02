@@ -35,6 +35,12 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
 // SQLITE_VARIABLE_LIMIT: read ids, compute absent set, tombstone in chunks.
 // Three-path guard (empty/fast notInArray/slow chunked inArray) handles variable limit.
 // fallow-ignore-next-line complexity
+/**
+ * Slow path opens its own `db.transaction`, so `db` MUST be a top-level handle,
+ * never an active `tx` — libsql HTTP mode has no savepoints, so a nested
+ * `tx.transaction()` would throw. The sole caller (`service.syncMembership`)
+ * passes the default `getDb()`.
+ */
 export async function tombstoneMissing(
   userId: string,
   keepKeys: string[],
@@ -75,9 +81,9 @@ export async function tombstoneMissing(
   // Slow path: read-then-update. In-process writers are already serialized per
   // user by `syncMutex` (design §Sync, #911). The transaction adds cross-process
   // atomicity the mutex cannot: libsql opens transactions BEGIN IMMEDIATE (write
-  // lock from start), so the step-1 read and step-2 sweep commit atomically even
-  // against a second instance, closing the TOCTOU window without relying on the
-  // single-instance assumption.
+  // lock from start) in local-file and embedded-replica modes — the modes this
+  // stack runs — so the step-1 read and step-2 sweep commit atomically even
+  // against a second instance, without relying on the single-instance assumption.
   return db.transaction(async (tx) => {
     // Step 1: collect currently-owned ids.
     const ownedRows = await tx
