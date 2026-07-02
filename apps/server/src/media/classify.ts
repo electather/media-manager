@@ -33,7 +33,6 @@ export interface PreviewMeta {
   runtimeMinutes?: number | null;
 }
 
-/** Shared preview shape for `enrich` pre-pass and `classifyRows`; prevents caller drift on bucket derivation. */
 /**
  * Single source of truth for the requestEligible signal: no local copy, not already available,
  * and at least one request provider registered. Missing any check caused #903.
@@ -46,6 +45,7 @@ export function isRequestEligible(
   return servers.length === 0 && status !== "available" && requestProviderCount > 0;
 }
 
+/** Shared preview shape for `enrich` pre-pass and `classifyRows`; prevents caller drift on bucket derivation. */
 // fallow-ignore-next-line complexity
 export function previewForClassify(
   meta: PreviewMeta | undefined,
