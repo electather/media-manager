@@ -72,42 +72,47 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: read-then-update (not atomic). Safe only because caller holds
-  // per-user seed lock (library.sync sole writer, design §Sync). TOCTOU window:
-  // a row inserted-then-absent after step 1 escapes if a second writer runs.
-  // Step 1: collect currently-owned ids.
-  const ownedRows = await db
-    .select({ id: libraryItems.id })
-    .from(libraryItems)
-    .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)));
+  // Slow path: read-then-update. Wrapped in a transaction because the sole-writer
+  // invariant it once relied on is NOT enforced — library.sync (#911) calls
+  // syncMembership without the seed lock, so two overlapping runs can interleave.
+  // libsql opens transactions BEGIN IMMEDIATE (write lock held from start), so the
+  // step-1 read and step-2 updates are atomic: no concurrent upsertOwned/tombstone
+  // can slip a row past the computed absent set between the read and the sweep.
+  return db.transaction(async (tx) => {
+    // Step 1: collect currently-owned ids.
+    const ownedRows = await tx
+      .select({ id: libraryItems.id })
+      .from(libraryItems)
+      .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)));
 
-  const keepSet = new Set(keepKeys);
-  const toTombstone = ownedRows.map((row) => row.id).filter((id) => !keepSet.has(id));
+    const keepSet = new Set(keepKeys);
+    const toTombstone = ownedRows.map((row) => row.id).filter((id) => !keepSet.has(id));
 
-  if (toTombstone.length === 0) return 0;
+    if (toTombstone.length === 0) return 0;
 
-  // Step 2: tombstone the computed absent set in bounded UPDATE chunks using
-  // `inArray` so each UPDATE targets only the rows that should be tombstoned,
-  // with no risk of accidentally touching rows in the keep set.
-  let count = 0;
-  for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
-    const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
-    // Shares the UPDATE skeleton with the fast path above; see the note there.
-    // fallow-ignore-next-line code-duplication
-    const tombstoned = await db
-      .update(libraryItems)
-      .set({ owned: false, unownedAt: now })
-      .where(
-        and(
-          eq(libraryItems.userId, userId),
-          eq(libraryItems.owned, true),
-          inArray(libraryItems.id, slice),
-        ),
-      )
-      .returning({ id: libraryItems.id });
-    count += tombstoned.length;
-  }
-  return count;
+    // Step 2: tombstone the computed absent set in bounded UPDATE chunks using
+    // `inArray` so each UPDATE targets only the rows that should be tombstoned,
+    // with no risk of accidentally touching rows in the keep set.
+    let count = 0;
+    for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
+      const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
+      // Shares the UPDATE skeleton with the fast path above; see the note there.
+      // fallow-ignore-next-line code-duplication
+      const tombstoned = await tx
+        .update(libraryItems)
+        .set({ owned: false, unownedAt: now })
+        .where(
+          and(
+            eq(libraryItems.userId, userId),
+            eq(libraryItems.owned, true),
+            inArray(libraryItems.id, slice),
+          ),
+        )
+        .returning({ id: libraryItems.id });
+      count += tombstoned.length;
+    }
+    return count;
+  });
 }
 
 /**
