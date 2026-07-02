@@ -414,7 +414,7 @@ if (res.status === 401 || res.status === 403) {
 
 Delivery job inspects error:
 
-- `retryable: true` → next attempt with backoff `[60s, 5m, 30m, 2h, 12h]`, capped at 6 total attempts (1 initial + 5 retries — every entry in the schedule is reachable). `retryAfterMs` overrides next interval.
+- `retryable: true` → next attempt with backoff `[60s, 5m, 30m, 2h, 12h]`, capped at 6 total attempts (1 initial + 5 retries — every entry in the schedule is reachable). `retryAfterMs` overrides next interval, clamped to a 24 h ceiling so a buggy or malicious plugin cannot push `nextAttemptAt` arbitrarily far into the future (#905).
 - `retryable: false` → mark `failed` immediately.
 - Plain throw, no retryable flag → defensive default: retry once after the initial attempt, then give up (so 2 total attempts for an untagged failure).
 
