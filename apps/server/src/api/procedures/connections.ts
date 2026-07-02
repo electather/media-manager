@@ -13,7 +13,21 @@ import {
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../diagnostics/validator";
+import { makeRateLimitMiddleware } from "../rate-limit";
+import { TokenBucketLimiter } from "../../mcp/rate-limit";
 import { connectionsPrimaryApp } from "./connections-primary";
+
+// Each limiter is per-user (keyed by sessionUserId). Without per-user limiting, one user
+// can exhaust the shared per-plugin fetch quota used by verify/test/poll for all others.
+// verify-config and test trigger real plugin fetches; poll is a tight polling loop.
+const verifyConfigLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 10 / 60 });
+const testLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 10 / 60 });
+// poll runs on a short interval (typically 5s); 60-burst allows normal OAuth flows while blocking bulk hammering.
+const devicePollLimiter = new TokenBucketLimiter({ capacity: 60, refillPerSec: 1 });
+
+const verifyConfigRateLimit = makeRateLimitMiddleware({ limiter: verifyConfigLimiter });
+const testRateLimit = makeRateLimitMiddleware({ limiter: testLimiter });
+const devicePollRateLimit = makeRateLimitMiddleware({ limiter: devicePollLimiter });
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)
@@ -34,15 +48,20 @@ export const connectionsApp = new Hono()
     const config = await connectionsService.getUserConfig(sessionUserId(c), c.req.param("id"));
     return c.json({ config });
   })
-  .post("/verify-config", zValidator("json", verifyConfigSchema), async (c) => {
-    const body = c.req.valid("json");
-    const result = await connectionsService.verifyConfig({
-      userId: sessionUserId(c),
-      pluginId: body.pluginId,
-      userConfig: body.userConfig,
-    });
-    return c.json(result);
-  })
+  .post(
+    "/verify-config",
+    verifyConfigRateLimit,
+    zValidator("json", verifyConfigSchema),
+    async (c) => {
+      const body = c.req.valid("json");
+      const result = await connectionsService.verifyConfig({
+        userId: sessionUserId(c),
+        pluginId: body.pluginId,
+        userConfig: body.userConfig,
+      });
+      return c.json(result);
+    },
+  )
   .post("/", zValidator("json", createSchema), async (c) => {
     const body = c.req.valid("json");
     const result = await connectionsService.createFormConnection({
@@ -84,7 +103,7 @@ export const connectionsApp = new Hono()
     });
     return c.json({ ok: true });
   })
-  .post("/:id/test", async (c) => {
+  .post("/:id/test", testRateLimit, async (c) => {
     const result = await connectionsService.test({
       userId: sessionUserId(c),
       connectionId: c.req.param("id"),
@@ -121,10 +140,15 @@ export const connectionsApp = new Hono()
     });
     return c.json(result);
   })
-  .post("/oauth/device/poll", zValidator("json", devicePollSchema), async (c) => {
-    const result = await connectionsService.pollDeviceAuth({
-      userId: sessionUserId(c),
-      nonce: c.req.valid("json").nonce,
-    });
-    return c.json(result);
-  });
+  .post(
+    "/oauth/device/poll",
+    devicePollRateLimit,
+    zValidator("json", devicePollSchema),
+    async (c) => {
+      const result = await connectionsService.pollDeviceAuth({
+        userId: sessionUserId(c),
+        nonce: c.req.valid("json").nonce,
+      });
+      return c.json(result);
+    },
+  );
