@@ -82,6 +82,7 @@ describe("decideFailure: retry scheduling", () => {
   it("retryAfterMs above 24h is capped to 24h", () => {
     const beyond24h = 25 * 60 * 60_000;
     expect(pickRetryDelayMs(1, beyond24h)).toBe(24 * 60 * 60_000);
+    expect(pickRetryDelayMs(1, 24 * 60 * 60_000)).toBe(24 * 60 * 60_000); // exactly at cap
   });
 
   it("retryable: false → terminal failed regardless of attempt count", () => {

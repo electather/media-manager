@@ -8,7 +8,7 @@ export const BACKOFF_INTERVALS_MS: readonly number[] = [
 
 // Upper bound on plugin-supplied retryAfterMs — prevents a buggy or malicious
 // plugin from pushing nextAttemptAt arbitrarily far into the future.
-const MAX_PLUGIN_RETRY_AFTER_MS = 24 * 60 * 60_000; // 24 h
+const MAX_PLUGIN_RETRY_AFTER_MS = 24 * 60 * 60_000;
 
 /** Hard cap on attempts (initial + retries). Sized so every entry in
  *  `BACKOFF_INTERVALS_MS` can be used: 1 initial + 5 retries = 6 attempts. */
