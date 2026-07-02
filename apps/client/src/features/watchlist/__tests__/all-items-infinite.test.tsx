@@ -45,6 +45,7 @@ describe("AllItems virtual-window fetch (US-012, #519)", () => {
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<AllItems sort="recent" bucket="ready" />);
     await waitFor(() => expect(fetchNextPageMock).toHaveBeenCalled());
@@ -62,6 +63,7 @@ describe("AllItems virtual-window fetch (US-012, #519)", () => {
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<AllItems sort="recent" bucket="ready" />);
     // Let any pending effects flush, then assert the trigger stayed quiet.
@@ -78,6 +80,7 @@ describe("AllItems virtual-window fetch (US-012, #519)", () => {
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<AllItems sort="recent" bucket="ready" />);
     await waitFor(() =>
