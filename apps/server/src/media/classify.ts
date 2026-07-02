@@ -34,12 +34,25 @@ export interface PreviewMeta {
 }
 
 /** Shared preview shape for `enrich` pre-pass and `classifyRows`; prevents caller drift on bucket derivation. */
+/**
+ * Single source of truth for the requestEligible signal: no local copy, not already available,
+ * and at least one request provider registered. Missing any check caused #903.
+ */
+export function isRequestEligible(
+  servers: MatchingServer[],
+  status: CompactMediaItem["status"],
+  requestProviderCount: number,
+): boolean {
+  return servers.length === 0 && status !== "available" && requestProviderCount > 0;
+}
+
 // fallow-ignore-next-line complexity
 export function previewForClassify(
   meta: PreviewMeta | undefined,
   rawStatus: string | undefined,
   servers: MatchingServer[],
   progress?: ProgressEntry,
+  requestProviderCount = 0,
 ): Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress"> {
   const status: CompactMediaItem["status"] =
     servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as CompactMediaItem["status"]);
@@ -48,7 +61,7 @@ export function previewForClassify(
     status,
     availability: {
       hasAnyServerCopy: servers.length > 0,
-      requestEligible: servers.length === 0,
+      requestEligible: isRequestEligible(servers, status, requestProviderCount),
       servers: servers.map((s) => ({ id: s.id, label: s.label })),
     },
     ...(Object.keys(facets).length > 0 ? { facets } : {}),
