@@ -123,6 +123,11 @@ export const onboardingApp = new Hono()
   })
   .post("/complete", async (c) => {
     const userId = sessionUserId(c);
+    // Idempotency guard: already onboarded means the expensive discover-snapshot
+    // job was already warmed; re-running it has no benefit and wastes resources.
+    if (await isUserOnboarded(userId)) {
+      return c.json({ ok: true });
+    }
     const ctx = await buildOnboardingContext(userId);
     if (!requiredStepsSatisfied(resolveOnboardingSteps(ctx))) {
       throw badRequest("onboarding.requirements_unmet", "Complete the required steps first");
