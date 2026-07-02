@@ -13,15 +13,14 @@ export const watchHistory = {
     // routing it through URLSearchParams silently drops the filter on
     // some PMS builds and returns every row regardless of `since`.
     // plexAccountId is required — without it the query returns every account's
-    // history on the server, leaking other users' data (#929). Enforced here at
-    // runtime rather than via userConfigSchema.required so pre-#929 connections
-    // (cached before plexAccountId existed) fail loud on this call instead of
-    // bricking at config validation. Diverges deliberately from getSessions,
-    // which falls back to all sessions: leaking history is worse than sessions.
+    // history on the server, leaking other users' data (#929). Enforced at
+    // runtime not via userConfigSchema.required so pre-#929 connections fail
+    // loud here instead of bricking at config validation; diverges from
+    // getSessions' fallback because leaking history is worse than sessions.
     if (!cfg.plexAccountId)
       throw pluginError(
         "plugin.bad_credentials",
-        "plexAccountId is required to scope watch history to the authenticated user",
+        "Re-authenticate your Plex connection to restore watch history sync (plexAccountId not resolved at setup)",
       );
     const accountQs = `accountID=${encodeURIComponent(cfg.plexAccountId)}`;
     let sinceQs = "";
