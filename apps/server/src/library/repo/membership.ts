@@ -72,9 +72,10 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: read-then-update (not atomic). Safe only because caller holds
-  // per-user seed lock (library.sync sole writer, design §Sync). TOCTOU window:
-  // a row inserted-then-absent after step 1 escapes if a second writer runs.
+  // Slow path: read-then-update (not atomic). Safe only because every caller
+  // routes through `service.syncMembership`, serialized per-user by `syncMutex`
+  // (design §Sync). Without that lock the TOCTOU window is real: a row inserted-
+  // then-absent after step 1 would escape a concurrent second writer (#911).
   // Step 1: collect currently-owned ids.
   const ownedRows = await db
     .select({ id: libraryItems.id })
