@@ -105,7 +105,7 @@ export function PopoverRow({ item, density, intensity }: Props) {
 
         <ItemBody item={item} compact={compact} />
 
-        {item.image && !compact && (
+        {item.image && !compact && isSafeActionUrl(item.image.url) && (
           <div className="mt-1 aspect-video overflow-hidden rounded-lg border border-border bg-muted">
             <img
               src={item.image.url}

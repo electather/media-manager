@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 
 import { parseUserAgent, UNKNOWN_USER_AGENT, type ParsedUserAgent } from "@/shared/lib/user-agent";
 
-// Shown while the parser chunk loads. Keeps `unknown: false` so adjacent
-// metadata (e.g. IP address) isn't briefly hidden for a UA that will resolve
-// fine, and the ellipsis reads as "loading" rather than "Unknown device".
-const PENDING: ParsedUserAgent = { label: "…", browser: null, os: null, unknown: false };
+// Shown while the parser chunk loads. `unknown: true` suppresses IP while
+// parsing — UAs that resolve to unknown would otherwise flash the IP on
+// every render (#962). The ~100ms hide for parseable UAs on first load is
+// the lesser tradeoff.
+const PENDING: ParsedUserAgent = { label: "…", browser: null, os: null, unknown: true };
 
 /**
  * Parses a user-agent string, loading ua-parser-js on demand (see
