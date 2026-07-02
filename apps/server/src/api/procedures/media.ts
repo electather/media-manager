@@ -82,9 +82,8 @@ const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.st
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
 
-// Route-scoped limits for fixed-bucket watchlist routes (§A7). Mounted per-route
-// (not whole router) because title routes are unmetered and `/sources/:sourceId` picks its
-// bucket dynamically. Read/write split mirrors `limiterFor`.
+// Route-scoped limits for fixed-bucket routes (§A7). Mounted per-route (not whole router)
+// because `/sources/:sourceId` picks its bucket dynamically. Read/write split mirrors `limiterFor`.
 const readRateLimit = makeRateLimitMiddleware({ limiter: watchlistReadLimiter });
 const writeRateLimit = makeRateLimitMiddleware({ limiter: watchlistWriteLimiter });
 
@@ -183,20 +182,30 @@ export const mediaApp = new Hono()
   // Title resource (design §A2/§A6): media details + per-server availability.
   // Pure URL relocation of /home/details?mediaType=… (V.A1, RISK-203 — no composition logic
   // leaves home). Details carries seasons in MediaDetailsExtra, so no separate /seasons endpoint.
-  .get("/:type/:tmdbId/details", zValidator("param", titleParamSchema), async (c) => {
-    const userId = sessionUserId(c);
-    const { type, tmdbId } = c.req.valid("param");
-    const ctx = buildHomeContext(userId);
-    const details = await composeDetails(ctx, tmdbId, type);
-    return c.json(details);
-  })
-  .get("/:type/:tmdbId/availability", zValidator("param", titleParamSchema), async (c) => {
-    const userId = sessionUserId(c);
-    const { tmdbId } = c.req.valid("param");
-    const ctx = buildHomeContext(userId);
-    const availability = await composeSeasonAvailability(ctx, tmdbId);
-    return c.json(availability);
-  })
+  .get(
+    "/:type/:tmdbId/details",
+    zValidator("param", titleParamSchema),
+    readRateLimit,
+    async (c) => {
+      const userId = sessionUserId(c);
+      const { type, tmdbId } = c.req.valid("param");
+      const ctx = buildHomeContext(userId);
+      const details = await composeDetails(ctx, tmdbId, type);
+      return c.json(details);
+    },
+  )
+  .get(
+    "/:type/:tmdbId/availability",
+    zValidator("param", titleParamSchema),
+    readRateLimit,
+    async (c) => {
+      const userId = sessionUserId(c);
+      const { tmdbId } = c.req.valid("param");
+      const ctx = buildHomeContext(userId);
+      const availability = await composeSeasonAvailability(ctx, tmdbId);
+      return c.json(availability);
+    },
+  )
   // Watchlist mood summary (design §A6): URL relocation of /watchlist/moods.
   // One-line bridge; derivation/tally ownership unchanged (§G consolidation).
   // watchlistReadLimiter preserved per §A7 (same bucket, keys unchanged).
