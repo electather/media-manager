@@ -67,6 +67,18 @@ describe("social sign-up name truncation hook", () => {
     expect(result?.data?.emailVerified).toBe(true);
   });
 
+  // WHY: #830 — a provider name whose UTF-16 boundary lands inside a surrogate pair
+  // (e.g. a trailing emoji) must not be sliced into a lone surrogate. The hook backs
+  // off one unit so the persisted name stays well-formed instead of being cut mid-pair.
+  it("truncates without leaving a lone surrogate at the boundary", async () => {
+    const name = "a" + "\u{1F600}".repeat(NAME_MAX_LENGTH);
+    const result = await createHook!(makeUser({ name }));
+    // "a" + emoji pairs shift every pair so index NAME_MAX_LENGTH-1 is always a
+    // high surrogate; back-off yields exactly NAME_MAX_LENGTH - 1 units.
+    expect(result?.data?.name?.length).toBe(NAME_MAX_LENGTH - 1);
+    expect(result?.data?.name?.isWellFormed()).toBe(true);
+  });
+
   // WHY: some OAuth providers omit the display name, so the hook receives null/undefined.
   // The typeof guard skips truncation and returns nothing (Better Auth keeps the row unchanged).
   // Catches a regression if the guard is rewritten to call .length unconditionally.

@@ -49,6 +49,7 @@ const manifestShape = z.object({
   id: z
     .string()
     .min(1)
+    .max(64)
     .regex(/^[a-z0-9][a-z0-9-]*$/, "id must be lowercase alphanumeric with dashes"),
   name: z.string().min(1),
   version: semver,
