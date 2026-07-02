@@ -72,12 +72,12 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: read-then-update. Wrapped in a transaction because the sole-writer
-  // invariant it once relied on is NOT enforced — library.sync (#911) calls
-  // syncMembership without the seed lock, so two overlapping runs can interleave.
-  // libsql opens transactions BEGIN IMMEDIATE (write lock held from start), so the
-  // step-1 read and step-2 updates are atomic: no concurrent upsertOwned/tombstone
-  // can slip a row past the computed absent set between the read and the sweep.
+  // Slow path: read-then-update. In-process writers are already serialized per
+  // user by `syncMutex` (design §Sync, #911). The transaction adds cross-process
+  // atomicity the mutex cannot: libsql opens transactions BEGIN IMMEDIATE (write
+  // lock from start), so the step-1 read and step-2 sweep commit atomically even
+  // against a second instance, closing the TOCTOU window without relying on the
+  // single-instance assumption.
   return db.transaction(async (tx) => {
     // Step 1: collect currently-owned ids.
     const ownedRows = await tx

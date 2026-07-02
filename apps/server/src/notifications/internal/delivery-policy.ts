@@ -6,6 +6,10 @@ export const BACKOFF_INTERVALS_MS: readonly number[] = [
   60_000, 300_000, 1_800_000, 7_200_000, 43_200_000,
 ];
 
+// Upper bound on plugin-supplied retryAfterMs — prevents a buggy or malicious
+// plugin from pushing nextAttemptAt arbitrarily far into the future.
+const MAX_PLUGIN_RETRY_AFTER_MS = 24 * 60 * 60_000;
+
 /** Hard cap on attempts (initial + retries). Sized so every entry in
  *  `BACKOFF_INTERVALS_MS` can be used: 1 initial + 5 retries = 6 attempts. */
 export const MAX_ATTEMPTS = 6;
@@ -62,7 +66,8 @@ export function readFailureSignals(error: unknown): DeliveryFailureSignals {
 }
 
 export function pickRetryDelayMs(nextAttemptCount: number, retryAfterMs?: number): number {
-  if (typeof retryAfterMs === "number" && retryAfterMs >= 0) return retryAfterMs;
+  if (typeof retryAfterMs === "number" && retryAfterMs >= 0)
+    return Math.min(retryAfterMs, MAX_PLUGIN_RETRY_AFTER_MS);
   const idx = Math.min(Math.max(nextAttemptCount - 1, 0), BACKOFF_INTERVALS_MS.length - 1);
   return BACKOFF_INTERVALS_MS[idx]!;
 }
