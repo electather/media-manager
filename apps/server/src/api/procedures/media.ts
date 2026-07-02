@@ -45,6 +45,10 @@ export const watchlistWriteLimiter = new TokenBucketLimiter({ capacity: 30, refi
  *  runaway poll loops while allowing the ~9-read landing-page fan-out. */
 export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 10 / 60 });
 
+/** Per-user read limiter for title detail/availability routes. 20 burst; refill at 10/min.
+ *  Tighter than watchlist reads — each call fans out to TMDB, so exhaustion is shared-quota. */
+export const titleReadLimiter = new TokenBucketLimiter({ capacity: 20, refillPerSec: 10 / 60 });
+
 /** The one media source registry (design §A4). Composed adapter-side so media never imports
  *  concrete sources (V.RG1); keyed by sourceId (unknown ids → 404). */
 const REGISTRY: Record<string, AnyMediaSourceRegistration | undefined> = {
@@ -82,11 +86,11 @@ const sourceQuerySchema = z.record(z.string(), z.union([z.string(), z.array(z.st
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
 
-// Route-scoped limits for fixed-bucket watchlist routes (§A7). Mounted per-route
-// (not whole router) because title routes are unmetered and `/sources/:sourceId` picks its
-// bucket dynamically. Read/write split mirrors `limiterFor`.
+// Route-scoped limits for fixed-bucket routes (§A7). Mounted per-route
+// (not whole router) because `/sources/:sourceId` picks its bucket dynamically.
 const readRateLimit = makeRateLimitMiddleware({ limiter: watchlistReadLimiter });
 const writeRateLimit = makeRateLimitMiddleware({ limiter: watchlistWriteLimiter });
+const titleRateLimit = makeRateLimitMiddleware({ limiter: titleReadLimiter });
 
 // Per-request deadline for watchlist moods/writes bridges. Hardcoded to 5000 (not
 // REQUEST_DEADLINE_MS) for byte-identical relocation parity with old watchlist.ts §A6.
@@ -183,14 +187,14 @@ export const mediaApp = new Hono()
   // Title resource (design §A2/§A6): media details + per-server availability.
   // Pure URL relocation of /home/details?mediaType=… (V.A1, RISK-203 — no composition logic
   // leaves home). Details carries seasons in MediaDetailsExtra, so no separate /seasons endpoint.
-  .get("/:type/:tmdbId/details", zValidator("param", titleParamSchema), async (c) => {
+  .get("/:type/:tmdbId/details", zValidator("param", titleParamSchema), titleRateLimit, async (c) => {
     const userId = sessionUserId(c);
     const { type, tmdbId } = c.req.valid("param");
     const ctx = buildHomeContext(userId);
     const details = await composeDetails(ctx, tmdbId, type);
     return c.json(details);
   })
-  .get("/:type/:tmdbId/availability", zValidator("param", titleParamSchema), async (c) => {
+  .get("/:type/:tmdbId/availability", zValidator("param", titleParamSchema), titleRateLimit, async (c) => {
     const userId = sessionUserId(c);
     const { tmdbId } = c.req.valid("param");
     const ctx = buildHomeContext(userId);
