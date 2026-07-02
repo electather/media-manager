@@ -121,17 +121,18 @@ export async function setPerfRetentionDays(days: number): Promise<number> {
  *  deploy's maps can never be pruned. Returns the number of rows deleted. */
 async function pruneSourcemaps(): Promise<number> {
   const db = getDb();
-  // N most recently active distinct builds, newest map first.
-  const retained = await db
+  // Keep-set (N most recently active distinct builds) as a subquery so the whole
+  // prune is one atomic DELETE. A prior SELECT-then-DELETE was TOCTOU (#912): a
+  // build uploaded between the read and the delete was absent from keepIds and
+  // got wiped. Inline, the keep-set and delete share one statement snapshot.
+  // Fewer than N builds means every build is in the keep-set, so nothing is
+  // deleted — same behavior as the old length guard, no second read needed.
+  const keepIds = db
     .select({ buildId: sourcemaps.buildId })
     .from(sourcemaps)
     .groupBy(sourcemaps.buildId)
     .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
-    .limit(SOURCEMAP_RETAINED_BUILDS)
-    .all();
-  // Fewer builds than the window means nothing is outside it.
-  if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
-  const keepIds = retained.map((r) => r.buildId);
+    .limit(SOURCEMAP_RETAINED_BUILDS);
   const deleted = await db
     .delete(sourcemaps)
     .where(notInArray(sourcemaps.buildId, keepIds))
