@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+import { lookup } from "node:dns/promises";
 import { buildFetch } from "../internal/fetch-policy";
+
+vi.mock("node:dns/promises", () => ({ lookup: vi.fn() }));
+const lookupMock = vi.mocked(lookup);
+// Default: every non-literal host resolves to a public IP so the DNS-rebind
+// guard is a no-op for the allowlist tests below. The rebind suite overrides.
+// biome-ignore lint/suspicious/noExplicitAny: dns lookup overload union
+beforeEach(() => lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as any));
 import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../internal/allowed-hosts";
 import { registerSink, resetSinks } from "../../diagnostics/capture";
 import type { DiagnosticSink } from "../../diagnostics/types";
@@ -533,5 +541,63 @@ describe("isBlockedHostname", () => {
     expect(isBlockedHostname("api.trakt.tv")).toBe(false);
     expect(isBlockedHostname("plex.local")).toBe(false);
     expect(isBlockedHostname("my.plex.box")).toBe(false);
+  });
+});
+
+// The DNS-rebinding guard is the second half of the #915 fix: the pre-fetch
+// string blocklist only vets the literal hostname, so an allowlisted DNS name
+// that RESOLVES to loopback / link-local / IMDS must still be rejected at fetch
+// time. Without these a rebind attack turns any allowlisted host into an SSRF.
+describe("buildFetch — DNS-rebinding guard (resolve-and-validate)", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("ok")),
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("rejects an allowlisted host that resolves to a blocked address", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: dns lookup overload union
+    lookupMock.mockResolvedValue([{ address: "169.254.169.254", family: 4 }] as any);
+    const fetchSpy = vi.fn(async () => new Response("ok"));
+    vi.stubGlobal("fetch", fetchSpy);
+    const fetchFn = buildFetch("plug-rebind", ["evil.example.com"]);
+    await expect(fetchFn("https://evil.example.com/latest/meta-data/")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects when any one of several resolved addresses is blocked", async () => {
+    lookupMock.mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+      // biome-ignore lint/suspicious/noExplicitAny: dns lookup overload union
+    ] as any);
+    const fetchFn = buildFetch("plug-rebind-multi", ["*"]);
+    await expect(fetchFn("https://mixed.example.com/")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+  });
+
+  it("allows a host that resolves only to public addresses", async () => {
+    // biome-ignore lint/suspicious/noExplicitAny: dns lookup overload union
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as any);
+    const fetchFn = buildFetch("plug-public", ["api.trakt.tv"]);
+    await expect(fetchFn("https://api.trakt.tv/x")).resolves.toBeInstanceOf(Response);
+  });
+
+  it("skips the lookup for literal-IP hosts (already string-vetted)", async () => {
+    lookupMock.mockClear();
+    const fetchFn = buildFetch("plug-literal-ip", ["93.184.216.34"]);
+    await expect(fetchFn("https://93.184.216.34/x")).resolves.toBeInstanceOf(Response);
+    expect(lookupMock).not.toHaveBeenCalled();
+  });
+
+  it("proceeds when lookup fails — an unresolvable host is not an SSRF target", async () => {
+    lookupMock.mockRejectedValueOnce(new Error("ENOTFOUND"));
+    const fetchFn = buildFetch("plug-nxdomain", ["api.trakt.tv"]);
+    await expect(fetchFn("https://api.trakt.tv/x")).resolves.toBeInstanceOf(Response);
   });
 });

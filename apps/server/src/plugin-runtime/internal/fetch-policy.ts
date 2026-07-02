@@ -1,5 +1,7 @@
 // fallow-ignore-file complexity
 // 6 branches all required by V2/V3/V4: URL parse, manifest check, admin check, dynamic host, rate limit, admin headers; each = distinct security gate; split → indirection ⊥ clarity gain
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { consola } from "consola";
 import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
@@ -134,6 +136,33 @@ export function buildFetch(
 }
 
 /**
+ * DNS-rebinding SSRF guard the design doc / allowed-hosts comments promised "at fetch time":
+ * the string blocklist in `buildFetch` only vets the literal hostname, so an allowlisted DNS
+ * name (`x-allowed-host` or manifest) that resolves to loopback / link-local / cloud IMDS slips
+ * through. Resolve every A/AAAA record and reject if any resolved address is blocked. Literal-IP
+ * hosts skip the lookup (already fully vetted); an unresolvable host is not an SSRF target and
+ * proceeds — the fetch itself will then fail. Residual TOCTOU (global `fetch` re-resolves
+ * independently) needs an IP-pinned dispatcher and is out of scope; see issue #915.
+ */
+async function assertResolvedHostNotBlocked(pluginId: string, hostname: string): Promise<void> {
+  if (isIP(hostname) !== 0) return;
+  let addresses: Array<{ address: string }>;
+  try {
+    addresses = await lookup(hostname, { all: true });
+  } catch {
+    return;
+  }
+  for (const { address } of addresses) {
+    if (isBlockedHostname(address)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host resolves to a blocked address (loopback / link-local / metadata): ${hostname}`,
+      );
+    }
+  }
+}
+
+/**
  * Prevents redirect-based SSRF: throws PluginError on any 3xx so an
  * attacker-controlled host cannot redirect to an internal endpoint (e.g. cloud instance-metadata).
  */
@@ -142,6 +171,7 @@ async function fetchNoRedirect(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  await assertResolvedHostNotBlocked(pluginId, new URL(url).hostname);
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
     throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);

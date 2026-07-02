@@ -99,7 +99,11 @@ export async function jellyfinJson<T>(ctx: Ctx, path: string, init: RequestInit 
   const res = await jellyfinFetch(ctx, path, init);
   handleHttpStatus(res, "Jellyfin", { on401: "plugin.token_expired" });
   if (!res.ok) {
-    throw pluginError("plugin.upstream_error", `Jellyfin ${res.status}: ${await res.text()}`);
+    // Never echo the upstream body: `jellyfinFetch` targets the user-controlled
+    // `internalServerUrl`, so a descriptive non-2xx body from an internal endpoint
+    // would exfiltrate through the re-thrown error, turning a blind SSRF into a
+    // response-readable one (issue #915). Status code only.
+    throw pluginError("plugin.upstream_error", `Jellyfin ${res.status}`);
   }
   return (await res.json()) as T;
 }
