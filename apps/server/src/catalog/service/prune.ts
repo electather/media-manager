@@ -12,9 +12,6 @@ export async function pruneUnusedMetadataRows(
 ): Promise<{ deleted: number }> {
   const cutoff = Date.now() - unusedAfterMs;
   const refs = refSet ?? (await buildPruneRefSet(db, snapshotRetentionDays));
-  // This candidate scan must stay the first db.select when refSet is supplied:
-  // prune.test.ts's TOCTOU test bumps lastAccessedAt on the first select to
-  // resolve, so a select added before it would break that test (#906).
   const candidates = await db
     .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
     .from(canonicalMetadata)

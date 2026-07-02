@@ -128,8 +128,12 @@ describe("CatalogService.pruneUnusedMetadata", () => {
         .set({ lastAccessedAt: now })
         .where(and(eq(canonicalMetadata.tmdbId, "1"), eq(canonicalMetadata.mediaType, "movie")));
     };
-    // Wrap the select builder so awaiting its result (the candidate scan)
-    // triggers the concurrent bump before the DELETE runs.
+    // Wrap the select builder so resolving the candidate scan (the select that
+    // returns the cold row tmdbId "1") triggers the concurrent bump before the
+    // DELETE. Keyed on the resolved rows, not select order, so an extra select
+    // added before the scan can't misfire the bump (#906).
+    const returnedColdCandidate = (rows: unknown): boolean =>
+      Array.isArray(rows) && rows.some((r) => (r as { tmdbId?: string }).tmdbId === "1");
     const wrapThenable = (q: PromiseLike<unknown>): PromiseLike<unknown> =>
       new Proxy(q as object, {
         get(t, prop, recv) {
@@ -137,7 +141,7 @@ describe("CatalogService.pruneUnusedMetadata", () => {
             return (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
               (t as PromiseLike<unknown>)
                 .then(async (rows) => {
-                  await bumpOnce();
+                  if (returnedColdCandidate(rows)) await bumpOnce();
                   return rows;
                 })
                 .then(onOk, onErr);
@@ -166,8 +170,6 @@ describe("CatalogService.pruneUnusedMetadata", () => {
       },
     }) as Db;
 
-    // Explicit refSet skips buildPruneRefSet so the candidate scan is the first
-    // db.select bumpOnce fires on; see the matching note in prune.ts (#906).
     const result = await pruneUnusedMetadataRows(racingDb, cutoffMs, new Set(), 7);
 
     expect(bumped).toBe(true);
