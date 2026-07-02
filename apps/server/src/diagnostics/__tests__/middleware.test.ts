@@ -149,6 +149,8 @@ describe("errorHandler", () => {
     expect(body.devMessage).toBe("An unexpected error occurred.");
     await flushCaptures();
     expect(collector.records).toHaveLength(1);
+    expect(collector.records[0]!.code).toBe("http.internal_error");
+    expect(collector.records[0]!.httpStatus).toBe(500);
   });
 
   it("reuses incoming X-Request-Id on responses", async () => {
