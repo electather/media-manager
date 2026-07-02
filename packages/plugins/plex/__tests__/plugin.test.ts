@@ -699,6 +699,27 @@ describe("plex watchHistory", () => {
     expect(ctx.calls[0]?.url).toContain("accountID=42");
   });
 
+  it("getHistory throws plugin.bad_credentials when plexAccountId is absent", async () => {
+    // Guards #929: without plexAccountId the Plex query would return every
+    // account's history, so getHistory must fail loud rather than leak.
+    const ctx = makeCtx([], {
+      config: {
+        global: null,
+        user: { machineIdentifier: "abc123", externalServerUrl: "https://plex.example.com" },
+      },
+    } as Partial<PluginContext>);
+    let caught: unknown;
+    try {
+      await cap.getHistory!(ctx, {});
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.bad_credentials");
+    // Guard must trip before any upstream fetch.
+    expect(ctx.calls.length).toBe(0);
+  });
+
   it("getHistory emits a literal `viewedAt>=<unix>` filter when `since` is set", async () => {
     // Regression: URLSearchParams percent-encodes `>` to `%3E`, but Plex's
     // filter syntax needs the literal `>`. The plugin builds that segment

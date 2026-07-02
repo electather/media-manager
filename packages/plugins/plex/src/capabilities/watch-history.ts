@@ -13,7 +13,11 @@ export const watchHistory = {
     // routing it through URLSearchParams silently drops the filter on
     // some PMS builds and returns every row regardless of `since`.
     // plexAccountId is required — without it the query returns every account's
-    // history on the server, leaking other users' data (#929).
+    // history on the server, leaking other users' data (#929). Enforced here at
+    // runtime rather than via userConfigSchema.required so pre-#929 connections
+    // (cached before plexAccountId existed) fail loud on this call instead of
+    // bricking at config validation. Diverges deliberately from getSessions,
+    // which falls back to all sessions: leaking history is worse than sessions.
     if (!cfg.plexAccountId)
       throw pluginError(
         "plugin.bad_credentials",
@@ -25,11 +29,9 @@ export const watchHistory = {
       const t = Math.floor(new Date(since).getTime() / 1000);
       if (!Number.isNaN(t)) sinceQs = `viewedAt>=${t}`;
     }
-    const parts = [accountQs, sinceQs].filter(Boolean);
-    const path =
-      parts.length > 0
-        ? `/status/sessions/history/all?${parts.join("&")}`
-        : "/status/sessions/history/all";
+    // accountQs is always present after the guard, so the query is never empty.
+    const qs = [accountQs, sinceQs].filter(Boolean).join("&");
+    const path = `/status/sessions/history/all?${qs}`;
     const body = await plexServerJson<
       PlexMediaContainer<{
         Metadata?: Array<PlexMetadata & { viewedAt?: number }>;
