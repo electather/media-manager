@@ -5,6 +5,13 @@ import type { PluginModule } from "@nama/plugin-sdk";
 // the hostname from the stored userConfig to be added to ctx.fetch's
 // allowlist, alongside manifest.allowedHosts (unioned).
 
+// Fetch-time DNS recheck (#916) resolves every non-literal host — resolve all
+// names to a public address so the allowlist behaviour under test is isolated
+// from real DNS.
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
+
 vi.mock("../../env", () => ({
   env: {
     ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",

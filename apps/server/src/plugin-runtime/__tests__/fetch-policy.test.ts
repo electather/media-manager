@@ -1,9 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+
+// Default: every DNS name resolves to a public address so the fetch-time recheck is a no-op.
+// Individual tests override this to simulate DNS-rebinding to a blocked address (issue #916).
+const dnsLookup = vi.hoisted(() => vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]));
+vi.mock("node:dns/promises", () => ({ lookup: dnsLookup }));
+
 import { buildFetch } from "../internal/fetch-policy";
 import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../internal/allowed-hosts";
 import { registerSink, resetSinks } from "../../diagnostics/capture";
 import type { DiagnosticSink } from "../../diagnostics/types";
 import type { ErrorRecord } from "@nama/shared/diagnostics";
+
+// Reset every DNS name to its public default before each test so a rebinding
+// override in one test can't leak into the next.
+beforeEach(() => {
+  dnsLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+});
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -78,6 +90,31 @@ describe("buildFetch — static + dynamic allowlist", () => {
       code: "plugin.upstream_error",
     });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // Issue #916: the string blocklist passes an allowlisted DNS name, but the
+  // fetch-time recheck must reject it once the name resolves to a blocked
+  // address (DNS-rebinding). Without this the network is reached at loopback/IMDS.
+  it("rejects an allowlisted DNS name that resolves to a blocked address", async () => {
+    dnsLookup.mockResolvedValue([{ address: "169.254.169.254", family: 4 }]);
+    const fetchSpy = vi.fn(async () => new Response("ok"));
+    vi.stubGlobal("fetch", fetchSpy);
+    const allowedFetch = buildFetch("plug-rebind", ["evil.example.com"]);
+    await expect(allowedFetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects when only one of several resolved addresses is blocked", async () => {
+    dnsLookup.mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+    ]);
+    const allowedFetch = buildFetch("plug-rebind-multi", ["evil.example.com"]);
+    await expect(allowedFetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
   });
 });
 

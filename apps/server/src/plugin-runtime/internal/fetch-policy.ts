@@ -5,7 +5,7 @@ import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
 import type { PluginLogger } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
-import { isBlockedHostname } from "./allowed-hosts";
+import { assertResolvedHostAllowed, isBlockedHostname, isIpLiteral } from "./allowed-hosts";
 
 /** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
@@ -142,6 +142,13 @@ async function fetchNoRedirect(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  // Re-check the *resolved* address before connecting: an allowlisted DNS name
+  // (incl. a rebound one) that maps to loopback/link-local/IMDS is rejected here.
+  // IP literals are already fully vetted by the pre-fetch string blocklist.
+  const hostname = new URL(url).hostname;
+  if (!isIpLiteral(hostname)) {
+    await assertResolvedHostAllowed(pluginId, hostname);
+  }
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
     throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);

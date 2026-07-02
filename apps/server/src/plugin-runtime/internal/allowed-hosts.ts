@@ -1,3 +1,5 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import type { JSONSchema } from "@nama/shared";
 import { PluginError } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
@@ -5,7 +7,8 @@ import { isNil } from "es-toolkit/predicate";
 /**
  * JSON Schema extension for dynamic `ctx.fetch` allowlisting. ⚠ User-controlled SSRF surface:
  * marked fields let the authenticated user direct `ctx.fetch` to an arbitrary hostname.
- * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6. DNS-rebinding deferred to fetch time.
+ * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6.
+ * DNS-rebinding closed at fetch time by `assertResolvedHostAllowed` (resolves + re-checks the actual address).
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -82,8 +85,9 @@ function ipv4MappedIpv6Embedded(hostname: string): string | null {
 }
 
 /**
- * Rejects blocked hostnames from `x-allowed-host` resolution. String-only check —
- * DNS-rebinding mitigation (resolve + re-check the actual address) is out of scope here; happens at fetch time.
+ * Rejects blocked hostnames by string match (loopback / link-local / IMDS / IPv4-mapped IPv6).
+ * A DNS *name* that resolves to a blocked address passes this string check — that gap is
+ * closed at fetch time by `assertResolvedHostAllowed`, which resolves and re-checks the address.
  */
 // fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
@@ -104,6 +108,34 @@ export function isBlockedHostname(hostname: string): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * Fetch-time DNS-rebinding gate (design §"SSRF mitigation", doc line 1018): the string blocklist
+ * only sees the hostname, so an allowlisted DNS name (e.g. attacker-controlled `evil.com`) that
+ * resolves to `127.0.0.1` / `169.254.169.254` would otherwise reach loopback/IMDS. Resolves the
+ * name and rejects if *any* returned address is blocked. IP literals are re-checked cheaply too.
+ *
+ * ponytail: residual TOCTOU — Node's global `fetch` re-resolves, so a name rebound between this
+ * lookup and the connect could still slip through. Closing it fully needs an IP-pinned undici
+ * dispatcher (a new dep + connect-time `lookup` hook); upgrade there if the race matters.
+ */
+export async function assertResolvedHostAllowed(pluginId: string, hostname: string): Promise<void> {
+  // `lookup` on an IP literal returns it verbatim, so this covers literals and names uniformly.
+  const addresses = await lookup(hostname, { all: true });
+  for (const { address } of addresses) {
+    if (isBlockedHostname(address)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host resolves to a blocked address (loopback / link-local / metadata): ${hostname} -> ${address}`,
+      );
+    }
+  }
+}
+
+/** True for a bare IPv4/IPv6 literal — such a host is fully vetted by the string blocklist, so fetch-time DNS resolution adds nothing. */
+export function isIpLiteral(hostname: string): boolean {
+  return isIP(normalizeHostname(hostname)) !== 0;
 }
 
 /**
