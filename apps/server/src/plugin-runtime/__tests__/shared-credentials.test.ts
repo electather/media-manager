@@ -164,6 +164,47 @@ describe("sharedCredentialsService", () => {
     expect(pick.value).toEqual({ apiKey: "secret" });
   });
 
+  it("skips undecryptable rows in listDecryptedActive rather than aborting (#917)", async () => {
+    // WHY: a single corrupt ciphertext must not wipe out all valid credentials
+    // in the admin pool.
+    installPlugin("tmdb", true);
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Good",
+      value: { apiKey: "ok" },
+    });
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Bad",
+      value: { apiKey: "bad" },
+    });
+    // Corrupt the ciphertext so the base64 mock throws on JSON.parse.
+    state.entries.find((e) => e.label === "Bad")!.encryptedValue = "!!!notbase64!!!";
+    const picks = await sharedCredentialsService.listDecryptedActive("tmdb");
+    expect(picks).toHaveLength(1);
+    expect(picks[0]?.label).toBe("Good");
+  });
+
+  it("skips empty-ciphertext rows in listDecryptedActive (#917)", async () => {
+    // WHY: a row with an empty ciphertext returns null from the mock (falsy data)
+    // and must be skipped rather than injecting a null value into the pool.
+    installPlugin("tmdb", true);
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Good",
+      value: { apiKey: "ok" },
+    });
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Empty",
+      value: { apiKey: "e" },
+    });
+    state.entries.find((e) => e.label === "Empty")!.encryptedValue = "";
+    const picks = await sharedCredentialsService.listDecryptedActive("tmdb");
+    expect(picks).toHaveLength(1);
+    expect(picks[0]?.label).toBe("Good");
+  });
+
   it("rejects a second entry for a non-poolable plugin", async () => {
     installPlugin("trakt", false);
     await sharedCredentialsService.add({

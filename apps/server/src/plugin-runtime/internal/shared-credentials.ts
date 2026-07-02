@@ -3,11 +3,27 @@ import type { PersonalKeyFallbackPolicy, ValidatedManifest } from "@nama/shared/
 import { getDb } from "../../db/client";
 import { pluginSharedCredentials } from "../../db/schema/plugin-runtime/plugin-shared-credentials";
 import { plugins } from "../../db/schema/plugin-runtime/plugins";
+import { consola } from "consola";
 import { decryptJson, encryptJson } from "../../crypto/helpers";
 import { PluginError } from "@nama/plugin-sdk";
 
 function randomId(): string {
   return crypto.randomUUID();
+}
+
+/** Returns the decrypted value for a row, or null when the ciphertext is
+ *  missing or corrupt so the caller can skip safely. */
+async function tryDecryptRow(row: {
+  id: string;
+  iv: string;
+  encryptedValue: string;
+}): Promise<unknown> {
+  try {
+    return await decryptJson(row.iv, row.encryptedValue);
+  } catch (err) {
+    consola.warn(`[shared-credentials] skipping row ${row.id}: decryptJson threw`, err);
+    return null;
+  }
 }
 
 export interface SharedCredentialRow {
@@ -152,8 +168,11 @@ export const sharedCredentialsService = {
       .all();
     const picks: PoolPick[] = [];
     for (const row of rows) {
-      const { iv, encryptedValue } = row;
-      const value = await decryptJson(iv, encryptedValue);
+      const value = await tryDecryptRow(row);
+      if (value === null) {
+        consola.warn(`[shared-credentials] skipping row ${row.id}: decryptJson returned null`);
+        continue;
+      }
       picks.push({ id: row.id, label: row.label, value });
     }
     const bundled = readBundledDefault((await requirePluginRow(pluginId)).manifest);
