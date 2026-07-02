@@ -121,22 +121,26 @@ export async function setPerfRetentionDays(days: number): Promise<number> {
  *  deploy's maps can never be pruned. Returns the number of rows deleted. */
 async function pruneSourcemaps(): Promise<number> {
   const db = getDb();
-  // N most recently active distinct builds, newest map first.
-  const retained = await db
-    .select({ buildId: sourcemaps.buildId })
-    .from(sourcemaps)
-    .groupBy(sourcemaps.buildId)
-    .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
-    .limit(SOURCEMAP_RETAINED_BUILDS)
-    .all();
-  // Fewer builds than the window means nothing is outside it.
-  if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
-  const keepIds = retained.map((r) => r.buildId);
-  const deleted = await db
-    .delete(sourcemaps)
-    .where(notInArray(sourcemaps.buildId, keepIds))
-    .returning({ id: sourcemaps.id });
-  return deleted.length;
+  // Transaction makes SELECT+DELETE atomic: a concurrent upload cannot insert a
+  // new build between the two statements and have its maps immediately deleted.
+  return db.transaction(async (tx) => {
+    // N most recently active distinct builds, newest map first.
+    const retained = await tx
+      .select({ buildId: sourcemaps.buildId })
+      .from(sourcemaps)
+      .groupBy(sourcemaps.buildId)
+      .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
+      .limit(SOURCEMAP_RETAINED_BUILDS)
+      .all();
+    // Fewer builds than the window means nothing is outside it.
+    if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
+    const keepIds = retained.map((r) => r.buildId);
+    const deleted = await tx
+      .delete(sourcemaps)
+      .where(notInArray(sourcemaps.buildId, keepIds))
+      .returning({ id: sourcemaps.id });
+    return deleted.length;
+  });
 }
 
 const DEFAULT_INBOX_RETENTION_DAYS = 90;
