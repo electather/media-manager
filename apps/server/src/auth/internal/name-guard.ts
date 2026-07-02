@@ -1,8 +1,9 @@
 import { NAME_MAX_LENGTH, truncateName } from "@nama/shared/users";
 
-// gate (#831), so both paths must cap at NAME_MAX_LENGTH via shared truncateName
-// (surrogate-safe, #950). Returns `{ data }` only on truncation; undefined is "no
-// change" — Better Auth skips the clone (common login).
+// Social/OAuth re-syncs `name` on every login with no provider-side length gate
+// (#831), so both create and update paths cap at NAME_MAX_LENGTH via shared
+// truncateName (surrogate-safe, #950). Returns `{ data }` only on truncation;
+// undefined is "no change" — Better Auth skips the clone (common login).
 export function truncateOverlongName<T extends { name?: unknown }>(
   data: T,
 ): { data: T } | undefined {
