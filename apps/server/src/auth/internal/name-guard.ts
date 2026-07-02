@@ -8,6 +8,8 @@ export function truncateOverlongName<T extends { name?: unknown }>(
   data: T,
 ): { data: T } | undefined {
   if (typeof data.name === "string" && data.name.length > NAME_MAX_LENGTH) {
+    // Truncate silently by design: this fires on every login for a long-named
+    // provider profile, so a warn here would be recurring noise, not signal.
     return { data: { ...data, name: truncateName(data.name) } };
   }
   return undefined;
