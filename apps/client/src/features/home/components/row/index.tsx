@@ -14,12 +14,12 @@ import {
   ScrollRowPrevButton,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
+import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
 import { useRangePrefetch } from "../../hooks/use-range-prefetch";
 import { homeRowSource } from "../../lib/sources";
 import { resolveRowCopy } from "../../lib/row-copy";
 import { rowStatus } from "../../lib/row-status";
-import { buildTrackEntries } from "../../lib/track-entries";
 import type { HomeMediaItem, RowAspect, RowData } from "../../lib/types";
 import { RowError } from "./row-error";
 import { RowItemTrack, RowSkeletonTrack } from "./row-track";
@@ -38,8 +38,8 @@ interface RowProps {
 /**
  * Server-driven home-feed row. Composes the shared `ScrollRow` slots around
  * items read through `useMediaRowsLazy(homeRowSource)`. Branch selection
- * (`rowStatus`), copy resolution (`resolveRowCopy`), the trailing error card
- * (`buildTrackEntries`), and range prefetch (`useRangePrefetch`) are each
+ * (`rowStatus`), copy resolution (`resolveRowCopy`), the trailing pagination
+ * slot (`usePaginationSlot`), and range prefetch (`useRangePrefetch`) are each
  * factored out; this body only orchestrates them.
  */
 // fallow-ignore-next-line complexity
@@ -71,11 +71,14 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   } = useMediaRowsLazy(source, { staleTime: ROW_STALE_MS });
 
   const status = rowStatus({ error, isLoading, itemCount: items.length });
-  const showInlineError = error !== null && items.length > 0;
-  const entries = useMemo(
-    () => buildTrackEntries(items, showInlineError),
-    [items, showInlineError],
-  );
+
+  const slot = usePaginationSlot({
+    itemCount: items.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
 
   const handleRange = useRangePrefetch({
     itemCount: items.length,
@@ -105,7 +108,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   }
 
   return (
-    <ScrollRow revalidationKey={entries.length} className="mb-8">
+    <ScrollRow revalidationKey={`${items.length}:${slot.state}`} className="mb-8">
       <SectionHead>
         <SectionHeadHeading>
           {eyebrow ? <SectionHeadEyebrow>{eyebrow}</SectionHeadEyebrow> : null}
@@ -122,13 +125,13 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
         ) : (
           <RowItemTrack
             heading={heading}
-            entries={entries}
+            items={items}
             isBackdrop={isBackdrop}
             rowKind={row.kind}
-            error={error}
-            isFetchingNextPage={isFetchingNextPage}
+            trailingSlot={
+              slot.state !== "none" ? <PaginationSlot slot={slot} variant="card" /> : undefined
+            }
             onRangeChange={handleRange}
-            onRetryPage={() => fetchNextPage()}
             onWatchlistToggle={onWatchlistToggle}
             onCardClick={onCardClick}
           />

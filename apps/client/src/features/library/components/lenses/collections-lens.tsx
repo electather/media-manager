@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import type { LibraryCollection } from "@nama/shared/library";
 import type { CompactMediaItem } from "@nama/shared/media";
 import * as m from "@/paraglide/messages";
-import { VirtualGrid } from "@/shared/components/virtualized";
+import { PaginationSlot, usePaginationSlot, VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
@@ -11,6 +11,8 @@ interface CollectionsLensProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
+  /** Next-page rejection (initial load throws to the boundary); drives the trailing retry (#888). */
+  error: Error | null;
 }
 
 // Card grid geometry — wider cards than the poster lenses (each card fans a
@@ -135,10 +137,20 @@ export function CollectionsLens({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  error,
 }: CollectionsLensProps) {
+  // `error == null` stops the auto-load re-firing after an append failure,
+  // which would clobber the retry slot with a fresh fetch every render (#888).
   const onEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (hasNextPage && !isFetchingNextPage && error == null) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
+  const slot = usePaginationSlot({
+    itemCount: collections.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
 
   return (
     <div className="flex flex-col gap-8">
@@ -151,6 +163,8 @@ export function CollectionsLens({
         renderItem={(collection, index) => <CollectionCard collection={collection} index={index} />}
         onEndReached={onEndReached}
       />
+      {/* Append-error retry (#888); loading stays on the "load more" button. */}
+      {slot.state === "error" ? <PaginationSlot slot={slot} variant="row" /> : null}
       {hasNextPage ? (
         <div className="flex justify-center">
           <Button

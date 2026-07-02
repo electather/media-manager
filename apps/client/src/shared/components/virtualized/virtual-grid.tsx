@@ -22,6 +22,14 @@ interface VirtualGridProps<T> {
    * `isFetchingNextPage` (this only signals proximity, it does not dedupe).
    */
   onEndReached?: () => void;
+  /**
+   * Trailing pagination slot (loading / append-error + retry) rendered below
+   * the grid (#888). Pass `<PaginationSlot variant="row" .../>` — the grid owns
+   * where it mounts so every consumer surfaces append failures identically.
+   * Rendered outside the virtualized range (always mounted, not windowed), so
+   * keep it a compact strip — a tall component here breaks the scroll budget.
+   */
+  trailingSlot?: ReactNode;
 }
 
 /**
@@ -42,6 +50,7 @@ export function VirtualGrid<T>({
   cellClassName,
   style,
   onEndReached,
+  trailingSlot,
 }: VirtualGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollMargin = useScrollMargin(parentRef);
@@ -92,6 +101,7 @@ export function VirtualGrid<T>({
           );
         })}
       </div>
+      {trailingSlot}
     </div>
   );
 }

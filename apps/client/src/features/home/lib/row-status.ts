@@ -6,8 +6,8 @@ export type RowStatus = "initial-error" | "skeletons" | "empty" | "ready";
  * discriminant. Order matters: an error before any item arrived is a full-row
  * fallback; otherwise an empty first load shows skeletons; a resolved-but-empty
  * row collapses to nothing (a soft-degraded source leaves no blank gap). A
- * pagination error *after* items loaded stays `ready` — that case is the
- * trailing error sentinel, handled separately by `buildTrackEntries`.
+ * pagination error *after* items loaded stays `ready` — that case routes to
+ * the shared `PaginationSlot` via `usePaginationSlot` (#888).
  */
 // fallow-ignore-next-line complexity
 export function rowStatus(s: {

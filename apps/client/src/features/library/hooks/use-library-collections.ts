@@ -44,5 +44,8 @@ export function useLibraryCollections(filters: LibraryFilters) {
     hasNextPage: query.hasNextPage,
     isFetchingNextPage: query.isFetchingNextPage,
     fetchNextPage: query.fetchNextPage,
+    // Next-page rejection surfaces here (initial load throws to the boundary),
+    // driving the trailing retry slot (#888).
+    error: query.error,
   };
 }
