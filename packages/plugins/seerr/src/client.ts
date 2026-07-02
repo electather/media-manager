@@ -99,7 +99,7 @@ export async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> 
  * Fetches every request page from Seerr. Shared between the `listRequests`
  * capability and the per-connection sync job.
  */
-// ponytail: 500-page cap = 50 000 requests max; raise if a real deployment exceeds it
+// 500-page cap = 50 000 requests max; raise if a real deployment exceeds it
 const MAX_PAGES = 500;
 
 export async function fetchAllRequests(ctx: Ctx): Promise<SeerrRequestRow[]> {
@@ -112,8 +112,13 @@ export async function fetchAllRequests(ctx: Ctx): Promise<SeerrRequestRow[]> {
       `/request?take=${PAGE_SIZE}&skip=${skip}`,
     );
     all.push(...data.results);
-    if (data.results.length < PAGE_SIZE) break;
+    if (data.results.length < PAGE_SIZE) return all;
     skip += PAGE_SIZE;
   }
+  // Hit MAX_PAGES with a still-full final page: more data remained upstream and
+  // was dropped. Warn so the sync job's incomplete dataset isn't silent (#913).
+  ctx.log.warn(
+    `Seerr fetchAllRequests hit ${MAX_PAGES}-page cap; result truncated at ${all.length}`,
+  );
   return all;
 }
