@@ -3,6 +3,9 @@
 const ALGO = "AES-GCM";
 const KEY_USAGES: KeyUsage[] = ["encrypt", "decrypt"];
 
+// maps byte-by-byte to avoid RangeError from spread arg-count limit on large buffers
+const u8ToB64 = (u8: Uint8Array) => btoa(Array.from(u8, (b) => String.fromCharCode(b)).join(""));
+
 async function importKey(hexKey: string): Promise<CryptoKey> {
   const raw = Uint8Array.from(hexKey.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) ?? []);
   return crypto.subtle.importKey("raw", raw, { name: ALGO }, false, KEY_USAGES);
@@ -19,10 +22,8 @@ export async function encrypt(plaintext: string, hexKey: string): Promise<string
 
   const cipherBuffer = await crypto.subtle.encrypt({ name: ALGO, iv }, key, encoded);
 
-  // ponytail: chunked to avoid RangeError when cipherBuffer is large (arg-spread stack limit)
-  const u8ToStr = (u8: Uint8Array) => Array.from(u8, (b) => String.fromCharCode(b)).join("");
-  const ivB64 = btoa(u8ToStr(iv));
-  const ctB64 = btoa(u8ToStr(new Uint8Array(cipherBuffer)));
+  const ivB64 = u8ToB64(iv);
+  const ctB64 = u8ToB64(new Uint8Array(cipherBuffer));
 
   return `${ivB64}:${ctB64}`;
 }
