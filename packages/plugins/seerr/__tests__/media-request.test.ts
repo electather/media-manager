@@ -212,7 +212,7 @@ describe("seerr capability contract", () => {
     const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
     expect(ctx.calls.length).toBe(500);
     expect(warnings.length).toBe(1);
-    expect(String(warnings[0]?.[0])).toContain("500-page cap");
+    expect(String(warnings[0]?.[0])).toMatch(/hit \d+-page cap/);
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
