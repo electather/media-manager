@@ -4,9 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+import type { RowKind } from "@nama/shared/home";
 import * as m from "@/paraglide/messages";
 import { Card } from "../components/card/index";
-import type { HomeMediaItem, RowKind } from "../lib/types";
+import type { HomeMediaItem } from "../lib/types";
 
 afterEach(() => cleanup());
 
@@ -120,7 +121,7 @@ describe("Card", () => {
 
   it("renders the watchlist quick-action with an aria-label containing the item title", () => {
     renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
-    const btn = screen.getByRole("button", { name: /watchlist.*test movie/i });
+    const btn = screen.getByRole("button", { name: /test movie.*watchlist/i });
     expect(btn).toBeTruthy();
   });
 
@@ -135,6 +136,14 @@ describe("Card", () => {
     const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
     overlay.click();
     expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("does not intercept plain clicks when no onClick is passed, so native anchor navigation works", () => {
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    overlay.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("exposes the canonical detail href so cmd-click opens a new tab", () => {

@@ -146,7 +146,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
   return c.json(
     {
       code: "http.internal_error",
-      devMessage: err instanceof Error ? err.message : String(err),
+      devMessage: "An unexpected error occurred.",
       requestId,
     },
     500,

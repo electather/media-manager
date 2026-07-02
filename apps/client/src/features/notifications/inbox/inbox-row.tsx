@@ -1,10 +1,10 @@
 import { XIcon } from "lucide-react";
-import Markdown from "react-markdown";
 import { cn } from "@/shared/lib/utils";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { relativeTime } from "@/shared/lib/time-format";
 import { m } from "@/paraglide/messages";
+import { LazyMarkdown } from "../shared/lazy-markdown";
 import { SeverityIcon } from "../shared/severity-icon";
 import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
 import type { NotificationItemDto } from "../shared/types";
@@ -69,7 +69,7 @@ export function InboxRow({ item, selected, onToggleSelect }: Props) {
         </div>
         {item.bodyMarkdown ? (
           <div className="text-sm leading-relaxed text-muted-foreground">
-            <Markdown>{item.bodyMarkdown}</Markdown>
+            <LazyMarkdown>{item.bodyMarkdown}</LazyMarkdown>
           </div>
         ) : (
           <p className="text-sm leading-relaxed text-muted-foreground">{item.body}</p>

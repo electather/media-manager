@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTrending, type SearchResult, type TrendingScope } from "../lib/fetchers";
 import { commandMenuKeys } from "../lib/query-keys";
 
-const STALE_MS = 5 * 60_000;
 const TRENDING_LIMIT = 12;
 
 export interface UseTrendingResult {
@@ -24,7 +23,6 @@ export function useTrending(scope: TrendingScope | null): UseTrendingResult {
     queryKey: scope ? commandMenuKeys.trending(scope) : commandMenuKeys.all,
     queryFn: () => fetchTrending({ mediaType: scope as TrendingScope, limit: TRENDING_LIMIT }),
     enabled,
-    staleTime: STALE_MS,
   });
   return {
     data: enabled ? query.data : undefined,

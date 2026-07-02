@@ -10,9 +10,8 @@ import type { CommandScope } from "../types";
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 200;
-// Shorter than the 60s default: search results should track the live index
-// closely, but cache long enough that retyping the same query within a session
-// stays instant.
+// 30s (tighter than the 60s app default): keeps live-search results fresh while
+// reusing cache for repeated identical queries within a session.
 const STALE_MS = 30_000;
 
 function scopeToKind(scope: CommandScope): SearchKind {

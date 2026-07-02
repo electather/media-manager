@@ -45,7 +45,7 @@ export function UserPicker({ value, onChange }: PickerProps) {
         <ComboboxList>
           {(user) => (
             <ComboboxItem key={user.id} value={user}>
-              <div className="flex flex-col min-w-0 text-left">
+              <div className="flex flex-col min-w-0 text-start">
                 <span className="truncate">{user.name || user.email}</span>
                 {user.name && (
                   <span className="truncate text-xs text-muted-foreground">{user.email}</span>
@@ -88,7 +88,7 @@ export function ConnectionPicker({ value, onChange }: PickerProps) {
         <ComboboxList>
           {(conn) => (
             <ComboboxItem key={conn.id} value={conn}>
-              <div className="flex flex-col min-w-0 text-left">
+              <div className="flex flex-col min-w-0 text-start">
                 <span className="truncate">{conn.displayName || conn.pluginId}</span>
                 <span className="truncate text-xs text-muted-foreground">{conn.id}</span>
               </div>

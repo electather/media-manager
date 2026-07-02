@@ -1,6 +1,7 @@
 .codex/
 node_modules/
 dist/
+dist-sourcemaps/
 .env
 .env.dev
 *.env.local

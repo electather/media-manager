@@ -205,7 +205,7 @@ export function SectionLabel({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        "px-1 pb-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80",
+        "px-1 pb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground/80",
         className,
       )}
     >

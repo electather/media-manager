@@ -19,7 +19,6 @@ export function PerfStatsCards() {
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     networkMode: "online",
-    staleTime: 30_000,
   });
 
   if (summary.isPending) {

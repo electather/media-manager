@@ -1,11 +1,10 @@
-import { useMemo } from "react";
 import { CheckIcon } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { relativeTime } from "@/shared/lib/time-format";
-import { parseUserAgent } from "@/shared/lib/user-agent";
+import { useParsedUserAgent } from "@/shared/hooks/use-parsed-user-agent";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
@@ -22,7 +21,7 @@ export function SessionListRow({
   isFirst: boolean;
   onRevoke: () => void;
 }) {
-  const ua = useMemo(() => parseUserAgent(session.userAgent ?? null), [session.userAgent]);
+  const ua = useParsedUserAgent(session.userAgent ?? null);
   const showIp = !ua.unknown && !!session.ipAddress;
   const created = session.createdAt;
   const updated = session.updatedAt;

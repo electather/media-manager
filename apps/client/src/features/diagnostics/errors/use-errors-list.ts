@@ -11,7 +11,6 @@ export function useErrorsList(filters: ErrorsFilters) {
   return useSuspenseQuery({
     queryKey: diagnosticsKeys.errors.list(filters),
     queryFn: () => fetchErrorList(filters),
-    staleTime: 30_000,
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     networkMode: "online",

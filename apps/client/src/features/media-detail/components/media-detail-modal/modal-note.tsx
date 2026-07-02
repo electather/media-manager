@@ -89,7 +89,7 @@ export function ModalNote({ sectionRef, taRef, note, editing, setEditing, onSave
         <button
           type="button"
           disabled
-          className="w-full cursor-not-allowed rounded-xl border border-dashed border-border/60 bg-card/60 px-4 py-3 text-left text-sm text-muted-foreground/70 opacity-50"
+          className="w-full cursor-not-allowed rounded-xl border border-dashed border-border/60 bg-card/60 px-4 py-3 text-start text-sm text-muted-foreground/70 opacity-50"
         >
           <span className="flex items-center gap-2">
             <FileText className="size-4 shrink-0" aria-hidden="true" />

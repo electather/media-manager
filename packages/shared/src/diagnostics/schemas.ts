@@ -13,9 +13,16 @@ export const perfKindSchema = z.enum(PERF_KINDS);
 export const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
 /** Request-id filter for admin viewer query strings. Applies {@link REQUEST_ID_PATTERN}
- *  to prevent unbounded strings in `eq(records.requestId, …)` filter. `.max(64)` before
- *  regex yields actionable length error, not silent quantifier fail on oversized input. */
-const requestIdQuerySchema = z.string().max(64).regex(REQUEST_ID_PATTERN).optional();
+ *  to prevent unbounded strings in `eq(records.requestId, …)` filter. `.min(1)`/`.max(64)`
+ *  before regex give actionable errors; explicit guard survives a future `*` relaxation (#741). */
+const requestIdQuerySchema = z.string().min(1).max(64).regex(REQUEST_ID_PATTERN).optional();
+
+// Lowercase slug: letters, digits, hyphens — same shape as manifest id, same 64-char cap.
+const PLUGIN_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
+/** Plugin-id filter for admin viewer query strings. Prevents unbounded strings in
+ *  `eq(records.pluginId, …)`. `.max(64)` matches manifest id cap; regex rejects
+ *  non-slug values before they reach the DB. */
+const pluginIdQuerySchema = z.string().max(64).regex(PLUGIN_ID_PATTERN).optional();
 
 /** Bounded value type accepted inside an error report `context`. Scalars only so
  *  authenticated clients cannot smuggle large blobs past the per-field string
@@ -89,7 +96,7 @@ const commaList = <T extends readonly [string, ...string[]]>(values: T) =>
 export const errorListQuerySchema = z.object({
   severity: commaList(ERROR_SEVERITIES),
   source: commaList(ERROR_SOURCES),
-  pluginId: z.string().optional(),
+  pluginId: pluginIdQuerySchema,
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
   requestId: requestIdQuerySchema,
@@ -105,7 +112,7 @@ export type ErrorListQuery = z.infer<typeof errorListQuerySchema>;
 export const perfListQuerySchema = z.object({
   kind: perfKindSchema.optional(),
   route: z.string().optional(),
-  pluginId: z.string().optional(),
+  pluginId: pluginIdQuerySchema,
   requestId: requestIdQuerySchema,
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),

@@ -27,7 +27,7 @@ export const WatchlistCard = memo(function WatchlistCard({
   const toggle = useToggleWatchlist();
   const variant = forceAspect === "16/9" ? "rail" : "grid";
   const kindLabel = m.media_kind({ kind: item.mediaType });
-  const removeLabel = `${m.watchlist_toggle_remove()} ${item.title}`;
+  const removeLabel = m.watchlist_remove_aria({ title: item.title });
 
   return (
     <MediaRowCard

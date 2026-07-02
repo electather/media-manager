@@ -67,7 +67,7 @@ export function SetupGuideModal({ endpoint, open, onClose }: SetupGuideModalProp
     return (
       <Drawer open={open} onOpenChange={handleOpenChange} swipeDirection="down">
         <DrawerContent aria-labelledby={titleId} className="max-h-[90dvh] gap-0 bg-card p-0">
-          <DrawerHeader className="border-b border-border px-5 pt-6 pb-4 text-left">
+          <DrawerHeader className="border-b border-border px-5 pt-6 pb-4 text-start">
             <DrawerTitle id={titleId} className="text-base">
               {m.settings_apps_setup_guide_title()}
             </DrawerTitle>
