@@ -1,27 +1,31 @@
-import { useMemo } from "react";
-import { usePaginationSlot } from "@/shared/components/virtualized";
+import { type ReactNode, useMemo } from "react";
+import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import type { PaginationSlotModel } from "@/shared/components/virtualized";
 import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
 import { useRangePrefetch } from "./use-range-prefetch";
 import { homeRowSource } from "../lib/sources";
 import { rowStatus } from "../lib/row-status";
 import type { RowStatus } from "../lib/row-status";
-import type { HomeMediaItem, RowData } from "../lib/types";
+import type { HomeMediaItem, RowAspect, RowData } from "../lib/types";
 
 const ROW_STALE_MS = 5 * 60 * 1000;
 
 export interface RowQueryResult {
   items: HomeMediaItem[];
   status: RowStatus;
+  aspect: RowAspect;
   error: Error | null;
   isRefetching: boolean;
   slot: PaginationSlotModel;
+  /** Pass directly to `RowItemTrack.trailingSlot`; already `undefined` when idle. */
+  trailingSlot: ReactNode;
   refetch: () => void;
   handleRange: (range: { startIndex: number; endIndex: number }) => void;
 }
 
-/** Collapses the infinite-query lifecycle for a home row into a single hook. */
+/** Collapses the infinite-query lifecycle for a home row into a single hook (#888). */
 export function useRowData(row: RowData): RowQueryResult {
+  const isBackdrop = row.defaultAspect === "16/9";
   const source = useMemo(
     () => homeRowSource(row.id, row.initialCursor),
     [row.id, row.initialCursor],
@@ -53,6 +57,9 @@ export function useRowData(row: RowData): RowQueryResult {
   });
 
   const status = rowStatus({ error, isLoading, itemCount: items.length });
+  const aspect: RowAspect = isBackdrop ? "16/9" : "2/3";
+  const trailingSlot =
+    slot.state === "none" ? undefined : <PaginationSlot slot={slot} variant="card" />;
 
-  return { items, status, error, isRefetching, slot, refetch, handleRange };
+  return { items, status, aspect, error, isRefetching, slot, trailingSlot, refetch, handleRange };
 }

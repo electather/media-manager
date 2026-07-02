@@ -14,7 +14,6 @@ import {
   ScrollRowPrevButton,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
-import { PaginationSlot } from "@/shared/components/virtualized";
 import { resolveRowCopy } from "../../lib/row-copy";
 import type { HomeMediaItem, RowData } from "../../lib/types";
 import { useRowData } from "../../hooks/use-row-data";
@@ -28,19 +27,16 @@ interface RowProps {
 }
 
 /**
- * Single home-feed row: lazy infinite scroll. Data lifecycle is encapsulated
- * in `useRowData`; this component owns layout and status routing only.
- * Pagination errors surface via `PaginationSlot` as a trailing card slot (#888).
+ * Single home-feed row: lazy infinite scroll. Data lifecycle is in `useRowData`;
+ * this component owns layout and status routing only. Pagination errors surface
+ * via `PaginationSlot` as a trailing card slot (#888).
  */
 function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
-
-  const isBackdrop = row.defaultAspect === "16/9";
-  const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
-  const aspect = isBackdrop ? ("16/9" as const) : ("2/3" as const);
-
+  const cardVars = row.defaultAspect === "16/9" ? BACKDROP_VARS : POSTER_VARS;
   const { heading, eyebrow, prevLabel, nextLabel } = resolveRowCopy(row);
-  const { items, status, error, isRefetching, slot, refetch, handleRange } = useRowData(row);
+  const { items, status, aspect, error, isRefetching, slot, trailingSlot, refetch, handleRange } =
+    useRowData(row);
 
   if (status === "initial-error" && error !== null) {
     return (
@@ -50,7 +46,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
         data-testid="row-scroller-bleed"
         style={cardVars}
       >
-        <RowError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+        <RowError error={error} onRetry={refetch} isRetrying={isRefetching} />
       </div>
     );
   }
@@ -77,11 +73,9 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
           <RowItemTrack
             heading={heading}
             items={items}
-            isBackdrop={isBackdrop}
+            isBackdrop={row.defaultAspect === "16/9"}
             rowKind={row.kind}
-            trailingSlot={
-              slot.state === "none" ? undefined : <PaginationSlot slot={slot} variant="card" />
-            }
+            trailingSlot={trailingSlot}
             onRangeChange={handleRange}
             onWatchlistToggle={onWatchlistToggle}
             onCardClick={onCardClick}
