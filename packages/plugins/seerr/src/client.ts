@@ -101,9 +101,11 @@ export async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> 
  */
 export async function fetchAllRequests(ctx: Ctx): Promise<SeerrRequestRow[]> {
   const PAGE_SIZE = 100;
+  // ponytail: 500 pages × 100 = 50 000 requests; raise if legitimate installs exceed this
+  const MAX_PAGES = 500;
   const all: SeerrRequestRow[] = [];
   let skip = 0;
-  while (true) {
+  for (let page = 0; page < MAX_PAGES; page++) {
     const data = await seerrGet<{ results: SeerrRequestRow[] }>(
       ctx,
       `/request?take=${PAGE_SIZE}&skip=${skip}`,
