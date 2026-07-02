@@ -1,4 +1,5 @@
-import { type ReactNode, useMemo } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
+import { BACKDROP_VARS, POSTER_VARS } from "@/shared/components/scroll-row";
 import { PaginationSlot, usePaginationSlot } from "@/shared/components/virtualized";
 import type { PaginationSlotModel } from "@/shared/components/virtualized";
 import { useMediaRowsLazy } from "@/shared/media/use-media-rows";
@@ -14,6 +15,8 @@ export interface RowQueryResult {
   items: HomeMediaItem[];
   status: RowStatus;
   aspect: RowAspect;
+  isBackdrop: boolean;
+  cardVars: CSSProperties;
   error: Error | null;
   isRefetching: boolean;
   slot: PaginationSlotModel;
@@ -26,6 +29,7 @@ export interface RowQueryResult {
 /** Collapses the infinite-query lifecycle for a home row into a single hook (#888). */
 export function useRowData(row: RowData): RowQueryResult {
   const isBackdrop = row.defaultAspect === "16/9";
+  const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
   const source = useMemo(
     () => homeRowSource(row.id, row.initialCursor),
     [row.id, row.initialCursor],
@@ -61,5 +65,17 @@ export function useRowData(row: RowData): RowQueryResult {
   const trailingSlot =
     slot.state === "none" ? undefined : <PaginationSlot slot={slot} variant="card" />;
 
-  return { items, status, aspect, error, isRefetching, slot, trailingSlot, refetch, handleRange };
+  return {
+    items,
+    status,
+    aspect,
+    isBackdrop,
+    cardVars,
+    error,
+    isRefetching,
+    slot,
+    trailingSlot,
+    refetch,
+    handleRange,
+  };
 }
