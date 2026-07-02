@@ -122,17 +122,28 @@ export function registerScheduledPerRow<TRow>(
     }
   }
 
+  // Composes a per-row AbortController with the run-level signal so the handler's
+  // ctx.abortSignal fires on per-row timeout AND run cancel. Promise.race alone left the
+  // timed-out handler running concurrently with the next row — nothing cancelled it (#910).
   async function runRowWithTimeout(
     ctx: JobRunContext,
     row: TRow,
     timeoutSec: number,
   ): Promise<void> {
+    const rowController = new AbortController();
+    const rowCtx: JobRunContext = {
+      ...ctx,
+      abortSignal: AbortSignal.any([ctx.abortSignal, rowController.signal]),
+    };
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(new Error("per-row timeout")), timeoutSec * 1000);
+      timeoutHandle = setTimeout(() => {
+        rowController.abort(new Error("per-row timeout"));
+        reject(new Error("per-row timeout"));
+      }, timeoutSec * 1000);
     });
     try {
-      await Promise.race([opts.handler(ctx, row), timeout]);
+      await Promise.race([opts.handler(rowCtx, row), timeout]);
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }

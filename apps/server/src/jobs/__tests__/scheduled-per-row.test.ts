@@ -34,7 +34,17 @@ vi.mock("../config", () => ({
   effectiveSchedule: (d: string | undefined) => d,
 }));
 
+vi.mock("../croner-adapter", () => ({
+  scheduleCron: () => undefined,
+  unscheduleCron: () => undefined,
+  nextFireTime: () => null,
+  unscheduleAll: () => undefined,
+  assertValidSchedule: () => undefined,
+}));
+
 const { run } = await import("../runner");
+const { registerScheduledPerRow } = await import("../scheduled-per-row");
+const { findEntry, clear } = await import("../registry");
 
 beforeEach(() => {
   finished.length = 0;
@@ -103,6 +113,48 @@ describe("scheduled_per_row aggregate resolution (via runner statusOverride)", (
 
     expect(finished.at(-1)?.status).toBe("partial_failure");
     expect(finished.at(-1)?.rowsSucceeded).toBe(2);
+    expect(finished.at(-1)?.rowsFailed).toBe(1);
+  });
+});
+
+describe("scheduled_per_row per-row timeout cancellation (#910)", () => {
+  it("aborts the timed-out row handler before starting the next row", async () => {
+    clear();
+    const jobId = "host.test.prow.timeout";
+    // Row 1 hangs past its per-row timeout; row 2 records whether row 1 was still live.
+    let row1Aborted = false;
+    let row2StartedWhileRow1Live = false;
+    let row1Settled = false;
+
+    registerScheduledPerRow<number>({
+      id: jobId,
+      name: "prow timeout",
+      schedule: "* * * * *",
+      adminTriggerable: true,
+      perRowTimeoutSec: 0.05,
+      rowSource: async () => [1, 2],
+      handler: async (ctx, row) => {
+        if (row === 1) {
+          await new Promise<void>((resolve) => {
+            ctx.abortSignal.addEventListener("abort", () => {
+              row1Aborted = true;
+              row1Settled = true;
+              resolve();
+            });
+          });
+          return;
+        }
+        // Row 2 must not begin until row 1 has stopped racing (fix threads a per-row
+        // signal so the timed-out handler is cancelled, not left running concurrently).
+        if (!row1Settled) row2StartedWhileRow1Live = true;
+      },
+    });
+
+    const entry = findEntry(jobId);
+    await entry?.triggerFromApi?.(undefined, { triggeredBy: "admin", requestId: "r" });
+
+    expect(row1Aborted).toBe(true);
+    expect(row2StartedWhileRow1Live).toBe(false);
     expect(finished.at(-1)?.rowsFailed).toBe(1);
   });
 });
