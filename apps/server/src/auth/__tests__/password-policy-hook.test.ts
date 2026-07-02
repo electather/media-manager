@@ -21,12 +21,12 @@ describe("password-policy hook", () => {
   // WHY: this is the bypass #879/#957 closes — a policy-violating password reaching these paths
   // directly must be rejected with a 400 APIError, not silently persisted.
   it.each([
-    ["/change-password", "too short", "ab1"],
-    ["/change-password", "missing digit", "abcdefghij"],
-    ["/reset-password", "too short", "ab1"],
-    ["/reset-password", "missing letter", "1234567890"],
-    ["/reset-password", "too long", `${"a1".repeat(PASSWORD_MAX_LENGTH / 2)}a1`],
-  ])("rejects a %s newPassword (%s) with an APIError", async (path, _reason, newPassword) => {
+    ["too short", "/change-password", "ab1"],
+    ["missing digit", "/change-password", "abcdefghij"],
+    ["too short", "/reset-password", "ab1"],
+    ["missing letter", "/reset-password", "1234567890"],
+    ["too long", "/reset-password", `${"a1".repeat(PASSWORD_MAX_LENGTH / 2)}a1`],
+  ])("rejects a %s newPassword on %s with an APIError", async (_reason, path, newPassword) => {
     await expect(enforcePasswordPolicy({ path, body: { newPassword } })).rejects.toMatchObject({
       statusCode: 400,
     });
