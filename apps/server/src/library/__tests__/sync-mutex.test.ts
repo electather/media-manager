@@ -42,4 +42,27 @@ describe("PerUserMutex", () => {
     // A prior rejection must not deadlock the next caller for the same user.
     await expect(mutex.run("u1", () => Promise.resolve("ok"))).resolves.toBe("ok");
   });
+
+  it("serializes three tasks in FIFO order without a mid-chain gap", async () => {
+    // Three queued tasks exercise the slot-ownership guard: when the middle
+    // task drains, the slot already points at the third's chain, so its
+    // `finally` must NOT clear the slot — otherwise the third would run
+    // against a fresh chain and could overlap. FIFO across all three proves it.
+    const mutex = new PerUserMutex();
+    const events: string[] = [];
+    const gate = (label: string) => async () => {
+      events.push(`${label}:start`);
+      await Promise.resolve();
+      await Promise.resolve();
+      events.push(`${label}:end`);
+    };
+
+    await Promise.all([
+      mutex.run("u1", gate("a")),
+      mutex.run("u1", gate("b")),
+      mutex.run("u1", gate("c")),
+    ]);
+
+    expect(events).toEqual(["a:start", "a:end", "b:start", "b:end", "c:start", "c:end"]);
+  });
 });

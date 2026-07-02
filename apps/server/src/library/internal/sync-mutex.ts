@@ -3,6 +3,7 @@
 // `library.sync` cron and eager `ensureSeeded` — funnel through it, closing the
 // TOCTOU window that the seed marker alone never enforced (#911). Process-local:
 // multi-instance would need Postgres advisory locks (out of scope for v1).
+// fallow-ignore-next-line code-duplication
 export class PerUserMutex {
   private readonly chains = new Map<string, Promise<unknown>>();
 

@@ -61,6 +61,7 @@ export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMemb
   return syncMutex.run(c.userId, () => runSyncMembership(c));
 }
 
+// fallow-ignore-next-line complexity
 async function runSyncMembership(c: LibraryContext): Promise<SyncMembershipResult> {
   const known = await allKnownKeys(c.userId);
   const parsed = await fetchAndParseFeed(c, known);
