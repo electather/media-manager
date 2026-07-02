@@ -29,7 +29,6 @@ export const watchHistory = {
       const t = Math.floor(new Date(since).getTime() / 1000);
       if (!Number.isNaN(t)) sinceQs = `viewedAt>=${t}`;
     }
-    // accountQs is always present after the guard, so the query is never empty.
     const qs = [accountQs, sinceQs].filter(Boolean).join("&");
     const path = `/status/sessions/history/all?${qs}`;
     const body = await plexServerJson<
