@@ -184,6 +184,16 @@ describe("AuthService.requireSession", () => {
     expect(c.set).toHaveBeenCalledWith("session", session);
     expect(mockNext).toHaveBeenCalledOnce();
   });
+
+  it("bypasses the session cookie cache so a force sign-out is enforced immediately (#926)", async () => {
+    mockGetSession.mockResolvedValue({ user: { id: "u1" } } as never);
+    await service.requireSession(makeContext() as never, mockNext);
+    // Without disableCookieCache a revoked session rides the signed cookie for up
+    // to 5 min; asserting it here fails loud if the optimisation is ever restored.
+    expect(mockGetSession).toHaveBeenCalledWith(
+      expect.objectContaining({ query: { disableCookieCache: true } }),
+    );
+  });
 });
 
 describe("AuthService.requirePermission", () => {

@@ -44,9 +44,10 @@ const options = {
       ...schema,
     },
   }),
-  // Cache the resolved session in a signed cookie (5 min) to avoid a DB round-trip
-  // on every auth check. Tradeoff: a revoked session stays valid until cookie expiry,
-  // but `requirePermission` still hits the DB so elevated operations can't ride a stale cache.
+  // Cache the resolved session in a signed cookie (5 min) so Better Auth's own /get-session
+  // route can answer client polling without a DB round-trip. Server-side authorization does NOT
+  // ride this cache: requireSession passes disableCookieCache so a force sign-out (revoke-sessions)
+  // is enforced on the next request rather than after cookie expiry (#926).
   session: {
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },

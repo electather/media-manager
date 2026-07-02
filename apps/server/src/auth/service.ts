@@ -102,7 +102,14 @@ export class AuthService {
 
   /** Hono middleware that validates the Better Auth session. */
   async requireSession(c: Context, next: Next): Promise<void> {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    // disableCookieCache forces an authoritative DB read on every request. Without it a
+    // force sign-out (revoke-sessions) is not enforced until the 5-min session-data cookie
+    // expires: the signed cookie is self-contained, so deleting the DB row cannot invalidate
+    // it (#926). Sessions live server-side, so the cache is only an optimisation here.
+    const session = await auth.api.getSession({
+      headers: c.req.raw.headers,
+      query: { disableCookieCache: true },
+    });
     // Guard against malformed sessions (e.g. stale cookies, race conditions in
     // Better Auth) where the session object exists but `user` or `user.id` is
     // missing. Without this we would crash with a TypeError 500 below.
