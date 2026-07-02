@@ -14,10 +14,24 @@ import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from ".
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../diagnostics/validator";
 import { connectionsPrimaryApp } from "./connections-primary";
+import { TokenBucketLimiter } from "../../mcp/rate-limit";
+import { makeRateLimitMiddleware } from "../rate-limit";
+
+/** Per-user bucket for plugin-touching endpoints (verify-config, test, oauth). Capacity 20, refill 20/min: prevents one user from exhausting the shared per-plugin fetch quota while allowing normal use. */
+export const connectionPluginLimiter = new TokenBucketLimiter({
+  capacity: 20,
+  refillPerSec: 20 / 60,
+});
+const connectionPluginRateLimit = makeRateLimitMiddleware({ limiter: connectionPluginLimiter });
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)
   .use("*", requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS))
+  // Rate-limit routes that trigger outbound plugin calls — prevents one user
+  // from exhausting the shared per-plugin fetch quota (#922).
+  .use("/verify-config", connectionPluginRateLimit)
+  .use("/:id/test", connectionPluginRateLimit)
+  .use("/oauth/*", connectionPluginRateLimit)
   // Mount the primary sub-app before any `/:id` routes so `/primary` is
   // matched as a static path. Otherwise Hono routes `DELETE /primary` to the
   // dynamic `.delete("/:id")` handler below with `id = "primary"`.
