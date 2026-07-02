@@ -136,10 +136,9 @@ describe("createEmailChangeHooks", () => {
   });
 });
 
-// #815 only guarded the create path; Better Auth re-syncs the provider `name`
-// on every subsequent social login via the update hook. #831 requires the same
-// length cap composed into that hook's `before` without breaking the
-// email-change capture, whose run must not depend on truncation.
+// #815 only guarded the create path; Better Auth re-syncs `name` on every later
+// social login via the update hook. #831 caps it in that hook's `before` without
+// breaking email-change capture, whose run must not depend on truncation.
 describe("createEmailChangeHooks name-length guard (update path)", () => {
   const noopDeps = () => ({
     readUserEmail: vi.fn().mockResolvedValue(null),
@@ -159,6 +158,16 @@ describe("createEmailChangeHooks name-length guard (update path)", () => {
     const hooks = createEmailChangeHooks(noopDeps());
 
     const result = await hooks.before({ name: "a".repeat(NAME_MAX_LENGTH) }, ctxFor("user-1"));
+
+    expect(result).toBeUndefined();
+  });
+
+  it("returns void for an update payload that carries no name field", async () => {
+    const hooks = createEmailChangeHooks(noopDeps());
+
+    // Email-only update (no `name` key): the guard must not fabricate a clone,
+    // else Better Auth would rewrite the row on every such update.
+    const result = await hooks.before({ email: "new@x.com" }, ctxFor("user-1"));
 
     expect(result).toBeUndefined();
   });
