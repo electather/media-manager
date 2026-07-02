@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { pluginError } from "@nama/plugin-sdk";
-import { BACKOFF_INTERVALS_MS, MAX_ATTEMPTS, decideFailure } from "../internal/delivery-policy";
+import {
+  BACKOFF_INTERVALS_MS,
+  MAX_ATTEMPTS,
+  decideFailure,
+  pickRetryDelayMs,
+} from "../internal/delivery-policy";
 
 describe("delivery backoff schedule", () => {
   it("matches the design's [60s, 5m, 30m, 2h, 12h] schedule", () => {
@@ -72,6 +77,11 @@ describe("decideFailure: retry scheduling", () => {
     expect(d.action).toBe("reschedule");
     if (d.action !== "reschedule") return;
     expect(d.delayMs).toBe(42_000);
+  });
+
+  it("retryAfterMs above 24h is capped to 24h", () => {
+    const beyond24h = 25 * 60 * 60_000;
+    expect(pickRetryDelayMs(1, beyond24h)).toBe(24 * 60 * 60_000);
   });
 
   it("retryable: false → terminal failed regardless of attempt count", () => {
