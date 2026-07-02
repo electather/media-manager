@@ -23,7 +23,10 @@ describe("password-policy hook", () => {
   it.each([
     ["too short", "/change-password", "ab1"],
     ["missing digit", "/change-password", "abcdefghij"],
+    ["missing letter", "/change-password", "1234567890"],
+    ["too long", "/change-password", `${"a1".repeat(PASSWORD_MAX_LENGTH / 2)}a1`],
     ["too short", "/reset-password", "ab1"],
+    ["missing digit", "/reset-password", "abcdefghij"],
     ["missing letter", "/reset-password", "1234567890"],
     ["too long", "/reset-password", `${"a1".repeat(PASSWORD_MAX_LENGTH / 2)}a1`],
   ])("rejects a %s newPassword on %s with an APIError", async (_reason, path, newPassword) => {
