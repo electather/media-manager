@@ -38,10 +38,11 @@ async function errorReportRateLimit(c: Context, next: Next): Promise<void> {
   }
   const limited = errorReportLimiter.check(session.user.id);
   if (limited) {
-    const retryAfter = limited.details?.retry_after;
-    const retryAfterSec = typeof retryAfter === "number" ? retryAfter : null;
-    const headers: Record<string, string> = { "content-type": "application/json" };
-    if (retryAfterSec !== null) headers["Retry-After"] = String(retryAfterSec);
+    const retryAfterSec = limited.retryAfterSec;
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "Retry-After": String(retryAfterSec),
+    };
     c.res = new Response(
       JSON.stringify({ ok: false, error: "rate_limited", retry_after: retryAfterSec }),
       { status: 429, headers },

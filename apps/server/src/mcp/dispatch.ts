@@ -6,7 +6,14 @@ import {
   runWithRequestContext,
 } from "../diagnostics/request-context";
 import type { UserFacingError } from "@nama/shared/diagnostics";
-import { badInput, EXPECTED_MCP_CODES, McpError, outputInvalid, toolNotFound } from "./errors";
+import {
+  badInput,
+  EXPECTED_MCP_CODES,
+  McpError,
+  outputInvalid,
+  rateLimited,
+  toolNotFound,
+} from "./errors";
 import { hasAllScopes, missingScopes } from "./scopes";
 import { forbidden } from "./errors";
 import { mcpToolRegistry, type RegisteredTool, type ToolCallContext } from "./registry";
@@ -95,7 +102,7 @@ export async function dispatchTool(
   // requests without ever depleting its bucket (issue #343).
   const limited = defaultMcpLimiter.check(caller.userId);
   if (limited) {
-    return { ok: false, error: limited.toUserFacing(requestId) };
+    return { ok: false, error: rateLimited(limited.retryAfterSec).toUserFacing(requestId) };
   }
 
   const tool = mcpToolRegistry.get(toolName);

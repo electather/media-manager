@@ -1,5 +1,7 @@
 import type { MediaType } from "@nama/shared/media";
 import type { CanonicalMetadata } from "@nama/shared/catalog";
+import { HttpError } from "../../diagnostics/http-errors";
+import { TokenBucketLimiter } from "../../diagnostics/rate-limit";
 import { extractTmdbId, type SourceContext } from "../../media";
 import { fromCanonicalMetadata } from "../internal/adapters";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
@@ -25,6 +27,12 @@ interface SimilarFeedEntry {
 const SIMILAR_FEED_TTL_MS = 60_000;
 const SIMILAR_FEED_CACHE_MAX = 256;
 const similarFeedCache = new Map<string, SimilarFeedEntry>();
+
+// Per-user throttle on cache-MISS similar fetches only (#923). `seedId` is client-controlled and
+// cache-bustable: cycling arbitrary ids skips `similarFeedCache` and drives unbounded external
+// `metadata@v1.getSimilar` calls. Pagination re-reads a cached seed and never debits, so this
+// bounds distinct-seed fetches without limiting legitimate paging. 30 burst, refill 0.5/s (~30/min).
+const similarSeedLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 0.5 });
 
 function similarCacheKey(userId: string, seedId: string, seedType: MediaType): string {
   return `${userId}:${seedType}:${seedId}`;
@@ -66,6 +74,18 @@ export async function resolveSimilarCandidates(
   const cacheKey = similarCacheKey(ctx.userId, seedId, seedType);
   let entry = readSimilarCache(cacheKey);
   if (!entry) {
+    // Debit before the external fetch, not before the cache read: throttling reads would break
+    // legitimate deep pagination that only ever hits the cache.
+    const limited = similarSeedLimiter.check(ctx.userId);
+    if (limited) {
+      // 429 lands in the expected-user-error band (not captured as a 5xx bug).
+      throw new HttpError(
+        429,
+        "home.similar_seed_rate_limited",
+        `similar-title rate limit exceeded; retry after ${limited.retryAfterSec}s`,
+        { retry_after: limited.retryAfterSec },
+      );
+    }
     const { rows, partial } = await similarSource.fetchRawSet(ctx, { seedId, seedType }, null);
     const seedMeta = await ctx.catalog.getMetadata(seedId, seedType);
     entry = {
@@ -82,6 +102,7 @@ export async function resolveSimilarCandidates(
 // fallow-ignore-next-line unused-export
 export function __clearSimilarFeedCacheForTests(): void {
   similarFeedCache.clear();
+  similarSeedLimiter.reset();
 }
 
 interface LoadCanonicalOptions<T> {
@@ -126,7 +147,7 @@ export async function loadCanonicalItems<T extends MediaKey>(
  * Probe for `watchlist@v1` / `calendar@v1` payloads. Wraps as `{ item: {...}, ...extra }` (Trakt) or `item` directly (other plugins).
  * Returns raw outer + inner records so callers can read provider-specific fields without re-walking.
  */
-// fallow-ignore-next-line complexity
+// fallow-ignore-next-line complexity code-duplication
 export function probeMediaEntry(
   value: unknown,
 ): { key: MediaKey; itemRaw: Record<string, unknown>; outer: Record<string, unknown> } | null {

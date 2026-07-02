@@ -5,6 +5,7 @@ import { zValidator } from "../../diagnostics/validator";
 import { ArtworkService } from "../../artwork";
 import { getCatalogService } from "../../catalog";
 import { TokenBucketLimiter } from "../../mcp/rate-limit";
+import { rateLimited } from "../../mcp/errors";
 
 // Approximately 60 dispatches/minute per user (burst=60, refill=1/s). Tokens
 // are consumed per *unique* canonical lookup in a batch — not per request —
@@ -26,8 +27,8 @@ export const artworkApp = new Hono()
     const uniqueLookups = countCanonicalArtwork(items);
     const limited = artworkLimiter.check(userId, uniqueLookups);
     if (limited !== null) {
-      const retryAfter = (limited.details as { retry_after: number } | undefined)?.retry_after ?? 1;
-      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
+      const err = rateLimited(limited.retryAfterSec);
+      return c.json(err.toUserFacing(), 429, { "Retry-After": String(limited.retryAfterSec) });
     }
     const service = new ArtworkService(userId, getCatalogService());
     const result = await service.getArtwork(items, languages);

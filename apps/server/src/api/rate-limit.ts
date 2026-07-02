@@ -1,5 +1,6 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { TokenBucketLimiter } from "../mcp/rate-limit";
+import { rateLimited } from "../mcp/errors";
 import { sessionUserId } from "../auth";
 import { env } from "../env";
 import { currentRequestContext } from "../diagnostics/request-context";
@@ -13,9 +14,11 @@ export function rateLimitOrNull(
 ) {
   const limited = limiter.check(userId, count);
   if (limited === null) return null;
-  const retryAfter = limited.params?.retry_after ?? 1;
   const requestId = currentRequestContext()?.requestId;
-  return c.json(limited.toUserFacing(requestId), 429, { "Retry-After": String(retryAfter) });
+  const err = rateLimited(limited.retryAfterSec);
+  return c.json(err.toUserFacing(requestId), 429, {
+    "Retry-After": String(limited.retryAfterSec),
+  });
 }
 
 /** Config for {@link makeRateLimitMiddleware}. */
