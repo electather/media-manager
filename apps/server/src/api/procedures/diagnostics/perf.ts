@@ -98,6 +98,7 @@ export const adminPerfApp = new Hono()
         })
         .from(perfRecords)
         .where(and(eq(perfRecords.kind, "http"), gte(perfRecords.createdAt, dayAgo)))
+        .limit(AGGREGATE_ROW_BUDGET)
         .all(),
       db
         .select({ count: sql<number>`count(*)` })
