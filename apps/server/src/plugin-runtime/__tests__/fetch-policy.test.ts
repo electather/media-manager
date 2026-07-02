@@ -4,6 +4,22 @@ import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../internal/al
 import { registerSink, resetSinks } from "../../diagnostics/capture";
 import type { DiagnosticSink } from "../../diagnostics/types";
 import type { ErrorRecord } from "@nama/shared/diagnostics";
+import { lookup } from "node:dns/promises";
+import type { LookupAddress } from "node:dns";
+
+// DNS-rebinding tests drive the resolved IP: a hostname that passes the string
+// blocklist but resolves to loopback/metadata must be rejected at fetch time (#916).
+vi.mock("node:dns/promises", () => ({ lookup: vi.fn() }));
+// `lookup` is overloaded; cast to the `all: true` array-returning signature so
+// `mockResolvedValue` accepts the address list instead of inferring string return.
+const lookupMock = vi.mocked(lookup as unknown as (h: string) => Promise<LookupAddress[]>);
+const resolvesTo = (...addresses: LookupAddress[]) => lookupMock.mockResolvedValue(addresses);
+
+// Default: every hostname resolves to a public IP so the resolved-IP recheck is a
+// no-op for the allowlist tests below. The #916 block overrides per case.
+beforeEach(() => {
+  resolvesTo({ address: "93.184.216.34", family: 4 });
+});
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -533,5 +549,70 @@ describe("isBlockedHostname", () => {
     expect(isBlockedHostname("api.trakt.tv")).toBe(false);
     expect(isBlockedHostname("plex.local")).toBe(false);
     expect(isBlockedHostname("my.plex.box")).toBe(false);
+  });
+});
+
+describe("buildFetch DNS-rebinding recheck (#916)", () => {
+  beforeEach(() => {
+    lookupMock.mockReset();
+    // Any request that gets past the guard resolves to a benign 200; the guard,
+    // not the upstream, is what these tests exercise.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 200 })),
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects a hostname that resolves to loopback", async () => {
+    resolvesTo({ address: "127.0.0.1", family: 4 });
+    const fetch = buildFetch("plug-rebind", ["evil.example.com"]);
+    await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects a hostname that resolves to cloud metadata", async () => {
+    resolvesTo({ address: "169.254.169.254", family: 4 });
+    const fetch = buildFetch("plug-rebind", ["evil.example.com"]);
+    await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+  });
+
+  it("rejects when any of several resolved addresses is blocked", async () => {
+    resolvesTo({ address: "93.184.216.34", family: 4 }, { address: "::1", family: 6 });
+    const fetch = buildFetch("plug-rebind", ["evil.example.com"]);
+    await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+  });
+
+  it("allows a hostname resolving to a public address", async () => {
+    resolvesTo({ address: "93.184.216.34", family: 4 });
+    const fetch = buildFetch("plug-rebind", ["good.example.com"]);
+    await expect(fetch("https://good.example.com/x")).resolves.toMatchObject({ status: 200 });
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it("allows a hostname resolving to a private LAN address (self-hosted topology)", async () => {
+    resolvesTo({ address: "192.168.1.50", family: 4 });
+    const fetch = buildFetch("plug-rebind", ["plex.local"]);
+    await expect(fetch("https://plex.local/x")).resolves.toMatchObject({ status: 200 });
+  });
+
+  it("skips DNS lookup for a literal IP host", async () => {
+    const fetch = buildFetch("plug-rebind", ["93.184.216.34"]);
+    await expect(fetch("https://93.184.216.34/x")).resolves.toMatchObject({ status: 200 });
+    expect(lookupMock).not.toHaveBeenCalled();
+  });
+
+  it("lets the fetch proceed when resolution fails (network error surfaces normally)", async () => {
+    lookupMock.mockRejectedValue(new Error("ENOTFOUND"));
+    const fetch = buildFetch("plug-rebind", ["dead.example.com"]);
+    await expect(fetch("https://dead.example.com/x")).resolves.toMatchObject({ status: 200 });
   });
 });

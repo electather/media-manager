@@ -1,11 +1,13 @@
 import type { JSONSchema } from "@nama/shared";
 import { PluginError } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
+import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
 
 /**
  * JSON Schema extension for dynamic `ctx.fetch` allowlisting. ⚠ User-controlled SSRF surface:
  * marked fields let the authenticated user direct `ctx.fetch` to an arbitrary hostname.
- * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6. DNS-rebinding deferred to fetch time.
+ * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6. DNS-rebinding closed at fetch time by `assertResolvedHostAllowed`.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -82,8 +84,8 @@ function ipv4MappedIpv6Embedded(hostname: string): string | null {
 }
 
 /**
- * Rejects blocked hostnames from `x-allowed-host` resolution. String-only check —
- * DNS-rebinding mitigation (resolve + re-check the actual address) is out of scope here; happens at fetch time.
+ * Rejects blocked hostnames from `x-allowed-host` resolution. String-only check;
+ * the DNS-rebinding recheck against the resolved IP is done at fetch time by `assertResolvedHostAllowed`.
  */
 // fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
@@ -104,6 +106,40 @@ export function isBlockedHostname(hostname: string): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * Fetch-time DNS-rebinding guard: the string blocklist only sees the hostname, so a DNS name
+ * that resolves to `127.0.0.1` / `169.254.169.254` / etc. passes it. Resolves the hostname to
+ * every A/AAAA record and re-runs `isBlockedHostname` on each resolved IP; throws if any is blocked.
+ *
+ * Literal IPs skip the lookup — the string check already saw the final address, and a needless
+ * `dns.lookup` on an IP can throw ENOTFOUND on some resolvers. `all: true` catches multi-record
+ * rebinding where only one answer is malicious. There is still a TOCTOU window between this lookup
+ * and the socket connect (a second resolution could differ); fully closing it needs a custom agent
+ * that pins the checked IP, which is out of scope — this matches the design doc's fetch-time recheck.
+ */
+// fallow-ignore-next-line complexity
+export async function assertResolvedHostAllowed(pluginId: string, hostname: string): Promise<void> {
+  const h = normalizeHostname(hostname);
+  if (isIP(h) !== 0) return;
+  let addresses: Array<{ address: string }>;
+  try {
+    addresses = await lookup(h, { all: true });
+  } catch {
+    // Resolution failure is not itself an SSRF signal; let the real fetch surface
+    // the network error so the plugin sees the same behaviour as any dead host.
+    return;
+  }
+  if (!Array.isArray(addresses)) return;
+  for (const { address } of addresses) {
+    if (isBlockedHostname(address)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host resolves to a blocked address (loopback / link-local / metadata): ${hostname} -> ${address}`,
+      );
+    }
+  }
 }
 
 /**

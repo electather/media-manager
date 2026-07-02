@@ -5,7 +5,7 @@ import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
 import type { PluginLogger } from "@nama/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
-import { isBlockedHostname } from "./allowed-hosts";
+import { assertResolvedHostAllowed, isBlockedHostname } from "./allowed-hosts";
 
 /** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
@@ -142,6 +142,10 @@ async function fetchNoRedirect(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  // DNS-rebinding guard: the string blocklist above only saw the hostname, so a
+  // DNS name resolving to loopback/link-local/metadata still reached here. Re-check
+  // the resolved IPs before the socket opens (design doc "fetch-time recheck", #916).
+  await assertResolvedHostAllowed(pluginId, new URL(url).hostname);
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
     throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);
