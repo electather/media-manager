@@ -39,9 +39,14 @@ describe("fetchSeasonAvailability", () => {
     apiMock.availabilityGet.mockResolvedValueOnce(
       jsonResponse({ code: "media.not_found", message: "title not found" }, 404),
     );
-    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
-      (e) => e instanceof MediaApiError && e.status === 404 && e.code === "media.not_found",
+    const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e: unknown) => e,
     );
+    expect(err).toBeInstanceOf(MediaApiError);
+    if (!(err instanceof MediaApiError)) throw err;
+    expect(err.status).toBe(404);
+    expect(err.code).toBe("media.not_found");
+    expect(err.message).toBe("title not found");
     // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
     expect(apiMock.availabilityGet).toHaveBeenCalledWith(
       { param: { type: "tv", tmdbId: "12345" } },
@@ -51,9 +56,13 @@ describe("fetchSeasonAvailability", () => {
 
   it("throws MediaApiError on 5xx even when the body has no code", async () => {
     apiMock.availabilityGet.mockResolvedValueOnce(jsonResponse({}, 503));
-    await expect(fetchSeasonAvailability("12345", new AbortController().signal)).rejects.toSatisfy(
-      (e) => e instanceof MediaApiError && e.status === 503 && e.code === undefined,
+    const err = await fetchSeasonAvailability("12345", new AbortController().signal).catch(
+      (e: unknown) => e,
     );
+    expect(err).toBeInstanceOf(MediaApiError);
+    if (!(err instanceof MediaApiError)) throw err;
+    expect(err.status).toBe(503);
+    expect(err.message).toContain("503");
     // Guards against a dropped `tmdbId` or wrong `type` on the error path (#845).
     expect(apiMock.availabilityGet).toHaveBeenCalledWith(
       { param: { type: "tv", tmdbId: "12345" } },
