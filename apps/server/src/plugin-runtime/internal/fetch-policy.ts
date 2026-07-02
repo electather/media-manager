@@ -1,5 +1,7 @@
 // fallow-ignore-file complexity
 // 6 branches all required by V2/V3/V4: URL parse, manifest check, admin check, dynamic host, rate limit, admin headers; each = distinct security gate; split → indirection ⊥ clarity gain
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { consola } from "consola";
 import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
@@ -133,6 +135,48 @@ export function buildFetch(
   };
 }
 
+// DNS resolver seam. Real `lookup` in prod; tests override to simulate a
+// hostname resolving to loopback/link-local/metadata without touching the network.
+type HostResolver = (hostname: string) => Promise<string[]>;
+let resolveAddresses: HostResolver = async (hostname) => {
+  const results = await lookup(hostname, { all: true });
+  return results.map((r) => r.address);
+};
+
+/** Test-only override for the DNS resolver. Returns the previous resolver so callers can restore it. */
+export function setHostResolver(resolver: HostResolver): HostResolver {
+  const previous = resolveAddresses;
+  resolveAddresses = resolver;
+  return previous;
+}
+
+/**
+ * DNS-rebinding SSRF guard: the string blocklist only sees the literal hostname, so an
+ * attacker-controlled DNS name (`evil.example.com`) that resolves to `127.0.0.1`/`169.254.169.254`
+ * would otherwise sail through. Resolve every A/AAAA record and reject if any is blocked. A pinned
+ * TOCTOU window remains between this check and connect; closing it fully needs an IP-pinned dispatcher.
+ */
+async function assertResolvedHostNotBlocked(pluginId: string, hostname: string): Promise<void> {
+  // Literal IPs were already vetted by `isBlockedHostname` on the raw hostname;
+  // resolving one just returns itself, so skip the lookup.
+  if (isIP(hostname) !== 0) return;
+  let addresses: string[];
+  try {
+    addresses = await resolveAddresses(hostname);
+  } catch {
+    // Unresolvable host is not an SSRF target — let `fetch` fail naturally.
+    return;
+  }
+  for (const address of addresses) {
+    if (isBlockedHostname(address)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host resolves to a blocked address (loopback / link-local / metadata): ${hostname} → ${address}`,
+      );
+    }
+  }
+}
+
 /**
  * Prevents redirect-based SSRF: throws PluginError on any 3xx so an
  * attacker-controlled host cannot redirect to an internal endpoint (e.g. cloud instance-metadata).
@@ -142,6 +186,7 @@ async function fetchNoRedirect(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  await assertResolvedHostNotBlocked(pluginId, new URL(url).hostname);
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
     throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);
