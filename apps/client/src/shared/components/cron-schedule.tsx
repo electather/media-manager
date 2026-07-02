@@ -34,7 +34,9 @@ function parseField(field: string, min: number, max: number): number[] {
 
   for (const part of field.split(",")) {
     const stepMatch = part.match(/^(.+)\/(\d+)$/);
+    // ponytail: step=0 causes infinite loop; treat as invalid (skip field part)
     const step = stepMatch ? parseInt(stepMatch[2]!, 10) : 1;
+    if (step < 1) continue;
     const range = stepMatch ? stepMatch[1]! : part;
 
     if (range === "*") {
