@@ -1,11 +1,63 @@
-import { ScrollRowSkeleton, ScrollRowTrack } from "@/shared/components/scroll-row";
+import type { CSSProperties, ReactNode } from "react";
+import {
+  SectionHead,
+  SectionHeadActions,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
+import {
+  ScrollRow,
+  ScrollRowNextButton,
+  ScrollRowPrevButton,
+  ScrollRowSkeleton,
+  ScrollRowTrack,
+  ScrollRowViewport,
+} from "@/shared/components/scroll-row";
 import type { RowKind } from "@nama/shared/home";
 import { Card } from "../card/index";
-import { isErrorSentinel, type TrackEntry } from "../../lib/track-entries";
 import type { HomeMediaItem, RowAspect } from "../../lib/types";
-import { RowErrorInlineCard } from "./row-error";
 
 const SKELETON_COUNT = 5;
+
+interface RowScrollContainerProps {
+  heading: string;
+  eyebrow?: string;
+  prevLabel: string;
+  nextLabel: string;
+  revalidationKey: string;
+  cardVars: CSSProperties;
+  children: ReactNode;
+}
+
+/** Full row shell: scroll container + section head + viewport. Keeps RowImpl branch-free. */
+export function RowScrollContainer({
+  heading,
+  eyebrow,
+  prevLabel,
+  nextLabel,
+  revalidationKey,
+  cardVars,
+  children,
+}: RowScrollContainerProps) {
+  return (
+    <ScrollRow revalidationKey={revalidationKey} className="mb-8">
+      <SectionHead>
+        <SectionHeadHeading>
+          {eyebrow ? <SectionHeadEyebrow>{eyebrow}</SectionHeadEyebrow> : null}
+          <SectionHeadTitle>{heading}</SectionHeadTitle>
+        </SectionHeadHeading>
+        <SectionHeadActions>
+          <ScrollRowPrevButton aria-label={prevLabel} />
+          <ScrollRowNextButton aria-label={nextLabel} />
+        </SectionHeadActions>
+      </SectionHead>
+      <ScrollRowViewport data-testid="row-scroller-bleed" style={cardVars}>
+        {children}
+      </ScrollRowViewport>
+    </ScrollRow>
+  );
+}
 
 /** Placeholder track shown on first load before any item resolves. */
 export function RowSkeletonTrack({ heading, aspect }: { heading: string; aspect: RowAspect }) {
@@ -20,28 +72,28 @@ export function RowSkeletonTrack({ heading, aspect }: { heading: string; aspect:
 
 interface RowItemTrackProps {
   heading: string;
-  entries: TrackEntry[];
+  items: HomeMediaItem[];
   isBackdrop: boolean;
   rowKind: RowKind;
-  /** Non-null only when a pagination retry is pending (drives the trailing sentinel card). */
-  error: Error | null;
-  isFetchingNextPage: boolean;
+  /**
+   * Pass `undefined` (not a null-rendering element) when no slot is needed —
+   * any non-null ReactNode inflates the virtualizer count and adds a blank slot.
+   * Renders outside the virtualized range (always mounted), so keep it compact.
+   */
+  trailingSlot?: ReactNode;
   onRangeChange: (range: { startIndex: number; endIndex: number }) => void;
-  onRetryPage: () => void;
   onWatchlistToggle?: (item: HomeMediaItem) => void;
   onCardClick?: (id: string) => void;
 }
 
-/** Virtualized track of cards, with the trailing pagination-error card as the last slot. */
+/** Virtualized track of cards, with an optional trailing slot for pagination state (#888). */
 export function RowItemTrack({
   heading,
-  entries,
+  items,
   isBackdrop,
   rowKind,
-  error,
-  isFetchingNextPage,
+  trailingSlot,
   onRangeChange,
-  onRetryPage,
   onWatchlistToggle,
   onCardClick,
 }: RowItemTrackProps) {
@@ -50,28 +102,19 @@ export function RowItemTrack({
       virtualize
       aria-label={heading}
       className="scroll-px-8 pb-3"
-      items={entries}
-      getKey={(entry, i) => (isErrorSentinel(entry) ? `error-sentinel-${i}` : entry.id)}
+      items={items}
+      getKey={(item) => item.id}
       estimateItemWidth={isBackdrop ? 320 : 200}
       onRangeChange={onRangeChange}
-      renderItem={(entry) =>
-        isErrorSentinel(entry) ? (
-          error ? (
-            <RowErrorInlineCard
-              error={error}
-              onRetry={onRetryPage}
-              isRetrying={isFetchingNextPage}
-            />
-          ) : null
-        ) : (
-          <Card
-            item={entry}
-            rowKind={rowKind}
-            onWatchlistToggle={onWatchlistToggle}
-            onClick={onCardClick}
-          />
-        )
-      }
+      trailingSlot={trailingSlot}
+      renderItem={(item) => (
+        <Card
+          item={item}
+          rowKind={rowKind}
+          onWatchlistToggle={onWatchlistToggle}
+          onClick={onCardClick}
+        />
+      )}
     />
   );
 }
