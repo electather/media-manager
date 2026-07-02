@@ -22,7 +22,8 @@ describe("SessionRow", () => {
     const onRevoke = vi.fn();
     render(<SessionRow session={baseSession} isCurrent={false} onRevoke={onRevoke} />);
 
-    expect(screen.getByText("Chrome 120 on macOS")).toBeTruthy();
+    // Label resolves after ua-parser-js loads via dynamic import.
+    expect(await screen.findByText("Chrome 120 on macOS")).toBeTruthy();
     expect(screen.getByText(/203\.0\.113\.10/)).toBeTruthy();
     expect(screen.queryByText("This device")).toBeNull();
 

@@ -168,7 +168,7 @@ Mirrors Part A on the client: a shared media layer = the "thin pipeline"; home/w
 - **`use-media-rows.ts`** — one core `mediaRowsQueryOptions(source)` (infinite query options: `getNextPageParam: p => p.cursor ?? undefined`, flatten pages → `items`, OR-reduce `partial`). Two thin wrappers over it: `useMediaRows` (`useSuspenseInfiniteQuery` — watchlist sections, route-loader-prefetched) + `useMediaRowsLazy` (`useInfiniteQuery` — home rows, parallel per-row skeleton, app-shell pool). One cursor/flatten/`partial` definition (kills the two-hook fork #4 / #505).
 - **`query-keys.ts`** — `mediaKeys` root + factory: `mediaKeys.source(sourceId, params)`, `mediaKeys.sourceAll(sourceId)` — prefix key sweeping all param variants of one source; use for scoped retry/invalidation without evicting other sources (#876), `mediaKeys.title(type, tmdbId)`, `mediaKeys.moods()`. home/watchlist key factories **derive** from `mediaKeys` (⊥ independent roots → one-shot invalidation, #505/#514).
 - **`error.ts`** — one `MediaApiError` (replaces `HomeApiError` + `WatchlistApiError`); one `throwOnError`.
-- **`cursor.ts`** — re-export shared `@nama/shared/media` codec; `similarTo` builds its initial cursor via `encodeSeedCursor` (the §H gap, now closed client-side). _CLAUDE.md prefers direct shared imports over re-export shims; this module is retained as a deliberate exception so the client media layer keeps one coherent cursor surface — flagged here per Rule 7._
+- **cursor codec** — consumers import the `@nama/shared/media` codec direct (CLAUDE.md's direct-shared-import rule; no client re-export shim). `similarTo` builds its initial cursor via `encodeSeedCursor` (the §H gap, now closed client-side).
 
 ## §B2 — Shared primitives + optimistic (#504/#505/#514)
 
@@ -213,7 +213,7 @@ Each phase: own PR, changeset, `vp check` + `vp test` green, parity fixtures whe
 - **A5.** `/api/media/moods` + `POST|DELETE /api/media/watchlist` (adapter → watchlist/media barrels). Changeset minor (`@nama/server`). (⊥ `/counts` — dropped, see §A2.)
 
 **Part B — client**
-- **B1.** `shared/media/` layer (source, hook core + 2 wrappers, `mediaKeys`, `MediaApiError`, cursor re-export). `similarTo` client cursor.
+- **B1.** `shared/media/` layer (source, hook core + 2 wrappers, `mediaKeys`, `MediaApiError`; cursor codec imported direct from `@nama/shared/media`). `similarTo` client cursor.
 - **B2.** Shared `media-row-card` + `grid-skeleton`; empty-state wrappers; shared optimistic invalidation (#504/#505/#514).
 - **B3.** Migrate watchlist (#506/#508/#509) + nits (#515/#516). Section parity in-browser checks (V.WL* pinned).
 - **B4.** Migrate home (#507). Layout parity — rails render identically, no extra fetches.

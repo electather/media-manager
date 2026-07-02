@@ -38,7 +38,7 @@ export function PasswordMeter({ value }: { value: string }) {
           />
         ))}
       </div>
-      <span className="min-w-16 text-right text-xs tabular-nums text-muted-foreground">
+      <span className="min-w-16 text-end text-xs tabular-nums text-muted-foreground">
         {value ? labels[score] : ""}
       </span>
     </div>

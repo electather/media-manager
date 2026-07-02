@@ -11,6 +11,14 @@ describe("isSearchKey", () => {
     expect(isSearchKey(commandMenuKeys.search("", "all"))).toBe(true);
   });
 
+  it("returns true for a search key with kind tv", () => {
+    expect(isSearchKey(commandMenuKeys.search("blade", "tv"))).toBe(true);
+  });
+
+  it("returns true for a search key with kind movie", () => {
+    expect(isSearchKey(commandMenuKeys.search("blade", "movie"))).toBe(true);
+  });
+
   it("returns false for a search key with an unrecognised kind string", () => {
     expect(isSearchKey(["command-menu", "search", { q: "x", kind: "invalid" }])).toBe(false);
   });

@@ -83,7 +83,7 @@ export function ConnectionModalFooter(props: Props) {
             {m.settings_connections_modal_action_test({ state: test.kind })}
           </Button>
           {test.kind === "ok" ? (
-            <span className="text-center text-xs text-success sm:text-left">
+            <span className="text-center text-xs text-success sm:text-start">
               {m.settings_connections_modal_test_verified()}
             </span>
           ) : null}

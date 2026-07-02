@@ -64,7 +64,7 @@ Anything used by both client + server live in `packages/shared/` — domain enum
 
 ### Rules
 
-- **Import direct from shared package.** Use `@nama/shared/jobs`, `@nama/shared/plugins`, etc. — never re-export shared symbols via local shim file. If server/client module only re-export, delete + point callers at shared.
+- **Import direct from shared package.** Use `@nama/shared/jobs`, `@nama/shared/plugins`, etc. — never re-export shared symbols via local shim file. If server/client module only re-export, delete + point callers at shared. No "coherent surface" exceptions: re-export is allowed _only_ when importing direct would break module encapsulation (e.g. exposing a module's private internals), not merely for stylistic grouping.
 - **Shared hold what cross boundary.** Drizzle tables, drizzle-zod schemas, server-internal interfaces (`PluginContext`, `ErrorSink`, `JobRunContext`, etc.) stay on server. UI-local types stay on client.
 - **Enums are `as const` tuples.** Export values like `export const JOB_RUN_STATUSES = [...] as const;` plus derived type. Drizzle consume tuple via `text("x", { enum: CONST })`, Zod via `z.enum(CONST)` — one source, both sides.
 - **Adding new domain**: create `packages/shared/src/<domain>/{enums,types,schemas,index}.ts` and wire subpath export in `packages/shared/package.json`.

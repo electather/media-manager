@@ -12,12 +12,12 @@ interface AllItemsProps {
   mood?: MoodId;
 }
 
-// fallow-ignore-next-line complexity
 export function AllItems({ sort, bucket, mood }: AllItemsProps) {
-  const args: { sort: WatchlistSort; bucket?: WatchlistBucket; mood?: MoodId } = { sort };
-  if (bucket) args.bucket = bucket;
-  if (mood) args.mood = mood;
-  const { items, hasNextPage, isFetchingNextPage, fetchNextPage } = useAllItems(args);
+  const { items, hasNextPage, isFetchingNextPage, fetchNextPage } = useAllItems({
+    sort,
+    bucket,
+    mood,
+  });
   const onPeek = useWatchlistPeek();
   const onEndReached = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();

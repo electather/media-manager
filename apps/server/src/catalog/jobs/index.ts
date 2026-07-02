@@ -19,5 +19,5 @@ export function registerCatalogJobs(): void {
   registerCatalogPruneJob({ catalog });
 }
 
-export { CATALOG_DISCOVER_SNAPSHOT_JOB_ID } from "./discover-snapshot";
+export { CATALOG_DISCOVER_SNAPSHOT_JOB_ID, runCatalogDiscoverSnapshot } from "./discover-snapshot";
 export { writeRecommendationsForUser } from "./recommendation-build";

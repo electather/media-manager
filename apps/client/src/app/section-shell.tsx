@@ -9,7 +9,7 @@ import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
 import type { Permission } from "@nama/shared/auth";
 import { BottomNav } from "./bottom-nav";
-import { CommandMenu } from "./command-menu";
+import { CommandMenu } from "@/features/command-menu";
 import { TopNav } from "./top-nav";
 
 // When every item in a group is permission-gated and the user holds none of
@@ -50,6 +50,9 @@ interface SectionLayoutProps {
 export function SectionLayout({ title, groups, overlay }: SectionLayoutProps) {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
+      {/* Owns its own chrome so this route can control the full viewport layout
+          without nesting under _app's AppShell. Mirror any root-shell changes
+          (TopNav, BottomNav, CommandMenu) here too. */}
       <TopNav />
       <main className="flex-1">
         <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-6 md:grid-cols-[240px_minmax(0,1fr)] md:py-10 lg:px-6">
@@ -212,7 +215,7 @@ export function SectionLabel({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        "px-1 pb-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80",
+        "px-1 pb-2 font-mono text-xs uppercase tracking-wider text-muted-foreground/80",
         className,
       )}
     >

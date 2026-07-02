@@ -165,8 +165,7 @@ function ErrorPageDetails({
       <div
         data-slot="error-page-details"
         className={cn(
-          "overflow-hidden rounded-xl border border-border transition-colors hover:border-input",
-          "bg-[radial-gradient(120%_140%_at_0%_0%,color-mix(in_oklab,var(--destructive)_18%,transparent)_0%,transparent_55%),var(--card)]",
+          "error-surface overflow-hidden rounded-xl border border-border transition-colors hover:border-input",
           className,
         )}
       >
@@ -175,7 +174,7 @@ function ErrorPageDetails({
             <Button
               type="button"
               variant="ghost"
-              className="group h-auto w-full justify-between rounded-none px-3.5 py-3 text-left text-sm font-medium hover:bg-muted/40"
+              className="group h-auto w-full justify-between rounded-none px-3.5 py-3 text-start text-sm font-medium hover:bg-muted/40"
             />
           }
         >

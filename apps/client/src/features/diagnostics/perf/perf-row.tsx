@@ -99,7 +99,7 @@ function Latency({
   if (ms >= danger) toneClass = "text-destructive";
   else if (ms >= warn) toneClass = "text-primary";
   return (
-    <div className="text-right">
+    <div className="text-end">
       <div className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
         {PERF_LABELS[labelKey]()}
       </div>
