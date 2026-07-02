@@ -252,16 +252,15 @@ export async function sweepDiagnostics(): Promise<SweepResult> {
   const now = Date.now();
   const errCutoff = now - errorRetentionDays * 86_400_000;
   const perfCutoff = now - perfRetentionDays * 86_400_000;
-  const [errResult, perfResult, sourcemapCount] = await Promise.all([
-    db
-      .delete(errorRecords)
-      .where(lt(errorRecords.createdAt, errCutoff))
-      .returning({ id: errorRecords.id }),
-    db
-      .delete(perfRecords)
-      .where(lt(perfRecords.createdAt, perfCutoff))
-      .returning({ id: perfRecords.id }),
-    pruneSourcemaps(),
-  ]);
+  // ponytail: sequential — SQLite allows one writer; Promise.all caused SQLITE_BUSY once pruneSourcemaps uses a transaction (#912)
+  const errResult = await db
+    .delete(errorRecords)
+    .where(lt(errorRecords.createdAt, errCutoff))
+    .returning({ id: errorRecords.id });
+  const perfResult = await db
+    .delete(perfRecords)
+    .where(lt(perfRecords.createdAt, perfCutoff))
+    .returning({ id: perfRecords.id });
+  const sourcemapCount = await pruneSourcemaps();
   return { errors: errResult.length, perf: perfResult.length, sourcemaps: sourcemapCount };
 }
