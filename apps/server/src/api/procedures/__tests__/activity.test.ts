@@ -42,29 +42,25 @@ function buildApp() {
 // The guard is the whole point of this file: dropping `requireSession` in a
 // future refactor must fail here rather than silently exposing per-user data.
 describe("activityApp auth guard", () => {
-  const paths = ["/history", "/watchlist", "/upcoming", "/progress"];
+  const paths = ["/history", "/watchlist", "/upcoming", "/progress"] as const;
 
   beforeEach(() => {
     mockUserId = null;
   });
 
-  it("rejects unauthenticated requests with 401 on every route", async () => {
-    for (const path of paths) {
-      const res = await buildApp().request(`/activity${path}`);
-      expect(res.status, `${path} should require a session`).toBe(401);
-      const body = (await res.json()) as { code: string };
-      expect(body.code).toBe("http.unauthorized");
-    }
+  it.each(paths)("rejects unauthenticated %s with 401", async (path) => {
+    const res = await buildApp().request(`/activity${path}`);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("http.unauthorized");
   });
 
-  it("admits authenticated requests past the guard", async () => {
+  // history/watchlist query schemas are all-optional, so an empty query string
+  // validates; every stub returns { items: [] } regardless of params.
+  it.each(paths)("admits authenticated %s past the guard", async (path) => {
     mockUserId = "user-1";
-    // history/watchlist query schemas are all-optional, so an empty query
-    // string validates; every stub returns { items: [] } regardless of params.
-    for (const path of paths) {
-      const res = await buildApp().request(`/activity${path}`);
-      expect(res.status, `${path} should pass the guard`).toBe(200);
-      expect(await res.json()).toEqual({ items: [] });
-    }
+    const res = await buildApp().request(`/activity${path}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: [] });
   });
 });
