@@ -389,9 +389,11 @@ WatchlistContent (filterActive=true)
 - skeletons: `VirtualWindowList` rendered with synthetic skeleton items when `isLoading && items.length===0` (caller responsibility)
 - `Row` skeleton path unchanged — track receives skeleton array sized `SKELETON_COUNT`, no virt while skeleton
 - `RowError` / `RowErrorInlineCard` unchanged.
-- inline error trailing item: when `showInlineError`, caller appends a sentinel entry to the `items` array passed to `ScrollRowTrack`; `renderItem` switches on sentinel → returns `<RowErrorInlineCard>` instead of `<Card>`. Same `estimateItemWidth`. Cleaner than DOM-pinning and keeps `ScrollRowTrack` API surface minimal.
+- ~~inline error trailing item via a caller-owned sentinel appended to `items`~~ **SUPERSEDED (#888).** The sentinel-union pattern below was the original plan: each consumer widened `T` to `HomeCardItem | ErrorSentinel` and narrowed in `renderItem`, keeping the primitive's API untouched. It was replaced by a first-class `trailingSlot` prop because the sentinel forced every consumer (home rows, watchlist grids, library lenses) to hand-roll its own union type and error branch, defeating the unify goal — the trailing item is a cross-cutting pagination concern, not per-consumer data.
 
-  Sentinel type contract (caller-owned, kept local to consumer):
+  New contract: `ScrollRowTrack` / `VirtualGrid` take a `trailingSlot?: ReactNode` rendered after the items — pass `<PaginationSlot slot={slot} variant="card|row" />` derived from the shared `usePaginationSlot`. In the horizontal virtualized track a non-null `trailingSlot` is one extra `--card-w` virtual item (excluded from `onRangeChange`), so callers MUST pass `undefined` when `slot.state === "none"` — a null-rendering element still inflates the virtualizer count. `VirtualGrid` renders it outside the window, so a null slot is harmless there.
+
+  Superseded sentinel contract (no longer used, kept for provenance):
 
   ```ts
   const ERROR_SENTINEL = { __sentinel: 'error' } as const
@@ -400,8 +402,6 @@ WatchlistContent (filterActive=true)
   const isErrorSentinel = (it: TrackEntry): it is ErrorSentinel =>
     typeof it === 'object' && it !== null && '__sentinel' in it
   ```
-
-  `ScrollRowTrack` stays generic `items: readonly T[]`; consumer widens `T` to the union and narrows in `renderItem`. No widening of the primitive's API.
 
 ## DOM cap — assertion
 

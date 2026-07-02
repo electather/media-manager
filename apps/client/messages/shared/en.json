@@ -77,5 +77,9 @@
         "unit=min_s": "{formattedValue}m {formattedSecondaryValue}s"
       }
     }
-  ]
+  ],
+  "shared_pagination_error_message": "Couldn't load more",
+  "shared_pagination_error_body": "Source didn't respond.",
+  "shared_pagination_retry": "Retry",
+  "shared_pagination_loading": "Loading…"
 }

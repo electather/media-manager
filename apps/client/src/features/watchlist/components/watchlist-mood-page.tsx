@@ -3,7 +3,7 @@ import { useParams } from "@tanstack/react-router";
 import type { MoodId } from "@nama/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { GridSkeleton } from "@/shared/components/grid-skeleton";
-import { VirtualGrid } from "@/shared/components/virtualized";
+import { PaginationSlot, usePaginationSlot, VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
 import { useWatchlistPeek } from "../hooks/use-watchlist-peek";
@@ -40,14 +40,23 @@ export function WatchlistMoodPage() {
 }
 
 function MoodGrid({ moodId }: { moodId: MoodId }) {
-  const { items, hasNextPage, isFetchingNextPage, fetchNextPage } = useMoodCluster(
+  const { items, hasNextPage, isFetchingNextPage, fetchNextPage, error } = useMoodCluster(
     moodId,
     MOOD_PAGE_LIMIT,
   );
   const onPeek = useWatchlistPeek();
+  // `error == null` stops the auto-load re-firing after an append failure,
+  // which would clobber the retry slot with a fresh fetch every render (#888).
   const onEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (hasNextPage && !isFetchingNextPage && error == null) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
+  const slot = usePaginationSlot({
+    itemCount: items.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
   return (
     <VirtualGrid
       items={items}
@@ -56,6 +65,7 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
       estimateRowHeight={() => 336}
       renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
       onEndReached={onEndReached}
+      trailingSlot={<PaginationSlot slot={slot} variant="row" />}
     />
   );
 }
