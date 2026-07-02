@@ -19,8 +19,10 @@ export async function encrypt(plaintext: string, hexKey: string): Promise<string
 
   const cipherBuffer = await crypto.subtle.encrypt({ name: ALGO, iv }, key, encoded);
 
-  const ivB64 = btoa(String.fromCharCode(...iv));
-  const ctB64 = btoa(String.fromCharCode(...new Uint8Array(cipherBuffer)));
+  // ponytail: Array.from avoids RangeError from spread into String.fromCharCode on large buffers
+  const toB64 = (buf: Uint8Array) => btoa(Array.from(buf, (b) => String.fromCharCode(b)).join(""));
+  const ivB64 = toB64(iv);
+  const ctB64 = toB64(new Uint8Array(cipherBuffer));
 
   return `${ivB64}:${ctB64}`;
 }
