@@ -32,8 +32,10 @@ describe("PerUserMutex", () => {
 
     await Promise.all([mutex.run("u1", gate("a")), mutex.run("u2", gate("b"))]);
 
-    // Interleaved: both start before either ends.
-    expect(events.slice(0, 2)).toEqual(["a:start", "b:start"]);
+    // Fully interleaved: both start before either ends (single-await gate,
+    // microtask-FIFO resumption). Asserting the whole array rather than a
+    // prefix catches a regression that let the second user's end slip early.
+    expect(events).toEqual(["a:start", "b:start", "a:end", "b:end"]);
   });
 
   it("keeps the chain alive after a task rejects", async () => {
