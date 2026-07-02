@@ -185,6 +185,37 @@ describe("seerr capability contract", () => {
     expect(warnings.length).toBe(0);
   });
 
+  it("mediaRequest.listRequests: warns and returns partial data when the MAX_PAGES cap is hit (#913)", async () => {
+    const warnings: unknown[][] = [];
+    // 500 full pages (PAGE_SIZE=100) never yields a short page, so the loop
+    // exhausts the cap; the warn is the only signal the dataset is truncated.
+    const fullPage = () => ({
+      results: Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        type: "movie" as const,
+        status: 2,
+        createdAt: "2026-04-06T00:00:00.000Z",
+        media: { tmdbId: 550, title: "Fight Club" },
+      })),
+    });
+    const ctx = makeCtx(
+      Array.from({ length: 500 }, () => jsonRes(fullPage())),
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(ctx.calls.length).toBe(500);
+    expect(warnings.length).toBe(1);
+    expect(String(warnings[0]?.[0])).toContain("500-page cap");
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
   it("mediaRequest.listRequests: warns when a TV row is missing the seasons array (rename signal)", async () => {
     const warnings: unknown[][] = [];
     const ctx = makeCtx(
