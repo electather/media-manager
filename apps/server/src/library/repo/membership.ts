@@ -34,13 +34,10 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
 // Tombstones owned rows absent from keepKeys. When keepKeys exceeds
 // SQLITE_VARIABLE_LIMIT: read ids, compute absent set, tombstone in chunks.
 // Three-path guard (empty/fast notInArray/slow chunked inArray) handles variable limit.
+// `db` MUST be a top-level handle, never an active `tx`: the slow path opens its
+// own transaction and libsql HTTP mode has no savepoints, so a nested
+// `tx.transaction()` throws. Sole caller (`service.syncMembership`) passes getDb().
 // fallow-ignore-next-line complexity
-/**
- * Slow path opens its own `db.transaction`, so `db` MUST be a top-level handle,
- * never an active `tx` — libsql HTTP mode has no savepoints, so a nested
- * `tx.transaction()` would throw. The sole caller (`service.syncMembership`)
- * passes the default `getDb()`.
- */
 export async function tombstoneMissing(
   userId: string,
   keepKeys: string[],
