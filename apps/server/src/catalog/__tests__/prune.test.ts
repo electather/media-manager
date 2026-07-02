@@ -166,9 +166,8 @@ describe("CatalogService.pruneUnusedMetadata", () => {
       },
     }) as Db;
 
-    // Passing an explicit refSet skips buildPruneRefSet so the candidate scan is
-    // the FIRST db.select; bumpOnce fires on it. Adding a select before the scan
-    // would misfire the bump and silently stop exercising the race (#906).
+    // Explicit refSet skips buildPruneRefSet so the candidate scan is the first
+    // db.select bumpOnce fires on; see the matching note in prune.ts (#906).
     const result = await pruneUnusedMetadataRows(racingDb, cutoffMs, new Set(), 7);
 
     expect(bumped).toBe(true);
