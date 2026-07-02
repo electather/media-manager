@@ -12,6 +12,7 @@ import { buildEnrichRows } from "./internal/enrich";
 import { bustFacets, readFacets, writeFacets } from "./internal/facets-cache";
 import { hydrate, type HydrateOptions, type HydrateResult } from "./internal/hydrate";
 import { toLensFilters } from "./internal/lens-filters";
+import { syncMutex } from "./internal/sync-mutex";
 import {
   allKnownKeys,
   clearSeedLock,
@@ -54,6 +55,14 @@ interface ParsedFeed {
  */
 export async function syncMembership(ctx: MaybeLibraryContext): Promise<SyncMembershipResult> {
   const c = asLibraryContext(ctx);
+  // Serialize all writers for this user so `tombstoneMissing`'s slow-path
+  // read-then-update is provably single-writer. The job-runner overlap guard
+  // covers `library.sync` vs itself, but not the eager `ensureSeeded` path (#911).
+  return syncMutex.run(c.userId, () => runSyncMembership(c));
+}
+
+// fallow-ignore-next-line complexity
+async function runSyncMembership(c: LibraryContext): Promise<SyncMembershipResult> {
   const known = await allKnownKeys(c.userId);
   const parsed = await fetchAndParseFeed(c, known);
   const added = await upsertOwned(parsed.newRows);
