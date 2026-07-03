@@ -98,7 +98,6 @@ export const adminPerfApp = new Hono()
         })
         .from(perfRecords)
         .where(and(eq(perfRecords.kind, "http"), gte(perfRecords.createdAt, dayAgo)))
-        .where(and(eq(perfRecords.kind, "http"), gte(perfRecords.createdAt, dayAgo)))
         .orderBy(desc(perfRecords.createdAt))
         .limit(AGGREGATE_ROW_BUDGET)
         .all(),
