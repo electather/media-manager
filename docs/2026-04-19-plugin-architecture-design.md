@@ -985,6 +985,15 @@ Permission: `account:connections`. Scoped to authenticated user.
 - `connection.delete` — auto-promotes another instance to default if needed.
 - `connection.test` — `{ connectionId }`. Calls `testConnection(ctx)` on plugin. Updates `last_verified_at` on success, `status="error"` on fail.
 
+**Per-user rate limiting on plugin-touching endpoints (#922).**
+
+The per-plugin `ctx.fetch` token bucket (§Security enforcement points) is shared across all users, so one user tight-looping an endpoint that triggers outbound plugin calls can exhaust it for everyone. A second, per-user layer guards the REST connections surface, keyed by the verified session user id (mounted after `requireSession`/`requirePermission`):
+
+- **One-shot bucket** — `verify-config`, `:id/test`, `oauth/redirect/start`, `oauth/redirect/complete`, `oauth/device/start`. Capacity 20, refill 20/min. Debit runs _before_ payload validation so malformed probe-spam still consumes tokens.
+- **Poll bucket** — `oauth/device/poll` only. Capacity 60, refill 60/min. Device polling runs at the provider-advertised `intervalSec` (Plex = 2s → 30/min); the one-shot bucket would 429 a valid flow before its PIN expires, so poll uses a cadence-tolerant bucket sized above the fastest advertised interval while still bounding a tight-loop abuser to ~1/s per user.
+
+Both return `429` with a `Retry-After` header on throttle.
+
 ## Shared-Credentials Behaviour for TMDB / TVDB
 
 Former bespoke "shared-key model" = instance of general scope + pool system:

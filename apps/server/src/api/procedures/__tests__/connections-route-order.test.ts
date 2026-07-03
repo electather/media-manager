@@ -51,7 +51,8 @@ vi.mock("../../../auth", () => ({
   PERMISSIONS: { ACCOUNT_CONNECTIONS: "account:connections" },
 }));
 
-const { connectionsApp } = await import("../connections");
+const { connectionsApp, connectionPluginLimiter, connectionPollLimiter } =
+  await import("../connections");
 
 function buildApp() {
   return new Hono()
@@ -112,5 +113,46 @@ describe("connectionsApp — route ordering", () => {
       userId: "u1",
       connectionId: "some-id",
     });
+  });
+});
+
+describe("connectionsApp — per-user rate limiting (#922)", () => {
+  // Debit runs before zValidator, so a drained bucket short-circuits with 429
+  // regardless of body validity — assertions key on 429 alone, not handler output.
+  beforeEach(() => {
+    connectionPluginLimiter.reset();
+    connectionPollLimiter.reset();
+  });
+
+  function post(path: string) {
+    return buildApp().request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+  }
+
+  it("throttles verify-config with 429 + Retry-After once the one-shot bucket (capacity 20) drains", async () => {
+    for (let i = 0; i < 20; i++) {
+      expect((await post("/connections/verify-config")).status).not.toBe(429);
+    }
+    const drained = await post("/connections/verify-config");
+    expect(drained.status).toBe(429);
+    expect(drained.headers.get("Retry-After")).not.toBeNull();
+  });
+
+  it("does not throttle device polling below the advertised cadence — the poll bucket tolerates >20 rapid polls", async () => {
+    // Plex advertises intervalSec: 2 (30 polls/min), which the old shared 20/min
+    // bucket would 429 mid-flow before the PIN expires. The dedicated poll bucket must not.
+    for (let i = 0; i < 30; i++) {
+      expect((await post("/connections/oauth/device/poll")).status).not.toBe(429);
+    }
+  });
+
+  it("does not consume a token on unguarded reads (GET /connections/available)", async () => {
+    // Well past both bucket capacities — an unguarded route must never 429.
+    for (let i = 0; i < 25; i++) {
+      expect((await buildApp().request("/connections/available")).status).toBe(200);
+    }
   });
 });
