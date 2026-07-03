@@ -91,87 +91,23 @@ Keep every comment to **3 lines or fewer**. A comment earns its space only by re
 
 When unsure whether a detail is obvious, keep it. Preserve the original delimiter style (`/** */` vs `//`) when shortening.
 
-## Rule 1 — Think Before Coding
+## Principles
 
-State assumptions explicitly. If uncertain, ask rather than guess.
-Present multiple interpretations when ambiguity exists.
-Push back when a simpler approach exists.
-Stop when confused. Name what's unclear.
+- Simplest change that works. No speculative code, no abstraction for single use.
+- Surgical. Touch only what task needs. No drive-by refactor/reformat of adjacent code.
+- Read exports + callers + shared utils before edit. Unsure why code structured so → ask, don't guess.
+- Match codebase conventions even if disagree. Think one harmful → surface, don't fork silent.
+- Ambiguity → state assumptions, offer interpretations, ask. Simpler path exists → push back.
+- Conflicting patterns → pick more-tested, flag other for cleanup. No blend.
+- Define success criteria, loop till verified.
+- Tests encode WHY (must fail when business logic changes), not just WHAT.
+- Fail loud. Skipped step/test → not "done". Surface uncertainty, don't hide.
 
-## Rule 2 — Simplicity First
+## docs/\* = source of truth
 
-Minimum code that solves the problem. Nothing speculative.
-No features beyond what was asked. No abstractions for single-use code.
-Test: would a senior engineer say this is overcomplicated? If yes, simplify.
+Read relevant design doc before change, update after. Design = intended final state across phases — code marked "kept" stays even if currently unused. Check linked issue before deleting anything tooling flags.
 
-## Rule 3 — Surgical Changes
-
-Touch only what you must. Clean up only your own mess.
-Don't "improve" adjacent code, comments, or formatting.
-Don't refactor what isn't broken. Match existing style.
-
-## Rule 4 — Goal-Driven Execution
-
-Define success criteria. Loop until verified.
-Don't follow steps. Define success and iterate.
-Strong success criteria let you loop independently.
-
-## Rule 5 — Use the model only for judgment calls
-
-Use me for: classification, drafting, summarization, extraction.
-Do NOT use me for: routing, retries, deterministic transforms.
-If code can answer, code answers.
-
-## Rule 6 — Token budgets are not advisory
-
-Per-task: 4,000 tokens. Per-session: 30,000 tokens.
-If approaching budget, summarize and start fresh.
-Surface the breach. Do not silently overrun.
-
-## Rule 7 — Surface conflicts, don't average them
-
-If two patterns contradict, pick one (more recent / more tested).
-Explain why. Flag the other for cleanup.
-Don't blend conflicting patterns.
-
-## Rule 8 — Read before you write
-
-Before adding code, read exports, immediate callers, shared utilities.
-"Looks orthogonal" is dangerous. If unsure why code is structured a way, ask.
-
-## Rule 9 — Tests verify intent, not just behavior
-
-Tests must encode WHY behavior matters, not just WHAT it does.
-A test that can't fail when business logic changes is wrong.
-
-## Rule 10 — Checkpoint after every significant step
-
-Summarize what was done, what's verified, what's left.
-Don't continue from a state you can't describe back.
-If you lose track, stop and restate.
-
-## Rule 11 — Match the codebase's conventions, even if you disagree
-
-Conformance > taste inside the codebase.
-If you genuinely think a convention is harmful, surface it. Don't fork silently.
-
-## Rule 12 — Fail loud
-
-"Completed" is wrong if anything was skipped silently.
-"Tests pass" is wrong if any were skipped.
-Default to surfacing uncertainty, not hiding it.
-
-## Rule 13 — docs/\* = source of truth
-
-Read relevant design doc before any change. Update it after.
-Design describes intended final state across phases — code listed as "kept" stays even if currently unused.
-Check linked issue before deleting anything flagged by tooling.
-
-## Rule 14 — Never increase fallow baseline
+## Never increase fallow baseline
 
 Flag → fix root cause. No new entries in `.fallow/dead-code-baseline.json`.
 Exception: add `// fallow-ignore-file <rule>` or `// fallow-ignore-next-line <rule>` (bare — no inline reason text; fallow parses extra tokens as rule names and warns on stale suppressions; put the reason in the commit message instead).
-
-## Token Savior MCP
-
-`token-savior` MCP server registered. Prefer structural code-nav tools over `Read` + `Grep` when exploring symbols, sources, deps in this repo. Use memory engine (`memory_*`) for session-spanning context — override file-based auto-memory at `~/.claude/projects/.../memory/` for this project.
