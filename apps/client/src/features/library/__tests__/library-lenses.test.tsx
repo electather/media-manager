@@ -21,7 +21,10 @@ interface CapturedGrid {
 }
 const grids = vi.hoisted(() => ({ captured: [] as CapturedGrid[] }));
 
-vi.mock("@/shared/components/virtualized", () => ({
+// Keep the real `usePaginationSlot` / `PaginationSlot` (the append-error slot
+// under test) and only stub `VirtualGrid` so the lenses render synchronously.
+vi.mock("@/shared/components/virtualized", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/shared/components/virtualized")>()),
   VirtualGrid: <T,>({
     items,
     getKey,
@@ -95,6 +98,7 @@ describe("LibrarySectionGrid infinite-scroll wiring", () => {
         hasNextPage
         isFetchingNextPage={false}
         fetchNextPage={fetchNextPage}
+        error={null}
       />,
     );
 
@@ -124,6 +128,7 @@ describe("LibrarySectionGrid infinite-scroll wiring", () => {
         hasNextPage
         isFetchingNextPage
         fetchNextPage={fetchNextPage}
+        error={null}
       />,
     );
     grids.captured[grids.captured.length - 1]!.onEndReached!();
@@ -153,6 +158,7 @@ describe("CollectionsLens card", () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn(async () => undefined)}
+        error={null}
       />,
     );
 
@@ -184,6 +190,7 @@ describe("AzLens rail", () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn(async () => undefined)}
+        error={null}
       />,
     );
     const rail = screen.getByRole("navigation", { name: "Jump to letter" });
@@ -221,6 +228,7 @@ describe("TimelineLens rail + yearless label", () => {
         hasNextPage={false}
         isFetchingNextPage={false}
         fetchNextPage={vi.fn(async () => undefined)}
+        error={null}
       />,
     );
     const rail = screen.getByRole("navigation", { name: "Jump to decade" });

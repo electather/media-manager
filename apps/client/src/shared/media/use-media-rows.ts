@@ -85,6 +85,10 @@ export function useMediaRows<P extends object>(
     hasNextPage: query.hasNextPage,
     isFetchingNextPage: query.isFetchingNextPage,
     fetchNextPage: query.fetchNextPage,
+    // Initial-load failure throws to the Suspense ErrorBoundary; a *next-page*
+    // rejection surfaces here (data already cached) so the trailing slot can
+    // offer retry (#888).
+    error: query.error,
   };
 }
 

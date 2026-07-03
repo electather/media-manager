@@ -7,11 +7,12 @@ import { loadUserPermissions } from "../repo";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { MCP_SCOPES, NAME_MAX_LENGTH, truncateName } from "@nama/shared/users";
+import { MCP_SCOPES } from "@nama/shared/users";
 import * as schema from "../../db/schema/index";
 import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
 import { createEmailChangeHooks } from "./email-change-hooks";
+import { truncateOverlongName } from "./name-guard";
 import { enforcePasswordPolicy } from "./password-policy-hook";
 
 // Strip any trailing slashes from the configured base URL so we can derive
@@ -103,21 +104,10 @@ const options = {
   databaseHooks: {
     user: {
       create: {
-        // Social/OAuth providers supply the user's display name from their
-        // profile without any length gate. Silently truncate names that exceed
-        // NAME_MAX_LENGTH so they fit the validated DB column without blocking
-        // sign-up — the user can rename themselves to anything ≤100 chars after
-        // logging in.
-        before: async (userData) => {
-          if (typeof userData.name === "string" && userData.name.length > NAME_MAX_LENGTH) {
-            return { data: { ...userData, name: truncateName(userData.name) } };
-          }
-          // Returning nothing tells Better Auth to proceed with the row
-          // unchanged, avoiding a needless shallow clone on every social
-          // sign-up. See node_modules/better-auth dist/db/with-hooks.mjs:
-          // a non-object result leaves the create payload untouched.
-          return;
-        },
+        // Cap over-long social/OAuth display names on first login. The update
+        // path (re-sync on every subsequent login) is guarded in
+        // emailChangeHooks.before — see name-guard.ts and #831.
+        before: async (userData) => truncateOverlongName(userData),
       },
       update: emailChangeHooks,
     },

@@ -139,7 +139,25 @@ export async function updateAdminHeaders(
   pluginId: string,
   patch: Record<string, string | null>,
 ): Promise<void> {
-  const { adminHeaders: existing } = await loadPluginPolicy(pluginId);
+  const db = getDb();
+  // Read the current stored headers straight from the row, never from
+  // `loadPluginPolicy`'s cache: the cache is process-local, so on worker A it
+  // can hold headers stale relative to a PUT that ran on worker B (#904).
+  // Merging a patch onto that stale base and writing back would silently drop
+  // B's headers. The row is the only cross-worker source of truth.
+  const current = await db
+    .select({
+      adminHeadersEncrypted: plugins.adminHeadersEncrypted,
+      adminHeadersIv: plugins.adminHeadersIv,
+    })
+    .from(plugins)
+    .where(eq(plugins.id, pluginId))
+    .get();
+  if (!current) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
+  const existing =
+    current.adminHeadersIv && current.adminHeadersEncrypted
+      ? await decryptAdminHeaders(current.adminHeadersIv, current.adminHeadersEncrypted)
+      : undefined;
   // Rebuild `next` with lowercased keys so case-insensitive delete and update
   // work regardless of the casing the existing entry was first stored under.
   const next: Record<string, string> = {};
@@ -169,7 +187,6 @@ export async function updateAdminHeaders(
     );
   }
 
-  const db = getDb();
   const result =
     Object.keys(next).length === 0
       ? await db
