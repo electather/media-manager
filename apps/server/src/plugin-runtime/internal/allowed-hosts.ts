@@ -132,7 +132,6 @@ export async function assertResolvedHostAllowed(pluginId: string, hostname: stri
     return;
   }
   for (const { address } of addresses) {
-  for (const { address } of addresses) {
     if (isBlockedHostname(address)) {
       throw new PluginError(
         "plugin.upstream_error",
