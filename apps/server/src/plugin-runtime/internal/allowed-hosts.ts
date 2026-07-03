@@ -131,7 +131,7 @@ export async function assertResolvedHostAllowed(pluginId: string, hostname: stri
     // the network error so the plugin sees the same behaviour as any dead host.
     return;
   }
-  if (!Array.isArray(addresses)) return;
+  for (const { address } of addresses) {
   for (const { address } of addresses) {
     if (isBlockedHostname(address)) {
       throw new PluginError(
