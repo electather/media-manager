@@ -5,7 +5,8 @@ import { isNil } from "es-toolkit/predicate";
 /**
  * JSON Schema extension for dynamic `ctx.fetch` allowlisting. ⚠ User-controlled SSRF surface:
  * marked fields let the authenticated user direct `ctx.fetch` to an arbitrary hostname.
- * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6. DNS-rebinding deferred to fetch time.
+ * RFC1918/LAN permitted (Plex/Jellyfin); `isBlockedHostname` blocks loopback, link-local, IMDS, IPv4-mapped IPv6.
+ * DNS-rebinding (a DNS name resolving to a blocked IP) is caught at fetch time by `assertResolvedHostNotBlocked` in fetch-policy.ts.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -83,7 +84,7 @@ function ipv4MappedIpv6Embedded(hostname: string): string | null {
 
 /**
  * Rejects blocked hostnames from `x-allowed-host` resolution. String-only check —
- * DNS-rebinding mitigation (resolve + re-check the actual address) is out of scope here; happens at fetch time.
+ * DNS-rebinding mitigation (resolve + re-check the actual address) runs at fetch time (`assertResolvedHostNotBlocked`).
  */
 // fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
