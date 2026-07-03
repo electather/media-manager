@@ -13,7 +13,10 @@ const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup: lookupMock }));
 
 const resolveTo = (...addresses: string[]) =>
-  lookupMock.mockResolvedValue(addresses.map((address) => ({ address })));
+  lookupMock.mockResolvedValue(
+    // Mirror `dns.lookup(host, { all: true })`'s shape: `{ address, family }[]`.
+    addresses.map((address) => ({ address, family: address.includes(":") ? 6 : 4 })),
+  );
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -278,10 +281,14 @@ describe("buildFetch — redirect prevention", () => {
           }),
       ),
     );
+    // Pin DNS to a benign public IP so the request clears the rebinding guard
+    // and the assertion exercises the redirect logic, not an incidental lookup.
+    resolveTo("93.184.216.34");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    lookupMock.mockReset();
   });
 
   it("throws when upstream returns a redirect", async () => {

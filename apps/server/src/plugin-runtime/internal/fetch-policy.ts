@@ -150,7 +150,9 @@ async function assertResolvedHostNotBlocked(pluginId: string, hostname: string):
     const results = await lookup(hostname, { all: true });
     addresses = results.map((r) => r.address);
   } catch {
-    // Unresolvable host is not an SSRF target — let `fetch` fail naturally.
+    // Any lookup failure (NXDOMAIN / SERVFAIL / timeout) means no address to
+    // vet — and `fetch`'s own resolution will fail the same way, so there is no
+    // reachable target to protect. Proceed and let `fetch` surface the error.
     return;
   }
   for (const address of addresses) {
