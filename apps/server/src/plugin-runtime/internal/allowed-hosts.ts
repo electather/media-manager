@@ -109,15 +109,9 @@ export function isBlockedHostname(hostname: string): boolean {
 }
 
 /**
- * Fetch-time DNS-rebinding guard: the string blocklist only sees the hostname, so a DNS name
- * that resolves to `127.0.0.1` / `169.254.169.254` / etc. passes it. Resolves the hostname to
- * every A/AAAA record and re-runs `isBlockedHostname` on each resolved IP; throws if any is blocked.
- *
- * Literal IPs skip the lookup — the string check already saw the final address, and a needless
- * `dns.lookup` on an IP can throw ENOTFOUND on some resolvers. `all: true` catches multi-record
- * rebinding where only one answer is malicious. There is still a TOCTOU window between this lookup
- * and the socket connect (a second resolution could differ); fully closing it needs a custom agent
- * that pins the checked IP, which is out of scope — this matches the design doc's fetch-time recheck.
+ * Fetch-time DNS-rebinding guard. Resolves every A/AAAA record for `hostname` and
+ * re-runs `isBlockedHostname` on each. TOCTOU: a second resolution at connect time
+ * could differ; closing that needs a socket-pinning agent (out of scope, design doc §SSRF).
  */
 // fallow-ignore-next-line complexity
 export async function assertResolvedHostAllowed(pluginId: string, hostname: string): Promise<void> {
