@@ -119,7 +119,6 @@
   "notifications_admin_settings_save_failed": "ذخیره تنظیمات ناموفق بود",
   "notifications_admin_deliveries_empty": "تحویلی وجود ندارد",
   "notifications_admin_filter_all": "همه",
-  "notifications_loading": "در حال بارگذاری…",
   "notifications_error_title": "بارگذاری اعلان‌ها ممکن نشد",
   "notifications_error_body": "بارگذاری این پنل ممکن نشد. دوباره تلاش کنید یا صفحه کامل اعلان‌ها را باز کنید.",
   "notifications_error_retry": "تلاش دوباره",

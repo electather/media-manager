@@ -47,6 +47,7 @@ describe("WatchlistMoodPage virtual-window fetch (#519)", () => {
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<WatchlistMoodPage />);
     await waitFor(() => expect(fetchNextPageMock).toHaveBeenCalled());
@@ -64,6 +65,7 @@ describe("WatchlistMoodPage virtual-window fetch (#519)", () => {
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<WatchlistMoodPage />);
     // Let any pending effects flush, then assert the trigger stayed quiet.
@@ -80,6 +82,7 @@ describe("WatchlistMoodPage virtual-window fetch (#519)", () => {
       hasNextPage: false,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     render(<WatchlistMoodPage />);
     await waitFor(() =>
@@ -95,6 +98,7 @@ describe("WatchlistMoodPage virtual-window fetch (#519)", () => {
       hasNextPage: true,
       isFetchingNextPage: false,
       fetchNextPage: fetchNextPageMock,
+      error: null,
     });
     const { container } = render(<WatchlistMoodPage />);
     expect(container.querySelector("button")).toBeNull();

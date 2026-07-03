@@ -153,8 +153,13 @@ export const sharedCredentialsService = {
     const picks: PoolPick[] = [];
     for (const row of rows) {
       const { iv, encryptedValue } = row;
-      const value = await decryptJson(iv, encryptedValue);
-      picks.push({ id: row.id, label: row.label, value });
+      try {
+        const value = await decryptJson(iv, encryptedValue);
+        picks.push({ id: row.id, label: row.label, value });
+      } catch (err) {
+        // Skip undecryptable rows so one corrupted entry doesn't abort the pool.
+        console.warn(`[plugin-runtime] skipping undecryptable credential ${row.id}:`, err);
+      }
     }
     const bundled = readBundledDefault((await requirePluginRow(pluginId)).manifest);
     if (bundled !== null) {

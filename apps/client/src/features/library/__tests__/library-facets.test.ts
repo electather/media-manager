@@ -27,12 +27,18 @@ describe("shouldFetchNext", () => {
   // returned true while fetching, the list would double-request and duplicate
   // rows. The truth table below is the whole contract — every cell must hold.
   it("fetches ONLY when another page exists and none is in flight", () => {
-    expect(shouldFetchNext(true, false)).toBe(true);
+    expect(shouldFetchNext(true, false, null)).toBe(true);
     // A fetch already running: holding the cursor is what prevents the dupe.
-    expect(shouldFetchNext(true, true)).toBe(false);
+    expect(shouldFetchNext(true, true, null)).toBe(false);
     // No further cursor: nothing to fetch regardless of in-flight state.
-    expect(shouldFetchNext(false, false)).toBe(false);
-    expect(shouldFetchNext(false, true)).toBe(false);
+    expect(shouldFetchNext(false, false, null)).toBe(false);
+    expect(shouldFetchNext(false, true, null)).toBe(false);
+  });
+
+  it("does NOT auto-fetch after an append error (retry slot must stay usable)", () => {
+    // Auto re-firing here would clobber the trailing retry slot every render (#888);
+    // recovery is the user's explicit retry, not another silent request.
+    expect(shouldFetchNext(true, false, new Error("boom"))).toBe(false);
   });
 });
 

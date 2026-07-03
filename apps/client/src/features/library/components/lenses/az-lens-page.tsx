@@ -12,13 +12,14 @@ export function AzLensPage() {
   return (
     <LensPage
       lens="az"
-      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage }) => (
+      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage, error }) => (
         <AzLens
           letters={letters}
           entries={entries}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
+          error={error}
         />
       )}
     />

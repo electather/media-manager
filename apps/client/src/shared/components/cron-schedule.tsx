@@ -37,6 +37,9 @@ function parseField(field: string, min: number, max: number): number[] {
     const step = stepMatch ? parseInt(stepMatch[2]!, 10) : 1;
     const range = stepMatch ? stepMatch[1]! : part;
 
+    // step=0 would infinite-loop; treat as invalid and skip (#918)
+    if (step <= 0) continue;
+
     if (range === "*") {
       for (let i = min; i <= max; i += step) values.add(i);
     } else if (range.includes("-")) {

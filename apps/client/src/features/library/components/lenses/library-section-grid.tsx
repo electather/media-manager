@@ -6,7 +6,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { VirtualGrid } from "@/shared/components/virtualized";
+import { PaginationSlot, usePaginationSlot, VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
 import { toSections, type LibrarySectionEntry } from "../../lib/section-groups";
 import { LibraryCard } from "../library-card";
@@ -24,13 +24,19 @@ const EST_ROW_HEIGHT = 296;
 
 /**
  * Whether the `onEndReached` sentinel should kick off the next page fetch: only
- * when another cursor exists AND no fetch is already in flight. Extracted as a
- * pure predicate so the infinite-scroll guard is unit-testable without rendering
- * the virtualizer (the grid's `onEndReached` and the "load more" button both go
- * through it, so the two affordances never disagree).
+ * when another cursor exists, no fetch is already in flight, AND the last append
+ * didn't error. Extracted as a pure predicate so the infinite-scroll guard is
+ * unit-testable without rendering the virtualizer (the grid's `onEndReached` and
+ * the "load more" button both go through it, so the two affordances never
+ * disagree). The `error == null` term stops an auto re-fire from clobbering the
+ * trailing retry slot after an append failure (#888).
  */
-export function shouldFetchNext(hasNextPage: boolean, isFetchingNextPage: boolean): boolean {
-  return hasNextPage && !isFetchingNextPage;
+export function shouldFetchNext(
+  hasNextPage: boolean,
+  isFetchingNextPage: boolean,
+  error: Error | null,
+): boolean {
+  return hasNextPage && !isFetchingNextPage && error == null;
 }
 
 export interface LibrarySectionGridProps {
@@ -39,6 +45,8 @@ export interface LibrarySectionGridProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
+  /** Next-page rejection (initial load throws to the ErrorBoundary); drives the trailing retry (#888). */
+  error: Error | null;
   /**
    * Optional per-section header override (the A→Z lens anchors its sections for
    * the letter rail). Defaults to the shared `SectionHead` treatment so every
@@ -65,12 +73,20 @@ export function LibrarySectionGrid({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  error,
   renderHeader,
 }: LibrarySectionGridProps) {
   const sections = useMemo(() => toSections(entries), [entries]);
   const onEndReached = useCallback(() => {
-    if (shouldFetchNext(hasNextPage, isFetchingNextPage)) void fetchNextPage();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (shouldFetchNext(hasNextPage, isFetchingNextPage, error)) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
+  const slot = usePaginationSlot({
+    itemCount: entries.length,
+    hasNextPage,
+    isFetchingNextPage,
+    error,
+    fetchNextPage,
+  });
 
   return (
     <div className="flex flex-col gap-14">
@@ -102,6 +118,10 @@ export function LibrarySectionGrid({
           </section>
         );
       })}
+
+      {/* Append-error retry (#888). Loading stays on the "load more" button
+          below, so the slot only surfaces the previously-silent error case. */}
+      {slot.state === "error" ? <PaginationSlot slot={slot} variant="row" /> : null}
 
       {hasNextPage ? (
         <div className="flex justify-center">
