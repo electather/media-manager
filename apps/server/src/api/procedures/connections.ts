@@ -46,6 +46,10 @@ export const connectionsApp = new Hono()
   .use("/oauth/redirect/complete", connectionPluginRateLimit)
   .use("/oauth/device/start", connectionPluginRateLimit)
   .use("/oauth/device/poll", connectionPollRateLimit)
+  // POST `/` (create) and PATCH `/:id/user-config` (update) also run an outbound
+  // startAuth/testConnection, but their paths double as cheap GET reads (list,
+  // getUserConfig) that must not be throttled — so the limiter is attached inline
+  // per-method below rather than via a path-wide `.use()`.
   // Mount the primary sub-app before any `/:id` routes so `/primary` is
   // matched as a static path. Otherwise Hono routes `DELETE /primary` to the
   // dynamic `.delete("/:id")` handler below with `id = "primary"`.
@@ -71,7 +75,7 @@ export const connectionsApp = new Hono()
     });
     return c.json(result);
   })
-  .post("/", zValidator("json", createSchema), async (c) => {
+  .post("/", connectionPluginRateLimit, zValidator("json", createSchema), async (c) => {
     const body = c.req.valid("json");
     const result = await connectionsService.createFormConnection({
       userId: sessionUserId(c),
@@ -89,14 +93,19 @@ export const connectionsApp = new Hono()
     });
     return c.json({ ok: true });
   })
-  .patch("/:id/user-config", zValidator("json", userConfigSchema), async (c) => {
-    await connectionsService.updateUserConfig({
-      userId: sessionUserId(c),
-      connectionId: c.req.param("id"),
-      userConfig: c.req.valid("json").userConfig,
-    });
-    return c.json({ ok: true });
-  })
+  .patch(
+    "/:id/user-config",
+    connectionPluginRateLimit,
+    zValidator("json", userConfigSchema),
+    async (c) => {
+      await connectionsService.updateUserConfig({
+        userId: sessionUserId(c),
+        connectionId: c.req.param("id"),
+        userConfig: c.req.valid("json").userConfig,
+      });
+      return c.json({ ok: true });
+    },
+  )
   .patch("/:id/enabled", zValidator("json", enabledSchema), async (c) => {
     await connectionsService.setEnabled({
       userId: sessionUserId(c),
