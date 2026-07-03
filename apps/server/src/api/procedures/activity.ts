@@ -3,6 +3,7 @@ import {
   activityHistoryQuerySchema as historySchema,
   activityWatchlistQuerySchema as watchlistSchema,
 } from "@nama/shared/media";
+import { requireSession } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
 import { requireSession } from "../../auth";
 

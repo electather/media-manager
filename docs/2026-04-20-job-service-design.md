@@ -178,7 +178,7 @@ function registerScheduledPerRow<TRow>(opts: {
   description?: string;
   schedule: string;
   rowSource: () => Promise<TRow[]>;
-  handler: (ctx: JobRunContext, row: TRow) => Promise<void>;
+  handler: (ctx: JobRunContext, row: TRow, signal: AbortSignal) => Promise<void>;
   perRowTimeoutSec?: number; // default 60
   runTimeoutSec?: number; // default 30 * 60
   continueOnRowError?: boolean; // default true

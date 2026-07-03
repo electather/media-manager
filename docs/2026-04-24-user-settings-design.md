@@ -384,6 +384,7 @@ Add to `packages/server/src/env.ts`: `z.coerce.boolean().default(false)`.
 
 - `user.changeEmail.sendChangeEmailConfirmation` → targets current (old) email (Better Auth 1.6 hook name; old revisions used `sendChangeEmailVerification`).
 - Post-switch notification to old address: synthesised via a `databaseHooks.user.update` pair (`before` captures the row's current email keyed by `ctx.context.session.user.id`; `after` emails the captured address when the row's new email differs). BA 1.6 has no built-in post-switch notification, so this is the minimum custom code needed; the factory lives in `apps/server/src/auth/internal/email-change-hooks.ts` and is unit-tested with mocked `readUserEmail` / `sendEmail`. Memory and concurrency tradeoffs documented inline.
+- The same `before` hook also caps an over-long `name`: social/OAuth re-syncs the provider name on every login via the update path, which bypassed the create-path length guard from the second login onward (#815/#831). `before` therefore returns `{ data }` with the truncated name when it exceeds `NAME_MAX_LENGTH`, otherwise `undefined` (leaving the payload untouched); the pure guard lives in `apps/server/src/auth/internal/name-guard.ts`. Email capture is an independent side effect and does not affect the return.
 - `changePassword` called with `revokeOtherSessions: true`.
 
 Configuration is config-knob-driven; the only handwritten server code is the

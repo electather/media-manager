@@ -274,6 +274,23 @@ describe("updateAdminHeaders", () => {
     const policy = await loadPluginPolicy(PLUGIN_ID);
     expect(policy.adminHeaders).toEqual({ "x-added": "late" });
   });
+
+  it("merges onto the current row, not a stale cache — #904 cross-worker loss", async () => {
+    // Simulate worker A priming its process-local cache with the empty state,
+    // then worker B writing a header directly to the shared row (bypassing A's
+    // cache invalidation). A's subsequent patch must merge onto B's row, not
+    // its own stale cache, or B's header is silently dropped.
+    await loadPluginPolicy(PLUGIN_ID);
+    rows.get(PLUGIN_ID)!.adminHeadersIv = "iv-fixture";
+    rows.get(PLUGIN_ID)!.adminHeadersEncrypted = JSON.stringify({ "x-from-b": "keep-me" });
+
+    await updateAdminHeaders(PLUGIN_ID, { "X-From-A": "also-keep" });
+
+    expect(JSON.parse(rows.get(PLUGIN_ID)!.adminHeadersEncrypted!)).toEqual({
+      "x-from-b": "keep-me",
+      "x-from-a": "also-keep",
+    });
+  });
 });
 
 describe("shared schema: pluginAdminAllowlistSchema", () => {

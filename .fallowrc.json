@@ -526,6 +526,7 @@
           "client-feat-connections",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",
           "shared-pkg"

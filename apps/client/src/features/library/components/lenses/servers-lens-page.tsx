@@ -6,12 +6,13 @@ export function ServersLensPage() {
   return (
     <LensPage
       lens="server"
-      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage }) => (
+      render={({ entries, hasNextPage, isFetchingNextPage, fetchNextPage, error }) => (
         <ServersLens
           entries={entries}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
+          error={error}
         />
       )}
     />

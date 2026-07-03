@@ -13,7 +13,12 @@ import type {
   ToCanonicalRowFn,
 } from "./types";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
+import {
+  classifyBucket,
+  isRequestEligible,
+  previewForClassify,
+  type ProgressMap,
+} from "./classify";
 import { buildFacets } from "./internal/facets";
 import { batchLoad } from "./pipeline/batch-load";
 import { capabilityRegistry } from "../plugin-runtime";
@@ -149,6 +154,12 @@ export async function enrich<Row extends MediaEnrichRow>(
   // hydration; when there's no filter we still hoist the call here so the
   // per-row enricher reads from the same cached value rather than racing the
   // request-scoped memo a second time.
+  const requestProviderCount = capabilityRegistry.listProviders(
+    "mediaRequest",
+    "v1",
+    "user",
+  ).length;
+
   const servers = await Promise.allSettled(
     rows.map((row) =>
       getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType),
@@ -173,6 +184,7 @@ export async function enrich<Row extends MediaEnrichRow>(
         statuses[composite],
         serversList,
         progressMap.get(composite),
+        requestProviderCount,
       );
       if (classifyBucket(probe) === opts.filter) {
         kept.push(row);
@@ -189,7 +201,15 @@ export async function enrich<Row extends MediaEnrichRow>(
 
   const settled = await Promise.allSettled(
     liveRows.map((row, i) =>
-      enrichOne(row, statuses, metadata, artwork, liveServers[i]!, progressMap),
+      enrichOne(
+        row,
+        statuses,
+        metadata,
+        artwork,
+        liveServers[i]!,
+        progressMap,
+        requestProviderCount,
+      ),
     ),
   );
 
@@ -301,6 +321,7 @@ async function enrichOne(
   artwork: Record<string, ArtworkBundle>,
   serverProbe: PromiseSettledResult<MatchingServer[]>,
   progress: ProgressMap,
+  requestProviderCount: number,
 ): Promise<{ item: CompactMediaItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
@@ -330,7 +351,7 @@ async function enrichOne(
   item.status = status;
   item.availability = {
     hasAnyServerCopy: servers.length > 0,
-    requestEligible: servers.length === 0 && status !== "available",
+    requestEligible: isRequestEligible(servers, status, requestProviderCount),
     servers: servers.map((s) => ({ id: s.id, label: s.label })),
   };
   const resume = progress.get(composite);
@@ -422,8 +443,11 @@ async function deriveCompactAvailability(
       return [] as MatchingServer[];
     });
   const hasAnyServerCopy = servers.length > 0;
-  const requestEligible = !hasAnyServerCopy && status !== "available" && requestProviderCount > 0;
-  return { hasAnyServerCopy, requestEligible, servers };
+  return {
+    hasAnyServerCopy,
+    requestEligible: isRequestEligible(servers, status, requestProviderCount),
+    servers,
+  };
 }
 
 // fallow-ignore-next-line complexity
