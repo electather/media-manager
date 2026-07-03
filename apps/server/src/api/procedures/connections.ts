@@ -18,7 +18,7 @@ import { TokenBucketLimiter } from "../../mcp/rate-limit";
 import { makeRateLimitMiddleware } from "../rate-limit";
 
 /** Per-user bucket for plugin-touching endpoints (verify-config, test, oauth). Capacity 20, refill 20/min: prevents one user from exhausting the shared per-plugin fetch quota while allowing normal use. */
-export const connectionPluginLimiter = new TokenBucketLimiter({
+const connectionPluginLimiter = new TokenBucketLimiter({
   capacity: 20,
   refillPerSec: 20 / 60,
 });
