@@ -123,13 +123,18 @@ export const onboardingApp = new Hono()
   })
   .post("/complete", async (c) => {
     const userId = sessionUserId(c);
+    // Check before marking so warmDiscoverCatalog only fires on first completion.
+    // Repeat calls are idempotent: markUserOnboarded is a no-op if already set.
+    const alreadyOnboarded = await isUserOnboarded(userId);
     const ctx = await buildOnboardingContext(userId);
     if (!requiredStepsSatisfied(resolveOnboardingSteps(ctx))) {
       throw badRequest("onboarding.requirements_unmet", "Complete the required steps first");
     }
     await markUserOnboarded(userId);
-    // Warm the discover catalog so the home feed populates without waiting
-    // for the next scheduled snapshot run.
-    warmDiscoverCatalog(userId, currentRequestContext()?.requestId);
+    if (!alreadyOnboarded) {
+      // Warm the discover catalog so the home feed populates without waiting
+      // for the next scheduled snapshot run.
+      warmDiscoverCatalog(userId, currentRequestContext()?.requestId);
+    }
     return c.json({ ok: true });
   });

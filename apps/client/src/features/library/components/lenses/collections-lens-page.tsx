@@ -12,7 +12,7 @@ import { LibraryEmpty } from "../library-empty";
  */
 export function CollectionsLensPage() {
   const { filters, resetFilters } = useLibraryFilters();
-  const { collections, hasNextPage, isFetchingNextPage, fetchNextPage } =
+  const { collections, hasNextPage, isFetchingNextPage, fetchNextPage, error } =
     useLibraryCollections(filters);
 
   if (collections.length === 0) return <LibraryEmpty onReset={resetFilters} />;
@@ -23,6 +23,7 @@ export function CollectionsLensPage() {
       hasNextPage={hasNextPage}
       isFetchingNextPage={isFetchingNextPage}
       fetchNextPage={fetchNextPage}
+      error={error}
     />
   );
 }
