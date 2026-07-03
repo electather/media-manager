@@ -47,7 +47,7 @@ function PaginationSlotCard({ slot }: { slot: PaginationSlotModel }) {
   }
   return (
     <div
-      role="alert"
+      role="status"
       aria-live="polite"
       data-testid="pagination-slot-error"
       data-error-name={slot.error?.name}
@@ -86,7 +86,7 @@ function PaginationSlotRow({ slot }: { slot: PaginationSlotModel }) {
   }
   return (
     <div
-      role="alert"
+      role="status"
       aria-live="polite"
       data-testid="pagination-slot-error"
       data-error-name={slot.error?.name}
