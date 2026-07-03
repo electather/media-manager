@@ -1,5 +1,7 @@
 // fallow-ignore-file complexity
 // 6 branches all required by V2/V3/V4: URL parse, manifest check, admin check, dynamic host, rate limit, admin headers; each = distinct security gate; split → indirection ⊥ clarity gain
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { consola } from "consola";
 import { captureError } from "../../diagnostics/capture";
 import { PluginError } from "@nama/plugin-sdk";
@@ -134,6 +136,36 @@ export function buildFetch(
 }
 
 /**
+ * DNS-rebinding SSRF guard: the string blocklist only sees the literal hostname, so an
+ * attacker-controlled DNS name (`evil.example.com`) that resolves to `127.0.0.1`/`169.254.169.254`
+ * would otherwise sail through. Resolve every A/AAAA record and reject if any is blocked. A pinned
+ * TOCTOU window remains between this check and connect; closing it fully needs an IP-pinned dispatcher.
+ */
+async function assertResolvedHostNotBlocked(pluginId: string, hostname: string): Promise<void> {
+  // Literal IPs were already vetted by `isBlockedHostname` on the raw hostname;
+  // resolving one just returns itself, so skip the lookup.
+  if (isIP(hostname) !== 0) return;
+  let addresses: string[];
+  try {
+    const results = await lookup(hostname, { all: true });
+    addresses = results.map((r) => r.address);
+  } catch {
+    // Any lookup failure (NXDOMAIN / SERVFAIL / timeout) means no address to
+    // vet — and `fetch`'s own resolution will fail the same way, so there is no
+    // reachable target to protect. Proceed and let `fetch` surface the error.
+    return;
+  }
+  for (const address of addresses) {
+    if (isBlockedHostname(address)) {
+      throw new PluginError(
+        "plugin.upstream_error",
+        `[${pluginId}] host resolves to a blocked address (loopback / link-local / metadata): ${hostname} → ${address}`,
+      );
+    }
+  }
+}
+
+/**
  * Prevents redirect-based SSRF: throws PluginError on any 3xx so an
  * attacker-controlled host cannot redirect to an internal endpoint (e.g. cloud instance-metadata).
  */
@@ -142,6 +174,7 @@ async function fetchNoRedirect(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
+  await assertResolvedHostNotBlocked(pluginId, new URL(url).hostname);
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
     throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);

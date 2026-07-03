@@ -384,7 +384,7 @@ Component only renders on `/admin/plugins` (admin role gated). ⊥ extra fronten
 ## Open questions
 
 - **Audit retention.** `plugin.host_blocked_by_admin` row lifespan? Inherits existing errors table retention policy. Longer-lived audit logs → separate revision of error management design; ⊥ scope here.
-- **DNS rebinding.** Admin allowlist = hostname string match. Attacker controlling allowed domain could pin to internal IP at fetch time. Existing runtime concern noted in `allowed-hosts.ts`. Admin policy ∉ make worse; fix tracked under SSRF hardening.
+- **DNS rebinding.** Admin allowlist = hostname string match. Attacker controlling allowed domain could pin to internal IP at fetch time. Existing runtime concern noted in `allowed-hosts.ts`. Admin policy ∉ make worse. Mitigated in PR #1003: `ctx.fetch` resolves every A/AAAA record + rejects blocked addresses before connect. Residual TOCTOU (fetch re-resolves) → issue #1036 (IP-pinned dispatcher).
 - **Header templating.** ⊥ v1. Dynamic values (per-request nonces, short-lived tokens) → future revision adds `${env.VAR_NAME}` syntax. Plain strings cover corporate-gateway case.
 - **Encryption-key rotation.** `admin_headers_encrypted`/`admin_headers_iv` encrypted w/ app's AES-256-GCM key (same scheme as `plugin_shared_credentials`). Key rotation → existing blobs fail to decrypt until re-encrypted. Does existing key-rotation path for `shared_credentials` handle re-encryption pass over `plugins` table? If yes → defer; if no → implementation PR needs migration or runbook.
 
