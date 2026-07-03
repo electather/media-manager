@@ -1,12 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
-import { buildFetch, setHostResolver } from "../internal/fetch-policy";
+import { buildFetch } from "../internal/fetch-policy";
 import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../internal/allowed-hosts";
 import { registerSink, resetSinks } from "../../diagnostics/capture";
 import type { DiagnosticSink } from "../../diagnostics/types";
 import type { ErrorRecord } from "@nama/shared/diagnostics";
 
+// Mock the real DNS resolver so rebinding tests can simulate a hostname resolving
+// to loopback/link-local/metadata without touching the network. Hoisted so the
+// (also-hoisted) `vi.mock` factory can reference it — the guard's `lookup` call
+// resolves here, with no test seam left on the production module.
+const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
+vi.mock("node:dns/promises", () => ({ lookup: lookupMock }));
+
+const resolveTo = (...addresses: string[]) =>
+  lookupMock.mockResolvedValue(addresses.map((address) => ({ address })));
+
 describe("buildFetch — static + dynamic allowlist", () => {
-  let restoreResolver: (h: string) => Promise<string[]>;
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
@@ -14,12 +23,12 @@ describe("buildFetch — static + dynamic allowlist", () => {
     );
     // Pin DNS to a benign public IP so allow-path tests never touch the network
     // and never trip the fetch-time rebinding guard on their test hostnames.
-    restoreResolver = setHostResolver(async () => ["93.184.216.34"]);
+    resolveTo("93.184.216.34");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    setHostResolver(restoreResolver);
+    lookupMock.mockReset();
   });
 
   it("allows hosts present in the static list", async () => {
@@ -89,7 +98,6 @@ describe("buildFetch — static + dynamic allowlist", () => {
 describe("buildFetch — admin allowlist + headers", () => {
   let captured: ErrorRecord[] = [];
   let fetchSpy: ReturnType<typeof vi.fn>;
-  let restoreResolver: (h: string) => Promise<string[]>;
 
   beforeEach(() => {
     captured = [];
@@ -103,13 +111,13 @@ describe("buildFetch — admin allowlist + headers", () => {
     fetchSpy = vi.fn(async () => new Response("ok"));
     vi.stubGlobal("fetch", fetchSpy);
     // Pin DNS to a public IP so allow-path tests never touch the network.
-    restoreResolver = setHostResolver(async () => ["93.184.216.34"]);
+    resolveTo("93.184.216.34");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     resetSinks();
-    setHostResolver(restoreResolver);
+    lookupMock.mockReset();
   });
 
   // Flush microtasks so the fire-and-forget captureError promise lands
@@ -548,15 +556,17 @@ describe("isBlockedHostname", () => {
 // DNS-rebinding SSRF: the hostname passes the string blocklist but resolves to a
 // blocked IP. `assertResolvedHostNotBlocked` must reject before `fetch` is called.
 describe("buildFetch — fetch-time DNS-rebinding guard", () => {
-  let restoreResolver: (h: string) => Promise<string[]>;
   let fetchSpy: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     fetchSpy = vi.fn(async () => new Response("ok"));
     vi.stubGlobal("fetch", fetchSpy);
+    // Safe public-IP default so a test throwing before its own override never
+    // leaves the shared resolver mock in a state that breaks the next test.
+    resolveTo("93.184.216.34");
   });
   afterEach(() => {
     vi.unstubAllGlobals();
-    setHostResolver(restoreResolver);
+    lookupMock.mockReset();
   });
 
   it.each([
@@ -565,7 +575,7 @@ describe("buildFetch — fetch-time DNS-rebinding guard", () => {
     ["IPv6 loopback", "::1"],
     ["IPv4-mapped IPv6 loopback", "::ffff:127.0.0.1"],
   ])("rejects an allowlisted hostname resolving to %s (%s)", async (_label, resolvedIp) => {
-    restoreResolver = setHostResolver(async () => [resolvedIp]);
+    resolveTo(resolvedIp);
     // `evil.example.com` is in the allowlist and is not itself a blocked string,
     // so only the fetch-time resolution check can catch the rebind.
     const fetch = buildFetch("plug-rebind", ["evil.example.com"]);
@@ -576,7 +586,7 @@ describe("buildFetch — fetch-time DNS-rebinding guard", () => {
   });
 
   it("rejects when only one of several resolved addresses is blocked", async () => {
-    restoreResolver = setHostResolver(async () => ["93.184.216.34", "169.254.169.254"]);
+    resolveTo("93.184.216.34", "169.254.169.254");
     const fetch = buildFetch("plug-rebind", ["evil.example.com"]);
     await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
       code: "plugin.upstream_error",
@@ -585,14 +595,14 @@ describe("buildFetch — fetch-time DNS-rebinding guard", () => {
   });
 
   it("allows a hostname resolving to a public address", async () => {
-    restoreResolver = setHostResolver(async () => ["93.184.216.34"]);
+    resolveTo("93.184.216.34");
     const fetch = buildFetch("plug-ok", ["api.trakt.tv"]);
     await expect(fetch("https://api.trakt.tv/path")).resolves.toBeInstanceOf(Response);
     expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it("allows a hostname resolving to a private LAN address (Plex/Jellyfin)", async () => {
-    restoreResolver = setHostResolver(async () => ["192.168.1.10"]);
+    resolveTo("192.168.1.10");
     const fetch = buildFetch("plug-lan", [], new Set(["my.plex.box"]));
     await expect(fetch("http://my.plex.box:32400")).resolves.toBeInstanceOf(Response);
     expect(fetchSpy).toHaveBeenCalledOnce();
@@ -600,18 +610,15 @@ describe("buildFetch — fetch-time DNS-rebinding guard", () => {
 
   it("skips resolution for a literal IP host (already vetted by the string blocklist)", async () => {
     // Resolver must not be consulted — a literal public IP passes without a lookup.
-    restoreResolver = setHostResolver(async () => {
-      throw new Error("resolver must not be called for literal IPs");
-    });
+    lookupMock.mockRejectedValue(new Error("resolver must not be called for literal IPs"));
     const fetch = buildFetch("plug-literal", ["93.184.216.34"]);
     await expect(fetch("https://93.184.216.34/x")).resolves.toBeInstanceOf(Response);
     expect(fetchSpy).toHaveBeenCalledOnce();
+    expect(lookupMock).not.toHaveBeenCalled();
   });
 
   it("proceeds when the hostname does not resolve (not an SSRF target)", async () => {
-    restoreResolver = setHostResolver(async () => {
-      throw new Error("ENOTFOUND");
-    });
+    lookupMock.mockRejectedValue(new Error("ENOTFOUND"));
     const fetch = buildFetch("plug-unresolved", ["nonexistent.invalid"]);
     await expect(fetch("https://nonexistent.invalid/x")).resolves.toBeInstanceOf(Response);
     expect(fetchSpy).toHaveBeenCalledOnce();

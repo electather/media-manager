@@ -135,21 +135,6 @@ export function buildFetch(
   };
 }
 
-// DNS resolver seam. Real `lookup` in prod; tests override to simulate a
-// hostname resolving to loopback/link-local/metadata without touching the network.
-type HostResolver = (hostname: string) => Promise<string[]>;
-let resolveAddresses: HostResolver = async (hostname) => {
-  const results = await lookup(hostname, { all: true });
-  return results.map((r) => r.address);
-};
-
-/** Test-only override for the DNS resolver. Returns the previous resolver so callers can restore it. */
-export function setHostResolver(resolver: HostResolver): HostResolver {
-  const previous = resolveAddresses;
-  resolveAddresses = resolver;
-  return previous;
-}
-
 /**
  * DNS-rebinding SSRF guard: the string blocklist only sees the literal hostname, so an
  * attacker-controlled DNS name (`evil.example.com`) that resolves to `127.0.0.1`/`169.254.169.254`
@@ -162,7 +147,8 @@ async function assertResolvedHostNotBlocked(pluginId: string, hostname: string):
   if (isIP(hostname) !== 0) return;
   let addresses: string[];
   try {
-    addresses = await resolveAddresses(hostname);
+    const results = await lookup(hostname, { all: true });
+    addresses = results.map((r) => r.address);
   } catch {
     // Unresolvable host is not an SSRF target — let `fetch` fail naturally.
     return;
