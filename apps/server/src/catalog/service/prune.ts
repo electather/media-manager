@@ -27,16 +27,23 @@ export async function pruneUnusedMetadataRows(
   for (const [type, rows] of Object.entries(toDelete) as Array<
     ["movie" | "tv", typeof candidates]
   >) {
-    await db.delete(canonicalMetadata).where(
-      and(
-        eq(canonicalMetadata.mediaType, type),
-        inArray(
-          canonicalMetadata.tmdbId,
-          rows.map((r) => r.tmdbId),
+    // Re-check lastAccessedAt in the DELETE: a concurrent read can bump it
+    // past cutoff between the SELECT above and here; without this predicate
+    // the sweep would evict that freshly-accessed row (#906).
+    const dropped = await db
+      .delete(canonicalMetadata)
+      .where(
+        and(
+          eq(canonicalMetadata.mediaType, type),
+          lt(canonicalMetadata.lastAccessedAt, cutoff),
+          inArray(
+            canonicalMetadata.tmdbId,
+            rows.map((r) => r.tmdbId),
+          ),
         ),
-      ),
-    );
-    deleted += rows.length;
+      )
+      .returning({ tmdbId: canonicalMetadata.tmdbId });
+    deleted += dropped.length;
   }
   return { deleted };
 }

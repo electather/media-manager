@@ -121,22 +121,26 @@ export async function setPerfRetentionDays(days: number): Promise<number> {
  *  deploy's maps can never be pruned. Returns the number of rows deleted. */
 async function pruneSourcemaps(): Promise<number> {
   const db = getDb();
-  // N most recently active distinct builds, newest map first.
-  const retained = await db
-    .select({ buildId: sourcemaps.buildId })
-    .from(sourcemaps)
-    .groupBy(sourcemaps.buildId)
-    .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
-    .limit(SOURCEMAP_RETAINED_BUILDS)
-    .all();
-  // Fewer builds than the window means nothing is outside it.
-  if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
-  const keepIds = retained.map((r) => r.buildId);
-  const deleted = await db
-    .delete(sourcemaps)
-    .where(notInArray(sourcemaps.buildId, keepIds))
-    .returning({ id: sourcemaps.id });
-  return deleted.length;
+  // Transaction makes SELECT+DELETE atomic: a concurrent upload cannot insert a
+  // new build between the two statements and have its maps immediately deleted.
+  return db.transaction(async (tx) => {
+    // N most recently active distinct builds, newest map first.
+    const retained = await tx
+      .select({ buildId: sourcemaps.buildId })
+      .from(sourcemaps)
+      .groupBy(sourcemaps.buildId)
+      .orderBy(sql`${max(sourcemaps.createdAt)} desc`)
+      .limit(SOURCEMAP_RETAINED_BUILDS)
+      .all();
+    // Fewer builds than the window means nothing is outside it.
+    if (retained.length < SOURCEMAP_RETAINED_BUILDS) return 0;
+    const keepIds = retained.map((r) => r.buildId);
+    const deleted = await tx
+      .delete(sourcemaps)
+      .where(notInArray(sourcemaps.buildId, keepIds))
+      .returning({ id: sourcemaps.id });
+    return deleted.length;
+  });
 }
 
 const DEFAULT_INBOX_RETENTION_DAYS = 90;
@@ -248,16 +252,15 @@ export async function sweepDiagnostics(): Promise<SweepResult> {
   const now = Date.now();
   const errCutoff = now - errorRetentionDays * 86_400_000;
   const perfCutoff = now - perfRetentionDays * 86_400_000;
-  const [errResult, perfResult, sourcemapCount] = await Promise.all([
-    db
-      .delete(errorRecords)
-      .where(lt(errorRecords.createdAt, errCutoff))
-      .returning({ id: errorRecords.id }),
-    db
-      .delete(perfRecords)
-      .where(lt(perfRecords.createdAt, perfCutoff))
-      .returning({ id: perfRecords.id }),
-    pruneSourcemaps(),
-  ]);
+  // ponytail: sequential — SQLite allows one writer; Promise.all caused SQLITE_BUSY once pruneSourcemaps uses a transaction (#912)
+  const errResult = await db
+    .delete(errorRecords)
+    .where(lt(errorRecords.createdAt, errCutoff))
+    .returning({ id: errorRecords.id });
+  const perfResult = await db
+    .delete(perfRecords)
+    .where(lt(perfRecords.createdAt, perfCutoff))
+    .returning({ id: perfRecords.id });
+  const sourcemapCount = await pruneSourcemaps();
   return { errors: errResult.length, perf: perfResult.length, sourcemaps: sourcemapCount };
 }

@@ -2,6 +2,7 @@ import type { ActiveRow, MediaRowBucket } from "@nama/shared/media";
 import { keyToId } from "@nama/shared/watchlist";
 import { getMatchingServersCached } from "../availability-cache";
 import { classifyBucket, previewForClassify } from "../classify";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";
 import type { MatchingServer } from "../types";
 
@@ -39,6 +40,11 @@ export async function classifyRows(
     ),
   );
 
+  const requestProviderCount = capabilityRegistry.listProviders(
+    "mediaRequest",
+    "v1",
+    "user",
+  ).length;
   const classified = rows.map((row, i): ClassifiedRow => {
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
     const probe = serverProbes[i]!;
@@ -48,6 +54,7 @@ export async function classifyRows(
       statuses[composite],
       servers,
       progress.get(composite),
+      requestProviderCount,
     );
     return { row, bucket: classifyBucket(preview) };
   });

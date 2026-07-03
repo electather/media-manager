@@ -34,6 +34,8 @@ export async function upsertOwned(rows: OwnedRowInput[], db: Db = getDb()): Prom
 // Tombstones owned rows absent from keepKeys. When keepKeys exceeds
 // SQLITE_VARIABLE_LIMIT: read ids, compute absent set, tombstone in chunks.
 // Three-path guard (empty/fast notInArray/slow chunked inArray) handles variable limit.
+// `db` MUST be a top-level, non-tx handle: slow path calls db.transaction() and
+// libsql HTTP has no savepoints — nested tx.transaction() throws. Caller passes getDb().
 // fallow-ignore-next-line complexity
 export async function tombstoneMissing(
   userId: string,
@@ -72,42 +74,47 @@ export async function tombstoneMissing(
     return tombstoned.length;
   }
 
-  // Slow path: read-then-update (not atomic). Safe only because caller holds
-  // per-user seed lock (library.sync sole writer, design §Sync). TOCTOU window:
-  // a row inserted-then-absent after step 1 escapes if a second writer runs.
-  // Step 1: collect currently-owned ids.
-  const ownedRows = await db
-    .select({ id: libraryItems.id })
-    .from(libraryItems)
-    .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)));
+  // Slow path: read-then-update. In-process writers are already serialized per
+  // user by `syncMutex` (design §Sync, #911). The transaction adds cross-process
+  // atomicity the mutex cannot: libsql opens transactions BEGIN IMMEDIATE (write
+  // lock from start) in local-file and embedded-replica modes — the modes this
+  // stack runs — so the step-1 read and step-2 sweep commit atomically even
+  // against a second instance, without relying on the single-instance assumption.
+  return db.transaction(async (tx) => {
+    // Step 1: collect currently-owned ids.
+    const ownedRows = await tx
+      .select({ id: libraryItems.id })
+      .from(libraryItems)
+      .where(and(eq(libraryItems.userId, userId), eq(libraryItems.owned, true)));
 
-  const keepSet = new Set(keepKeys);
-  const toTombstone = ownedRows.map((row) => row.id).filter((id) => !keepSet.has(id));
+    const keepSet = new Set(keepKeys);
+    const toTombstone = ownedRows.map((row) => row.id).filter((id) => !keepSet.has(id));
 
-  if (toTombstone.length === 0) return 0;
+    if (toTombstone.length === 0) return 0;
 
-  // Step 2: tombstone the computed absent set in bounded UPDATE chunks using
-  // `inArray` so each UPDATE targets only the rows that should be tombstoned,
-  // with no risk of accidentally touching rows in the keep set.
-  let count = 0;
-  for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
-    const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
-    // Shares the UPDATE skeleton with the fast path above; see the note there.
-    // fallow-ignore-next-line code-duplication
-    const tombstoned = await db
-      .update(libraryItems)
-      .set({ owned: false, unownedAt: now })
-      .where(
-        and(
-          eq(libraryItems.userId, userId),
-          eq(libraryItems.owned, true),
-          inArray(libraryItems.id, slice),
-        ),
-      )
-      .returning({ id: libraryItems.id });
-    count += tombstoned.length;
-  }
-  return count;
+    // Step 2: tombstone the computed absent set in bounded UPDATE chunks using
+    // `inArray` so each UPDATE targets only the rows that should be tombstoned,
+    // with no risk of accidentally touching rows in the keep set.
+    let count = 0;
+    for (let i = 0; i < toTombstone.length; i += SQLITE_VARIABLE_LIMIT) {
+      const slice = toTombstone.slice(i, i + SQLITE_VARIABLE_LIMIT);
+      // Shares the UPDATE skeleton with the fast path above; see the note there.
+      // fallow-ignore-next-line code-duplication
+      const tombstoned = await tx
+        .update(libraryItems)
+        .set({ owned: false, unownedAt: now })
+        .where(
+          and(
+            eq(libraryItems.userId, userId),
+            eq(libraryItems.owned, true),
+            inArray(libraryItems.id, slice),
+          ),
+        )
+        .returning({ id: libraryItems.id });
+      count += tombstoned.length;
+    }
+    return count;
+  });
 }
 
 /**

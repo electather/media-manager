@@ -558,6 +558,17 @@ describe("jellyfin playbackSessions", () => {
     expect(ctx.calls[0]?.url).toContain("/Sessions/sess-1/Playing/Stop");
     expect(ctx.calls[0]?.init?.method).toBe("POST");
   });
+
+  // #915: jellyfinFetch targets the user-controlled internalServerUrl, so a non-2xx
+  // upstream body can be an internal endpoint's response. The runtime re-throws
+  // plugin.upstream_error verbatim, so echoing the body makes the SSRF response-readable.
+  it("does not leak the upstream response body into the error message", async () => {
+    const secret = "internal-service-secret-token-abc123";
+    const ctx = makeCtx([statusRes(400, secret)]);
+    const err = await cap.getSessions!(ctx, {}).catch((e: unknown) => e);
+    expect((err as { code?: string }).code).toBe("plugin.upstream_error");
+    expect((err as Error).message).not.toContain(secret);
+  });
 });
 
 // ─── continueWatching ────────────────────────────────────────────────────────

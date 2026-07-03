@@ -23,7 +23,7 @@ export interface RegisterScheduledPerRowOptions<TRow> {
   description?: string;
   schedule: string;
   rowSource: () => Promise<TRow[]>;
-  handler: (ctx: JobRunContext, row: TRow) => Promise<void>;
+  handler: (ctx: JobRunContext, row: TRow, signal: AbortSignal) => Promise<void>;
   perRowTimeoutSec?: number;
   runTimeoutSec?: number;
   continueOnRowError?: boolean;
@@ -127,13 +127,22 @@ export function registerScheduledPerRow<TRow>(
     row: TRow,
     timeoutSec: number,
   ): Promise<void> {
+    // AbortController signals the handler to stop; without abort the handler runs
+    // past the timeout concurrently with the next row (#910).
+    const controller = new AbortController();
+    // ponytail: AbortSignal.any merges run-level cancel with per-row timeout cancel
+    const rowSignal = AbortSignal.any([ctx.abortSignal, controller.signal]);
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(() => reject(new Error("per-row timeout")), timeoutSec * 1000);
+      timeoutHandle = setTimeout(() => {
+        controller.abort();
+        reject(new Error("per-row timeout"));
+      }, timeoutSec * 1000);
     });
     try {
-      await Promise.race([opts.handler(ctx, row), timeout]);
+      await Promise.race([opts.handler(ctx, row, rowSignal), timeout]);
     } finally {
+      controller.abort();
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
