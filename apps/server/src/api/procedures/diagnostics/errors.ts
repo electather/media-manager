@@ -175,7 +175,6 @@ export const adminErrorsApp = new Hono()
         .get(),
       // GROUP BY bucket+severity — avoids loading every row into memory. Bucket 0 = oldest hour.
       db
-      db
         .select({
           bucket: sql<number>`cast((${errorRecords.createdAt} - ${dayAgo}) / ${60 * 60 * 1000} as integer)`,
           severity: errorRecords.severity,
