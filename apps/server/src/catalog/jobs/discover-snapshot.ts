@@ -7,7 +7,7 @@ import type { CatalogService } from "../../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../canonical";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SNAPSHOT_LIMIT = 60;
+const SNAPSHOT_LIMIT = 96;
 
 export const CATALOG_DISCOVER_SNAPSHOT_JOB_ID = "host.catalog.discover_snapshot";
 

@@ -33,6 +33,26 @@ function buildDiscoverParams(
   return params;
 }
 
+// TMDB paginates discover results at 20 per page and ignores any larger
+// page_size hint, so satisfying a bigger `limit` means fetching multiple
+// pages ourselves rather than requesting one page with a bigger size.
+const TMDB_PAGE_SIZE = 20;
+
+async function fetchDiscoverPages<T>(
+  c: Ctx,
+  path: string,
+  params: Record<string, unknown>,
+  pages: number,
+): Promise<{ results: T[] }> {
+  const responses = await Promise.all(
+    Array.from(
+      { length: pages },
+      (_, i) => tmdbGet(c, path, { ...params, page: i + 1 }) as Promise<{ results: T[] }>,
+    ),
+  );
+  return { results: responses.flatMap((r) => r.results) };
+}
+
 /**
  * Round-robin merge for mixed-media rows: alternates movie/TV instead of all
  * movies first. Both inputs sorted by same key (sort_by identical across endpoints),
@@ -196,13 +216,15 @@ export const metadata = {
       lteIso: msToIsoDate(releaseDateLte),
       sort,
     };
+    const pages = Math.max(1, Math.ceil(limit / 2 / TMDB_PAGE_SIZE));
     const [movieRes, tvRes] = await Promise.allSettled([
-      tmdbGet(c, "/discover/movie", buildDiscoverParams("movie", filters)) as Promise<{
-        results: MovieRaw[];
-      }>,
-      tmdbGet(c, "/discover/tv", buildDiscoverParams("tv", filters)) as Promise<{
-        results: TvRaw[];
-      }>,
+      fetchDiscoverPages<MovieRaw>(
+        c,
+        "/discover/movie",
+        buildDiscoverParams("movie", filters),
+        pages,
+      ),
+      fetchDiscoverPages<TvRaw>(c, "/discover/tv", buildDiscoverParams("tv", filters), pages),
     ]);
     // Both endpoints failing is the only path that re-throws — surfacing
     // the movie reason matches the legacy contract (movie was the sole
