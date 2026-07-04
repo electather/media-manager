@@ -1,5 +1,24 @@
 # @nama/client
 
+## 0.9.0
+
+### Minor Changes
+
+- 3dae961: The TMDB onboarding step is now optional when a bundled default key is available, and the shared credentials list shows the bundled default as a read-only entry your own key overrides.
+- c786826: Added inline retry when loading more items fails across notifications, watchlist, and library lists.
+
+### Patch Changes
+
+- 26ec569: Dimmed the diagnostics filter bars while a filter or search change is loading so slow updates no longer look idle.
+- 94508fc: Fixed home-feed cards without a click override so clicking one again opens its detail page.
+- 94508fc: Sped up initial load by deferring the notification markdown renderer and device-info parser until they are actually needed.
+- cb0bf0a: Added loading and error states to the setup wizard so it no longer flashes blank or crashes when configuration fails to load.
+- 1d147f4: Fixed `isSearchKey` incorrectly accepting invalid `SearchKind` strings in the command-menu type guard.
+- 94508fc: Translated the account menu links so they follow the selected language.
+- 4b0b17a: Fixed IP address briefly appearing for sessions with unrecognized user agents during page load.
+- e30658d: Notification images now only render from safe http(s) URLs, blocking tracking beacons and other unsafe schemes.
+- 903e427: Fixed a browser hang caused by a zero step value in cron expressions like `*/0`.
+
 ## 0.8.0
 
 ### Minor Changes

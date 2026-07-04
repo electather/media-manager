@@ -1,5 +1,12 @@
 # @nama/plugin-trakt
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [3dae961]
+  - @nama/plugin-sdk@0.6.0
+
 ## 0.2.4
 
 ### Patch Changes

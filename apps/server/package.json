@@ -1,6 +1,6 @@
 {
   "name": "@nama/server",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": false,
   "description": "MCP server and API backend for nama — self-hosted entertainment management with Hono, Better Auth, and a plugin system.",
   "keywords": [

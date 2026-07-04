@@ -1,5 +1,55 @@
 # @nama/server
 
+## 0.9.0
+
+### Minor Changes
+
+- 3dae961: Built-in plugins can now ship a bundled default key, so artwork and metadata work before you add your own credentials.
+- c4b3ca4: Seeded the discover snapshot synchronously at server startup so the home feed has data available immediately on first boot or after a restart.
+
+### Patch Changes
+
+- 42a3437: Secured per-user activity endpoints behind session authentication.
+- a9b89a5: Fixed admin-set plugin headers being silently lost when edited from a different server worker than the one that last cached them.
+- 72f824a: Fixed a race condition where sourcemaps for a concurrently uploaded build could be deleted during retention sweeps.
+- 0b6047b: Capped plugin-supplied retryAfterMs to 24 hours so a buggy or malicious plugin cannot push delivery retries arbitrarily far into the future.
+- 3dbeab4: Capped per-request sourcemap bundle fan-out at 20 files and enlarged the parsed-map LRU cache to prevent attacker-influenced stacks from amplifying database reads.
+- 2f10326: Fixed the diagnostics error summary failing to load.
+- a1d02aa: Added per-user rate limiting to connection verify, test, and OAuth endpoints to prevent cross-user exhaustion of the shared plugin fetch quota.
+- cf990ad: Enforced the password policy when changing your password so weak passwords can no longer be set.
+- f87f39b: Enforced the display-name length limit when a social or OAuth profile is re-synced on subsequent logins.
+- a587188: Fixed encryption failing with RangeError when encrypting large plaintexts.
+- 0733d2a: Fixed repeated calls to complete onboarding from triggering the discover-snapshot job more than once.
+- 0745d94: Fixed per-row job handlers receiving an AbortSignal that fires on timeout so they can stop processing promptly.
+- 19953f1: Capped the number of HTTP perf rows loaded by the `/admin/diagnostics/perf/summary` endpoint to prevent unbounded memory use over a 24-hour window.
+- e3eac49: Fixed a race where the metadata prune could evict catalog entries that were accessed while the sweep was running.
+- f1b810b: Fixed request eligibility incorrectly shown for items already available or when no request providers were registered.
+- b9f16ec: Password policy is now enforced on the reset-password path in addition to change-password.
+- 1cc0f91: Fixed a race where concurrent library syncs for the same user could wrongly mark owned titles as removed.
+- df0c9c6: Fixed a bug where a single undecryptable admin credential row would abort the entire plugin credential pool; corrupted rows are now skipped with a warning.
+- 9ce8d35: Blocked plugin requests whose hostname resolves to a loopback, link-local, or cloud metadata address, closing a server-side request forgery gap.
+- c66c2f1: Replaced raw error message in unhandled 500 responses with a generic string to prevent internal details leaking to clients.
+- e1cfc43: Fixed over-long social sign-in display names being truncated mid-emoji, which left a broken character in the stored name.
+- d4724a0: Hardened library sync so overlapping runs can no longer drop a title from your owned library.
+- Updated dependencies [3dae961]
+- Updated dependencies [3dae961]
+- Updated dependencies [e5e3990]
+- Updated dependencies [4d13bfe]
+- Updated dependencies [0a202a8]
+- Updated dependencies [d97366e]
+  - @nama/plugin-sdk@0.6.0
+  - @nama/plugin-tmdb@0.5.0
+  - @nama/plugin-jellyfin@0.3.4
+  - @nama/plugin-plex@0.3.4
+  - @nama/plugin-seerr@0.3.3
+  - @nama/plugin-discord@0.2.5
+  - @nama/plugin-fanart@0.2.1
+  - @nama/plugin-inbox@0.2.5
+  - @nama/plugin-ntfy@0.2.5
+  - @nama/plugin-telegram@0.2.5
+  - @nama/plugin-trakt@0.2.5
+  - @nama/plugin-tvdb@0.2.5
+
 ## 0.8.0
 
 ### Minor Changes

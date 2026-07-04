@@ -1,5 +1,14 @@
 # @nama/plugin-plex
 
+## 0.3.4
+
+### Patch Changes
+
+- 4d13bfe: Fixed watch history leaking all server accounts' data when plexAccountId was not configured.
+- 0a202a8: Fixed Plex setup now surfaces an error when the account ID cannot be retrieved, preventing a broken connection from being saved.
+- Updated dependencies [3dae961]
+  - @nama/plugin-sdk@0.6.0
+
 ## 0.3.3
 
 ### Patch Changes

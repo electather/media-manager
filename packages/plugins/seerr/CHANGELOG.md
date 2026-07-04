@@ -1,5 +1,13 @@
 # @nama/plugin-seerr
 
+## 0.3.3
+
+### Patch Changes
+
+- d97366e: Fixed an unbounded pagination loop in the Seerr plugin that could run indefinitely if the remote API never returned a short page.
+- Updated dependencies [3dae961]
+  - @nama/plugin-sdk@0.6.0
+
 ## 0.3.2
 
 ### Patch Changes

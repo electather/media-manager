@@ -1,5 +1,11 @@
 # @nama/plugin-sdk
 
+## 0.6.0
+
+### Minor Changes
+
+- 3dae961: Plugin manifests that declare `defaultSharedCredentials` without `sharedCredentialsSchema` now fail validation at load time instead of silently passing.
+
 ## 0.5.0
 
 ### Minor Changes
