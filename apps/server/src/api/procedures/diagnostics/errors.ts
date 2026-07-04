@@ -161,6 +161,7 @@ export const adminErrorsApp = new Hono()
     const db = getDb();
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const bucketExpr = sql<number>`cast((${errorRecords.createdAt} - ${dayAgo}) / ${60 * 60 * 1000} as integer)`;
 
     const [lastHour, lastDay, sparkRows] = await Promise.all([
       db
@@ -176,16 +177,13 @@ export const adminErrorsApp = new Hono()
       // GROUP BY bucket+severity — avoids loading every row into memory. Bucket 0 = oldest hour.
       db
         .select({
-          bucket: sql<number>`cast((${errorRecords.createdAt} - ${dayAgo}) / ${60 * 60 * 1000} as integer)`,
+          bucket: bucketExpr,
           severity: errorRecords.severity,
           count: sql<number>`count(*)`,
         })
         .from(errorRecords)
         .where(gte(errorRecords.createdAt, dayAgo))
-        .groupBy(
-          sql`cast((${errorRecords.createdAt} - ${dayAgo}) / ${60 * 60 * 1000} as integer)`,
-          errorRecords.severity,
-        )
+        .groupBy(bucketExpr, errorRecords.severity)
         .all(),
     ]);
 
