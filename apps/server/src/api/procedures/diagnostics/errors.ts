@@ -189,13 +189,12 @@ export const adminErrorsApp = new Hono()
 
     const buckets = Array.from({ length: 24 }, () => ({ error: 0, warning: 0, info: 0 }));
     for (const row of sparkRows) {
-      // bucket 0..23 where 23 = most recent hour. Clamp overflow (e.g. clock skew) into bucket 23 instead of dropping.
-      if (row.bucket >= 0) {
-        const bucket = buckets[Math.min(row.bucket, 23)]!;
-        if (row.severity === "error") bucket.error += row.count;
-        else if (row.severity === "warning") bucket.warning += row.count;
-        else bucket.info += row.count;
-      }
+      // bucket 0..23 where 23 = most recent hour. WHERE createdAt >= dayAgo guarantees bucket >= 0.
+      // Clamp overflow (e.g. clock skew) into bucket 23 instead of dropping.
+      const bucket = buckets[Math.min(row.bucket, 23)]!;
+      if (row.severity === "error") bucket.error += row.count;
+      else if (row.severity === "warning") bucket.warning += row.count;
+      else bucket.info += row.count;
     }
 
     return c.json({
