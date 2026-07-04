@@ -1,4 +1,5 @@
 import { createFileRoute, isRedirect, Outlet, redirect } from "@tanstack/react-router";
+import { NotificationToasterHost } from "@/features/notifications";
 import { authClient } from "@/shared/lib/auth";
 import { peekSchema } from "@/lib/home-display";
 
@@ -33,5 +34,10 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  return <Outlet />;
+  return (
+    <>
+      <NotificationToasterHost />
+      <Outlet />
+    </>
+  );
 }
