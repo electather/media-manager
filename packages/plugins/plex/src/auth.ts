@@ -93,8 +93,18 @@ export async function pollAuth(ctx: PluginContext, pollState: unknown): Promise<
       }
     }
   } catch {
-    // Non-fatal; session filtering degrades gracefully if the account id is
-    // unknown (see getSessions).
+    // Swallowed; handled by the missing-plexAccountId guard below.
+  }
+
+  // plexAccountId is required — without it getHistory would expose the full
+  // server history to this user (#990). Fail setup early rather than letting
+  // the connection persist in a broken state.
+  if (!userConfigPatch["plexAccountId"]) {
+    return {
+      status: "error",
+      code: "plugin.upstream_error",
+      devMessage: "Plex account id missing after auth; cannot complete setup",
+    };
   }
 
   try {
