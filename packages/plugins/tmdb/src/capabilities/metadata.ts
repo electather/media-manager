@@ -33,6 +33,31 @@ function buildDiscoverParams(
   return params;
 }
 
+// TMDB paginates discover results at 20 per page and ignores any larger
+// page_size hint, so satisfying a bigger `limit` means fetching multiple
+// pages ourselves rather than requesting one page with a bigger size.
+const TMDB_PAGE_SIZE = 20;
+
+// Known limitation: fires all `pages` requests unconditionally, ignoring
+// TMDB's `total_pages` in the response. Narrow-filter queries can exhaust
+// their results before `pages` is reached, wasting API budget on empty
+// trailing pages. Harmless for the snapshot job's broad queries; revisit
+// if filtered discover calls start hitting rate limits.
+async function fetchDiscoverPages<T>(
+  c: Ctx,
+  path: string,
+  params: Record<string, unknown>,
+  pages: number,
+): Promise<{ results: T[] }> {
+  const responses = await Promise.all(
+    Array.from(
+      { length: pages },
+      (_, i) => tmdbGet(c, path, { ...params, page: i + 1 }) as Promise<{ results: T[] }>,
+    ),
+  );
+  return { results: responses.flatMap((r) => r.results) };
+}
+
 /**
  * Round-robin merge for mixed-media rows: alternates movie/TV instead of all
  * movies first. Both inputs sorted by same key (sort_by identical across endpoints),
@@ -196,13 +221,18 @@ export const metadata = {
       lteIso: msToIsoDate(releaseDateLte),
       sort,
     };
+    // Worst-case page count per endpoint, not limit/2 — if one endpoint
+    // rejects or a narrow filter starves it, the surviving/sparse side must
+    // still be able to supply the full `limit` on its own (#1037 review).
+    const pages = Math.max(1, Math.ceil(limit / TMDB_PAGE_SIZE));
     const [movieRes, tvRes] = await Promise.allSettled([
-      tmdbGet(c, "/discover/movie", buildDiscoverParams("movie", filters)) as Promise<{
-        results: MovieRaw[];
-      }>,
-      tmdbGet(c, "/discover/tv", buildDiscoverParams("tv", filters)) as Promise<{
-        results: TvRaw[];
-      }>,
+      fetchDiscoverPages<MovieRaw>(
+        c,
+        "/discover/movie",
+        buildDiscoverParams("movie", filters),
+        pages,
+      ),
+      fetchDiscoverPages<TvRaw>(c, "/discover/tv", buildDiscoverParams("tv", filters), pages),
     ]);
     // Both endpoints failing is the only path that re-throws — surfacing
     // the movie reason matches the legacy contract (movie was the sole
