@@ -161,6 +161,7 @@ export const adminErrorsApp = new Hono()
     const db = getDb();
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const bucketExpr = sql<number>`cast((${errorRecords.createdAt} - ${dayAgo}) / ${60 * 60 * 1000} as integer)`;
 
     const [lastHour, lastDay, sparkRows] = await Promise.all([
       db
@@ -173,25 +174,27 @@ export const adminErrorsApp = new Hono()
         .from(errorRecords)
         .where(and(eq(errorRecords.severity, "error"), gte(errorRecords.createdAt, dayAgo)))
         .get(),
-      // 24-bucket hourly histogram. SQLite has no DATE_TRUNC, so we floor on the client.
+      // GROUP BY bucket+severity — avoids loading every row into memory. Bucket 0 = oldest hour.
       db
-        .select({ severity: errorRecords.severity, createdAt: errorRecords.createdAt })
+        .select({
+          bucket: bucketExpr,
+          severity: errorRecords.severity,
+          count: sql<number>`count(*)`,
+        })
         .from(errorRecords)
         .where(gte(errorRecords.createdAt, dayAgo))
+        .groupBy(bucketExpr, errorRecords.severity)
         .all(),
     ]);
 
     const buckets = Array.from({ length: 24 }, () => ({ error: 0, warning: 0, info: 0 }));
-    const bucketMs = 60 * 60 * 1000;
-    const now = Date.now();
     for (const row of sparkRows) {
-      const idx = 23 - Math.floor((now - row.createdAt) / bucketMs);
-      if (idx >= 0 && idx < 24) {
-        const bucket = buckets[idx]!;
-        if (row.severity === "error") bucket.error += 1;
-        else if (row.severity === "warning") bucket.warning += 1;
-        else bucket.info += 1;
-      }
+      // bucket 0..23 where 23 = most recent hour. WHERE createdAt >= dayAgo guarantees bucket >= 0.
+      // Clamp overflow (e.g. clock skew) into bucket 23 instead of dropping.
+      const bucket = buckets[Math.min(row.bucket, 23)]!;
+      if (row.severity === "error") bucket.error += row.count;
+      else if (row.severity === "warning") bucket.warning += row.count;
+      else bucket.info += row.count;
     }
 
     return c.json({
