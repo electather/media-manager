@@ -1,5 +1,11 @@
 # @nama/client
 
+## 0.9.1
+
+### Patch Changes
+
+- 55caff9: Fixed unauthenticated pages (e.g. the setup page) making failing notification and error-reporting requests before login.
+
 ## 0.9.0
 
 ### Minor Changes

@@ -1,5 +1,13 @@
 # @nama/server
 
+## 0.9.1
+
+### Patch Changes
+
+- 476ed4c: Fixed the login/bootstrap poster background showing only half-filled rows by storing enough trending titles to fill the grid.
+- Updated dependencies [476ed4c]
+  - @nama/plugin-tmdb@0.5.1
+
 ## 0.9.0
 
 ### Minor Changes
