@@ -13,7 +13,7 @@ type CachedMap = TraceMap | typeof MISSING;
  *  lookups (including misses, stored as `MISSING`) are kept in memory keyed by
  *  `buildId:fileName`. `saveSourcemap` evicts the affected keys so a re-upload
  *  is picked up immediately. */
-const traceMapCache = new LRUCache<string, CachedMap>({ max: 32 });
+const traceMapCache = new LRUCache<string, CachedMap>({ max: 256 });
 
 /** Clears the entire parsed-map cache. Kept for tests; production upload uses
  *  targeted eviction so a batch of sequential uploads does not cold-start every
@@ -170,7 +170,9 @@ function bundleFilesIn(lines: string[]): string[] {
     const fileName = basenameOf(match[2]!);
     if (isJsBundle(fileName)) files.add(fileName);
   }
-  return [...files];
+  // ponytail: cap prevents attacker-controlled stacks from fanning out to
+  // unbounded parallel DB reads; 20 covers any realistic bundle split.
+  return [...files].slice(0, 20);
 }
 
 /** Translates minified stack to original positions via uploaded sourcemaps; unresolvable frames kept verbatim.
