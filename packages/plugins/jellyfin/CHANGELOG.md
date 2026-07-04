@@ -1,5 +1,13 @@
 # @nama/plugin-jellyfin
 
+## 0.3.4
+
+### Patch Changes
+
+- e5e3990: Stopped Jellyfin connection errors from including the raw server response body.
+- Updated dependencies [3dae961]
+  - @nama/plugin-sdk@0.6.0
+
 ## 0.3.3
 
 ### Patch Changes

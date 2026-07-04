@@ -1,5 +1,16 @@
 # @nama/plugin-tmdb
 
+## 0.5.0
+
+### Minor Changes
+
+- 3dae961: TMDB now ships with a bundled default API key, so artwork and metadata work out of the box without any admin configuration.
+
+### Patch Changes
+
+- Updated dependencies [3dae961]
+  - @nama/plugin-sdk@0.6.0
+
 ## 0.4.0
 
 ### Minor Changes

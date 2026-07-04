@@ -1,6 +1,6 @@
 {
   "name": "@nama/plugin-sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": false,
   "description": "SDK for building nama plugins — capability contracts, context API, and testing utilities.",
   "keywords": [
