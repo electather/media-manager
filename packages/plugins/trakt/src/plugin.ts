@@ -1,5 +1,12 @@
 import { definePlugin } from "@nama/plugin-sdk";
-import { startAuth, pollAuth, refreshAuth, testConnection, refreshTokensJob } from "./auth";
+import {
+  startAuth,
+  pollAuth,
+  refreshAuth,
+  testConnection,
+  verifyShared,
+  refreshTokensJob,
+} from "./auth";
 import { watchHistory } from "./capabilities/watch-history";
 import { watchlist } from "./capabilities/watchlist";
 import { ratings } from "./capabilities/ratings";
@@ -64,6 +71,7 @@ export default definePlugin({
   pollAuth,
   refreshAuth,
   testConnection,
+  verifyShared,
 
   capabilities: {
     watchHistory,

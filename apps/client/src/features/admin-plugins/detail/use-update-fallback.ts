@@ -13,6 +13,5 @@ export function useUpdateFallback() {
       personalKeyFallback: input.policy,
     }),
     m.admin_plugins_toast_fallback_error(),
-    m.admin_plugins_toast_fallback_saved(),
   );
 }

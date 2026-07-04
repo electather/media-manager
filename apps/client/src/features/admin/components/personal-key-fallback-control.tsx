@@ -148,7 +148,6 @@ export function PersonalKeyFallbackControl({
     mutationFn: (next: PersonalKeyFallbackPolicy) =>
       fetchSetFallbackPolicy({ pluginId, policy: next }),
     onSuccess: () => {
-      toast.success(m.admin_plugins_toast_fallback_saved());
       onChanged();
     },
     onError: (_err, _next, _ctx) => {

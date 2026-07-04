@@ -8,7 +8,6 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
-import { Label } from "@/shared/ui/label";
 
 import { useUpdateAllowlist } from "../use-update-allowlist";
 import type { PluginRow } from "../../shared/types";
@@ -126,14 +125,12 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
         onValueChange={(value) => setMode(value as "inherit" | "restrict")}
         className="gap-1.5"
       >
-        <Label className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-normal hover:bg-muted/50">
-          <RadioGroupItem value="inherit" className="mt-0.5" />
+        <RadioGroupItem value="inherit">
           <span>{m.admin_plugins_allowlist_mode_inherit()}</span>
-        </Label>
-        <Label className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-normal hover:bg-muted/50">
-          <RadioGroupItem value="restrict" className="mt-0.5" />
+        </RadioGroupItem>
+        <RadioGroupItem value="restrict">
           <span>{m.admin_plugins_allowlist_mode_restrict()}</span>
-        </Label>
+        </RadioGroupItem>
       </RadioGroup>
 
       {mode === "restrict" ? (

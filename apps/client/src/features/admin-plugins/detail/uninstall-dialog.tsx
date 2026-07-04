@@ -35,7 +35,7 @@ export function UninstallDialog({ plugin, open, onOpenChange }: UninstallDialogP
       setTyped("");
       uninstall.reset();
     }
-  }, [open, uninstall]);
+  }, [open, uninstall.reset]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>

@@ -188,7 +188,7 @@
   "admin_plugins_shared_creds_add": "افزودن اعتبارنامه",
   "admin_plugins_shared_creds_load_error": "بارگیری اعتبارنامه‌های مشترک ممکن نشد.",
   "admin_plugins_shared_creds_load_retry": "تلاش مجدد",
-  "admin_plugins_shared_creds_empty_prefix": "هیچ اعتبارنامه مشترکی پیکربندی نشده است.",
+  "admin_plugins_shared_creds_empty_title": "هیچ اعتبارنامه مشترکی پیکربندی نشده است.",
   "admin_plugins_shared_creds_empty_global_only": "قابلیت‌های محدوده سراسری CAPABILITY_UNAVAILABLE برمی‌گردانند تا زمانی که یکی اضافه شود.",
   "admin_plugins_shared_creds_empty_global_and_fallback": "قابلیت‌های محدوده سراسری و بازگشت کاربری CAPABILITY_UNAVAILABLE برمی‌گردانند تا زمانی که یکی اضافه شود.",
   "admin_plugins_shared_creds_empty_user_fallback": "قابلیت‌های بازگشت کاربری CAPABILITY_UNAVAILABLE برمی‌گردانند تا زمانی که یکی اضافه شود.",
@@ -254,7 +254,6 @@
   "admin_plugins_toast_allowlist_error": "ذخیره لیست مجاز ممکن نشد",
   "admin_plugins_toast_config_saved": "پیکربندی ذخیره شد",
   "admin_plugins_toast_config_error": "ذخیره پیکربندی ممکن نشد",
-  "admin_plugins_toast_fallback_saved": "سیاست بازگشت به‌روز شد",
   "admin_plugins_toast_fallback_error": "به‌روزرسانی سیاست بازگشت ممکن نشد",
   "admin_plugins_toast_toggle_error": "به‌روزرسانی افزونه ممکن نشد",
 

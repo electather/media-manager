@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   CheckIcon,
   ClockIcon,
+  KeyRoundIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
   PlusIcon,
@@ -14,6 +15,7 @@ import {
 import type { InferResponseType } from "hono/client";
 
 import { Button } from "@/shared/ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
 import {
   Dialog,
   DialogContent,
@@ -135,11 +137,7 @@ export function SharedCredentialsSection({
           </Button>
         </div>
       ) : list.length === 0 ? (
-        <EmptyRow
-          hint={capabilityHint}
-          onAdd={() => setDialog({ kind: "add" })}
-          atCapacity={atCapacity}
-        />
+        <EmptyRow hint={capabilityHint} />
       ) : (
         <CredentialsTable
           rows={list}
@@ -172,15 +170,7 @@ export function SharedCredentialsSection({
 
 // ─── Empty state ─────────────────────────────────────────────────────────────
 
-function EmptyRow({
-  hint,
-  onAdd,
-  atCapacity,
-}: {
-  hint: SharedCredentialsSectionProps["capabilityHint"];
-  onAdd: () => void;
-  atCapacity: boolean;
-}) {
+function EmptyRow({ hint }: { hint: SharedCredentialsSectionProps["capabilityHint"] }) {
   const description =
     hint === "global-only"
       ? m.admin_plugins_shared_creds_empty_global_only()
@@ -188,14 +178,15 @@ function EmptyRow({
         ? m.admin_plugins_shared_creds_empty_global_and_fallback()
         : m.admin_plugins_shared_creds_empty_user_fallback();
   return (
-    <div className="flex flex-col items-start gap-2 rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
-      <span>
-        {m.admin_plugins_shared_creds_empty_prefix()} {description}
-      </span>
-      <Button size="sm" onClick={onAdd} disabled={atCapacity}>
-        <PlusIcon /> {m.admin_plugins_shared_creds_add()}
-      </Button>
-    </div>
+    <Empty className="rounded-md border border-dashed border-border py-8">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <KeyRoundIcon />
+        </EmptyMedia>
+        <EmptyTitle>{m.admin_plugins_shared_creds_empty_title()}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 

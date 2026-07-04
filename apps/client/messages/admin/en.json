@@ -188,7 +188,7 @@
   "admin_plugins_shared_creds_add": "Add credential",
   "admin_plugins_shared_creds_load_error": "Couldn't load shared credentials.",
   "admin_plugins_shared_creds_load_retry": "Retry",
-  "admin_plugins_shared_creds_empty_prefix": "No shared credentials configured.",
+  "admin_plugins_shared_creds_empty_title": "No shared credentials configured.",
   "admin_plugins_shared_creds_empty_global_only": "Global-scoped capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
   "admin_plugins_shared_creds_empty_global_and_fallback": "Global-scoped and user-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
   "admin_plugins_shared_creds_empty_user_fallback": "User-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
@@ -254,7 +254,6 @@
   "admin_plugins_toast_allowlist_error": "Couldn't save allowlist",
   "admin_plugins_toast_config_saved": "Configuration saved",
   "admin_plugins_toast_config_error": "Couldn't save configuration",
-  "admin_plugins_toast_fallback_saved": "Fallback policy updated",
   "admin_plugins_toast_fallback_error": "Couldn't update fallback policy",
   "admin_plugins_toast_toggle_error": "Couldn't update plugin",
 
