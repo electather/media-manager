@@ -1,5 +1,4 @@
 import { NotFound } from "@/shared/components/not-found";
-import { NotificationToasterHost } from "@/features/notifications";
 import { publicConfigQueryOptions } from "@/features/onboarding";
 import type { QueryClient } from "@tanstack/react-query";
 import { Outlet, createRootRouteWithContext, redirect } from "@tanstack/react-router";
@@ -11,12 +10,7 @@ export interface RouterContext {
 }
 
 function RootComponent() {
-  return (
-    <>
-      <NotificationToasterHost />
-      <Outlet />
-    </>
-  );
+  return <Outlet />;
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
