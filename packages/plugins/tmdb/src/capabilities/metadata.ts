@@ -38,6 +38,11 @@ function buildDiscoverParams(
 // pages ourselves rather than requesting one page with a bigger size.
 const TMDB_PAGE_SIZE = 20;
 
+// Known limitation: fires all `pages` requests unconditionally, ignoring
+// TMDB's `total_pages` in the response. Narrow-filter queries can exhaust
+// their results before `pages` is reached, wasting API budget on empty
+// trailing pages. Harmless for the snapshot job's broad queries; revisit
+// if filtered discover calls start hitting rate limits.
 async function fetchDiscoverPages<T>(
   c: Ctx,
   path: string,
@@ -216,7 +221,10 @@ export const metadata = {
       lteIso: msToIsoDate(releaseDateLte),
       sort,
     };
-    const pages = Math.max(1, Math.ceil(limit / 2 / TMDB_PAGE_SIZE));
+    // Worst-case page count per endpoint, not limit/2 — if one endpoint
+    // rejects or a narrow filter starves it, the surviving/sparse side must
+    // still be able to supply the full `limit` on its own (#1037 review).
+    const pages = Math.max(1, Math.ceil(limit / TMDB_PAGE_SIZE));
     const [movieRes, tvRes] = await Promise.allSettled([
       fetchDiscoverPages<MovieRaw>(
         c,

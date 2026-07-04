@@ -488,7 +488,7 @@ newReleases.fetch(ctx, opts):
   slice = refs.slice(page * opts.limit, (page + 1) * opts.limit)
   rows  = catalog.getMetadataBatch(slice)
   items = slice.map(ref => toCompact(rows[ref.id], {}))
-  -- snapshot capped at 60; once page * limit >= 60, cursor = null (⊥ live tail)
+  -- snapshot capped at 96; once page * limit >= 96, cursor = null (⊥ live tail)
   cursor = (page+1) * opts.limit >= refs.length ? null : encode(...)
   return { items, cursor, partial: items.length < slice.length }
 ```
@@ -497,7 +497,7 @@ newReleases.fetch(ctx, opts):
 
 Page can return **fewer items than `opts.limit`** when partial (deadline-exceeded items dropped). Client treats `partial: true` as "more may stream — refetch later" rather than "end of list" — current frontend already handles this per `2026-04-23-home-feed-frontend-design.md`.
 
-Snapshot pagination capped at stored 60 (matches existing `MAX_ITEMS = 60` in row fetchers). ⊥ fall-through to live `discoverFeed` mid-page — would conflate two orderings + hide drift bugs. If user paginates past 60, row ends. Cursor v2 for `recommendedForYou` = `{ p, pv }`; for discover rows = existing `{ p }` (no profile version).
+Snapshot pagination capped at stored 96 (matches `SNAPSHOT_LIMIT = 96` in `discover-snapshot.ts`). ⊥ fall-through to live `discoverFeed` mid-page — would conflate two orderings + hide drift bugs. If user paginates past 96, row ends. Cursor v2 for `recommendedForYou` = `{ p, pv }`; for discover rows = existing `{ p }` (no profile version).
 
 ## Migration / rollout
 
@@ -551,6 +551,6 @@ Changesets per PR (per CLAUDE.md):
 - **Locale-keyed discover snapshots.** Out of v1.
 - **Webhook-driven mirror sync.** Plugin support uneven (Trakt webhooks ∃; Plex/Jellyfin minimal). Scheduled poll covers all v1.
 - **Cold-fill rate.** Metric on PE cold-fill frequency. If > expected (signal of prune too aggressive or refresh too lax), tune `90d` unused window or `30d` refresh window.
-- **Snapshot tail beyond 60.** Today rows cap at 60. If product wants infinite-scroll, snapshot cap lifts to N or fall-through to live becomes ordered-merge problem. Out of v1.
+- **Snapshot tail beyond 96.** Today rows cap at 96. If product wants infinite-scroll, snapshot cap lifts to N or fall-through to live becomes ordered-merge problem. Out of v1.
 - **`getAllHistory` cost on heavy users.** Trakt user w/ 10K history items pays 6h × full-fetch. Plex/Jellyfin same. Mitigate v2 by capability-level `since` extension where supported (Trakt) + connection-level config to limit window.
 - **Live-fallback opportunistic catalog write.** Live discoverFeed / rank fallback paths could opportunistically populate `canonical_metadata` on the way through, accelerating warm-up. Deferred to v2 — keeps fallback paths zero-write so they're trivially equivalent to today's behavior on revert.

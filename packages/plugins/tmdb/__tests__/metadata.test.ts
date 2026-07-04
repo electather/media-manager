@@ -141,6 +141,63 @@ describe("metadata capability contract", () => {
     expect(out.every((i) => i.type === "movie")).toBe(true);
   });
 
+  it("discover: fetches multiple pages per endpoint to satisfy limit > 20 (#1037)", async () => {
+    const moviePage = (page: number) =>
+      jsonRes({
+        results: Array.from({ length: 20 }, (_, i) => ({ ...MOVIE_RAW, id: page * 100 + i })),
+      });
+    const tvPage = (page: number) =>
+      jsonRes({
+        results: Array.from({ length: 20 }, (_, i) => ({ ...SHOW_RAW, id: page * 1000 + i })),
+      });
+    const ctx = makeCtx([
+      moviePage(1),
+      moviePage(2),
+      moviePage(3),
+      moviePage(4),
+      moviePage(5),
+      tvPage(1),
+      tvPage(2),
+      tvPage(3),
+      tvPage(4),
+      tvPage(5),
+    ]);
+    const out = (await tmdbPlugin.capabilities.metadata!.discover!(ctx, {
+      limit: 96,
+    })) as Array<{ type: string }>;
+    expect(out.length).toBe(96);
+    const movieUrls = ctx.calls.filter((c) => c.url.includes("/discover/movie")).map((c) => c.url);
+    const tvUrls = ctx.calls.filter((c) => c.url.includes("/discover/tv")).map((c) => c.url);
+    expect(movieUrls).toHaveLength(5);
+    expect(tvUrls).toHaveLength(5);
+    expect(movieUrls.some((u) => u.includes("page=5"))).toBe(true);
+    expect(tvUrls.some((u) => u.includes("page=5"))).toBe(true);
+  });
+
+  it("discover: one endpoint fails, surviving side alone still fills limit (#1037)", async () => {
+    const tvPage = (page: number) =>
+      jsonRes({
+        results: Array.from({ length: 20 }, (_, i) => ({ ...SHOW_RAW, id: page * 1000 + i })),
+      });
+    const ctx = makeCtx([
+      new Response("server error", { status: 500 }),
+      new Response("server error", { status: 500 }),
+      new Response("server error", { status: 500 }),
+      new Response("server error", { status: 500 }),
+      new Response("server error", { status: 500 }),
+      tvPage(1),
+      tvPage(2),
+      tvPage(3),
+      tvPage(4),
+      tvPage(5),
+    ]);
+    const out = (await tmdbPlugin.capabilities.metadata!.discover!(ctx, {
+      limit: 96,
+    })) as Array<{ type: string }>;
+    expect(out.length).toBe(96);
+    expect(out.every((i) => i.type === "tv")).toBe(true);
+  });
+
   it("discover: interleaves movie + tv items (#136)", async () => {
     const ctx = makeCtx([
       jsonRes({ results: [MOVIE_RAW, { ...MOVIE_RAW, id: 551 }, { ...MOVIE_RAW, id: 552 }] }),
