@@ -118,9 +118,7 @@
   "admin_plugins_headers_description": "به هر درخواستی که {name} ارسال می‌کند تزریق می‌شود. مقادیر مدیر در صورت تعارض، هدرهای ارائه‌شده توسط افزونه را نادیده می‌گیرند. مقادیر روی سرور رمزگذاری می‌شوند و هرگز برگردانده نمی‌شوند.",
   "admin_plugins_headers_add": "افزودن هدر",
   "admin_plugins_headers_empty": "هیچ هدر سفارشی پیکربندی نشده است.",
-  "admin_plugins_headers_col_name": "نام",
-  "admin_plugins_headers_col_value": "مقدار",
-  "admin_plugins_headers_edit": "ویرایش",
+  "admin_plugins_headers_edit_aria": "ویرایش {name}",
   "admin_plugins_headers_delete_aria": "حذف {name}",
 
   "admin_plugins_list_title": "افزونه‌ها",

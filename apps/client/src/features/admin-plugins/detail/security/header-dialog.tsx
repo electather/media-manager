@@ -5,6 +5,7 @@ import { PLUGIN_RESERVED_HEADER_NAMES } from "@nama/shared/plugins";
 import { m } from "@/paraglide/messages";
 
 import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -117,11 +118,10 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
             ) : null}
           </Field>
           {isEdit ? (
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+            <label className="flex cursor-pointer items-center gap-2 text-xs select-none">
+              <Checkbox
                 checked={preserveValue}
-                onChange={(e) => setPreserveValue(e.target.checked)}
+                onCheckedChange={(v) => setPreserveValue(v === true)}
               />
               {m.admin_plugins_header_dialog_preserve()}
             </label>

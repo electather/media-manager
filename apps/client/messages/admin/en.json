@@ -118,9 +118,7 @@
   "admin_plugins_headers_description": "Injected into every request {name} makes. Admin values override plugin-supplied headers on conflict. Values are encrypted on the server and never returned.",
   "admin_plugins_headers_add": "Add header",
   "admin_plugins_headers_empty": "No custom headers configured.",
-  "admin_plugins_headers_col_name": "Name",
-  "admin_plugins_headers_col_value": "Value",
-  "admin_plugins_headers_edit": "Edit",
+  "admin_plugins_headers_edit_aria": "Edit {name}",
   "admin_plugins_headers_delete_aria": "Delete {name}",
 
   "admin_plugins_list_title": "Plugins",
