@@ -3,8 +3,8 @@
 const ALGO = "AES-GCM";
 const KEY_USAGES: KeyUsage[] = ["encrypt", "decrypt"];
 
-// maps byte-by-byte to avoid RangeError from spread arg-count limit on large buffers
-const u8ToB64 = (u8: Uint8Array) => btoa(Array.from(u8, (b) => String.fromCharCode(b)).join(""));
+// latin1 decodes each byte as-is, making the string btoa-safe without an Array.from loop
+const u8ToB64 = (u8: Uint8Array) => btoa(new TextDecoder("latin1").decode(u8));
 
 async function importKey(hexKey: string): Promise<CryptoKey> {
   const raw = Uint8Array.from(hexKey.match(/.{1,2}/g)?.map((b) => parseInt(b, 16)) ?? []);
