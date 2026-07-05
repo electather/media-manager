@@ -118,9 +118,7 @@
   "admin_plugins_headers_description": "Injected into every request {name} makes. Admin values override plugin-supplied headers on conflict. Values are encrypted on the server and never returned.",
   "admin_plugins_headers_add": "Add header",
   "admin_plugins_headers_empty": "No custom headers configured.",
-  "admin_plugins_headers_col_name": "Name",
-  "admin_plugins_headers_col_value": "Value",
-  "admin_plugins_headers_edit": "Edit",
+  "admin_plugins_headers_edit_aria": "Edit {name}",
   "admin_plugins_headers_delete_aria": "Delete {name}",
 
   "admin_plugins_list_title": "Plugins",
@@ -188,7 +186,7 @@
   "admin_plugins_shared_creds_add": "Add credential",
   "admin_plugins_shared_creds_load_error": "Couldn't load shared credentials.",
   "admin_plugins_shared_creds_load_retry": "Retry",
-  "admin_plugins_shared_creds_empty_prefix": "No shared credentials configured.",
+  "admin_plugins_shared_creds_empty_title": "No shared credentials configured.",
   "admin_plugins_shared_creds_empty_global_only": "Global-scoped capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
   "admin_plugins_shared_creds_empty_global_and_fallback": "Global-scoped and user-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
   "admin_plugins_shared_creds_empty_user_fallback": "User-fallback capabilities will return CAPABILITY_UNAVAILABLE until one is added.",
@@ -254,7 +252,6 @@
   "admin_plugins_toast_allowlist_error": "Couldn't save allowlist",
   "admin_plugins_toast_config_saved": "Configuration saved",
   "admin_plugins_toast_config_error": "Couldn't save configuration",
-  "admin_plugins_toast_fallback_saved": "Fallback policy updated",
   "admin_plugins_toast_fallback_error": "Couldn't update fallback policy",
   "admin_plugins_toast_toggle_error": "Couldn't update plugin",
 

@@ -163,6 +163,25 @@ export async function refreshAuth(ctx: unknown, credentials: unknown): Promise<T
   return doTokenRefresh(c.fetch.bind(c), creds.refreshToken, shared);
 }
 
+// Verifies a shared client_id/secret pair before a user connection exists.
+// `testConnection` needs a per-user access token, which doesn't exist yet at
+// this point, so it always 401s regardless of credential validity. Hits the
+// same device/code endpoint `startAuth` uses — only client_id is checked;
+// client_secret can't be validated without completing the full device flow.
+export async function verifyShared(ctx: unknown): Promise<{ ok: boolean; message?: string }> {
+  const c = ctx as Ctx;
+  const shared = c.sharedCredentials as TraktSharedCreds | null;
+  if (!shared?.clientId) return { ok: false, message: "client id missing" };
+  const res = await c.fetch(`${BASE}/oauth/device/code`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_id: shared.clientId }),
+  });
+  if (res.ok) return { ok: true };
+  if (res.status === 401 || res.status === 403) return { ok: false, message: "invalid client id" };
+  return { ok: false, message: `Trakt ${res.status}` };
+}
+
 export async function testConnection(ctx: unknown) {
   const c = ctx as Ctx;
   try {

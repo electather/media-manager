@@ -102,6 +102,8 @@ export type {
   AnyMediaSourceRegistration,
 } from "./service/registration";
 export { classifyRows, type ClassifyRowsContext } from "./service/classify-rows";
+export { clearSeedLock as resetWatchlistSeed } from "./repo/seed";
+
 export {
   addItem,
   removeItem,

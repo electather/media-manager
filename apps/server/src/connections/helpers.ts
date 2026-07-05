@@ -5,7 +5,7 @@ import { encryptJson } from "../crypto/helpers";
 import { internal, notFound } from "../diagnostics/http-errors";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
-import { invalidateUserCache } from "../media";
+import { invalidateUserCache, resetWatchlistSeed } from "../media";
 import { isNil } from "es-toolkit/predicate";
 
 /**
@@ -289,6 +289,11 @@ export async function writeConnection(args: {
   });
   await ensureDefaultIfFirst(args.userId, args.pluginId, id);
   await invalidateUserCache(args.userId);
+  // A brand-new connection may expose a watchlist the eager per-GET seed
+  // already gave up on (locked after an earlier, possibly empty, run).
+  // Clearing the lock lets the next GET re-fetch instead of waiting for
+  // the 6-hourly cron sync.
+  await resetWatchlistSeed(args.userId);
   return id;
 }
 
